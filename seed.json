@@ -1,0 +1,85 @@
+{
+  "id": "handset",
+  "name": "Handset",
+  "version": "0.1.0",
+  "maturity": "technical-foundation-not-product",
+  "category": "status",
+  "spine": {
+    "id": "foundation",
+    "record": "No domain record selected"
+  },
+  "description": "TanStack Start and Hono Worker with real owner authentication, D1 and silent development mail suppression.",
+  "capabilities": [
+    {
+      "id": "http-dispatch",
+      "clauses": [
+        "HTTP-001"
+      ]
+    }
+  ],
+  "nonGoals": [
+    "Finished product functionality",
+    "Speculative domain data"
+  ],
+  "externals": [
+    {
+      "id": "cloudflare",
+      "required": true,
+      "why": "Worker hosting",
+      "data": [
+        "HTTP requests"
+      ],
+      "adapters": []
+    }
+  ],
+  "env": [],
+  "deploy": {
+    "healthPath": "/health",
+    "publicPaths": [
+      "/",
+      "/health",
+      "/signin"
+    ],
+    "notes": "Native owner sessions guard /app; unknown paths return real 404s; development and demo mail is suppressed."
+  },
+  "extensionPoints": {
+    "contributions": [],
+    "policies": [],
+    "events": [],
+    "slots": [],
+    "adapters": []
+  },
+  "limits": {
+    "status": "unmeasured"
+  },
+  "accessibility": {
+    "level": "WCAG 2.2 AA",
+    "status": "target; unaudited"
+  },
+  "operatingCost": {
+    "status": "unmeasured"
+  },
+  "composition": {
+    "base": "base",
+    "family": "just-every",
+    "edition": "handset",
+    "modules": [
+      "delivery-producer",
+      "job-queue",
+      "release",
+      "deploy-kit",
+      "container",
+      "demo-host",
+      "demo",
+      "integrations",
+      "mail",
+      "ai",
+      "portability",
+      "d1-transport",
+      "erasure",
+      "dependencies",
+      "operator-auth",
+      "owner-claim"
+    ]
+  }
+}

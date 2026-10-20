@@ -1,0 +1,69 @@
+{
+  "name": "@just-every/handset",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "22.20.0"
+  },
+  "scripts": {
+    "build": "rer build",
+    "dev": "rer dev",
+    "preview": "rer preview",
+    "typecheck": "tsc --build --incremental",
+    "test:typecheck": "rer queue test:typecheck -- sh -c \"node --test tests/incremental-typecheck.test.mjs\"",
+    "verify": "rer verify",
+    "verify:agent": "pnpm run build && pnpm run typecheck && pnpm run source:check && pnpm run verify:base-source",
+    "source:check": "node scripts/edition-authoring/cli.mjs check && pnpm install --lockfile-only --frozen-lockfile --offline --ignore-scripts",
+    "verify:base-source": "rer check --profile first-party",
+    "setup": "rer setup",
+    "deploy": "rer deploy",
+    "test:runtime": "rer queue test:runtime -- sh -c \"node tests/runtime.mjs\"",
+    "onboard": "node scripts/install.mjs",
+    "build:app": "rer queue build:app -- sh -c \"vite build\"",
+    "verify:app": "node scripts/verify-app.mjs",
+    "reset": "rer reset",
+    "export": "rer export",
+    "import": "rer import",
+    "release": "rer release",
+    "doctor": "rer doctor",
+    "describe": "rer describe",
+    "check": "rer check",
+    "deps": "rer install",
+    "rer": "rer",
+    "source:lock": "node scripts/edition-authoring/cli.mjs lock"
+  },
+  "dependencies": {
+    "@tanstack/react-router": "1.170.33",
+    "@tanstack/react-start": "1.168.50",
+    "hono": "4.13.7",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "1.54.5",
+    "@cloudflare/workers-types": "5.20260908.1",
+    "@playwright/test": "1.63.0",
+    "@runeditrun/rer": "0.2.74",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "@vitejs/plugin-react": "6.1.1",
+    "typescript": "5.9.3",
+    "vite": "8.2.2",
+    "wrangler": "4.129.1"
+  },
+  "packageManager": "pnpm@10.12.4",
+  "pnpm": {
+    "overrides": {
+      "sharp": "0.35.5",
+      "undici": "7.29.1",
+      "source-map-js": "1.2.2"
+    },
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "workerd"
+    ]
+  },
+  "repository": "https://github.com/just-every/run-handset",
+  "license": "MIT"
+}
