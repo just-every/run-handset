@@ -1,6 +1,7 @@
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { session, owner, json, input, Fault, page, text, id } from '../core'
+import { auditDoor } from '../audit/doors'
 import { commit, denied } from '../audit/store'
 import { getCase, writeCase, addRecord, getRecord, listCases, caseFilter, saveFilter } from '../records/store'
 import { casesPage, casePage } from '../records/pages'
@@ -20,6 +21,10 @@ export async function productResponse(request: Request, original: Bindings): Pro
   const {env,session:actor} = auth, db=env.DB
   try { owner(actor) } catch(error) { await denied(env,actor,'product.access'); throw error }
   const read = request.method === 'GET', write = request.method === 'POST'
+  if (path.startsWith('/api/handset/audit') || path.startsWith('/app/audit')) {
+   const response = await auditDoor(request,env,actor,read ? undefined : await input(request,2097152))
+   if(response)return response
+  }
   if (!read && !write) throw new Fault('method_not_allowed',405)
   if (read && (path === '/app/cases' || path === '/api/handset/cases')) {
    const query=caseFilter(Object.fromEntries(url.searchParams)), rows=await listCases(db,query)

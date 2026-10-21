@@ -33,10 +33,10 @@ export function choice<T extends string>(value: unknown, choices: readonly T[], 
  if (typeof value !== 'string' || !choices.includes(value as T)) throw new Fault(`invalid_${name}`)
  return value as T
 }
-export async function input(request: Request): Promise<ObjectValue> {
- if (Number(request.headers.get('content-length') ?? 0) > 65536) throw new Fault('body_too_large', 413)
+export async function input(request: Request, limit = 65536): Promise<ObjectValue> {
+ if (Number(request.headers.get('content-length') ?? 0) > limit) throw new Fault('body_too_large', 413)
  const raw = await request.text()
- if (new TextEncoder().encode(raw).length > 65536) throw new Fault('body_too_large', 413)
+ if (new TextEncoder().encode(raw).length > limit) throw new Fault('body_too_large', 413)
  try {
   if (request.headers.get('content-type')?.startsWith('application/x-www-form-urlencoded')) return Object.fromEntries(new URLSearchParams(raw))
   if (!request.headers.get('content-type')?.startsWith('application/json')) throw new Fault('json_required', 415)

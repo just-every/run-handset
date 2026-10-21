@@ -99,3 +99,44 @@ test('Canonical corrections append, exact source replay is idempotent, and direc
   assert.equal((await post(runtime,'/api/handset/cases',{title:'Missing assignee',ownerId:'synthetic-handset-404'},headers)).status,409)
  }finally{await runtime.close()}
 })
+
+test('Audit exports and restored checkpoints retain accountability without planted personal or payload content',async()=>{
+ const runtime=await openHandset()
+ try{
+  const {cookie}=await signIn(runtime),headers={cookie}
+  const planted=['Synthetic secret caller name','+15125550197','Private call text synthetic-handset-901','synthetic-handset-902']
+  await post(runtime,'/api/handset/cases',{title:planted.join(' ')},headers)
+  await post(runtime,'/api/handset/records',{kind:'provider_attempt',sourceId:'synthetic-handset-903',occurredAt:Date.now(),data:{operation:planted.join(' '),state:'uncertain'}},headers)
+  assert.equal((await post(runtime,'/api/handset/audit/modify',{actor:planted[0],outcome:'completed'},headers)).status,403)
+  const exported=await runtime.request('/api/handset/audit/export',{headers})
+  assert.equal(exported.status,200)
+  const archive=await exported.json(),encoded=JSON.stringify(archive)
+  for(const secret of [...planted,runtime.ownerEmail])assert.ok(!encoded.includes(secret),secret)
+  assert.ok(archive.rows.some(r=>r.action==='auth.signin'))
+  assert.ok(archive.rows.some(r=>r.action==='audit.modify' && r.outcome==='refused'))
+  assert.ok(archive.rows.every(r=>r.actor && r.occurred_at && r.policy && r.subject && r.outcome))
+  const restore={archive,expectedCheckpoint:archive.checkpoint,confirm:'restore evidence only'}
+  assert.equal((await post(runtime,'/api/handset/audit/restore',restore,headers)).status,201)
+  const restored=await (await runtime.request('/api/handset/audit/archive/'+archive.checkpoint,{headers})).json()
+  assert.deepEqual(restored.rows,archive.rows)
+  const changed=structuredClone(restore);changed.archive.rows[0].outcome='failed'
+  assert.equal((await post(runtime,'/api/handset/audit/restore',changed,headers)).status,400)
+  assert.equal((await post(runtime,'/api/handset/audit/restore',{...restore,expectedCheckpoint:'0'.repeat(64)},headers)).status,400)
+  await assert.rejects(runtime.sql("UPDATE hnd_audit SET outcome='completed' WHERE sequence=1"),/append_only/)
+  await assert.rejects(runtime.sql('DELETE FROM hnd_audit WHERE sequence=1'),/append_only/)
+  // The independent archived receipt still proves the same opaque actor after
+  // native deactivation and removal of their attribution mapping.
+  await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
+  const member=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'})
+  assert.equal((await runtime.request('/api/handset/cases',{headers:{cookie:member.cookie}})).status,403)
+  const mapping=(await runtime.sql('SELECT pseudonym FROM hnd_actor_refs WHERE operator_id=?','synthetic-handset-2')).results[0].pseudonym
+  await runtime.sql("UPDATE oa_operators SET status='inactive' WHERE id='synthetic-handset-2'")
+  const before=(await runtime.sql('SELECT * FROM hnd_audit WHERE actor=? ORDER BY sequence',mapping)).results
+  assert.ok(before.length)
+  assert.equal((await post(runtime,'/api/handset/audit/anonymize',{operatorId:'synthetic-handset-2',confirm:'anonymize audit identity'},headers)).status,200)
+  assert.deepEqual((await runtime.sql('SELECT * FROM hnd_audit WHERE actor=? ORDER BY sequence',mapping)).results,before)
+  assert.equal((await runtime.sql('SELECT * FROM hnd_actor_refs WHERE operator_id=?','synthetic-handset-2')).results.length,0)
+  for(const path of ['/api/handset/audit','/api/handset/audit/export'])assert.equal((await runtime.request(path,{headers:{cookie:member.cookie}})).status,401)
+  assert.equal((await post(runtime,'/api/handset/audit/anonymize',{operatorId:'synthetic-handset-1',confirm:'anonymize audit identity'},headers)).status,409)
+ }finally{await runtime.close()}
+})

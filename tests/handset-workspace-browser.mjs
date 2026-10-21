@@ -29,6 +29,7 @@ for(const width of [1440,390])test(`Native case work, conflict and source drill-
   await page.getByLabel('Comment',{exact:true}).fill('Confirmar la cita / Confirm the appointment')
   await page.getByRole('button',{name:'Add comment',exact:true}).click();await page.waitForURL(runtime.origin+'/app/cases/'+caseId)
   await page.getByRole('link',{name:/provider_attempt/}).click();await proof('source-record')
+  await page.goto(runtime.origin+'/app/audit');await page.getByRole('heading',{name:'Accountable audit',exact:true}).waitFor();await proof('audit')
   await page.goto(runtime.origin+'/app/cases?q=synthetic-handset-no-match');await proof('no-matches')
   const member='synthetic-handset-2'
   await runtime.sql("UPDATE oa_operators SET status='active' WHERE id=?",member)

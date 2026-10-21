@@ -9,6 +9,7 @@ import { lobbyResponse } from './base/lobby'
 import { setupStateResponse } from './base/setup-state'
 import { authResponse, runtimeBindings, type Bindings } from './auth.server'
 import { identity } from './identity'
+import { observeAuth } from './handset/audit/auth'
 import { productResponse } from './handset/http/product'
 import { privateDoorResponse } from './handset/http/private-doors'
 
@@ -30,7 +31,7 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     if (denied) return denied
     const asset = await staticAssetResponse(request, env)
     if (asset) return asset
-    const auth = await authResponse(request, env)
+    const auth = await observeAuth(request, env, () => authResponse(request, env))
     if (auth) return auth
     const product = await productResponse(request, env)
     if (product) return product
