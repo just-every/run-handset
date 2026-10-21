@@ -53,8 +53,13 @@ function requests get 401; private GET/HEAD documents redirect to sign-in.
 Cross-origin mutations get 403 before effects. This fence does not replace
 authorization in a handler. Unknown signed-in routes still return 404.
 
-There are currently no product API handlers, Start server functions, private
-media handlers or carrier callbacks. Forged requests to unimplemented carrier
+Handset now has owner-only native record, audit and grant handlers described in
+`docs/HANDSET-RECORDS.md`. Each repeats native authorization at its own door and
+inside write transactions. The exact `/api/handset/application/*` transport is
+dispatched before the native fence and independently requires a current scoped
+bearer credential; it never borrows a cookie. MCP owner consent remains behind
+the native session fence. No current handler serves recording bytes or accepts
+carrier callbacks. There are no Start server functions. Forged requests to unimplemented carrier
 paths return no data and cause no effect; there is no accepted carrier event.
 HND-030 inherits API and generated-handler authorization; HND-013, HND-027,
 HND-048 and HND-092 inherit private media/export authorization; HND-031 and

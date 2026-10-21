@@ -4,7 +4,7 @@ import { mkdir } from 'node:fs/promises'
 import { chromium } from '@playwright/test'
 import { openHandset } from './helpers/handset-worker.mjs'
 import { signIn, post } from './helpers/handset-auth.mjs'
-import { recordsFixture } from './handset-records.mjs'
+import { recordsFixture } from './helpers/handset-records.mjs'
 for(const width of [1440,390])test(`Native case work, conflict and source drill-through at ${width}`,async()=>{
  const runtime=await openHandset(),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage()
@@ -15,7 +15,7 @@ for(const width of [1440,390])test(`Native case work, conflict and source drill-
   const {cookie}=await signIn(runtime),[name,...value]=cookie.split('=')
   await context.addCookies([{name,value:value.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
   await page.goto(runtime.origin+'/app/cases');await proof('empty-cases')
-  const {caseId}=await recordsFixture(runtime,cookie)
+  const {caseId,entries}=await recordsFixture(runtime,cookie)
   await page.reload();await page.getByLabel('Search / Buscar').fill('replacement');await page.getByRole('button',{name:'Search cases',exact:true}).click()
   await page.getByRole('link',{name:'Austin service callback / Devolución de llamada',exact:true}).click()
   await proof('case-timeline')
@@ -30,6 +30,37 @@ for(const width of [1440,390])test(`Native case work, conflict and source drill-
   await page.getByRole('button',{name:'Add comment',exact:true}).click();await page.waitForURL(runtime.origin+'/app/cases/'+caseId)
   await page.getByRole('link',{name:/provider_attempt/}).click();await proof('source-record')
   await page.goto(runtime.origin+'/app/audit');await page.getByRole('heading',{name:'Accountable audit',exact:true}).waitFor();await proof('audit')
+  await page.goto(runtime.origin+'/app/grants');await proof('empty-grants')
+  await page.getByLabel('Application name',{exact:true}).fill('Browser receptionist')
+  await page.getByLabel('Permission preset').selectOption('receptionist')
+  await page.getByLabel('Selected case IDs, comma separated').fill(caseId)
+  await page.getByLabel('Selected number IDs, comma separated').fill(entries.number.id)
+  await page.getByLabel('Selected person recipient IDs, comma separated').fill(entries.person.id)
+  await page.getByLabel('Budget in USD cents').fill('100')
+  await page.getByRole('checkbox',{name:'I approve these exact scopes and selections'}).check()
+  await page.getByRole('button',{name:'Issue credential',exact:true}).click()
+  await page.getByRole('heading',{name:'Credential issued',exact:true}).waitFor()
+  const token=await page.locator('code').innerText()
+  // Deliberately do not screenshot the one-time credential page.
+  await page.getByRole('link',{name:'Return to application grants',exact:true}).click();await proof('populated-grants')
+  const grants=await (await runtime.request('/api/handset/grants',{headers:{cookie}})).json()
+  const grant=grants.grants.find(g=>g.name==='Browser receptionist')
+  const native=await (await runtime.request('/api/handset/cases/'+caseId,{headers:{cookie}})).json()
+  const state={operation:'call.paid',caseId,caseVersion:native.current.version,numberId:entries.number.id,recipients:[entries.person.id],amountCents:50,flowRevision:'1',policyRevision:'owner-only-v1',content:'Confirm the appointment / Confirmar la cita'}
+  await page.getByLabel('Grant ID',{exact:true}).fill(grant.id)
+  await page.getByLabel('Proposed state JSON').fill(JSON.stringify(state))
+  await page.getByRole('button',{name:'Review proposed work',exact:true}).click();await proof('exact-work-review')
+  await page.getByRole('checkbox',{name:'I approve this exact reviewed work'}).check()
+  await page.getByRole('button',{name:'Approve exact work',exact:true}).click()
+  await page.getByRole('heading',{name:'Exact approval recorded',exact:true}).waitFor();await proof('approval-receipt')
+  const approval=(await page.locator('main > p').allTextContents()).join(' ').match(/Approval ([a-f0-9-]{36})/)[1]
+  const held=await post(runtime,'/api/handset/application/prepare',{state,approvalId:approval,idempotencyKey:'synthetic-handset-browser-300'},{authorization:'Bearer '+token})
+  assert.equal(held.status,202,await held.clone().text())
+  await page.goto(runtime.origin+'/app/grants');await proof('held-work')
+  await page.getByRole('button',{name:'Revoke Browser receptionist',exact:true}).click()
+  await page.waitForURL(runtime.origin+'/app/grants');await proof('revoked-grant')
+  assert.equal((await post(runtime,'/api/handset/application/prepare',{state,idempotencyKey:'synthetic-handset-browser-301'},{authorization:'Bearer '+token})).status,401)
+  await page.getByRole('link',{name:'MCP owner consent',exact:true}).click();await proof('mcp-consent')
   await page.goto(runtime.origin+'/app/cases?q=synthetic-handset-no-match');await proof('no-matches')
   const member='synthetic-handset-2'
   await runtime.sql("UPDATE oa_operators SET status='active' WHERE id=?",member)
@@ -38,5 +69,7 @@ for(const width of [1440,390])test(`Native case work, conflict and source drill-
   await context.clearCookies();await context.addCookies([{name:memberName,value:memberValue.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
   await page.goto(runtime.origin+'/app/cases');await page.getByRole('alert').waitFor();await proof('permission-denied')
   assert.ok(!(await page.locator('body').innerText()).includes('Austin service'))
+  await page.goto(runtime.origin+'/app/grants');await page.getByRole('alert').waitFor();await proof('grants-permission-denied')
+  await page.goto(runtime.origin+'/app/audit');await page.getByRole('alert').waitFor();await proof('audit-permission-denied')
  }finally{await context.close();await browser.close();await runtime.close()}
 })

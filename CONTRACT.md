@@ -354,13 +354,13 @@ The managed RunEditRun carrier, billing and staffed-support offer requires an ac
 
 ## Status
 
-Judged from the code and tests at commit `a4147a0` (22 October 2026).
+Status follows the current implementation and named public-door evidence. Partial gaps below remain obligations.
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 0 | 0 | 0 | 0 |
-| Target and push further | 1 | 2 | 96 | 99 |
-| All | 1 | 2 | 96 | 99 |
+| Target and push further | 1 | 3 | 95 | 99 |
+| All | 1 | 3 | 95 | 99 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -412,7 +412,7 @@ Judged from the code and tests at commit `a4147a0` (22 October 2026).
 | `HND-046` | Regulated recording and document custody | target | missing |  | No implementation: regulated recording and document custody and the complete acceptance journey are missing. |
 | `HND-047` | Durable accountable audit | target | partial | `tests/handset-records.mjs` — Audit exports and restored checkpoints retain accountability without planted personal or payload content. `tests/handset-workspace-browser.mjs` — Native case work, conflict and source drill-through at 1440 and 390 (audit screen). | Current native auth, record/work and audit doors retain opaque append-only hashed events, export/restore and attribution anonymization. Supervisor recording playback, number/port/release, flow, consent and payment action families have no operating doors or proof yet; HND-013, HND-001/002, HND-006, HND-011/089 and HND-044 inherit atomic audit. Full product erasure/installation restoration remain HND-066/065. Owner-only audit access and inactive-non-owner attribution-only anonymization default ADOPTED pending ct approval. |
 | `HND-048` | Secrets external flows and media security | target | missing |  | No implementation: secrets external flows and media security and the complete acceptance journey are missing. |
-| `HND-049` | Agents as revocable scoped credentials | target | missing |  | No implementation: agents as revocable scoped credentials and the complete acceptance journey are missing. |
+| `HND-049` | Agents as revocable scoped credentials | target | partial | `tests/handset-authority.mjs` — Owner console and MCP consent issue independent read and draft grants that cannot borrow human authority; Exact approvals bind price recipient case and flow state while unqualified effects and attestation remain held; Concurrent reservations enforce the whole grant budget and revocation cancels pending work without removing evidence; Standing call policies retain the exact checked list and human revision and cannot approve campaigns or changed bounds. `tests/handset-workspace-browser.mjs` — Native case work, conflict and source drill-through at 1440 and 390 (grant issuance, exact review, held work, revocation and MCP consent). | Current native case reads and unpublished drafts operate under named grants. Exact-state approval, bounded standing snapshots, reservation races and revocation are implemented; paid calls, sends, campaign/port/release, recording and live-flow effects remain held without qualified adapters and effect-time consent/hours/provider readback. Ports cannot be agent-attested. Owner-only approval, one-day maximum grant expiry and no automatic outbound effects defaults ADOPTED pending ct approval; HND-021/030 and effect-producing clauses inherit the final effect fence. |
 | `HND-050` | Rules follow-up and workflow ownership | target | missing |  | No implementation: rules follow-up and workflow ownership and the complete acceptance journey are missing. |
 | `HND-051` | Live agent assist and evaluated guidance | target | missing |  | No implementation: live agent assist and evaluated guidance and the complete acceptance journey are missing. |
 | `HND-052` | Blended and predictive outbound controls | target | missing |  | No implementation: blended and predictive outbound controls and the complete acceptance journey are missing. |
