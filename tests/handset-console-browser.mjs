@@ -108,7 +108,7 @@ for(const width of [1440,390])for(const domain of ['administration','queues','me
   await page.getByLabel('Service-level method',{exact:true}).selectOption('include-abandons');await click('Save versioned formula')
   assert.ok((await page.locator('main').innerText()).includes('66.67%'));await proof('metrics-changed-thresholds')
   await page.getByLabel('Send at (UTC)',{exact:true}).fill(new Date(Date.now()+60000).toISOString().slice(0,16))
-  await page.getByRole('checkbox',{name:'I consent to this exact scheduled report and recipient',exact:true}).check();await click('Schedule report');await proof('report-scheduled')
+  await page.getByRole('checkbox',{name:'I consent to this exact scheduled report and recipient',exact:true}).check();await click('Schedule report');await page.waitForURL(runtime.origin+'/app/reports/queues');await proof('report-scheduled')
   await click('Run due reports');assert.ok(!(await page.locator('main').innerText()).includes('accepted'))
   await runtime.scheduled(Date.now()+120000);await page.reload();assert.ok((await page.locator('main').innerText()).includes('accepted'));await proof('report-accepted')
   const partial=metricDataset();delete partial.entries[0].closedAt;await importDataset(runtime,cookie,partial,true)
