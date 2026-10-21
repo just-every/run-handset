@@ -132,8 +132,9 @@ export async function openHandset({ liveMail = false } = {}) {
       d1Databases: { DB: 'synthetic-handset-5' },
       assets: {
         directory: resolve(base, config.assets.directory),
-        binding: config.assets.binding,
+        binding: config.assets.binding ?? 'ASSETS',
         run_worker_first: true,
+        routerConfig: { has_user_worker: true },
         assetConfig: {
           html_handling: config.assets.html_handling,
           not_found_handling: config.assets.not_found_handling,
