@@ -354,7 +354,7 @@ The managed RunEditRun carrier, billing and staffed-support offer requires an ac
 
 ## Status
 
-Judged from the committed native public doors and the named tests below (22 October 2026).
+Judged from the code and tests at commit `da62241` (22 October 2026).
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
