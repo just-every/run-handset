@@ -359,8 +359,8 @@ Judged from the code and tests at commit `a4147a0` (22 October 2026).
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 0 | 0 | 0 | 0 |
-| Target and push further | 1 | 0 | 98 | 99 |
-| All | 1 | 0 | 98 | 99 |
+| Target and push further | 1 | 2 | 96 | 99 |
+| All | 1 | 2 | 96 | 99 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
