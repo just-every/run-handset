@@ -37,6 +37,7 @@ export interface Bindings {
  MAIL_PROVIDER?: 'development' | 'resend' | 'sendgrid' | 'cloudflare'
  MAIL_FROM?: string
  MAIL_API_KEY?: string
+ HANDSET_TWILIO_AUTH_TOKEN?: string
  MAIL_ACCOUNT_ID?: string
 }
 

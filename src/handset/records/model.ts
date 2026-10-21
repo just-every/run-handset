@@ -4,7 +4,7 @@ import { choice, object, keys, text, timestamp, integer, Fault, type ObjectValue
 // must add their own verified source door; this API cannot fabricate receipts.
 export const kinds = ['company','location','number','person','endpoint','flow_version','call_session','call_leg','queue_entry','callback','conversation','message','media','consent','recording','transcript','disposition','promise','provider_attempt','usage','comment'] as const
 export type Kind = typeof kinds[number]
-const definitions: Record<Kind, { required: string[]; optional?: string[] }> = {
+export const definitions: Record<Kind, { required: string[]; optional?: string[] }> = {
  company: { required: ['name'] }, location: { required: ['name','timezone'] },
  number: { required: ['e164'], optional: ['purpose'] }, person: { required: ['name'] },
  endpoint: { required: ['name','platform'] }, flow_version: { required: ['name','revision'] },
@@ -40,8 +40,7 @@ export function recordInput(value: ObjectValue) {
  if ('state' in data) {
   // Manual transport entries are explicitly unverified. Delivery/answer/cost
   // receipts belong to the future verified carrier/media doors.
-  const allowed = ['call_session','call_leg','message','provider_attempt','usage','recording'].includes(kind)
-   ? ['unknown','uncertain','draft'] : ['pending','declined','open','held','unknown','uncertain']
+  const allowed = statesFor(kind)
   choice(data.state, allowed, 'state')
  }
  let links: { targetId: string; relation: string }[] = []
@@ -52,3 +51,5 @@ export function recordInput(value: ObjectValue) {
  }
  return { kind, data: Object.fromEntries(Object.entries(data).sort(([a],[b])=>a.localeCompare(b))), sourceId: text(value.sourceId, 'sourceId'), occurredAt: timestamp(value.occurredAt, 'occurredAt'), caseId: value.caseId ? text(value.caseId, 'caseId') : null, parentId: value.parentId ? text(value.parentId, 'parentId') : null, supersedesId: value.supersedesId ? text(value.supersedesId, 'supersedesId') : null, links }
 }
+
+export const statesFor=(kind:string)=>['call_session','call_leg','message','provider_attempt','recording'].includes(kind)?['unknown','uncertain','draft']:['pending','declined','open','held','unknown','uncertain']

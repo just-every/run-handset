@@ -135,3 +135,42 @@ reservation. `POST /api/handset/grants/:id/revoke` cancels all pending jobs,
 releases reservations and preserves completed draft/read/authority evidence.
 HND-021/030 and all qualified effect producers inherit the final atomic authority
 and audit checks; the current held state does not prove those future effects.
+
+## Verified Twilio source records
+
+Owners explicitly authorize a selected native business-number record and account
+at `/app/sources` or `POST /api/handset/sources` with
+`{accountId,numberId,confirm:"authorize signed inbound records"}`. The account
+is an identifier, never an authentication credential. The installation supplies
+`HANDSET_TWILIO_AUTH_TOKEN` as a private Worker binding; it is never accepted in
+an HTTP form, persisted in D1, exported or shown on a screen. This binding is
+installation-local. Current ingestion does not claim HND-048 rotation/custody
+qualification or HND-031 carrier activation.
+
+`POST /providers/twilio/events` is a declared public network-edge door. It checks
+its exact configured URL and Host, form content type, body bound and Twilio's
+HMAC-SHA1 signature over the complete URL and every sorted form parameter.
+Only then does it resolve the authorized account and number; a native cookie
+cannot substitute for that proof. Conflicting duplicate fields are refused.
+Revoked sources and changed/inactive owner authority are refused on every event
+and again in the same transaction as receipt/record/audit persistence.
+
+Supported official callback fields cover call-status legs (`CallSid`,
+`ParentCallSid`, `SequenceNumber`, `Timestamp`, `CallStatus`), message/MMS
+(`MessageSid`, `MessageStatus`/`SmsStatus`, `Body`, `NumMedia`, `MediaUrlN`,
+`MediaContentTypeN`), and recording metadata (`RecordingSid`, `CallSid`,
+`RecordingStatus`). A callback missing a provider timestamp requires an
+identity-matched read-only Message/Recording REST receipt; failed, redirected,
+foreign or timestamp-free readback creates no communication fact. Audio and
+images are not downloaded. Recording metadata does not prove a consented
+voicemail capture or playable recording.
+
+A received event retains immutable source/event IDs, a request digest, provider
+occurred time and independent received time. Exact retries reuse the receipt;
+changed payloads under the same event key conflict. Transfer children received
+before their parent remain explicitly pending and are drained when the parent
+arrives. Number/caller correlation keeps call legs, recording references and MMS
+on one case; carrier completion never closes the case or clears a human promise.
+The source readback edge is a fake in tests using documented provider fields;
+no live carrier qualification is claimed. `POST /api/handset/sources/revoke`
+with `{sourceId}` stops further admission and preserves completed receipts.

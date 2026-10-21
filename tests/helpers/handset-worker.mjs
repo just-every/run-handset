@@ -78,7 +78,7 @@ async function seed(db, ownerEmail) {
  * launch headless with --use-mock-keychain and --password-store=basic, real HOME.
  * mails contains raw SendGrid JSON, without transport headers or credentials.
  */
-export async function openHandset({ liveMail = false } = {}) {
+export async function openHandset({ liveMail = false, twilio = false } = {}) {
   if (liveMail && ['MAIL_TO', 'MAIL_FROM', 'MAIL_API_KEY'].some(name => !process.env[name])) {
     throw new Error('Live mail requires MAIL_TO, MAIL_FROM and MAIL_API_KEY')
   }
@@ -92,7 +92,7 @@ export async function openHandset({ liveMail = false } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'synthetic-handset-'))
   // TLS trust is scoped to this client's loopback requests, never process-wide.
   const dispatcher = new Agent({ connect: { rejectUnauthorized: false } })
-  const mails = []
+  const mails = [], twilioResources = new Map(), sourceRequests = []
   let runtime, mailFailure = false, closing
   const close = () => closing ??= (async () => {
     try { await runtime?.dispose() }
@@ -102,6 +102,11 @@ export async function openHandset({ liveMail = false } = {}) {
     }
   })()
   async function outboundService(request) {
+    if(twilio && request.url.startsWith('https://api.twilio.com/2010-04-01/Accounts/')) {
+      sourceRequests.push({url:request.url,method:request.method})
+      const payload=twilioResources.get(request.url)
+      return new WorkerResponse(JSON.stringify(payload??{code:20404,message:'Synthetic resource not found'}),{status:payload?200:404,headers:{'content-type':'application/json'}})
+    }
     const isMail = request.url === 'https://api.sendgrid.com/v3/mail/send'
     if (isMail) {
       mails.push(await request.clone().json())
@@ -141,6 +146,7 @@ export async function openHandset({ liveMail = false } = {}) {
         },
       },
       bindings: {
+        ...(twilio?{HANDSET_TWILIO_AUTH_TOKEN:'synthetic-handset-500'}:{}),
         AUTH_LOCAL: 'false', AUTH_ORIGIN: origin, OWNER_EMAIL: ownerEmail,
         SESSION_SECRET: 'synthetic-handset-7-synthetic-handset-8',
         MAIL_PROVIDER: 'sendgrid',
@@ -155,7 +161,7 @@ export async function openHandset({ liveMail = false } = {}) {
     await migrate(db)
     await seed(db, ownerEmail)
     return {
-      origin, ownerEmail, mails, db, close,
+      origin, ownerEmail, mails, db, close, twilioResources, sourceRequests,
       // Direct native D1 access lets expiry tests change timestamps without sleeps.
       sql: (query, ...values) => db.prepare(query).bind(...values).all(),
       request(path, options = {}) {

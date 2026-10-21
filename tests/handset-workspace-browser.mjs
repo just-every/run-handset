@@ -4,9 +4,10 @@ import { mkdir } from 'node:fs/promises'
 import { chromium } from '@playwright/test'
 import { openHandset } from './helpers/handset-worker.mjs'
 import { signIn, post } from './helpers/handset-auth.mjs'
+import { sourceFixture } from './helpers/handset-sources.mjs'
 import { recordsFixture } from './helpers/handset-records.mjs'
 for(const width of [1440,390])test(`Native case work, conflict and source drill-through at ${width}`,async()=>{
- const runtime=await openHandset(),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const runtime=await openHandset({twilio:true}),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage()
  const evidence=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-workspace'
  await mkdir(evidence,{recursive:true})
@@ -28,6 +29,16 @@ for(const width of [1440,390])test(`Native case work, conflict and source drill-
   await page.getByRole('alert').filter({hasText:'Another teammate'}).waitFor();await proof('case-conflict')
   await page.getByLabel('Comment',{exact:true}).fill('Confirmar la cita / Confirm the appointment')
   await page.getByRole('button',{name:'Add comment',exact:true}).click();await page.waitForURL(runtime.origin+'/app/cases/'+caseId)
+  await page.getByRole('link',{name:'Add native source record',exact:true}).click()
+  await page.getByLabel('Record type',{exact:true}).selectOption('message');await page.getByRole('button',{name:'Choose record type',exact:true}).click()
+  await page.getByLabel('Channel',{exact:true}).selectOption('mms')
+  await page.getByLabel('Direction',{exact:true}).selectOption('outbound')
+  await page.getByLabel('Transport or work state').selectOption('uncertain')
+  await page.getByLabel('text',{exact:true}).fill('Native delivery remains unconfirmed')
+  await proof('native-record-form')
+  await page.getByRole('button',{name:'Add unverified record',exact:true}).click()
+  await page.waitForURL(runtime.origin+'/app/cases/'+caseId)
+  assert.ok((await page.locator('body').innerText()).includes('Native delivery remains unconfirmed'))
   await page.getByRole('link',{name:/provider_attempt/}).click();await proof('source-record')
   await page.goto(runtime.origin+'/app/audit');await page.getByRole('heading',{name:'Accountable audit',exact:true}).waitFor();await proof('audit')
   await page.goto(runtime.origin+'/app/grants');await proof('empty-grants')
@@ -61,6 +72,17 @@ for(const width of [1440,390])test(`Native case work, conflict and source drill-
   await page.waitForURL(runtime.origin+'/app/grants');await proof('revoked-grant')
   assert.equal((await post(runtime,'/api/handset/application/prepare',{state,idempotencyKey:'synthetic-handset-browser-301'},{authorization:'Bearer '+token})).status,401)
   await page.getByRole('link',{name:'MCP owner consent',exact:true}).click();await proof('mcp-consent')
+  await page.goto(runtime.origin+'/app/sources');await proof('empty-sources')
+  await page.getByLabel('Twilio account SID',{exact:true}).fill('synthetic-handset-600')
+  await page.getByLabel('Selected native business-number record ID').fill(entries.number.id)
+  await page.getByRole('checkbox',{name:'I authorize signed inbound communication records for this account and number'}).check()
+  await page.getByRole('button',{name:'Authorize inbound records',exact:true}).click()
+  await page.getByRole('heading',{name:'Source authorized',exact:true}).waitFor();await proof('source-consent-receipt')
+  const source=await sourceFixture(runtime)
+  const received=await source.callback({AccountSid:'synthetic-handset-600',To:'+15125550142',CallSid:'synthetic-handset-601',CallStatus:'ringing',SequenceNumber:'0',Timestamp:new Date().toUTCString()})
+  assert.equal(received.status,200,await received.clone().text())
+  await page.goto(runtime.origin+'/app/cases/'+(await received.json()).caseId);await proof('verified-source-timeline')
+  await page.goto(runtime.origin+'/app/sources');await proof('active-sources')
   await page.goto(runtime.origin+'/app/cases?q=synthetic-handset-no-match');await proof('no-matches')
   const member='synthetic-handset-2'
   await runtime.sql("UPDATE oa_operators SET status='active' WHERE id=?",member)
@@ -71,5 +93,6 @@ for(const width of [1440,390])test(`Native case work, conflict and source drill-
   assert.ok(!(await page.locator('body').innerText()).includes('Austin service'))
   await page.goto(runtime.origin+'/app/grants');await page.getByRole('alert').waitFor();await proof('grants-permission-denied')
   await page.goto(runtime.origin+'/app/audit');await page.getByRole('alert').waitFor();await proof('audit-permission-denied')
+  await page.goto(runtime.origin+'/app/sources');await page.getByRole('alert').waitFor();await proof('sources-permission-denied')
  }finally{await context.close();await browser.close();await runtime.close()}
 })

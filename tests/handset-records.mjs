@@ -105,3 +105,62 @@ test('Audit exports and restored checkpoints retain accountability without plant
   assert.equal((await post(runtime,'/api/handset/audit/anonymize',{operatorId:'synthetic-handset-1',confirm:'anonymize audit identity'},headers)).status,409)
  }finally{await runtime.close()}
 })
+
+test('Signed carrier events correlate transfers recording and MMS with immutable provider time and replay receipts',async()=>{
+ const {sourceFixture}=await import('./helpers/handset-sources.mjs')
+ const runtime=await openHandset({twilio:true})
+ try{
+  const f=await sourceFixture(runtime),timestamp=new Date(Date.now()-60000).toUTCString()
+  const root={CallSid:'synthetic-handset-510',CallStatus:'in-progress',SequenceNumber:'0',Timestamp:timestamp}
+  const child={CallSid:'synthetic-handset-511',ParentCallSid:root.CallSid,CallStatus:'in-progress',SequenceNumber:'0',Timestamp:timestamp}
+  assert.equal((await f.callback(child)).status,202,'child is held until its verified parent exists')
+  const first=await f.callback(root)
+  assert.equal(first.status,200,await first.clone().text())
+  const receipt=await first.json(),caseId=receipt.caseId
+  assert.equal((await runtime.sql('SELECT * FROM hnd_source_pending')).results.length,0)
+  const recording={CallSid:root.CallSid,RecordingSid:'synthetic-handset-512',RecordingStatus:'completed',From:'',To:''}
+  f.resource('Recordings',recording.RecordingSid,{call_sid:root.CallSid,start_time:timestamp,date_created:timestamp})
+  assert.equal((await f.callback(recording)).status,200)
+  const message={MessageSid:'synthetic-handset-513',MessageStatus:'received',Body:'Synthetic appointment photo',NumMedia:'1',MediaUrl0:'https://api.twilio.com/2010-04-01/Accounts/synthetic-handset-502/Messages/synthetic-handset-513/Media/synthetic-handset-514',MediaContentType0:'image/png'}
+  f.resource('Messages',message.MessageSid,{from:'+15125550126',to:'+15125550125',date_sent:timestamp,date_created:timestamp})
+  assert.equal((await f.callback(message)).status,200)
+  const duplicate=await f.callback(message);assert.equal(duplicate.status,200);assert.equal((await duplicate.json()).replay,true)
+  assert.equal((await f.callback({...message,Body:'Changed receipt content'})).status,409)
+  const detail=await (await runtime.request('/api/handset/cases/'+caseId,{headers:f.headers})).json()
+  assert.equal(detail.records.length,4)
+  assert.ok(detail.records.every(r=>r.source==='twilio'&&r.occurred_at===Date.parse(timestamp)&&r.received_at>=r.occurred_at))
+  const leg=detail.records.find(r=>r.kind==='call_leg'),call=detail.records.find(r=>r.kind==='call_session')
+  assert.equal(leg.parent_id,call.id)
+  const mms=detail.records.find(r=>r.kind==='message'),media=JSON.parse(mms.data)
+  assert.equal(media.channel,'mms');assert.equal(media.providerStatus,'received');assert.equal(media.customerOutcome,'unconfirmed')
+  assert.equal((await runtime.sql('SELECT count(*) AS count FROM hnd_cases')).results[0].count,1,'one shared caller case across sources')
+  assert.ok(runtime.sourceRequests.every(r=>r.method==='GET'&&!r.url.includes('/Media/')),'source readback never downloads audio or images')
+  assert.equal((await post(runtime,'/api/handset/cases/'+caseId,{title:detail.current.title,version:1,promise:'Return the requested callback',dueAt:Date.now()+86400000},f.headers)).status,200)
+  // A later completed call leg is a transport fact, not a closed customer case.
+  assert.equal((await f.callback({...root,CallStatus:'completed',SequenceNumber:'1',CallDuration:'75'})).status,200)
+  const later=await (await runtime.request('/api/handset/cases/'+caseId,{headers:f.headers})).json()
+  assert.equal(later.current.status,'open');assert.ok(later.current.promise);assert.equal(later.current.version,2)
+  const exported=await (await runtime.request('/api/handset/audit/export',{headers:f.headers})).json()
+  const audit=JSON.stringify(exported)
+  assert.ok(exported.rows.some(r=>r.actor===f.source.id&&r.action==='source.receive'))
+  assert.ok(!audit.includes(message.Body)&&!audit.includes('+15125550126')&&!audit.includes('synthetic-handset-500'))
+ }finally{await runtime.close()}
+})
+
+test('Unsigned foreign-number revoked and failed-readback carrier events cannot forge canonical communication facts',async()=>{
+ const {sourceFixture}=await import('./helpers/handset-sources.mjs')
+ const runtime=await openHandset({twilio:true})
+ try{
+  const f=await sourceFixture(runtime),root={CallSid:'synthetic-handset-520',CallStatus:'ringing',SequenceNumber:'0',Timestamp:new Date().toUTCString()}
+  assert.equal((await f.callback(root,{signature:false})).status,403)
+  assert.equal((await f.callback(root,{origin:'https://foreign.example'})).status,403)
+  assert.equal((await f.callback({...root,AccountSid:'synthetic-handset-foreign'})).status,403)
+  assert.equal((await f.callback({...root,From:'+15125550128',To:'+15125550129'})).status,403)
+  assert.equal((await f.callback({MessageSid:'synthetic-handset-521',MessageStatus:'received',Body:'Readback is missing',NumMedia:'0'})).status,503)
+  assert.equal((await runtime.sql('SELECT count(*) AS count FROM hnd_source_receipts')).results[0].count,0)
+  assert.equal((await f.callback(root)).status,200)
+  assert.equal((await post(runtime,'/api/handset/sources/revoke',{sourceId:f.source.id},f.headers)).status,200)
+  assert.equal((await f.callback({...root,SequenceNumber:'1',CallStatus:'completed'})).status,403)
+  assert.equal((await runtime.sql('SELECT count(*) AS count FROM hnd_source_receipts')).results[0].count,1)
+ }finally{await runtime.close()}
+})

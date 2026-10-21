@@ -72,3 +72,10 @@ migrations with production auth. Only the SendGrid network edge is substituted
 in ordinary CI. `tests/handset-auth-browser.mjs` drives native forms at 1440 and
 390. With `HANDSET_LIVE_MAIL=1`, it uses the configured SendGrid sender and
 controlled receipt mailbox; development/demo admission is never enabled.
+
+The current narrowly declared exception is `POST /providers/twilio/events`:
+installation-local account signature, exact URL/Host, explicit owner-authorized
+account/number, current-owner and source-revocation fences, bounded official
+callback fields, and no outbound effect. See `docs/HANDSET-RECORDS.md` and the
+signed-source/refusal tests in `tests/handset-records.mjs`. Every other carrier
+path retains the native namespace fence and ordinary refusal.

@@ -9,6 +9,7 @@ import { lobbyResponse } from './base/lobby'
 import { setupStateResponse } from './base/setup-state'
 import { authResponse, runtimeBindings, type Bindings } from './auth.server'
 import { identity } from './identity'
+import { twilioResponse } from './handset/providers/twilio'
 import { applicationResponse } from './handset/authority/application'
 import { observeAuth } from './handset/audit/auth'
 import { productResponse } from './handset/http/product'
@@ -28,6 +29,8 @@ function noTransform(response: Response): Response {
 
 export default withDemo<Bindings, ExportedHandler<Bindings>>({
   async fetch(request, env, execution) {
+    const source = await twilioResponse(request, env)
+    if (source) return source
     const application = await applicationResponse(request, env)
     if (application) return application
     const denied = await privateDoorResponse(request, env)

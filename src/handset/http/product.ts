@@ -5,7 +5,10 @@ import { authorityDoor } from '../authority/doors'
 import { auditDoor } from '../audit/doors'
 import { commit, denied } from '../audit/store'
 import { getCase, writeCase, addRecord, getRecord, listCases, caseFilter, saveFilter } from '../records/store'
-import { casesPage, casePage } from '../records/pages'
+import { sourceDoor } from '../providers/twilio'
+import { kinds } from '../records/model'
+import { choice, escape as e } from '../core'
+import { casesPage, casePage, recordForm, type PersonOption } from '../records/pages'
 
 function formValues(data: Record<string,unknown>) {
  if (typeof data.version === 'string') data.version = Number(data.version)
@@ -15,13 +18,16 @@ function formValues(data: Record<string,unknown>) {
 }
 export async function productResponse(request: Request, original: Bindings): Promise<Response|null> {
  const url = new URL(request.url), path = url.pathname, html = path.startsWith('/app/')
- if (!/^\/(api\/handset|app\/(cases|records|audit|grants))(\/|$)/.test(path)) return null
+ if (!/^\/(api\/handset|app\/(cases|records|audit|grants|sources))(\/|$)/.test(path)) return null
  let auth: {env:Bindings;session:Session}|undefined
  try {
   auth = await session(request,original)
   const {env,session:actor} = auth, db=env.DB
   try { owner(actor) } catch(error) { await denied(env,actor,'product.access'); throw error }
+  const people = async () => (await db.prepare("SELECT id,display_name FROM oa_operators WHERE status='active' ORDER BY display_name,id").all<PersonOption>()).results
+  const renderCase = async (detail:Awaited<ReturnType<typeof getCase>>,notice='',status=200) => casePage(detail,notice,status,await people())
   const read = request.method === 'GET', write = request.method === 'POST'
+  if(path.startsWith('/api/handset/sources') || path.startsWith('/app/sources')){const response=await sourceDoor(request,env,actor,read?undefined:await input(request));if(response)return response}
   if (path.startsWith('/api/handset/grants') || path.startsWith('/app/grants') || path === '/api/handset/mcp/consent') {
    if(!read && !write)throw new Fault('method_not_allowed',405)
    const response=await authorityDoor(request,env,actor,read?undefined:await input(request))
@@ -37,20 +43,29 @@ export async function productResponse(request: Request, original: Bindings): Pro
    await commit(env,actor,'case.list','installation','completed')
    if (!html) return json({cases:rows,limited:rows.length>200})
    const filters=(await db.prepare('SELECT name,query FROM hnd_filters WHERE operator_id=? ORDER BY name').bind(actor.operator.id).all<{name:string;query:string}>()).results
-   return casesPage(rows,actor.operator.id,filters,query)
+   return casesPage(rows,actor.operator.id,filters,query,await people())
   }
   if (write && ['/api/handset/cases','/app/cases/new'].includes(path)) {
    const data=await input(request), detail=await writeCase(env,actor,html?formValues(data):data)
    return html ? redirect('/app/cases/'+detail.current.id) : json(detail,201)
   }
+  const nativeRecord=path.match(/^\/app\/cases\/([^/]+)\/record$/)
+  if(nativeRecord){
+   const detail=await getCase(db,nativeRecord[1])
+   if(read)return recordForm(nativeRecord[1],detail.records,choice(url.searchParams.get('kind')??'comment',kinds,'kind'))
+   const data=await input(request),payload:Record<string,unknown>={}
+   for(const [key,value] of Object.entries(data))if(key.startsWith('data.') && value!=='') {const name=key.slice(5);payload[name]=name==='dueAt'?new Date(String(value)+'Z').getTime():['amountCents','sizeBytes'].includes(name)?Number(value):value;delete data[key]}else if(key.startsWith('data.'))delete data[key]
+   await addRecord(env,actor,{...data,caseId:nativeRecord[1],occurredAt:new Date(String(data.occurredAt)+'Z').getTime(),data:payload})
+   return redirect('/app/cases/'+nativeRecord[1])
+  }
   const match=path.match(/^\/(?:app|api\/handset)\/cases\/([^/]+)(?:\/(edit|comment))?$/)
   if (match && match[1] !== 'filter') {
    const caseId=text(match[1],'caseId')
-   if (read && !match[2]) { const detail=await getCase(db,caseId);await commit(env,actor,'case.read',caseId,'completed');return html?casePage(detail):json(detail) }
+   if (read && !match[2]) { const detail=await getCase(db,caseId);await commit(env,actor,'case.read',caseId,'completed');return html?renderCase(detail):json(detail) }
    if (write && match[2] !== 'comment') {
     const data=await input(request)
     try { const detail=await writeCase(env,actor,html?formValues(data):data,caseId);return html?redirect('/app/cases/'+caseId):json(detail) }
-    catch(error) { if(html && error instanceof Fault && error.code==='version_conflict')return casePage(await getCase(db,caseId),'Another teammate changed this case. Review the current version below and reapply your edit.',409);throw error }
+    catch(error) { if(html && error instanceof Fault && error.code==='version_conflict')return renderCase(await getCase(db,caseId),'Another teammate changed this case. Review the current version below and reapply your edit.',409);throw error }
    }
    if(write && match[2] === 'comment') {
     const data=await input(request), mention=data.mention ? text(data.mention,'mention'):null
@@ -78,7 +93,6 @@ export async function productResponse(request: Request, original: Bindings): Pro
 }
 function redirect(path:string){return new Response(null,{status:303,headers:{location:path,'cache-control':'no-store'}})}
 async function recordPage(result:Awaited<ReturnType<typeof getRecord>>){
- const {escape:e}=await import('../core')
  const r=result.record
  return page('Source record',`<dl>${Object.entries(r).map(([key,value])=>`<dt>${e(key)}</dt><dd>${e(value)}</dd>`).join('')}</dl><h2>Linked sources</h2><ul>${result.links.map(l=>`<li>${e(l.relation)} <a href="/app/records/${e(l.target_id)}">${e(l.target_id)}</a></li>`).join('')}</ul>${r.parent_id?`<a href="/app/records/${e(r.parent_id)}">Parent source</a>`:''}${r.case_id?`<p><a href="/app/cases/${e(r.case_id)}">Return to case</a></p>`:''}`)
 }

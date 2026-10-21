@@ -10,9 +10,9 @@ export async function getCase(db: D1Database, caseId: string) {
  if (!current) throw new Fault('case_not_found', 404)
  const [history, records] = await Promise.all([
   db.prepare('SELECT * FROM hnd_case_history WHERE case_id=? ORDER BY version').bind(caseId).all(),
-  db.prepare('SELECT * FROM hnd_records WHERE case_id=? ORDER BY occurred_at,received_at,id').bind(caseId).all<RecordRow>(),
+  db.prepare('SELECT r.*,s.source_kind AS verified_source FROM hnd_records r LEFT JOIN hnd_record_sources s ON s.record_id=r.id WHERE r.case_id=? ORDER BY r.occurred_at,r.received_at,r.id').bind(caseId).all<RecordRow>(),
  ])
- return { current, history: history.results, records: records.results }
+ return { current, history: history.results, records: records.results.map(sourceRow) }
 }
 export function caseFilter(value: ObjectValue) {
  keys(value, ['q','status','ownerId','due','unread','handled'])
@@ -97,10 +97,10 @@ export async function addRecord(env: Bindings, actor: Session, value: ObjectValu
  return { record, replay: false }
 }
 export async function getRecord(db: D1Database, recordId: string) {
- const record = await db.prepare('SELECT * FROM hnd_records WHERE id=?').bind(recordId).first<RecordRow>()
+ const record = await db.prepare('SELECT r.*,s.source_kind AS verified_source FROM hnd_records r LEFT JOIN hnd_record_sources s ON s.record_id=r.id WHERE r.id=?').bind(recordId).first<RecordRow>()
  if (!record) throw new Fault('record_not_found',404)
  const links = (await db.prepare('SELECT * FROM hnd_record_links WHERE record_id=? OR target_id=?').bind(recordId,recordId).all()).results
- return { record, links }
+ return { record:sourceRow(record), links }
 }
 export async function saveFilter(env: Bindings, actor: Session, value: ObjectValue) {
  keys(value,['name','query'])
@@ -110,3 +110,5 @@ export async function saveFilter(env: Bindings, actor: Session, value: ObjectVal
  ]) } catch(error) { if (String(error).includes('UNIQUE constraint')) throw new Fault('filter_name_exists',409); throw error }
  return { id:filterId,name,query }
 }
+
+function sourceRow(row:RecordRow & {verified_source?:string|null}){const {verified_source,...record}=row;return {...record,source:verified_source??record.source}}
