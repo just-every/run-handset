@@ -5,7 +5,7 @@ import type { Plan, PlanSnapshot, Profile, Settings, Template } from './model'
 import { getProfile, getTemplate } from './store'
 
 const nav='<p><a href="/app/admin/bulk">Bulk administration</a> · <a href="/app/admin/templates">Templates</a></p>'
-const area=(label:string,name:string,value='',required=true)=>`<label>${e(label)}<textarea name="${e(name)}" rows="6" ${required?'required':''}>${e(value)}</textarea></label>`
+const area=(label:string,name:string,value='',required=true)=>`<label for="admin-${e(name)}">${e(label)}</label><textarea id="admin-${e(name)}" name="${e(name)}" rows="6" ${required?'required':''}>${e(value)}</textarea>`
 export const planPath=(id:string)=>'/app/admin/bulk/plans/'+encodeURIComponent(id)
 const jsonArea=(label:string,name:string,value:unknown)=>area(label,name,JSON.stringify(value,null,2))
 export async function bulkPage(env:Bindings) {

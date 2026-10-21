@@ -662,7 +662,7 @@
       "executable": false
     },
     "src/handset/admin/pages.ts": {
-      "sha256": "e0400d2607e602e90bd6f05c584e938315163952db200bea4987ffff3701e5ae",
+      "sha256": "8db93d117ca6176a12ea5ae90fadd125d62ad16e375be75be966b3f0823746e8",
       "executable": false
     },
     "src/handset/admin/preview.ts": {
@@ -2542,7 +2542,7 @@
       "executable": false
     },
     "tests/handset-console-browser.mjs": {
-      "sha256": "832c5390014a0cc85b45e0ee4ed1a4fee61b022bece179aa5ee4c34c4037c1e2",
+      "sha256": "f9f04ee736036789940e3f45b82fa6861a7ef9e39d0710a8324e0a9cc4a37912",
       "executable": false
     },
     "tests/handset-import.mjs": {

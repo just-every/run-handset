@@ -10,9 +10,10 @@ import { protectionFixture } from './helpers/handset-protection.mjs'
 import { metricDataset,metricStart } from './helpers/handset-metrics.mjs'
 import { importDataset } from './helpers/handset-import.mjs'
 
-for(const width of [1440,390])test(`Administrative plan, queue staffing, metric import and protection consoles at ${width}`,async()=>{
+for(const width of [1440,390])for(const domain of ['administration','queues','metrics','protection'])test(`${domain} console at ${width}`,async()=>{
  const runtime=await openHandset({twilio:true}),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage()
+ page.setDefaultTimeout(10000)
  const directory=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-console'
  await mkdir(directory,{recursive:true})
  async function proof(name){
@@ -26,6 +27,7 @@ for(const width of [1440,390])test(`Administrative plan, queue staffing, metric 
  try{
   const {cookie}=await signIn(runtime),[cookieName,...cookieValue]=cookie.split('=')
   await context.addCookies([{name:cookieName,value:cookieValue.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
+  if(domain==='administration'){
   const admin=await adminFixture(runtime,{cookie})
   await page.goto(runtime.origin+'/app');await proof('workspace-navigation')
   await page.goto(runtime.origin+'/app/admin/bulk');await proof('bulk-empty')
@@ -60,7 +62,8 @@ for(const width of [1440,390])test(`Administrative plan, queue staffing, metric 
   await page.getByLabel('Selected profile IDs, comma separated').fill(selected.id);await click('Preview template diff')
   await page.getByRole('checkbox',{name:/I approve this exact local configuration/}).check();await click('Approve exact plan');await click('Apply approved plan');await proof('template-completed')
   await page.goto(runtime.origin+'/app/admin/bulk/profiles/'+selected.id);assert.ok((await page.locator('main').innerText()).includes('Rosa’s independent greeting'));await proof('template-preserved-override')
-
+  }
+  if(domain==='queues'){
   await page.goto(runtime.origin+'/app/queues');await proof('queues-empty')
   const queues=await queueFixture(runtime,cookie)
   const english=await queues.admit(queues.sales,'en'),spanish=await queues.admit(queues.sales,'es',90)
@@ -80,7 +83,8 @@ for(const width of [1440,390])test(`Administrative plan, queue staffing, metric 
   await queues.write(queues.base+'/'+queues.support.id+'/configure',{name:'Support / Soporte',mode:'longest_idle',skills:[],maxWaitSeconds:100,wrapSeconds:30,maxWaiting:100,overflowKind:'voicemail',revision:queueRevision,confirm:'approve native queue policy'})
   const revise=page.locator('details').filter({has:page.locator('summary',{hasText:'Revise Support'})})
   await revise.locator('summary').click();await revise.getByRole('checkbox').check();await revise.getByRole('button',{name:'Save queue policy',exact:true}).click();await page.getByRole('alert').waitFor();await proof('queue-stale-refusal')
-
+  }
+  if(domain==='metrics'){
   await page.goto(runtime.origin+'/app/import');await proof('import-empty')
   await page.getByLabel('Source JSON',{exact:true}).fill(JSON.stringify(metricDataset()))
   await click('Upload and review plan');await page.getByRole('heading',{name:'Review exact import plan',exact:true}).waitFor();await proof('import-plan')
@@ -104,7 +108,8 @@ for(const width of [1440,390])test(`Administrative plan, queue staffing, metric 
   await click('Run due reports');assert.ok((await page.locator('main').innerText()).includes('accepted'));await proof('report-accepted')
   const partial=metricDataset();delete partial.entries[0].closedAt;await importDataset(runtime,cookie,partial,true)
   await page.goto(runtime.origin+'/app/reports/queues/live?queueId=queue-A');assert.equal(await page.getByRole('button',{name:'Save final report',exact:true}).isDisabled(),true);await proof('metrics-provisional')
-
+  }
+  if(domain==='protection'){
   await page.goto(runtime.origin+'/app/protection');await proof('protection-empty')
   const protection=await protectionFixture(runtime,{populated:true})
   await page.reload();await proof('protection-alert-and-rules')
@@ -119,10 +124,12 @@ for(const width of [1440,390])test(`Administrative plan, queue staffing, metric 
   await page.getByLabel('Device identifier',{exact:true}).fill('synthetic-handset-990')
   await page.getByLabel('Caller or destination (E.164, anonymous, or 911)',{exact:true}).fill('+15125550126')
   await click('Check and record decision');await proof('protection-allowed-decision')
+  }
   await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
   const member=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'}),[memberName,...memberValue]=member.cookie.split('=')
   await context.clearCookies();await context.addCookies([{name:memberName,value:memberValue.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
-  for(const [path,name] of [['/app/admin/bulk','bulk'],['/app/admin/templates','template'],['/app/queues','queue'],['/app/reports/queues','report'],['/app/import','import'],['/app/protection','protection']]){
+  const privatePaths={administration:[['/app/admin/bulk','bulk'],['/app/admin/templates','template']],queues:[['/app/queues','queue']],metrics:[['/app/reports/queues','report'],['/app/import','import']],protection:[['/app/protection','protection']]}
+  for(const [path,name] of privatePaths[domain]){
    await page.goto(runtime.origin+path);await page.getByRole('alert').waitFor();await proof(name+'-permission-denied')
   }
  }finally{await context.close();await browser.close();await runtime.close()}
