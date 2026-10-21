@@ -2,6 +2,6 @@
 main pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 main textarea, main select { box-sizing: border-box; max-width: 100%; width: 100%; font: inherit; }
 @media (max-width: 480px) {
-  main dl { grid-template-columns: minmax(0, 1fr); gap: 4px; }
-  main dd { margin-bottom: 12px; }
+  .rer-themed main dl { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .rer-themed main dd { margin-bottom: 12px; }
 }
