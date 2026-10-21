@@ -1444,7 +1444,7 @@
       "executable": false
     },
     "tests/handset-auth.mjs": {
-      "sha256": "5e4c82ab07060dc55d073ebfd15c0f61f6ff5c0c7843243d946144ed6143045f",
+      "sha256": "0cba4f3a7615d51d7f075add6bedeff5584229329d1a1cb53ff0df705288dd6c",
       "executable": false
     },
     "tests/helpers/handset-auth.mjs": {
