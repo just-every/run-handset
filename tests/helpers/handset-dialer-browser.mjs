@@ -24,6 +24,13 @@ export async function dialerJourney({runtime,page,proof}){
  const run=(await f.read()).sessions[0]
  assert.equal(run.mode,'preview');assert.equal(run.cursor,0)
  await page.goto(base+'?listId='+list.id);await proof('dialer-ready-required')
+ const premature=form('sessions/'+run.id+'/launch')
+ await premature.getByLabel('Unique launch reference',{exact:true}).fill(f.next())
+ await premature.getByLabel('Exact preview recipient',{exact:true}).selectOption(list.recipients[0].recipient)
+ await premature.locator('input[name="confirm"]').check();await submit(premature)
+ assert.equal((await f.read()).sessions.find(s=>s.id===run.id).state,'paused')
+ assert.ok(runtime.sourceRequests.every(r=>r.method==='GET'),'without a waiting agent the console creates no provider call')
+ await proof('dialer-held-without-waiting-agent')
  const waiting=await f.ready(f.q.english,{persist:false})
  const ready=form('ready')
  await ready.getByLabel('Waiting human agent and approved route',{exact:true}).selectOption(f.q.english)
@@ -34,6 +41,7 @@ export async function dialerJourney({runtime,page,proof}){
  await ready.getByLabel('Waiting-agent evidence expires, within 90 seconds (UTC)',{exact:true}).fill(new Date(Date.now()+80000).toISOString().slice(0,19))
  await ready.locator('input[name="confirm"]').check();await submit(ready)
  await page.goto(base+'?listId='+list.id);await proof('dialer-waiting-agent-verified')
+ await submit(form('sessions/'+run.id+'/resume'))
  const call=f.prepare(list),launch=form('sessions/'+run.id+'/launch')
  await launch.getByLabel('Unique launch reference',{exact:true}).fill(f.next())
  await launch.getByLabel('Exact preview recipient',{exact:true}).selectOption(list.recipients[0].recipient)
@@ -59,4 +67,5 @@ export async function dialerJourney({runtime,page,proof}){
  await proof('dialer-observed-disposition')
  await submit(form('lists/'+list.id+'/revoke'));await proof('dialer-list-revoked')
  assert.ok((await f.read()).lists.find(l=>l.id===list.id).revoked_at)
+ await submit(form('sessions/'+run.id+'/resume'));await page.getByRole('alert').waitFor();await proof('dialer-stale-approval-refusal')
 }
