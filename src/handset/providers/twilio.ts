@@ -109,18 +109,27 @@ async function ingest(env:Bindings,source:Source,event:Event,bodyHash:string,par
  const peer=event.from===own?event.to:event.from,correlation=await digest([source.id,own,peer])
  const existingCase=parent?{case_id:parent.case_id}:await db.prepare('SELECT case_id FROM hnd_source_cases WHERE source_id=? AND correlation=?').bind(source.id,correlation).first<{case_id:string}>()
  const caseId=existingCase?.case_id??id(),recordId=id(),now=receivedAt,occurredAt=event.occurredAt??receivedAt
- const kind=event.kind==='call'?(event.parent?'call_leg':'call_session'):event.kind
  const existingObject=await db.prepare('SELECT record_id,case_id FROM hnd_source_objects WHERE source_id=? AND external_id=?').bind(source.id,event.externalId).first<{record_id:string;case_id:string}>()
+ const objectKind=event.kind==='call'?(event.parent?'call_leg':'call_session'):event.kind
+ const kind=existingObject?'provider_attempt':objectKind
  if(existingObject&&existingObject.case_id!==caseId)throw new Fault('source_correlation_conflict',409)
  const statements=[sourceFence(env,source)]
  if(!existingCase){
   statements.push(db.prepare('INSERT INTO hnd_cases VALUES (?,?,?,?,?,?,?,?,?,?,?,?)').bind(caseId,'Communication with '+peer,source.owner_id,null,'','open',0,1,1,source.owner_id,now,''))
   statements.push(db.prepare('INSERT INTO hnd_source_cases VALUES (?,?,?)').bind(source.id,correlation,caseId))
  }
- const data={...event.data,direction:event.from===own?'outbound':'inbound',sourceOccurredAt: event.occurredAt===null?'not supplied by provider':'provider timestamp',customerOutcome:'unconfirmed'}
- statements.push(db.prepare('INSERT INTO hnd_records VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(recordId,kind,'native',source.id+':'+event.eventId,occurredAt,now,caseId,parent?.record_id??existingObject?.record_id??null,null,JSON.stringify(data),source.id))
+ const data={...event.data,...(existingObject?{operation:'provider_status',objectKind}:{}),direction:event.from===own?'outbound':'inbound',sourceOccurredAt: event.occurredAt===null?'not supplied by provider':'provider timestamp',customerOutcome:'unconfirmed'}
+ statements.push(db.prepare('INSERT INTO hnd_records VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(recordId,kind,'native',source.id+':'+event.eventId,occurredAt,now,caseId,existingObject?.record_id??parent?.record_id??null,null,JSON.stringify(data),source.id))
  statements.push(db.prepare('INSERT INTO hnd_record_sources VALUES (?,?,?,?)').bind(recordId,source.id,'twilio',event.eventId))
  if(!existingObject)statements.push(db.prepare('INSERT INTO hnd_source_objects VALUES (?,?,?,?)').bind(source.id,event.externalId,recordId,caseId))
+ if(!existingObject && event.kind==='message' && 'media' in event.data){
+  for(const [index,media] of (event.data.media??[]).entries()){
+   const mediaId=id()
+   statements.push(db.prepare('INSERT INTO hnd_records VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(mediaId,'media','native',source.id+':'+event.eventId+':media:'+index,occurredAt,now,caseId,recordId,null,JSON.stringify({...media,capture:'metadata only; content unavailable'}),source.id))
+   statements.push(db.prepare('INSERT INTO hnd_record_sources VALUES (?,?,?,?)').bind(mediaId,source.id,'twilio',event.eventId+':media:'+index))
+  }
+ }
+
  statements.push(db.prepare('INSERT INTO hnd_source_receipts VALUES (?,?,?,?,?,?)').bind(source.id,event.eventId,bodyHash,occurredAt,now,recordId))
  statements.push(db.prepare('DELETE FROM hnd_source_pending WHERE source_id=? AND event_id=?').bind(source.id,event.eventId))
  try{await append(env,source.id,'source.receive',recordId,'completed',statements)}

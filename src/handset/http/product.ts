@@ -94,5 +94,5 @@ export async function productResponse(request: Request, original: Bindings): Pro
 function redirect(path:string){return new Response(null,{status:303,headers:{location:path,'cache-control':'no-store'}})}
 async function recordPage(result:Awaited<ReturnType<typeof getRecord>>){
  const r=result.record
- return page('Source record',`<dl>${Object.entries(r).map(([key,value])=>`<dt>${e(key)}</dt><dd>${e(value)}</dd>`).join('')}</dl><h2>Linked sources</h2><ul>${result.links.map(l=>`<li>${e(l.relation)} <a href="/app/records/${e(l.target_id)}">${e(l.target_id)}</a></li>`).join('')}</ul>${r.parent_id?`<a href="/app/records/${e(r.parent_id)}">Parent source</a>`:''}${r.case_id?`<p><a href="/app/cases/${e(r.case_id)}">Return to case</a></p>`:''}`)
+ return page('Source record',`<dl>${Object.entries(r).map(([key,value])=>`<dt>${e(key)}</dt><dd>${e(value)}</dd>`).join('')}</dl><h2>Related source events</h2><ul>${result.related.map(child=>`<li><a href="/app/records/${e(child.id)}">${e(child.kind)} · ${e(child.source_id)}</a></li>`).join('')}</ul><h2>Linked sources</h2><ul>${result.links.map(l=>`<li>${e(l.relation)} <a href="/app/records/${e(l.target_id)}">${e(l.target_id)}</a></li>`).join('')}</ul>${r.parent_id?`<a href="/app/records/${e(r.parent_id)}">Parent source</a>`:''}${r.case_id?`<p><a href="/app/cases/${e(r.case_id)}">Return to case</a></p>`:''}`)
 }

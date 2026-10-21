@@ -171,7 +171,10 @@ voicemail capture or playable recording.
 
 A received event retains immutable source/event IDs, a request digest, provider
 occurred time and independent received time. Exact retries reuse the receipt;
-changed payloads under the same event key conflict. Transfer children received
+changed payloads under the same event key conflict. Later status changes append
+provider-attempt records linked to the original canonical call/message ID,
+without inflating communication counts. MMS media metadata has its own stable
+record linked to that original message. Transfer children received
 before their parent remain explicitly pending and are drained when the parent
 arrives. Number/caller correlation keeps call legs, recording references and MMS
 on one case; carrier completion never closes the case or clears a human promise.

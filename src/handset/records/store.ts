@@ -100,7 +100,8 @@ export async function getRecord(db: D1Database, recordId: string) {
  const record = await db.prepare('SELECT r.*,s.source_kind AS verified_source FROM hnd_records r LEFT JOIN hnd_record_sources s ON s.record_id=r.id WHERE r.id=?').bind(recordId).first<RecordRow>()
  if (!record) throw new Fault('record_not_found',404)
  const links = (await db.prepare('SELECT * FROM hnd_record_links WHERE record_id=? OR target_id=?').bind(recordId,recordId).all()).results
- return { record:sourceRow(record), links }
+ const related=(await db.prepare('SELECT r.*,s.source_kind AS verified_source FROM hnd_records r LEFT JOIN hnd_record_sources s ON s.record_id=r.id WHERE r.parent_id=? ORDER BY r.occurred_at,r.received_at,r.id').bind(recordId).all<RecordRow>()).results.map(sourceRow)
+ return { record:sourceRow(record), links, related }
 }
 export async function saveFilter(env: Bindings, actor: Session, value: ObjectValue) {
  keys(value,['name','query'])

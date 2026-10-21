@@ -208,7 +208,7 @@
       "executable": false
     },
     "docs/HANDSET-RECORDS.md": {
-      "sha256": "0e7b8544a37a6835a19d0cd95fe76ddecffb1e734c0d561b2bc055311efd8622",
+      "sha256": "27ff8e91bfb6668144aeb06d2cde74fe4079b9cc0a4f534fb30b3a6b28c0d503",
       "executable": false
     },
     "docs/HTTP-DOORS.md": {
@@ -608,11 +608,11 @@
       "executable": false
     },
     "src/handset/http/product.ts": {
-      "sha256": "2ccb0e75e9a30faa385e9dbab1910a8fd17158320cecf026502e8fdfbee1cbfc",
+      "sha256": "7632ad2f051beb5b47871d821cf18b16d757483ef131d0a7da0319bf98dec054",
       "executable": false
     },
     "src/handset/providers/twilio.ts": {
-      "sha256": "5c312c181dac1a068a1fa684343a6d9696a126842d125e8a462107f603395925",
+      "sha256": "2012bf1c8b95691e615c0f91080579cdc6cba0f022354f9ff27ae34a45b145f0",
       "executable": false
     },
     "src/handset/records/model.ts": {
@@ -620,11 +620,11 @@
       "executable": false
     },
     "src/handset/records/pages.ts": {
-      "sha256": "5f16562705ff1f4749cb0acee72c9064e63e27340df078dc3ba667ca0dafb237",
+      "sha256": "4f7bb68903e77fcf45e22a7d35c02e9912d9a012fdb364905ca0838f4937f7ef",
       "executable": false
     },
     "src/handset/records/store.ts": {
-      "sha256": "4de11f0658d1d7aa10209a8db1e4aa822299f3016058103ccd363ff853a5dd3e",
+      "sha256": "cd8faffe6c6f2720da6380274c6226d2f698fa8aec2eabe290749128373c79e7",
       "executable": false
     },
     "src/identity.ts": {
@@ -1524,7 +1524,7 @@
       "executable": false
     },
     "tests/handset-records.mjs": {
-      "sha256": "8f521bea2693521ad9cbd8857324df8d4a22d210d79025bb1613c1619ebf3646",
+      "sha256": "91dcaa86867ef922b2fded5ececa4c4279a6c8365cbcab204307f00b716a4477",
       "executable": false
     },
     "tests/handset-workspace-browser.mjs": {
