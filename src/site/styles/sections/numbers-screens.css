@@ -1,0 +1,13 @@
+/* 04 and 07: one number each, in the wide outline numerals, "20" and "21" on one shared baseline. Both screens are
+   shortened (744 and 664 at 1440) so the empty ground sits evenly above and below. 07 is the page's one paper-white
+   band, the photogram's negative: black ink only. */
+.s-surge { --screen-h: 744; }
+.s-follow { --screen-h: 664; background: var(--paper); color: var(--ink); --outline-ink: var(--ink); }
+.s-follow .sentence, .s-follow .caption { color: var(--ink); }
+.s-follow :focus-visible { outline-color: var(--ink); }
+.s-number .caption { color: inherit; }
+
+@media (max-width: 1023.98px) {
+  .s-surge .numeral { font-size: min(280px, 70cqi); }
+  .s-follow .numeral { font-size: min(172px, 44cqi); }
+}

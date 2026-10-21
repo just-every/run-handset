@@ -1,0 +1,45 @@
+/* 01: the photogram with its strings set as type. Wide, the plate is the 1536 x 1024 drawing scaled to the window (up
+   to 1920 px, then centred with its side edges fading into the ground) and every string sits where the desk put it.
+   Narrow, the phone order: a crop of the plate under the header, the headline, the day's line, the alternative line,
+   Run Handset, then the two links. */
+.home-hero { position: relative; background: var(--ground); overflow: hidden; }
+.hero-plate { display: block; }
+.hero-plate img { display: block; width: 100%; height: auto; mix-blend-mode: lighten; }
+.home-hero h1 { line-height: .76; letter-spacing: -.055em; word-spacing: .14em; }
+.home-hero h1 .line { display: block; white-space: nowrap; }
+.hero-day { font-family: var(--font-mono); color: var(--white); }
+.hero-alt { font-family: var(--font-sans); color: var(--white); text-wrap: pretty; }
+.hero-alt b { font-weight: 600; }
+
+@media (min-width: 1024px) {
+  .home-hero { height: calc(1024 * var(--h)); }
+  .hero-plate { position: absolute; top: 0; left: calc(50% - 768 * var(--h)); width: calc(1536 * var(--h)); }
+  .hero-head, .hero-offer { position: absolute; }
+  .hero-head { left: calc(50% - 768 * var(--h) + 29 * var(--h)); top: calc(634.35 * var(--h)); }
+  .home-hero h1 { font-size: calc(190 * var(--h)); --stroke: max(1.5px, calc(3 * var(--h))); }
+  .hero-day { margin-top: calc(31.4 * var(--h)); margin-left: calc(14 * var(--h)); max-width: calc(820 * var(--h)); font-size: max(11.5px, calc(16.1 * var(--h))); line-height: 1.4; }
+  .hero-offer { left: calc(50% - 768 * var(--h) + 986 * var(--h)); top: calc(76 * var(--h)); width: calc(530 * var(--h)); }
+  .hero-alt { font-size: calc(17.6 * var(--h)); line-height: 1.33; max-width: calc(530 * var(--h)); }
+  .home-hero .cta-row { margin-top: calc(20 * var(--h)); gap: calc(14 * var(--h)) calc(28 * var(--h)); font-size: calc(16.5 * var(--h)); }
+  .home-hero .run-button { min-height: calc(48 * var(--h)); padding: 0 calc(31 * var(--h)); }
+}
+/* Past 1920 px the plate stops growing; its cropped side edges fade into the ground. */
+@media (min-width: 1921px) {
+  .hero-plate { -webkit-mask-image: linear-gradient(to right, transparent, #000 7%, #000 93%, transparent); mask-image: linear-gradient(to right, transparent, #000 7%, #000 93%, transparent); }
+}
+
+@media (max-width: 1023.98px) {
+  .home-hero { padding: 64px 0 72px; }
+  .hero-plate { width: 100%; }
+  .hero-head, .hero-offer { padding: 0 var(--gutter); max-width: calc(680px + 2 * var(--gutter)); margin: 0 auto; }
+  .hero-head { margin-top: 28px; }
+  .home-hero h1 { font-size: clamp(56px, 20.4cqi, 132px); --stroke: 1.5px; }
+  .hero-day { margin-top: 18px; font-size: clamp(13px, 3.6cqi, 17px); line-height: 1.6; }
+  .hero-offer { margin-top: 22px; }
+  .hero-alt { font-size: clamp(16px, 4.2cqi, 19px); line-height: 1.45; }
+  .home-hero .cta-row { margin-top: 22px; gap: 18px 28px; font-size: 17px; }
+  .home-hero .run-button { min-height: 52px; }
+}
+@media (max-width: 600px) {
+  .home-hero .run-button { flex: 1 1 100%; }
+}

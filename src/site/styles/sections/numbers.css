@@ -1,0 +1,14 @@
+/* 08: the move off RingCentral. The desk phone at the lower left, cropped by the window's left edge, with its tag beside
+   the base; the heading and sentence right-aligned at the top right. */
+.numbers-tag { color: var(--white); }
+
+@media (min-width: 1024px) {
+  .s-numbers .numbers-art { position: absolute; left: 0; top: calc(459 * var(--u)); width: calc(626 * var(--u)); }
+  .numbers-tag { position: absolute; left: calc(641 * var(--u)); top: calc(739.5 * var(--u)); }
+}
+
+@media (max-width: 1023.98px) {
+  .s-numbers .numbers-art { width: min(80%, 520px); margin: 44px 0 0 calc(-1 * var(--gutter)); }
+  .numbers-tag { margin-top: 28px; }
+  .numbers-tag .tag-line { display: block; }
+}

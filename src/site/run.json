@@ -5,6 +5,6 @@
   "folder": "run-handset",
   "requirements": "Runs on macOS, Linux or Windows with WSL2, with git. The installer brings Node when it is missing, and rer brings pnpm.",
   "licence": "MIT",
-  "docs": false,
+  "docs": true,
   "hosted": []
 }

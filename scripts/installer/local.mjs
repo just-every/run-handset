@@ -25,7 +25,7 @@ export const commandAdapter = createCommandAdapter(lifecycle, {
  setup: { manifestFile: 'rer-setup.json' }, browserModule: 'scripts/installer/ui/seed.mjs',
  // The run site (rer build --site, rer deploy --site, RER_SITE): pages from
  // edition identity and Run data, written to an ignored folder; its domain is in deploy-site.json.
- site: { entry: 'src/site/pages.ts', output: 'dist/site', declaration: 'deploy-site.json' },
+ site: { entry: 'src/site/pages.tsx', output: 'dist/site', declaration: 'deploy-site.json', config: 'vite.site.config.ts' },
  // Local dev identity: the local-only Worker entry, the build output rer build
  // scans for the dev layer.
  devIdentity: { entry: 'src/server.dev.ts', output: ['dist'] },

@@ -1,0 +1,50 @@
+/* Handset's run-site tokens, defined once. The look is the owner's hero (design desk, 20-21 Oct 2026): a pure black
+   ground, the x-ray photogram's tones, a wide outline grotesk for headings and numerals, one plain sans for sentences,
+   mono for every record, and mint only on the two Run Handset buttons and the CLEARED stamp. Base's /run, /contract
+   and not-found pages read the --rer-* names below. */
+:root {
+  --ground: #060606;
+  --paper: #ffffff;
+  --ink: #060606;
+  --white: #ffffff;
+  --film-1: #eef3ef;
+  --film-2: #c6d2cd;
+  --film-3: #a1aea9;
+  --film-4: #7d8a86;
+  --film-5: #535d5a;
+  --mint: #c2f2d0;
+  --rule: #3c3c3c;
+  --font-display: Archivo, 'Arial Black', Arial, sans-serif;
+  --font-sans: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --rer-page: var(--ground);
+  --rer-surface: var(--ground);
+  --rer-text: var(--white);
+  --rer-muted: var(--film-3);
+  --rer-border: var(--film-4);
+  --rer-focus: var(--mint);
+  --rer-link: var(--white);
+  --rer-accent: var(--mint);
+  --rer-accent-text: var(--ink);
+  --rer-font-body: var(--font-sans);
+  --rer-font-heading: var(--font-display);
+  --rer-font-mono: var(--font-mono);
+  --rer-code-background: #111312;
+  --rer-code-text: var(--film-1);
+  --rer-radius: 18px;
+  --rer-button-radius: 0px;
+  --rer-wordmark-weight: 700;
+  --rer-wordmark-tracking: -.02em;
+  /* /contract: done in the stamp's mint, partial in a warm amber, missing in the photogram's quiet grey (not built yet, not an alarm). */
+  --rer-done: var(--mint);
+  --rer-done-ink: var(--mint);
+  --rer-on-done: var(--ink);
+  --rer-partial: #e7c178;
+  --rer-partial-ink: #e7c178;
+  --rer-on-partial: var(--ink);
+  --rer-missing: var(--film-4);
+  --rer-missing-ink: var(--film-3);
+  --rer-on-missing: var(--ink);
+  color-scheme: dark;
+}

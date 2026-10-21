@@ -1,0 +1,44 @@
+/* The homepage's screens. At 1024 px and wider every screen is the desk's 1440 composition scaled as one piece: --u
+   is one pixel of the 1440 design (up to a 1600 px stage, centred by --edge) and --h one pixel of the 1536 hero plate.
+   Narrower, each screen stacks heading, sentence and proof on 24 px gutters, as the desk's 390 plans do. */
+.landing {
+  container-type: inline-size;
+  --u: calc(min(100cqi, 1600px) / 1440);
+  --h: calc(min(100cqi, 1920px) / 1536);
+  --edge: calc((100cqi - min(100cqi, 1600px)) / 2);
+  --gutter: clamp(24px, 6.25cqi, 64px);
+}
+.screen { position: relative; overflow: hidden; background: var(--ground); }
+.heading { line-height: .92; letter-spacing: -.04em; word-spacing: .125em; }
+.sentence, .statement { font-family: var(--font-sans); font-weight: 400; text-wrap: pretty; }
+.log, .tag, .caption { font-family: var(--font-mono); font-weight: 400; }
+.art { display: block; }
+.art img { display: block; width: 100%; height: auto; mix-blend-mode: lighten; }
+.log .when { white-space: nowrap; }
+
+@media (min-width: 1024px) {
+  .screen { height: calc(var(--screen-h, 960) * var(--u)); }
+  .screen-copy { position: absolute; top: calc(148.7 * var(--u)); left: calc(var(--edge) + 128 * var(--u)); width: calc(800 * var(--u)); }
+  .heading { font-size: calc(104 * var(--u)); --stroke: max(1.25px, calc(2 * var(--u))); }
+  .heading .line, .sentence .line { display: block; white-space: nowrap; }
+  .sentence { margin-top: calc(40 * var(--u)); max-width: calc(470 * var(--u)); font-size: calc(26 * var(--u)); line-height: 1.4; }
+  .log, .tag, .caption { font-size: calc(20 * var(--u)); line-height: 1.6; }
+  .log li, .tag-line { display: block; white-space: nowrap; }
+  .log .sep { white-space: pre; }
+  /* Right-aligned copy (03 and 08) ends on the right margin. */
+  .s-press .screen-copy, .s-numbers .screen-copy { left: auto; right: calc(var(--edge) + 128 * var(--u)); text-align: right; }
+  .s-press .sentence, .s-numbers .sentence { margin-left: auto; }
+  .numeral { font-size: calc(350 * var(--u)); line-height: .8; letter-spacing: -.02em; --stroke: max(1.5px, calc(2.5 * var(--u))); }
+  .s-number .number-figure { position: absolute; top: calc(147.75 * var(--u)); right: calc(var(--edge) + 128 * var(--u)); }
+  .s-number .caption { margin: calc(-1 * var(--u)) 0 0 calc(17 * var(--u)); white-space: nowrap; }
+}
+
+@media (max-width: 1023.98px) {
+  .stage { position: relative; padding: clamp(96px, 14cqi, 128px) var(--gutter); }
+  .heading { font-size: clamp(36px, 12.3cqi, 76px); --stroke: 1.25px; }
+  .sentence { margin-top: 20px; font-size: clamp(17px, 4.62cqi, 22px); line-height: 1.45; max-width: 34em; }
+  .log, .tag, .caption { font-size: clamp(13px, 3.85cqi, 18px); line-height: 1.6; }
+  .numeral { line-height: .8; letter-spacing: -.02em; --stroke: 1.5px; }
+  .s-number .number-figure { margin-top: 48px; }
+  .s-number .caption { margin-top: 18px; }
+}

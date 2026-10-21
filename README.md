@@ -1,8 +1,11 @@
+<img src="public/brand/mark.svg" width="72" height="72" alt="">
+
 # Handset
 
-Business phone system and cloud contact center.
+Free, open source business phone system and cloud contact center.
 
-100% free, open source alternative to RingCentral, Dialpad, Aircall, Zoom Phone.
+100% free, open source alternative to RingCentral, Zoom Phone and Dialpad.
+Homepage and docs: [run-handset.com](https://run-handset.com).
 
 Handset is a new seed. This checkout contains the Base technical foundation:
 the Lobby, owner sign-in, local development and a static run site. Phone-system

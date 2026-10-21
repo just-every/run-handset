@@ -16,10 +16,12 @@
     "strict": true,
     "skipLibCheck": true,
     "types": [
-      "@cloudflare/workers-types"
+      "@cloudflare/workers-types",
+      "node"
     ]
   },
   "include": [
+    "vite.site.config.ts",
     "src",
     "vite.config.ts"
   ],

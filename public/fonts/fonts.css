@@ -1,4 +1,34 @@
-/* Outfit (SIL Open Font License 1.1), self-hosted from public/fonts/outfit. The page makes no third-party request. */
+/* Every face here is self-hosted under the SIL Open Font License 1.1 (README.md); no page makes a third-party request.
+   The run site: Archivo for headings and numerals, IBM Plex Sans for sentences, IBM Plex Mono for records.
+   The installed app: Outfit. */
+@font-face {
+  font-family: Archivo;
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('/fonts/archivo/archivo-latin-wght.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('/fonts/ibm-plex-sans/ibm-plex-sans-latin-wght.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/ibm-plex-mono/ibm-plex-mono-latin-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/ibm-plex-mono/ibm-plex-mono-latin-500.woff2') format('woff2');
+}
 @font-face {
   font-family: Outfit;
   font-style: normal;

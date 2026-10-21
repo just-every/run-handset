@@ -1,0 +1,31 @@
+/* Base's /run, /contract and not-found pages (src/base, unchanged) wearing the site: the black ground without Base's
+   paper glow, outline headings and step numerals, hairline step cards and code, and the site's header and footer. */
+body.base-page { background: var(--ground); color: var(--white); font-family: var(--font-sans); }
+.base-page main { padding-top: 24px; padding-bottom: 40px; }
+.base-page .intro h1, .not-found-page .home-hero h1, .not-found-page main h1, .contract-page main > h1 {
+  font-family: var(--font-display); font-weight: 800; color: transparent; -webkit-text-stroke: 1.5px var(--white); letter-spacing: -.035em; word-spacing: .12em;
+}
+.run-page .intro h1 { font-size: 72px; line-height: 1; }
+.run-page .sub { color: var(--film-2); }
+.run-page .step { background: transparent; border: 1.5px solid var(--film-5); border-radius: 22px; box-shadow: none; backdrop-filter: none; }
+.run-page .num { background: none; color: transparent; -webkit-text-stroke: 1.25px var(--white); font: 800 52px/1 var(--font-display); width: 62px; height: 62px; }
+.run-page .step h2 { font-family: var(--font-sans); font-weight: 600; word-spacing: .05em; }
+.run-page .body > p { color: var(--film-2); }
+.run-page .code { border: 1px solid var(--film-5); }
+/* A command that must wrap breaks evenly (after "curl -fsSL"), so no line starts with the pipe. */
+.run-page .code pre { text-wrap-style: balance; }
+@container (max-width: 330px) { .run-page .code pre { padding-inline: 12px; font-size: 11.4px; } }
+.run-page .facts { color: var(--film-3); }
+.contract-page main > h1 { font-size: 56px; line-height: 1.02; }
+.contract-page .card { border-color: var(--film-5); box-shadow: none; }
+.contract-page .card h2 { word-spacing: .1em; }
+.contract-page .lead, .contract-page .judged, .contract-page .count { color: var(--film-2); }
+.contract-page .meter { background: #161918; }
+.not-found-page main h1 { font-size: 72px; line-height: 1; }
+.base-page .site-footer { margin-top: 64px; }
+@media (forced-colors: active) { .base-page .intro h1, .contract-page main > h1, .not-found-page main h1, .run-page .num { color: CanvasText; -webkit-text-stroke: 0; } }
+@media (max-width: 760px) {
+  .run-page .intro h1, .not-found-page main h1 { font-size: 44px; -webkit-text-stroke-width: 1.25px; }
+  .contract-page main > h1 { font-size: 36px; -webkit-text-stroke-width: 1.25px; }
+  .run-page .num { width: 34px; height: 34px; font-size: 30px; -webkit-text-stroke-width: 1px; }
+}

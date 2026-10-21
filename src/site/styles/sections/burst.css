@@ -1,0 +1,28 @@
+/* 02: the receiver and its cord across the lower third, anchored to the window's left edge; a hairline drops from the
+   log to the cord. On phones the receiver stands upright in the left gutter and each entry is ticked onto its cord. */
+.burst-wire { display: block; background: var(--white); }
+.burst-log li { color: var(--white); }
+
+@media (min-width: 1024px) {
+  .s-burst .burst-art { position: absolute; left: 0; top: calc(600 * var(--u)); width: calc(1350 * var(--u)); }
+  .burst-wire { position: absolute; left: calc(700 * var(--u)); top: calc(593 * var(--u)); width: max(1px, var(--u)); height: calc(150 * var(--u)); }
+  .burst-log { position: absolute; left: calc(718 * var(--u)); top: calc(583.5 * var(--u)); }
+}
+
+@media (max-width: 1023.98px) {
+  /* The phone plan: the sentence on the gutter under the heading, then the upright receiver at the window's left edge
+     with its cord down the gutter, each log entry ticked onto the cord where the plan puts it. The strip is --strip wide
+     and ten times as tall, the cord's right side 0.62 of its width from the window's edge. */
+  .s-burst .stage { --strip: clamp(74px, 19cqi, 120px); display: grid; grid-template-columns: var(--strip) minmax(0, 1fr); grid-template-areas: "copy copy" "art log"; padding-bottom: 72px; }
+  .s-burst .screen-copy { grid-area: copy; }
+  .s-burst .burst-art { grid-area: art; width: var(--strip); margin: 36px 0 0 calc(-1 * var(--gutter)); }
+  .burst-wire { display: none; }
+  .burst-log { grid-area: log; position: relative; margin: 36px 0 0 calc(-.378 * var(--strip) - var(--gutter)); height: calc(10 * var(--strip)); }
+  .burst-log li { position: absolute; left: 42px; right: 0; padding-left: 8px; }
+  .burst-log li::before { content: ""; position: absolute; top: .8em; left: -42px; width: 42px; height: 1px; background: var(--white); }
+  .burst-log li:nth-child(1) { top: calc(2.85 * var(--strip) - .8em); }
+  .burst-log li:nth-child(2) { top: calc(5.9 * var(--strip) - .8em); }
+  .burst-log li:nth-child(3) { top: calc(8.16 * var(--strip) - .8em); }
+  .burst-log li:first-child .sep { display: none; }
+  .burst-log li:first-child .what { display: block; }
+}
