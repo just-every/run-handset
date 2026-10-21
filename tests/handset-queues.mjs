@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { openHandset } from './helpers/handset-worker.mjs'
 import { post, signIn } from './helpers/handset-auth.mjs'
 import { sourceFixture } from './helpers/handset-sources.mjs'
-import { queueFixture, queueProviderFixture } from './helpers/handset-queues.mjs'
+import { queueFixture, authorizeQueueMedia } from './helpers/handset-queues.mjs'
 
 // Small batches exercise independent ingress without turning ledger contention
 // into a CPU load test on the shared development machine.
@@ -107,6 +107,9 @@ test('Queue logout is independent of global availability, protects active work a
   state=await f.read()
   assert.equal(state.entries.find(e=>e.id===target.id).queue_id,f.support.id)
   assert.equal(state.entries.find(e=>e.id===target.id).state,'waiting')
+  const visits=state.visits.filter(v=>v.entry_id===target.id).sort((a,b)=>a.ordinal-b.ordinal)
+  assert.equal(visits.length,2);assert.equal(visits[0].queue_id,overflow.id);assert.equal(visits[0].state,'overflow');assert.equal(visits[1].queue_id,f.support.id)
+  assert.notEqual(visits[0].id,visits[1].id);assert.equal(state.entries.find(e=>e.id===target.id).origin_queue_id,overflow.id)
   const cycle=await post(runtime,f.base+'/'+f.support.id+'/configure',{name:f.support.name,skills:[],maxWaitSeconds:30,wrapSeconds:10,maxWaiting:100,overflowKind:'queue',overflowQueueId:overflow.id,revision:f.support.revision,confirm:'approve native queue policy'},f.headers)
   assert.equal(cycle.status,400)
   assert.equal((await runtime.request(f.base)).status,401)
@@ -117,48 +120,136 @@ test('Queue logout is independent of global availability, protects active work a
  }finally{await runtime.close()}
 })
 
-test('Signed official-schema Voice requests admit a twenty-call surge and emit position TwiML while refusing fabricated delivery, foreign scopes and revoked sources',async()=>{
+test('A signed twenty-call surge emits exact Spanish-skilled Dial targets, verifies bridge readback and continues the approved overflow route',async()=>{
  const runtime=await openHandset({twilio:true})
  try{
   const source=await sourceFixture(runtime),f=await queueFixture(runtime,source.cookie)
-  const binding=await f.write(f.base+'/sources',{sourceId:source.source.id,queueId:f.sales.id,language:'en',spanishDigit:'2',confirm:'authorize signed inbound queue routing'},201)
-  const edge=queueProviderFixture(runtime,source,binding),calls=Array.from({length:20},(_,i)=>({...edge.resource(i),...(i%2?{}:{Digits:'2'})}))
-  // Twilio invokes this public URL for each inbound leg. Serialize callbacks
-  // here because each arrival dispatches the shared queue as a single policy.
+  assert.equal((await post(runtime,f.base+'/sources',{sourceId:source.source.id,queueId:f.sales.id,language:'en',spanishDigit:'2',confirm:'authorize signed inbound queue routing'},f.headers)).status,409,'activation refuses an absent selected overflow route')
+  const media=await authorizeQueueMedia(f,source),{binding,edge,destinations}=media
+  const calls=Array.from({length:20},(_,i)=>({...edge.resource(i),...(i%2?{}:{Digits:'2'})}))
+  const dialed=[]
   for(const call of calls){
    const response=await edge.callback(call)
    assert.equal(response.status,200,await response.clone().text())
    const twiml=await response.text()
    assert.match(twiml,/<Response><Say language="(?:es-MX|en-US)">/)
-   assert.match(twiml,/<Redirect method="POST">/)
-   assert.ok(!twiml.includes('<Dial')&&!twiml.includes('delivered'))
+   if(twiml.includes('<Dial'))dialed.push({call,twiml})
+   else assert.match(twiml,/<Redirect method="POST">/)
   }
   let state=await f.read()
   assert.equal(state.entries.length,20);assert.equal(state.reservations.length,2)
+  assert.equal(dialed.length,2)
+  assert.ok(dialed[0].twiml.includes('>'+destinations[f.spanish]+'</Sip>'),'Spanish IVR choice dials the exact Spanish-skilled agent first')
+  assert.ok(dialed[1].twiml.includes('>'+destinations[f.english]+'</Sip>'))
   assert.equal(state.announcements.length,20)
-  assert.ok(state.entries.some(e=>e.language==='es'&&e.agent_id===f.spanish))
   assert.ok(state.announcements.every(a=>a.delivery_state==='pending'))
-  assert.equal(runtime.sourceRequests.filter(r=>r.url.includes('/Calls/')).length,20)
-  assert.ok(runtime.sourceRequests.every(r=>r.method==='GET'),'no provider call creation or paid dialing is fabricated')
-  const reserved=state.entries.find(e=>e.state==='reserved')
-  assert.equal((await post(runtime,f.base+'/entries/'+reserved.id+'/accept',{revision:reserved.revision},f.headers)).status,409)
-  const before=state.entries.length
-  assert.equal((await edge.callback(edge.resource(30),{signature:false})).status,403)
-  assert.equal((await edge.callback(edge.resource(31),{signedOrigin:'https://synthetic-handset-999.example.test'})).status,403)
-  assert.equal((await edge.callback({...edge.resource(32),AccountSid:'synthetic-handset-999'})).status,403)
-  assert.equal((await edge.callback({...edge.resource(33),To:'+15125550199'})).status,403)
-  assert.equal((await f.read()).entries.length,before)
-  // Provider-reported abandon clears its real native reservation; a terminal
-  // callback never manufactures an answered leg or a successful bridge.
-  assert.equal((await edge.callback({...calls[0],CallStatus:'completed'})).status,200)
-  state=await f.read();assert.equal(state.reservations.length,1);assert.equal(counts(state,'abandoned'),1)
+  assert.ok(state.offers.every(o=>o.state==='uncertain'),'emitting Dial never fabricates an answered call')
+  const spanish=state.offers.find(o=>o.agent_id===f.spanish),english=state.offers.find(o=>o.agent_id===f.english)
+  assert.equal((await post(runtime,f.base+'/entries/'+spanish.entry_id+'/accept',{revision:state.entries.find(e=>e.id===spanish.entry_id).revision},f.headers)).status,409)
+  // Callback labels cannot advance a call when the authoritative child GET
+  // has a foreign parent, destination, or still-ringing status.
+  await runtime.sql('UPDATE hnd_queue_offers SET emitted_at=emitted_at-10000 WHERE id=?',spanish.id)
+  let sid=edge.child(0,calls[0],destinations[f.spanish],'in-progress',{parent_call_sid:'synthetic-handset-999'})
+  assert.equal((await edge.status(spanish,sid)).status,502)
+  sid=edge.child(0,calls[0],destinations[f.english],'in-progress')
+  assert.equal((await edge.status(spanish,sid)).status,502)
+  sid=edge.child(0,calls[0],destinations[f.spanish],'ringing')
+  assert.equal((await edge.status(spanish,sid,{CallStatus:'in-progress'})).status,204)
+  state=await f.read();assert.equal(state.entries.find(e=>e.id===spanish.entry_id).state,'reserved')
+  edge.child(0,calls[0],destinations[f.spanish],'in-progress')
+  assert.equal((await edge.status(spanish,sid,{CallStatus:'ringing'})).status,204)
+  state=await f.read();assert.equal(state.entries.find(e=>e.id===spanish.entry_id).state,'active')
+  assert.equal(state.reservations.find(r=>r.entry_id===spanish.entry_id).state,'active')
+  const canonical=(await runtime.sql('SELECT r.* FROM hnd_records r JOIN hnd_source_objects o ON o.record_id=r.id WHERE o.source_id=? AND o.external_id=?',source.source.id,sid)).results[0]
+  assert.equal(canonical.kind,'call_leg');assert.equal(canonical.parent_id,state.entries.find(e=>e.id===spanish.entry_id).call_id)
+  edge.child(0,calls[0],destinations[f.spanish],'completed')
+  assert.equal((await edge.status(spanish,sid)).status,204)
+  state=await f.read()
+  const completed=state.offers.find(o=>o.id===spanish.id)
+  assert.equal(completed.state,'completed');assert.ok(completed.service_seconds>0)
+  assert.equal(state.agents.find(a=>a.operator_id===f.spanish).wrapping,true)
+  const receipt=await edge.action(completed);assert.equal(receipt.status,200);assert.match(await receipt.text(),/<Hangup\/>/)
+  assert.equal((await edge.status(spanish,sid)).status,204,'duplicate terminal callback reconciles without another completion')
+  assert.equal((await runtime.sql('SELECT count(*) AS n FROM hnd_queue_service_observations WHERE offer_id=?',spanish.id)).results[0].n,1)
+  const reservedAfter=(await f.read()).reservations.length
+  assert.equal((await edge.callback({...calls[1],CallStatus:'completed'})).status,200)
+  assert.equal((await f.read()).reservations.length,reservedAfter,'a forged terminal parameter cannot abandon an actually live parent')
+  edge.parent(calls[1],{status:'completed',end_time:new Date().toUTCString(),duration:'0'})
+  assert.equal((await edge.callback({...calls[1],CallStatus:'completed'})).status,200)
+  state=await f.read();assert.equal(state.reservations.length,0);assert.equal(counts(state,'abandoned'),1)
   await runtime.sql("UPDATE hnd_queue_entries SET deadline_at=? WHERE state IN ('waiting','reserved')",Date.now()-1)
-  const overflow=await edge.callback(calls[1]);assert.equal(overflow.status,200)
-  const xml=await overflow.text();assert.match(xml,/<Hangup\/>/);assert.match(xml,/not available/)
-  state=await f.read();assert.equal(counts(state,'overflow'),19);assert.equal(state.reservations.length,0)
+  await f.write(f.base+'/reconcile',{})
+  const overflow=await edge.callback(calls[2]);assert.equal(overflow.status,200)
+  const xml=await overflow.text();assert.ok(xml.includes('<Redirect method="POST">'+media.overflowUrl+'</Redirect>'));assert.ok(!xml.includes('<Hangup'))
+  state=await f.read();assert.equal(counts(state,'overflow'),18)
+  const newCall={...edge.resource(40),Digits:'2'},estimate=await edge.callback(newCall)
+  assert.equal(estimate.status,200)
+  assert.match(await estimate.text(),/aproximada/)
+  state=await f.read()
+  assert.ok(state.announcements.some(a=>a.estimated_wait_seconds>0&&a.estimate_samples>0),'qualified estimate derives only from measured completed provider service')
+  assert.ok(runtime.sourceRequests.every(r=>r.method==='GET'),'Dial is an official TwiML instruction; no API call creation is invented')
+  const before=state.entries.length
+  assert.equal((await edge.callback(edge.resource(50),{signature:false})).status,403)
+  assert.equal((await edge.callback(edge.resource(51),{signedOrigin:'https://synthetic-handset-999.example.test'})).status,403)
+  assert.equal((await edge.callback({...edge.resource(52),AccountSid:'synthetic-handset-999'})).status,403)
+  assert.equal((await edge.callback({...edge.resource(53),To:'+15125550199'})).status,403)
+  assert.equal((await f.read()).entries.length,before)
   await f.write(f.base+'/sources/revoke',{bindingId:binding.id})
-  assert.equal((await edge.callback(calls[2])).status,403)
-  const result=await runtime.request('/api/handset/audit/export',{headers:f.headers}),audit=await result.json()
+  assert.equal((await edge.callback(calls[3])).status,403)
+  const audit=await (await runtime.request('/api/handset/audit/export',{headers:f.headers})).json()
   assert.ok(audit.rows.some(r=>r.action==='source.refuse'&&r.outcome==='refused'))
+ }finally{await runtime.close()}
+})
+
+test('A lost Dial response is never replayed after restart; verified active calls survive logout and maximum wait cancels only an unanswered child once',async()=>{
+ const runtime=await openHandset({twilio:true})
+ try{
+  const source=await sourceFixture(runtime),f=await queueFixture(runtime,source.cookie),media=await authorizeQueueMedia(f,source),{edge,destinations}=media
+  const call={...edge.resource(60),Digits:'2'}
+  const initial=await edge.callback(call);assert.equal(initial.status,200);assert.match(await initial.text(),/<Dial /)
+  let state=await f.read(),offer=state.offers[0]
+  await runtime.restart()
+  const repeated=await edge.callback(call);assert.equal(repeated.status,200);assert.ok(!(await repeated.text()).includes('<Dial'))
+  await runtime.sql('UPDATE hnd_queue_reservations SET lease_until=? WHERE entry_id=?',Date.now()-1,offer.entry_id)
+  await f.write(f.base+'/reconcile',{})
+  state=await f.read();assert.equal(state.reservations.length,1);assert.equal(state.offers.length,1);assert.equal(state.offers[0].state,'uncertain')
+  await runtime.sql('UPDATE hnd_queue_offers SET emitted_at=emitted_at-10000 WHERE id=?',offer.id)
+  const sid=edge.child(10,call,destinations[f.spanish],'in-progress')
+  await f.write(f.base+'/offers/'+offer.id+'/reconcile',{})
+  state=await f.read();assert.equal(state.entries.find(e=>e.id===offer.entry_id).state,'active')
+  await f.changeMembership(f.sales,f.spanish,0);await f.presence(f.spanish,'offline')
+  state=await f.read()
+  assert.equal(state.memberships.find(m=>m.queue_id===f.support.id&&m.operator_id===f.spanish).logged_in,1)
+  assert.equal(state.entries.find(e=>e.id===offer.entry_id).state,'active')
+  assert.equal((await post(runtime,f.base+'/entries/'+offer.entry_id+'/complete',{revision:state.entries.find(e=>e.id===offer.entry_id).revision},f.headers)).status,409)
+  const loggedOut={...edge.resource(61),Digits:'2'},overflow=await edge.callback(loggedOut)
+  assert.equal(overflow.status,200);assert.ok((await overflow.text()).includes(media.overflowUrl))
+  assert.equal((await f.read()).entries.find(e=>e.id===offer.entry_id).state,'active')
+  edge.child(10,call,destinations[f.spanish],'completed')
+  assert.equal((await edge.status(offer,sid)).status,204)
+  await f.changeMembership(f.sales,f.spanish,1);await f.presence(f.spanish)
+  const next={...edge.resource(62),Digits:'2'},wrapped=await edge.callback(next)
+  assert.equal(wrapped.status,200);assert.ok(!(await wrapped.text()).includes('<Dial'))
+  await runtime.sql('UPDATE hnd_queue_agents SET wrap_until=?,heartbeat_at=? WHERE operator_id=?',Date.now()-1,Date.now(),f.spanish)
+  const dial=await edge.callback(next);assert.equal(dial.status,200);assert.match(await dial.text(),/<Dial /)
+  state=await f.read();offer=state.offers.find(o=>o.state==='uncertain')
+  await runtime.sql('UPDATE hnd_queue_offers SET emitted_at=emitted_at-10000 WHERE id=?',offer.id)
+  const ringingSid=edge.child(11,next,destinations[f.spanish],'ringing')
+  assert.equal((await edge.status(offer,ringingSid)).status,204)
+  await runtime.sql('UPDATE hnd_queue_entries SET deadline_at=? WHERE id=?',Date.now()-1,offer.entry_id)
+  await f.write(f.base+'/offers/'+offer.id+'/reconcile',{})
+  await f.write(f.base+'/offers/'+offer.id+'/reconcile',{})
+  const cancels=runtime.sourceRequests.filter(r=>r.method==='POST'&&r.url.endsWith('/'+ringingSid+'.json'))
+  assert.equal(cancels.length,1,'uncertain cancellation acknowledgment never causes another provider POST')
+  state=await f.read();assert.equal(state.entries.find(e=>e.id===offer.entry_id).state,'reserved')
+  edge.child(11,next,destinations[f.spanish],'canceled')
+  await f.write(f.base+'/offers/'+offer.id+'/reconcile',{})
+  const continued=await edge.action({...offer,child_call_sid:ringingSid},{DialCallStatus:'canceled',DialBridged:'false'})
+  assert.equal(continued.status,200);assert.ok((await continued.text()).includes(media.overflowUrl))
+  state=await f.read();assert.equal(state.reservations.length,0)
+  assert.equal(state.entries.find(e=>e.id===offer.entry_id).state,'overflow')
+  assert.equal((await runtime.sql("SELECT count(*) AS n FROM hnd_queue_events WHERE entry_id=? AND type='offer.emitted'",offer.entry_id)).results[0].n,1)
+  assert.equal((await post(runtime,f.base+'/agents/'+f.spanish+'/route',{sourceId:source.source.id,kind:'sip',destination:'sip:synthetic-handset-999:synthetic-handset-998@synthetic-handset-997.example.test',revision:1,confirm:'approve exact queue agent route'},f.headers)).status,400)
+  assert.equal((await post(runtime,f.base+'/overflow/'+f.sales.id+'/route',{url:'https://synthetic-handset-999.example.test/voicemail?synthetic-handset-998',revision:1,confirm:'approve exact queue overflow route'},f.headers)).status,400)
  }finally{await runtime.close()}
 })

@@ -1,12 +1,18 @@
 import { Fault } from '../core'
 import { entryGuard, event, guard, queue, statement, write, type Context } from './storage'
 import { overflow } from './entries'
+import { currentOffer } from './offers'
+import { recoverOffer } from './offer-readback'
 import { matches, presenceFreshMs, reservationLeaseMs, type Agent, type Entry, type Membership, type Queue, type Reservation } from './model'
 
 export async function reconcile(ctx:Context,queueId?:string){
  const now=Date.now(),expired=(await statement(ctx,`SELECT e.* FROM hnd_queue_entries e WHERE e.state IN ('waiting','reserved') ${queueId?'AND e.queue_id=?':''} ORDER BY e.deadline_at,e.id LIMIT 1000`,...(queueId?[queueId]:[])).all<Entry>()).results
+ const active=(await statement(ctx,`SELECT o.* FROM hnd_queue_offers o WHERE o.state='active' ${queueId?'AND o.queue_id=?':''} ORDER BY o.emitted_at LIMIT 1000`,...(queueId?[queueId]:[])).all<import('./offers').Offer>()).results
+ for(const offer of active)await recoverOffer(ctx,offer)
  let overflows=0,released=0
  for(const row of expired){
+  const offer=await currentOffer(ctx,row)
+  if(offer&&['uncertain','ringing','active'].includes(offer.state)){await recoverOffer(ctx,offer);continue}
   if(row.deadline_at<=now){await overflow(ctx,row,await queue(ctx,row.queue_id),'maximum_wait',now);overflows++;continue}
   if(row.state==='reserved'){
    const lease=await statement(ctx,'SELECT * FROM hnd_queue_reservations WHERE entry_id=?',row.id).first<Reservation>()
@@ -33,7 +39,12 @@ export async function dispatch(ctx:Context,queueId:string){
  const waiting=(await statement(ctx,"SELECT * FROM hnd_queue_entries WHERE queue_id=? AND state='waiting' ORDER BY priority DESC,queued_at,created_at,id LIMIT 1000",q.id).all<Entry>()).results
  const assigned:string[]=[],overflowed:string[]=[]
  for(const row of waiting){
-  const staff=(await roster(ctx,q)).filter(a=>matches(a,row,q)&&a.heartbeat_at>now-presenceFreshMs&&['available','busy'].includes(a.availability))
+  let staff=(await roster(ctx,q)).filter(a=>matches(a,row,q)&&a.heartbeat_at>now-presenceFreshMs&&['available','busy'].includes(a.availability))
+  const source=await statement(ctx,'SELECT source_id FROM hnd_record_sources WHERE record_id=?',row.call_id).first<{source_id:string}>()
+  if(source){
+   const routes=(await statement(ctx,`SELECT r.operator_id FROM hnd_queue_agent_routes r JOIN oa_operators o ON o.id=r.approved_by WHERE r.source_id=? AND r.revoked_at IS NULL AND o.status='active' AND o.role='owner' AND o.version=r.owner_version`,source.source_id).all<{operator_id:string}>()).results
+   staff=staff.filter(a=>routes.some(r=>r.operator_id===a.operator_id))
+  }
   if(!staff.length){await overflow(ctx,row,q,'no_eligible_agent',now);overflowed.push(row.id);continue}
   const occupied=(await statement(ctx,'SELECT agent_id,slot FROM hnd_queue_reservations').all<{agent_id:string;slot:number}>()).results
   const candidates=staff.filter(a=>a.availability==='available'&&a.wrap_until<=now).map(a=>({agent:a,slot:Array.from({length:a.capacity},(_,i)=>i+1).find(slot=>!occupied.some(r=>r.agent_id===a.operator_id&&r.slot===slot))})).filter((v):v is {agent:typeof staff[number];slot:number}=>v.slot!==undefined)

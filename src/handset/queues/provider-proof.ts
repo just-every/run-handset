@@ -3,6 +3,9 @@ import { statement, write, type Context } from './storage'
 import type { QueueBinding } from './provider-consent'
 
 export interface BoundSource extends QueueBinding {account_id:string;number_id:string;source_owner_id:string;source_owner_version:number;source_revision:number;number_data:string}
+export async function boundSource(env:Context['env'],bindingId:string){
+ return env.DB.prepare(`SELECT b.*,s.account_id,s.number_id,s.owner_id AS source_owner_id,s.owner_version AS source_owner_version,s.revision AS source_revision,n.data AS number_data FROM hnd_queue_bindings b JOIN hnd_sources s ON s.id=b.source_id JOIN hnd_records n ON n.id=s.number_id JOIN oa_operators bo ON bo.id=b.owner_id JOIN oa_operators so ON so.id=s.owner_id WHERE b.id=? AND b.revoked_at IS NULL AND s.revoked_at IS NULL AND bo.status='active' AND bo.role='owner' AND bo.version=b.owner_version AND so.status='active' AND so.role='owner' AND so.version=s.owner_version`).bind(bindingId).first<BoundSource>()
+}
 export async function verifyQueueRequest(request:Request,env:Context['env'],p:URLSearchParams){
  const signature=request.headers.get('x-twilio-signature')
  if(!env.HANDSET_TWILIO_AUTH_TOKEN||!signature||!/^[A-Za-z0-9+/]{27}=$/.test(signature))throw new Fault('invalid_queue_source_proof',403)

@@ -9,11 +9,12 @@ export type OwnerContext=Context&{actor:Session}
 export const statement=(ctx:Context,sql:string,...values:(string|number|null)[])=>ctx.env.DB.prepare(sql).bind(...values)
 export const guard=(ctx:Context,sql:string,...values:(string|number|null)[])=>statement(ctx,'INSERT INTO hnd_guard(ok) '+sql,...values)
 export function event(ctx:Context,type:string,queueId:string|null,entryId:string|null,agentId:string|null,payload:Record<string,unknown>={},at=Date.now()){
- return statement(ctx,'INSERT INTO hnd_queue_events(id,queue_id,entry_id,agent_id,type,occurred_at,payload) VALUES (?,?,?,?,?,?,?)',id(),queueId,entryId,agentId,type,at,JSON.stringify({source:'native',transport:'unknown',...payload}))
+ return statement(ctx,`INSERT INTO hnd_queue_events(id,queue_id,entry_id,agent_id,type,occurred_at,payload) VALUES (?,?,?,?,?,?,json_set(?,'$.visitId',(SELECT id FROM hnd_queue_visits WHERE entry_id=? AND queue_id=? ORDER BY ordinal DESC LIMIT 1)))`,id(),queueId,entryId,agentId,type,at,JSON.stringify({source:'native',transport:'unknown',...payload}),entryId,queueId)
 }
 export async function write(ctx:Context,subject:string,statements:D1PreparedStatement[]){
- if(ctx.actor)await commit(ctx.env,ctx.actor,'product.request',subject,'completed',statements)
- else if(ctx.auditActor)await append(ctx.env,ctx.auditActor,'product.request',subject,'completed',[...(ctx.fences?.()??[]),...statements])
+ const guarded=[...(ctx.fences?.()??[]),...statements]
+ if(ctx.actor)await commit(ctx.env,ctx.actor,'product.request',subject,'completed',guarded)
+ else if(ctx.auditActor)await append(ctx.env,ctx.auditActor,'product.request',subject,'completed',guarded)
  else throw new Fault('queue_writer_authority_required',403)
 }
 export async function queue(ctx:Context,queueId:string){

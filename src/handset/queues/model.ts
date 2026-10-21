@@ -13,7 +13,7 @@ export interface Agent {
 export interface Entry {
  id:string; queue_id:string; origin_queue_id:string; call_id:string; language:string; skills:string; priority:number;
  state:'waiting'|'reserved'|'active'|'completed'|'abandoned'|'overflow'; agent_id:string|null; created_at:number; queued_at:number;
- deadline_at:number; reserved_at:number|null; accepted_at:number|null; ended_at:number|null; overflow_kind:string|null; reason:string; visited:string; revision:number
+ deadline_at:number; reserved_at:number|null; accepted_at:number|null; ended_at:number|null; overflow_kind:string|null; reason:string; visited:string; revision:number; current_visit_id:string|null
 }
 export interface Reservation { entry_id:string; agent_id:string; slot:number; lease_until:number; state:'reserved'|'active' }
 export interface Membership {queue_id:string;operator_id:string;logged_in:number;priority:number;revision:number;updated_at:number}

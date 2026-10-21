@@ -9,6 +9,10 @@ import { dispatch, reconcile } from './routing'
 import { queuesPage } from './pages'
 import { queue } from './storage'
 import { bindSource, revokeBinding } from './provider-consent'
+import { revokeMediaRoute, writeAgentRoute, writeOverflowRoute } from './media-policy'
+import { offerById } from './offers'
+import { recoverOffer } from './offer-readback'
+import { queueMediaPage } from './media-pages'
 
 function formValues(value:ObjectValue){
  const data={...value}
@@ -17,7 +21,7 @@ function formValues(value:ObjectValue){
  if(data.overflowQueueId==='')delete data.overflowQueueId
  return data
 }
-const redirect=()=>new Response(null,{status:303,headers:{location:'/app/queues','cache-control':'no-store'}})
+const redirect=(media=false)=>new Response(null,{status:303,headers:{location:media?'/app/queues/media':'/app/queues','cache-control':'no-store'}})
 export async function queueDoor(request:Request,env:Bindings,actor:Session,data?:ObjectValue):Promise<Response|null>{
  const url=new URL(request.url),path=url.pathname,html=path.startsWith('/app/'),base=html?'/app/queues':'/api/handset/queues'
  if(path!==base&&!path.startsWith(base+'/'))return null
@@ -36,6 +40,7 @@ export async function queueDoor(request:Request,env:Bindings,actor:Session,data?
    const people=(await env.DB.prepare("SELECT id,display_name FROM oa_operators WHERE status='active' ORDER BY display_name,id").all<{id:string;display_name:string}>()).results
    return queuesPage(result,people)
   }
+  if(html&&path===base+'/media'){const result=await snapshot(ctx);await commit(env,actor,'product.access','installation','completed');return queueMediaPage(result)}
   if(path===base+'/events'){
    keys(Object.fromEntries(url.searchParams),['after','queueId'])
    const queueId=url.searchParams.get('queueId')??undefined;if(queueId)await queue(ctx,queueId)
@@ -57,9 +62,15 @@ export async function queueDoor(request:Request,env:Bindings,actor:Session,data?
  else if(path===base+'/admit'){
   const queueId=text(value.queueId,'queueId');delete value.queueId;result=await enqueue(ctx,queueId,value);status=201
  }else{
+  const route=path.match(new RegExp('^'+base+'/(agents|overflow)/([^/]+)/route(/revoke)?$'))
+  const offer=path.match(new RegExp('^'+base+'/offers/([^/]+)/reconcile$'))
   const q=path.match(new RegExp('^'+base+'/([^/]+)/(configure|memberships|entries|dispatch)$'))
   const action=path.match(new RegExp('^'+base+'/entries/([^/]+)/(accept|complete|abandon)$'))
-  if(q){
+  if(route){
+   if(route[3]){keys(value,[]);result=await revokeMediaRoute(ctx,route[1]==='agents'?'agent':'overflow',route[2])}
+   else result=route[1]==='agents'?await writeAgentRoute(ctx,route[2],value):await writeOverflowRoute(ctx,route[2],value)
+  }else if(offer){keys(value,[]);result=await recoverOffer(ctx,await offerById(ctx,offer[1]))}
+  else if(q){
    if(q[2]==='configure')result=await configureQueue(ctx,value,q[1])
    else if(q[2]==='memberships')result=await membership(ctx,q[1],value)
    else if(q[2]==='entries'){result=await enqueue(ctx,q[1],value);status=201}
@@ -67,5 +78,5 @@ export async function queueDoor(request:Request,env:Bindings,actor:Session,data?
   }else if(action)result=await entryAction(ctx,action[1],action[2],value)
   else return null
  }
- return html?redirect():json(result,status)
+ return html?redirect(/\/(agents|overflow)\/[^/]+\/route(?:\/revoke)?$|\/offers\/[^/]+\/reconcile$/.test(path)):json(result,status)
 }

@@ -47,14 +47,37 @@ export async function queueFixture(runtime,cookie){
 export function queueProviderFixture(runtime,source,binding){
  function resource(index,fields={}){
   const sid='synthetic-handset-'+(900+index),from='+1512555'+String(100+index).padStart(4,'0')
-  source.resource('Calls',sid,{direction:'inbound',from,to:'+15125550125',status:'in-progress',date_created:new Date().toUTCString(),...fields})
+  source.resource('Calls',sid,{direction:'inbound',from,to:'+15125550125',status:'in-progress',date_created:new Date(Date.now()-10000).toUTCString(),...fields})
+  runtime.twilioResources.set(`https://api.twilio.com/2010-04-01/Accounts/${source.account}/Calls.json?ParentCallSid=${sid}&PageSize=100`,{calls:[],next_page_uri:null})
   return {CallSid:sid,From:from,To:'+15125550125',CallStatus:'in-progress'}
  }
- function callback(fields,{signature=true,signedOrigin=runtime.origin}={}){
+ function callback(fields,{signature=true,signedOrigin=runtime.origin,path=binding.callbackPath}={}){
   const data={AccountSid:source.account,...fields},parameters=new URLSearchParams(data)
-  let signed=signedOrigin+binding.callbackPath
+  let signed=signedOrigin+path
   for(const key of Object.keys(data).sort())signed+=key+data[key]
-  return runtime.request(binding.callbackPath,{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded',...(signature?{'x-twilio-signature':createHmac('sha1','synthetic-handset-500').update(signed).digest('base64')}:{})},body:parameters.toString()})
+  return runtime.request(path,{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded',...(signature?{'x-twilio-signature':createHmac('sha1','synthetic-handset-500').update(signed).digest('base64')}:{})},body:parameters.toString()})
  }
- return {resource,callback}
+ function child(index,parent,destination,status='ringing',fields={}){
+  const sid='synthetic-handset-'+(1200+index),prior=runtime.twilioResources.get(`https://api.twilio.com/2010-04-01/Accounts/${source.account}/Calls/${sid}.json`),start=prior?.start_time??new Date(Date.now()-1000).toUTCString(),end=new Date().toUTCString()
+  const data={direction:'outbound-dial',parent_call_sid:parent.CallSid,to:destination,from:parent.From,status,date_created:prior?.date_created??new Date(Date.now()-1000).toUTCString(),start_time:['in-progress','completed'].includes(status)?start:null,end_time:status==='completed'?end:null,duration:status==='completed'?String(Math.floor((Date.parse(end)-Date.parse(start))/1000)):null,...fields}
+  source.resource('Calls',sid,data)
+  runtime.twilioResources.set(`https://api.twilio.com/2010-04-01/Accounts/${source.account}/Calls.json?ParentCallSid=${parent.CallSid}&PageSize=100`,{calls:[{account_sid:source.account,sid,...data}],next_page_uri:null})
+  return sid
+ }
+ function parent(call,fields={}){source.resource('Calls',call.CallSid,{direction:'inbound',from:call.From,to:call.To,status:'in-progress',date_created:new Date(Date.now()-10000).toUTCString(),...fields})}
+ function status(offer,childSid,fields={}){return callback({CallSid:childSid,ParentCallSid:offer.parent_call_sid,CallStatus:'in-progress',...fields},{path:binding.callbackPath+'/offers/'+offer.id+'/status'})}
+ function action(offer,fields={}){return callback({CallSid:offer.parent_call_sid,DialCallSid:offer.child_call_sid,DialCallStatus:'completed',DialBridged:'true',...fields},{path:binding.callbackPath+'/offers/'+offer.id+'/action'})}
+ return {resource,callback,child,parent,status,action}
+}
+
+export async function authorizeQueueMedia(f,source){
+ const destinations={
+  [f.english]:'sip:synthetic-handset-611@synthetic-handset-612.example.test',
+  [f.spanish]:'sip:synthetic-handset-613@synthetic-handset-614.example.test',
+ }
+ for(const [operatorId,destination] of Object.entries(destinations))await f.write(f.base+'/agents/'+operatorId+'/route',{sourceId:source.source.id,kind:'sip',destination,confirm:'approve exact queue agent route'})
+ const overflowUrl='https://synthetic-handset-620.example.test/voicemail'
+ for(const q of [f.sales,f.support])await f.write(f.base+'/overflow/'+q.id+'/route',{url:overflowUrl,confirm:'approve exact queue overflow route'})
+ const binding=await f.write(f.base+'/sources',{sourceId:source.source.id,queueId:f.sales.id,language:'en',spanishDigit:'2',confirm:'authorize signed inbound queue routing'},201)
+ return {destinations,overflowUrl,binding,edge:queueProviderFixture(f.runtime,source,binding)}
 }

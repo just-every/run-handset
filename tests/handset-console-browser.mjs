@@ -5,12 +5,13 @@ import { chromium } from '@playwright/test'
 import { openHandset } from './helpers/handset-worker.mjs'
 import { signIn,post } from './helpers/handset-auth.mjs'
 import { adminCsv,adminFixture } from './helpers/handset-admin.mjs'
+import { queueMediaJourney } from './helpers/handset-queue-browser.mjs'
 import { queueFixture } from './helpers/handset-queues.mjs'
 import { protectionFixture } from './helpers/handset-protection.mjs'
 import { metricDataset,metricStart,metricConfig } from './helpers/handset-metrics.mjs'
 import { importDataset } from './helpers/handset-import.mjs'
 
-for(const width of [1440,390])for(const domain of ['administration','queues','metrics','protection'])test(`${domain} console at ${width}`,async()=>{
+for(const width of [1440,390])for(const domain of ['administration','queues','queue-media','metrics','protection'])test(`${domain} console at ${width}`,async()=>{
  const runtime=await openHandset({twilio:true}),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage()
  page.setDefaultTimeout(10000)
@@ -84,6 +85,7 @@ for(const width of [1440,390])for(const domain of ['administration','queues','me
   const revise=page.locator('details').filter({has:page.locator('summary',{hasText:'Revise Support'})})
   await revise.locator('summary').click();await revise.getByRole('checkbox').check();await revise.getByRole('button',{name:'Save queue policy',exact:true}).click();await page.getByRole('alert').waitFor();await proof('queue-stale-refusal')
   }
+  if(domain==='queue-media')await queueMediaJourney({runtime,page,proof,cookie})
   if(domain==='metrics'){
   await page.goto(runtime.origin+'/app/import');await proof('import-empty')
   await page.getByLabel('Source JSON',{exact:true}).fill(JSON.stringify(metricDataset()))
@@ -137,7 +139,7 @@ for(const width of [1440,390])for(const domain of ['administration','queues','me
   await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
   const member=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'}),[memberName,...memberValue]=member.cookie.split('=')
   await context.clearCookies();await context.addCookies([{name:memberName,value:memberValue.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
-  const privatePaths={administration:[['/app/admin/bulk','bulk'],['/app/admin/templates','template']],queues:[['/app/queues','queue']],metrics:[['/app/reports/queues','report'],['/app/import','import']],protection:[['/app/protection','protection']]}
+  const privatePaths={administration:[['/app/admin/bulk','bulk'],['/app/admin/templates','template']],queues:[['/app/queues','queue']],'queue-media':[['/app/queues/media','queue-media']],metrics:[['/app/reports/queues','report'],['/app/import','import']],protection:[['/app/protection','protection']]}
   for(const [path,name] of privatePaths[domain]){
    await page.goto(runtime.origin+path);await page.getByRole('alert').waitFor();await proof(name+'-permission-denied')
   }
