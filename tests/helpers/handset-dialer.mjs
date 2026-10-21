@@ -30,7 +30,7 @@ export async function dialerFixture(runtime){
  async function makeList({count=3,mode,policyId,check=true,...extra}={}){
   const recipients=[]
   for(let n=0;n<count;n++){
-   const c=await write('/api/handset/cases',{title:next()},201),caseId=c.current.id,personId=await record('person',{name:next()},caseId),consentId=await record('consent',{purpose,state:'pending'},caseId,personId),recipient='+1512555'+String(sequence++).padStart(4,'0')
+   const displayName=['Alicia Torres','Daniel Kim','Rosa García'][n%3],c=await write('/api/handset/cases',{title:'Requested appointment callback · '+displayName+' · Austin office'},201),caseId=c.current.id,personId=await record('person',{name:displayName},caseId),consentId=await record('consent',{purpose,state:'pending'},caseId,personId),recipient='+1512555'+String(sequence++).padStart(4,'0')
    recipients.push({caseId,personId,consentId,recipient,timezone:openTimezone(),jurisdiction:'US-TX',startMinute:480,endMinute:1260})
   }
   const input={name:next(),purpose,sourceId:s.source.id,queueId:q.sales.id,qualificationId:qualified.id,repId:q.english,budgetCents:1000,attemptCents:100,maxConcurrency:2,modes:mode?[mode]:qualificationInput.modes,recipients,expiresAt:Date.now()+1800000,...(policyId?{policyId}:{}),confirm:policyId?'snapshot list under exact standing policy':'approve exact campaign list and budget',...extra}
@@ -40,7 +40,7 @@ export async function dialerFixture(runtime){
  }
  async function verify(l,ordinal,evidenceId,extra={}){return write(base+'/lists/'+l.id+'/recipients/'+ordinal+'/verify',{consentEvidenceId:evidenceId,company:'clear',national:'clear',state:'clear',campaign:'clear',purpose,methods:l.input.modes,expiresAt:Date.now()+1200000,confirm:'verify exact recipient consent and current suppression checks',...extra})}
  let currentReady
- async function ready(agentId=q.english){
+ async function ready(agentId=q.english,{persist=true}={}){
   await q.presence(q.english);await q.presence(q.spanish)
   const conferenceSid=next(),agentCallSid=next(),conferenceName=next(),now=new Date(Date.now()-10000).toUTCString()
   s.resource('Conferences',conferenceSid,{friendly_name:conferenceName,status:'in-progress'})
@@ -49,7 +49,7 @@ export async function dialerFixture(runtime){
   const agent={account_sid:s.account,conference_sid:conferenceSid,call_sid:agentCallSid,status:'connected',muted:false,hold:false,date_created:now}
   runtime.twilioResources.set(participantsUrl,{participants:[agent],next_page_uri:null})
   currentReady={conferenceSid,agentCallSid,conferenceName,participantsUrl,agent,agentId}
-  await write(base+'/ready',{agentId,sourceId:s.source.id,conferenceSid,conferenceName,agentCallSid,expiresAt:Date.now()+85000,confirm:'reserve this independently connected waiting agent'})
+  if(persist)await write(base+'/ready',{agentId,sourceId:s.source.id,conferenceSid,conferenceName,agentCallSid,expiresAt:Date.now()+85000,confirm:'reserve this independently connected waiting agent'})
   return currentReady
  }
  async function session(l,mode='progressive'){return write(base+'/lists/'+l.id+'/sessions',{mode,confirm:'start exact approved list in this mode'},201)}

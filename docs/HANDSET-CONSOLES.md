@@ -46,10 +46,24 @@ The Worker cron also reconciles native deadlines and dispatches eligible work.
 Authorize a current inbound source and queue on this screen to obtain a signed
 Twilio Voice URL. The edge reads the official Call resource, preserves source
 identity and emits English/Spanish position Say/Pause/Redirect instructions.
-Prepared instructions remain pending audio receipt. Agent bridging, verified
-wait estimates and voicemail/receptionist delivery are unqualified; a native
-reservation is not an answered call. An unavailable selected destination is
-disclosed, never represented by a fabricated delivery. HND-006/007/031 provide
+Prepared instructions remain pending audio receipt. `/app/queues/media`
+approves an exact existing Client or SIP agent address and the existing HTTPS
+voicemail/receptionist destination. Source activation refuses a missing selected
+overflow route. A durable offer is saved before its one-shot Dial instruction;
+a lost response never repeats Dial. Signed child/action callbacks and explicit
+reconciliation independently read the parent and child, exact destination and
+source identity before changing reservation state. Ringing, provider-connected,
+completed and actual audio receipt are separate facts. Revoking a route or queue
+membership preserves active work. A maximum-wait cancellation targets only an
+unanswered child and reads back its outcome; it never completes an active call.
+
+Qualified estimates disclose completed-service samples, wrap and current staffed
+capacity. Without samples the estimate is unavailable. Transfer/overflow retain
+one stable parent and separate queue visits. Existing approved HTTPS overflow
+routes receive a Redirect for this same caller; emitted routing instructions do
+not establish voicemail capture or receptionist receipt. Actual receiver,
+bidirectional audio, announcements and delivery remain unqualified. An unavailable
+selected destination is disclosed, never represented by a fabricated delivery. HND-006/007/031 provide
 the qualified flow, endpoint and carrier paths; HND-019/069 retain actual media
 and capacity qualification. HND-027 inherits scoped non-owner administration.
 
@@ -100,8 +114,51 @@ USD is a configured maximum estimate, not a carrier charge receipt. Normal
 callers and designated callbacks retain their approved continuation.
 
 Native fax intake can be withheld; a post-reception fax notification cannot
-prevent carrier reception or charges. Real pre-reception fax admission, SIP
-registrar enforcement, screening and paid outbound adapters remain unqualified.
+prevent carrier reception or charges. Screen rules emit bilingual DTMF Gather
+instructions. Each call retains bounded attempts, expiry and exact signed
+source/account/call/caller/number scope. A consumed round cannot reset attempts;
+success continues at most once through the current approved route. Changed
+source/owner/rule authority cancels old challenges; current explicit allow and
+designated callback exceptions take precedence. A digit establishes interaction,
+never human identity or outbound consent. The console shows progress without the
+expected response. Actual audible screening, pre-reception fax admission, SIP
+registrar enforcement and paid carrier qualification remain unqualified.
 HND-001/003/011/024/031 must apply current protection and consent at their actual
 effect boundaries; HND-004 retains qualified emergency delivery and HND-027
 inherits scoped personal-policy administration.
+
+## Blended outbound controls
+
+`/app/dialer` records exact owner-approved audiences and purposes. Native case
+and consent observations alone grant no calling permission. Each recipient needs
+an explicit, current owner verification tied to its consent evidence, exact
+purpose and modes and clear company, national, state and campaign suppression
+checks. Unknown or stale checks, a superseding consent record, a stop and quiet
+hours hold the recipient. Standing approvals snapshot exact limits and CRM owner;
+they never choose an Orbit audience or waive recipient checks.
+
+Preview, progressive, power, bounded parallel and predictive sessions retain
+cursors and per-attempt dispositions. Predictive eligibility uses observed
+provider outcomes and attributed human dispositions; unknown, insufficient or
+breached observations hold prediction. Current staffed capacity reserves the
+configured inbound share, pauses on inbound breaches and shares atomic slots
+with native inbound queues. An independently connected waiting human agent and
+its exact approved conference are read back before recipient creation.
+
+Every launch is an explicit owner action with exact approval and budget. The
+attempt and capacity reservation commit before the paid Calls request. An
+uncertain create is read back and never retried automatically or released by
+restart. Answer-time checks preserve current consent and waiting-agent authority;
+an unavailable agent gets only the qualified safety message and termination,
+never indefinite hold. Pausing or revocation stops new launches and preserves
+connected work. Provider-connected and customer-confirmed outcomes stay distinct.
+
+External qualification records are audited owner attestations with current native
+evidence references and owned-number readback; this console does not certify law
+or actual media. Independent provider/media receiver, final legal configuration
+and permitted real-traffic qualification remain required before a live campaign
+is qualified. Owner-only administration and explicit human verification are the
+conservative defaults pending ct. HND-021 inherits the remaining campaign/CRM
+controls, HND-027 scoped representatives, HND-031 actual carrier qualification,
+and HND-065/066 complete dialer and screening custody/erasure. No automatic
+campaign launch, recording or data pruning is introduced.
