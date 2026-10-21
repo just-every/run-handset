@@ -70,11 +70,15 @@ export async function addRecord(env: Bindings, actor: Session, value: ObjectValu
   return { record: existing, replay: true }
  }
  if (v.caseId) await getCase(db,v.caseId)
+ if(v.data.transferFrom && v.data.transferFrom !== v.parentId)throw new Fault('transfer_source_mismatch')
+ if(v.data.mention && !v.links.some(link=>link.targetId===v.data.mention&&link.relation==='mentions'))throw new Fault('mention_link_required')
  const referenceIds = [...new Set([v.parentId,v.supersedesId,...v.links.map(link=>link.targetId)].filter((x):x is string=>Boolean(x)))]
  for (const referenceId of referenceIds) {
   const referenced = await db.prepare('SELECT * FROM hnd_records WHERE id=?').bind(referenceId).first<RecordRow>()
   if (!referenced) throw new Fault('linked_record_not_found')
   if (referenced.case_id && referenced.case_id !== v.caseId) throw new Fault('cross_case_link_refused')
+  const relationKinds:Record<string,string[]>={company:['company'],location:['location'],number:['number'],person:['person'],endpoint:['endpoint'],flow:['flow_version'],session:['call_session'],leg:['call_leg'],conversation:['conversation'],media:['media','recording'],consent:['consent'],attempt:['provider_attempt'],usage:['usage'],mentions:['person']}
+  for(const link of v.links.filter(link=>link.targetId===referenceId))if(!relationKinds[link.relation]?.includes(referenced.kind))throw new Fault('link_kind_mismatch')
   if (referenceId === v.supersedesId && (referenced.kind !== v.kind || referenced.case_id !== v.caseId)) throw new Fault('correction_kind_mismatch')
   if (referenceId === v.parentId && v.kind === 'call_leg' && !['call_session','call_leg'].includes(referenced.kind)) throw new Fault('leg_parent_required')
  }
@@ -86,6 +90,7 @@ export async function addRecord(env: Bindings, actor: Session, value: ObjectValu
    ...v.links.map(link=>db.prepare('INSERT INTO hnd_record_links VALUES (?,?,?)').bind(recordId,link.targetId,link.relation)),
   ])
  } catch (error) {
+  if (String(error).includes('UNIQUE constraint failed: hnd_records.kind'))return addRecord(env,actor,value)
   if (/UNIQUE constraint failed: hnd_records/.test(String(error))) throw new Fault('source_or_correction_conflict',409)
   throw error
  }

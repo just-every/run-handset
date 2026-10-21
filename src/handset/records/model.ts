@@ -50,5 +50,5 @@ export function recordInput(value: ObjectValue) {
   links = value.links.map(value => { const link = object(value); keys(link, ['targetId','relation']); return { targetId: text(link.targetId, 'targetId'), relation: choice(link.relation, ['company','location','number','person','endpoint','flow','session','leg','conversation','media','consent','attempt','usage','mentions'], 'relation') } })
   if (new Set(links.map(link => `${link.targetId}:${link.relation}`)).size !== links.length) throw new Fault('duplicate_link')
  }
- return { kind, data, sourceId: text(value.sourceId, 'sourceId'), occurredAt: timestamp(value.occurredAt, 'occurredAt'), caseId: value.caseId ? text(value.caseId, 'caseId') : null, parentId: value.parentId ? text(value.parentId, 'parentId') : null, supersedesId: value.supersedesId ? text(value.supersedesId, 'supersedesId') : null, links }
+ return { kind, data: Object.fromEntries(Object.entries(data).sort(([a],[b])=>a.localeCompare(b))), sourceId: text(value.sourceId, 'sourceId'), occurredAt: timestamp(value.occurredAt, 'occurredAt'), caseId: value.caseId ? text(value.caseId, 'caseId') : null, parentId: value.parentId ? text(value.parentId, 'parentId') : null, supersedesId: value.supersedesId ? text(value.supersedesId, 'supersedesId') : null, links }
 }

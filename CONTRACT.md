@@ -354,7 +354,7 @@ The managed RunEditRun carrier, billing and staffed-support offer requires an ac
 
 ## Status
 
-Status follows the current implementation and named public-door evidence. Partial gaps below remain obligations.
+Judged from the code and tests at commit `9f2d8f7` (21 October 2026).
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |

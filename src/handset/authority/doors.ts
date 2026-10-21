@@ -49,7 +49,7 @@ export async function authorityDoor(request:Request,env:Bindings,actor:Session,v
   return html?page('Standing bounds approved',`<p>Policy ${e(result.id)} · Revision ${result.revision}</p><a href="/app/grants">Return to grants</a>`):json(result,201)
  }
  const revise=path.match(/^\/api\/handset\/grants\/policy\/([^/]+)\/revise$/)
- if(revise&&value&&!read)return json(await writeStanding(env,actor,value,revise[1]))
+ if(revise&&value&&!read)return json(await writeStanding(env,actor,value,revise[1]),201)
  const revoke=path.match(/^\/(?:app|api\/handset)\/grants\/([^/]+)\/revoke$/)
  if(revoke&&!read){const result=await revokeGrant(env,actor,revoke[1]);return html?redirect():json(result)}
  const cancel=path.match(/^\/(?:app|api\/handset)\/grants\/jobs\/([^/]+)\/cancel$/)
