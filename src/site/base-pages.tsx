@@ -16,6 +16,10 @@ export function wearSite(html: string, { page, styles, head }: { page: 'run' | '
   let out = once(html, /<\/head>/, `${head}${styles.map(href => `<link rel="stylesheet" href="${href}">`).join('')}</head>`, 'head')
   out = once(out, /<body>/, `<body class="base-page ${page}-page">`, 'body')
   out = once(out, /<header class="bar">[\s\S]*?<\/header>/, renderToStaticMarkup(<SiteHeader current={page === 'contract' ? 'contract' : undefined} />), 'Base header')
-  if (page === 'contract') out = once(out, /<footer class="foot">[\s\S]*?<\/footer>/, '', 'contract footer')
+  if (page === 'contract') {
+    out = once(out, /<footer class="foot">[\s\S]*?<\/footer>/, '', 'contract footer')
+    // An evidence path wraps only after a slash, where Base puts its <wbr>, never inside a name such as handset-auth-browser.mjs.
+    out = out.replace(/<code class="path">([\s\S]*?)<\/code>/g, (_, path: string) => `<code class="path">${path.split('<wbr>').map(part => `<span class="nw">${part}</span>`).join('<wbr>')}</code>`)
+  }
   return once(out, /<\/main>/, `</main>${renderToStaticMarkup(<SiteFooter />)}`, 'main')
 }
