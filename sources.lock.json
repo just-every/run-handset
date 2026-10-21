@@ -778,7 +778,7 @@
       "executable": false
     },
     "src/handset/dialer/read.ts": {
-      "sha256": "c29e39d41b19fa82216ac01f6fcbdb8a8d4ca53ce2ee5016281845b506c56187",
+      "sha256": "89c6035ae37f97c0b47c25a1353ddec0179e3c5c0b7e31eb435be0f0b44fdc42",
       "executable": false
     },
     "src/handset/dialer/readback.ts": {
@@ -2686,7 +2686,7 @@
       "executable": false
     },
     "tests/handset-console-browser.mjs": {
-      "sha256": "5289160adaf3324bf1adbc9e6bee5c3e6c03d036045f5fb9ea2d9483ab6af30f",
+      "sha256": "78406c83470693562c49f4342c271f1ca98faa9ec6a8c1f73ea3a37015384c38",
       "executable": false
     },
     "tests/handset-import.mjs": {
@@ -2726,7 +2726,7 @@
       "executable": false
     },
     "tests/helpers/handset-dialer-browser.mjs": {
-      "sha256": "004a47c5c1e52c78dc24fb083b0a41448fe41c722d922c9c8bfe8c5dacef895a",
+      "sha256": "b5fbecbbb517f3b4927996200cb89c60e10189a2673f53add1178374dfad35c5",
       "executable": false
     },
     "tests/helpers/handset-dialer.mjs": {
