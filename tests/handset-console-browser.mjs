@@ -145,6 +145,7 @@ for(const width of [1440,390])for(const domain of ['administration','queues','qu
   await ruleForm.getByLabel('Number or prefix (leave empty for anonymous)',{exact:true}).fill('+15125550129')
   await ruleForm.getByLabel('Action',{exact:true}).selectOption('screen')
   await ruleForm.getByRole('checkbox').check();await ruleForm.getByRole('button',{name:'Apply rule',exact:true}).click();await page.waitForLoadState('load')
+  await page.goto(runtime.origin+'/app/protection')
   const challenge=await protection.startScreening({CallSid:'synthetic-handset-1710',From:'+15125550129'})
   await page.reload();await proof('protection-screening-pending')
   const continuation=await challenge.answer();assert.equal(continuation.status,200);assert.ok((await continuation.text()).includes(protection.continuation))
