@@ -21,8 +21,9 @@ export async function overview(env:Bindings):Promise<Overview>{
   db.prepare("SELECT id,display_name FROM oa_operators WHERE status='active' ORDER BY display_name,id").all(),
   db.prepare('SELECT * FROM hnd_protection_callbacks WHERE expires_at>? ORDER BY expires_at').bind(Date.now()).all(),
   db.prepare('SELECT * FROM hnd_protection_stops ORDER BY created_at DESC LIMIT 100').all(),
+  db.prepare('SELECT id,source_id,number_id,caller,call_sid,rule_id,status,attempts,round,last_outcome,expires_at,continued_at,continued_route_revision FROM hnd_protection_challenges ORDER BY created_at DESC LIMIT 100').all(),
  ])
- return Object.fromEntries(['rules','routes','alerts','attempts','sources','numbers','people','callbacks','stops'].map((name,n)=>[name,results[n].results])) as unknown as Overview
+ return Object.fromEntries(['rules','routes','alerts','attempts','sources','numbers','people','callbacks','stops','challenges'].map((name,n)=>[name,results[n].results])) as unknown as Overview
 }
 export async function protectionDoor(request:Request,env:Bindings,actor:Session,data?:ObjectValue):Promise<Response|null>{
  const path=new URL(request.url).pathname,html=path.startsWith('/app/'),base=html?'/app/protection':'/api/handset/protection'

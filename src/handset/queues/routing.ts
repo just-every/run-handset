@@ -46,7 +46,7 @@ export async function dispatch(ctx:Context,queueId:string){
    staff=staff.filter(a=>routes.some(r=>r.operator_id===a.operator_id))
   }
   if(!staff.length){await overflow(ctx,row,q,'no_eligible_agent',now);overflowed.push(row.id);continue}
-  const occupied=(await statement(ctx,'SELECT agent_id,slot FROM hnd_queue_reservations').all<{agent_id:string;slot:number}>()).results
+  const occupied=(await statement(ctx,'SELECT agent_id,slot FROM hnd_queue_reservations UNION SELECT agent_id,slot FROM hnd_dialer_reservations').all<{agent_id:string;slot:number}>()).results
   const candidates=staff.filter(a=>a.availability==='available'&&a.wrap_until<=now).map(a=>({agent:a,slot:Array.from({length:a.capacity},(_,i)=>i+1).find(slot=>!occupied.some(r=>r.agent_id===a.operator_id&&r.slot===slot))})).filter((v):v is {agent:typeof staff[number];slot:number}=>v.slot!==undefined)
   candidates.sort((a,b)=>b.agent.membership_priority-a.agent.membership_priority||
    (q.mode==='round_robin'?a.agent.last_assignment_at-b.agent.last_assignment_at:a.agent.idle_since-b.agent.idle_since)||a.agent.operator_id.localeCompare(b.agent.operator_id))

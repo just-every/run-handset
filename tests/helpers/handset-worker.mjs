@@ -104,7 +104,8 @@ export async function openHandset({ liveMail = false, twilio = false } = {}) {
   async function outboundService(request) {
     if(twilio && request.url.startsWith('https://api.twilio.com/2010-04-01/Accounts/')) {
       sourceRequests.push({url:request.url,method:request.method})
-      const payload=twilioResources.get(request.url)
+      const mapped=twilioResources.get(request.url)
+      const payload=Array.isArray(mapped?.__responses)?mapped.__responses.shift():mapped
       const {__httpStatus=200,...body}=payload??{}
       return new WorkerResponse(JSON.stringify(payload?body:{code:20404,message:'Synthetic resource not found'}),{status:payload?__httpStatus:404,headers:{'content-type':'application/json'}})
     }

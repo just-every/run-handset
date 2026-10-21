@@ -28,5 +28,5 @@ export function evaluateRules(rules:Rule[],a:Admission):Verdict{
  const order=(r:Rule)=>[(r.scope==='owner'?1:0),(r.effect==='allow'?2:r.effect==='block'?1:0),(r.match_kind==='number'?3:r.match_kind==='prefix'?2:1),r.pattern.length]
  matching.sort((a,b)=>{const x=order(a),y=order(b);for(let n=0;n<x.length;n++)if(x[n]!==y[n])return y[n]-x[n];return a.id.localeCompare(b.id)})
  const r=matching[0]
- return r?{decision:r.effect,reason:r.effect==='allow'?'allow_exception':r.effect==='block'?'nuisance_rule':'screening_requires_qualified_flow',ruleId:r.id}:{decision:'allow',reason:'no_nuisance_match'}
+ return r?{decision:r.effect,reason:r.effect==='allow'?'allow_exception':r.effect==='block'?'nuisance_rule':'screening_digit_required',ruleId:r.id}:{decision:'allow',reason:'no_nuisance_match'}
 }

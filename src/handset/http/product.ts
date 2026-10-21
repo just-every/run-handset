@@ -13,6 +13,7 @@ import { adminDoor } from '../admin/doors'
 import { queueDoor } from '../queues/doors'
 import { metricsDoor } from '../metrics/doors'
 import { protectionDoor } from '../protection/doors'
+import { dialerDoor } from '../dialer/doors'
 
 function formValues(data: Record<string,unknown>) {
  if (typeof data.version === 'string') data.version = Number(data.version)
@@ -22,7 +23,7 @@ function formValues(data: Record<string,unknown>) {
 }
 export async function productResponse(request: Request, original: Bindings): Promise<Response|null> {
  const url = new URL(request.url), path = url.pathname, html = path.startsWith('/app/')
- if (!/^\/(api\/handset|app\/(cases|records|audit|grants|sources|admin|queues|reports\/queues|protection))(\/|$)/.test(path)) return null
+ if (!/^\/(api\/handset|app\/(cases|records|audit|grants|sources|admin|queues|reports\/queues|protection|dialer))(\/|$)/.test(path)) return null
  let auth: {env:Bindings;session:Session}|undefined
  try {
   auth = await session(request,original)
@@ -37,7 +38,7 @@ export async function productResponse(request: Request, original: Bindings): Pro
   const renderCase = async (detail:Awaited<ReturnType<typeof getCase>>,notice='',status=200) => casePage(detail,notice,status,await people())
   const read = request.method === 'GET', write = request.method === 'POST'
   for(const [root,door] of [
-   ['queues',queueDoor],['metrics',metricsDoor],['protection',protectionDoor],
+   ['queues',queueDoor],['metrics',metricsDoor],['protection',protectionDoor],['dialer',dialerDoor],
   ] as const){
    const appRoot=root==='metrics'?'/app/reports/queues':'/app/'+root
    if(path==='/api/handset/'+root||path.startsWith('/api/handset/'+root+'/')||path===appRoot||path.startsWith(appRoot+'/')){

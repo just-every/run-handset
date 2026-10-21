@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import { openHandset } from './helpers/handset-worker.mjs'
 import { post, signIn } from './helpers/handset-auth.mjs'
 import { protectionFixture } from './helpers/handset-protection.mjs'
+import { screeningJourney } from './helpers/handset-screening.mjs'
 
 // Provider payload/verb contracts: https://www.twilio.com/docs/voice/twiml
 // https://www.twilio.com/docs/voice/api/sending-sip
@@ -104,4 +105,144 @@ test('Private policy administration rejects borrowed authority, forged carrier i
   await post(runtime,'/api/handset/sources/revoke',{sourceId:f.source.id},f.headers)
   assert.equal((await f.carrier({CallSid:'synthetic-handset-649'})).status,403)
  }finally{await runtime.close()}
+})
+
+// All qualification receipts below are synthetic network-edge evidence. These
+// journeys never constitute final legal review or permitted real-traffic proof.
+import { dialerFixture } from './helpers/handset-dialer.mjs'
+
+test('Each outbound mode preserves staffed inbound capacity, caller checks, progress and connected calls during pauses and approval revocation',async()=>{
+ const runtime=await openHandset({twilio:true})
+ try{
+  const f=await dialerFixture(runtime)
+  for(const mode of ['preview','progressive','power','parallel','predictive']){
+   const l=await f.makeList({count:mode==='predictive'?5:4})
+   let ordinal=0
+   if(mode==='predictive'){
+    const bootstrap=await f.session(l,'progressive');await f.ready()
+    const call=f.prepare(l,ordinal),result=await f.launch(bootstrap,l.recipients[ordinal].recipient),a=result.attempts[0]
+    assert.ok(a,JSON.stringify(result));await f.connect(a,call);await f.finish(a,call);ordinal++
+   }
+   const run=await f.session(l,mode)
+   await f.ready()
+   const call=f.prepare(l,ordinal),launched=await f.launch(run,l.recipients[ordinal].recipient),a=launched.attempts[0]
+   assert.ok(a,JSON.stringify(launched));assert.ok(a.provider_sid)
+   await f.connect(a,call)
+   let current=await f.read()
+   assert.equal(current.reservations.filter(r=>r.attempt_id===a.id).length,1)
+   const cursor=current.sessions.find(s=>s.id===run.id).cursor
+   await f.q.presence(f.q.english,'offline')
+   const stopped=await f.launch(run,l.recipients[cursor].recipient)
+   assert.match(stopped.held,/inbound_staff_reserve|waiting_agent_required/)
+   current=await f.read();assert.equal(current.sessions.find(s=>s.id===run.id).cursor,cursor)
+   assert.equal(current.attempts.find(x=>x.id===a.id).state,'active','unstaffing preserves connected calls')
+   await f.finish(a,call)
+   await f.ready();await f.write(f.base+'/sessions/'+run.id+'/resume',{})
+   await f.write('/api/handset/protection/stops',{numberId:f.numberId,recipient:l.recipients[cursor].recipient,channel:'all',reason:'dnc',confirm:'record outbound consent stop'},201)
+   const before=runtime.sourceRequests.filter(r=>r.method==='POST').length,skipped=await f.launch(run,l.recipients[cursor].recipient)
+   assert.equal(skipped.attempts[0].reason,'dnc');assert.equal(runtime.sourceRequests.filter(r=>r.method==='POST').length,before)
+   const incoming=await f.q.admit(f.q.sales)
+   await runtime.sql('UPDATE hnd_queue_entries SET queued_at=? WHERE id=?',Date.now()-30000,incoming.id)
+   const breached=await f.launch(run,l.recipients[cursor+1].recipient)
+   assert.equal(breached.held,'inbound_service_breach');assert.equal(breached.session.cursor,cursor+1)
+   await f.q.action(incoming.id,'abandon');await f.write(f.base+'/sessions/'+run.id+'/resume',{});await f.ready()
+   const nextCall=f.prepare(l,cursor+1),nextResult=await f.launch(run,l.recipients[cursor+1].recipient),active=nextResult.attempts[0]
+   assert.ok(active,JSON.stringify(nextResult));await f.connect(active,nextCall)
+   await f.write(f.base+'/lists/'+l.id+'/revoke',{})
+   const denied=await post(runtime,f.base+'/sessions/'+run.id+'/launch',{eventKey:f.next(),previewRecipient:l.recipients[cursor+2].recipient,confirm:'launch exact approved recipients now'},f.headers)
+   assert.equal(denied.status,409)
+   current=await f.read();assert.equal(current.attempts.find(x=>x.id===active.id).state,'active')
+   assert.equal(current.sessions.find(x=>x.id===run.id).cursor,cursor+2)
+   await f.finish(active,nextCall)
+   const deal=await runtime.request('/api/handset/cases/'+l.recipients[cursor+1].caseId,{headers:f.headers}),records=(await deal.json()).records
+   assert.ok(records.some(r=>r.kind==='disposition'&&JSON.parse(r.data).mode===mode))
+  }
+ }finally{await runtime.close()}
+})
+
+test('Bounded parallel calls reserve distinct waiting agents; an uncertain carrier creation is never retried or released by restart',async()=>{
+ const runtime=await openHandset({twilio:true})
+ try{
+  const f=await dialerFixture(runtime),second=await f.addAgent(),l=await f.makeList({count:4,mode:'parallel'}),run=await f.session(l,'parallel')
+  await f.ready();const call1=f.prepare(l,0)
+  await f.ready(second);const call2=f.prepare(l,1)
+  const creates=`https://api.twilio.com/2010-04-01/Accounts/${f.account}/Calls.json`
+  runtime.twilioResources.set(creates,{__responses:[{__httpStatus:201,...call1.data},{__httpStatus:201,...call2.data}]})
+  const eventKey=f.next(),result=await f.launch(run,l.recipients[0].recipient,{eventKey})
+  assert.equal(result.attempts.length,2,JSON.stringify(result))
+  let current=await f.read();assert.equal(current.reservations.length,2)
+  assert.equal(new Set(current.reservations.map(r=>r.agent_id)).size,2)
+  const before=runtime.sourceRequests.filter(r=>r.method==='POST').length
+  const repeated=await f.launch(run,l.recipients[0].recipient,{eventKey})
+  assert.equal(repeated.replay,true);assert.equal(runtime.sourceRequests.filter(r=>r.method==='POST').length,before)
+  await runtime.restart()
+  const replay=await f.launch(run,l.recipients[0].recipient,{eventKey})
+  assert.equal(replay.replay,true);current=await f.read();assert.equal(current.reservations.length,2)
+  const over=await f.launch(run,l.recipients[2].recipient)
+  assert.equal(over.held,'inbound_staff_reserve')
+  for(const [a,call] of [[result.attempts[0],call1],[result.attempts[1],call2]]){await f.connect(a,call);await f.finish(a,call)}
+  const uncertain=await f.makeList({count:2,mode:'power'}),uncertainRun=await f.session(uncertain,'power')
+  await f.ready();const lost=f.prepare(uncertain,0,{createStatus:503}),lostKey=f.next(),pending=await f.launch(uncertainRun,uncertain.recipients[0].recipient,{eventKey:lostKey}),a=pending.attempts[0]
+  assert.equal(a.state,'uncertain');assert.equal(a.provider_sid,null)
+  const paid=runtime.sourceRequests.filter(r=>r.method==='POST').length
+  await runtime.restart();await runtime.scheduled()
+  await f.launch(uncertainRun,uncertain.recipients[0].recipient,{eventKey:lostKey})
+  assert.equal(runtime.sourceRequests.filter(r=>r.method==='POST').length,paid)
+  current=await f.read();assert.ok(current.reservations.some(r=>r.attempt_id===a.id));assert.equal(current.sessions.find(x=>x.id===uncertainRun.id).cursor,1)
+  const receipt=await f.callback(a,lost);assert.equal(receipt.status,200,await receipt.clone().text())
+  current=await f.read();assert.equal(current.attempts.find(x=>x.id===a.id).provider_sid,lost.sid)
+  assert.equal((await f.callback(a,lost,'answer',{signature:false})).status,403)
+ }finally{await runtime.close()}
+})
+
+test('Dialer exact evidence, native consent and standing policy cannot be broadened through direct APIs or stale approvals',async()=>{
+ const runtime=await openHandset({twilio:true})
+ try{
+  const f=await dialerFixture(runtime)
+  assert.equal((await runtime.request(f.base)).status,401)
+  const unqualified=await post(runtime,f.base+'/qualifications',{...f.qualificationInput,legalEvidenceId:'synthetic-handset-2999'},f.headers)
+  assert.equal(unqualified.status,409)
+  const policy=await f.write(f.base+'/policies',{repIds:[f.q.english],purpose:f.purpose,sourceIds:[f.source.id],modes:['progressive','power'],maxListSize:4,maxBudgetCents:1000,attemptCents:100,startsAt:Date.now()-1000,expiresAt:Date.now()+2000000,confirm:'approve exact standing CRM list policy'},201)
+  const first=await f.makeList({policyId:policy.id,mode:'progressive'}),second=await f.makeList({policyId:policy.id,mode:'power'})
+  assert.equal(first.approved_by,second.approved_by);assert.equal(first.policy_revision,second.policy_revision)
+  assert.notEqual(first.snapshot_hash,second.snapshot_hash)
+  const outside=await post(runtime,f.base+'/lists',{...first.input,name:f.next(),purpose:'Synthetic different purpose'},f.headers)
+  assert.equal(outside.status,409)
+  const budget=await post(runtime,f.base+'/lists',{...first.input,name:f.next(),budgetCents:2000},f.headers)
+  assert.equal(budget.status,409)
+  await f.ready();const run=await f.session(second,'power')
+  await f.write(f.base+'/policies/'+policy.id+'/revoke',{})
+  const revoked=await post(runtime,f.base+'/sessions/'+run.id+'/launch',{eventKey:f.next(),confirm:'launch exact approved recipients now'},f.headers)
+  assert.equal(revoked.status,409);assert.ok(runtime.sourceRequests.every(r=>r.method==='GET'))
+  const unknown=await f.makeList({count:2,mode:'predictive',check:false}),predictive=await f.session(unknown,'predictive')
+  const held=await f.launch(predictive,unknown.recipients[0].recipient)
+  assert.equal(held.held,'predictive_observations_insufficient')
+  const l=await f.makeList({count:2,mode:'preview'}),preview=await f.session(l,'preview')
+  assert.equal((await post(runtime,f.base+'/sessions/'+preview.id+'/launch',{eventKey:f.next(),previewRecipient:'+15125559999',confirm:'launch exact approved recipients now'},f.headers)).status,409)
+  await f.verify(l,0,l.recipients[0].consentId,{national:'unknown'})
+  const stopped=await f.launch(preview,l.recipients[0].recipient)
+  assert.equal(stopped.attempts[0].reason,'national_dnc_unknown')
+  assert.ok(runtime.sourceRequests.every(r=>r.method==='GET'),'unknown checks and standing revocation emit no carrier instruction')
+  const unsafe=await f.makeList({count:2,mode:'progressive'}),safetyRun=await f.session(unsafe,'progressive')
+  await f.ready();const safetyCall=f.prepare(unsafe,0),launched=await f.launch(safetyRun,unsafe.recipients[0].recipient),safetyAttempt=launched.attempts[0]
+  assert.ok(safetyAttempt,JSON.stringify(launched))
+  await f.q.presence(f.q.english,'offline')
+  f.updateCall(safetyCall,{status:'in-progress',start_time:new Date().toUTCString()})
+  const safety=await f.callback(safetyAttempt,safetyCall,'answer')
+  assert.equal(safety.status,200,await safety.clone().text());const instructions=await safety.text()
+  assert.match(instructions,/<Say>/);assert.match(instructions,/<Hangup\/>/);assert.doesNotMatch(instructions,/<Conference|<Pause/)
+  const report=await runtime.request(f.base+'/lists/'+unsafe.id+'/report',{headers:f.headers}),observed=await report.json()
+  assert.equal(observed.abandoned,1);assert.equal(observed.humanAnswerDenominator,1)
+  await runtime.sql('UPDATE oa_operators SET status=?,role=? WHERE id=?','active','admin','synthetic-handset-2')
+  const borrowed=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'})
+  assert.equal((await runtime.request(f.base,{headers:{cookie:borrowed.cookie}})).status,403)
+  const html=await runtime.request('/app/dialer',{headers:f.headers});assert.equal(html.status,200)
+  const audit=(await (await runtime.request('/api/handset/audit/export',{headers:f.headers})).json()).rows
+  assert.ok(audit.some(r=>r.action==='product.request'&&r.subject===policy.id))
+ }finally{await runtime.close()}
+})
+
+test('Signed keypad screening is bounded, call-scoped and one-shot while current policy and source authority govern continuation',async()=>{
+ const runtime=await openHandset({twilio:true})
+ try{await screeningJourney(runtime)}finally{await runtime.close()}
 })

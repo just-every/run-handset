@@ -19,6 +19,8 @@ import { protectionCarrierResponse } from './handset/protection/doors'
 import { runDueReports } from './handset/metrics/schedules'
 import { queueProviderResponse } from './handset/queues/provider'
 import { tickQueues } from './handset/queues/tick'
+import { dialerProviderResponse } from './handset/dialer/provider'
+import { tickDialer } from './handset/dialer/tick'
 
 const api = new Hono<{ Bindings: Bindings }>()
 api.get('/health', (context) => context.json({ status: 'ok', ...deploymentHealth(context.env) }))
@@ -38,6 +40,8 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     if (protection) return protection
     const queue = await queueProviderResponse(request, env)
     if (queue) return queue
+    const dialer = await dialerProviderResponse(request, env)
+    if (dialer) return dialer
     const source = await twilioResponse(request, env)
     if (source) return source
     const application = await applicationResponse(request, env)
@@ -63,5 +67,6 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
   async scheduled(event, env) {
     await tickQueues(runtimeBindings(env))
     await runDueReports(runtimeBindings(env), event.scheduledTime)
+    await tickDialer(runtimeBindings(env))
   },
 } satisfies ExportedHandler<Bindings>)
