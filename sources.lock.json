@@ -710,7 +710,7 @@
       "executable": false
     },
     "src/handset/core.ts": {
-      "sha256": "fa33ced6cfc8c2100775a999828a2662cc4c4043c3589d80c1620b3d383ad328",
+      "sha256": "28a4459ea17f1c4057210d373890fc3917a83a47f9fab267f44446c3486562b6",
       "executable": false
     },
     "src/handset/http/private-doors.ts": {
@@ -762,7 +762,7 @@
       "executable": false
     },
     "src/handset/metrics/pages.ts": {
-      "sha256": "786a311f9c9984329d232b6a94af6eb9cc18d9a0d8c8d9df0ccc44af020d7e88",
+      "sha256": "9fcf5feece655ec7af91528c7c4fcf70978642448aebd64a5fad33794093c0a1",
       "executable": false
     },
     "src/handset/metrics/schedules.ts": {
@@ -2546,7 +2546,7 @@
       "executable": false
     },
     "tests/handset-console-browser.mjs": {
-      "sha256": "7904e949e5d33e6eaa31766e97881042866ea09632b15743c6770b7aac9c35e8",
+      "sha256": "ade82b667b89edb63589c9807f7df13520da985057f3ccea445651a272740ae1",
       "executable": false
     },
     "tests/handset-import.mjs": {
