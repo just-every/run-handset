@@ -742,7 +742,7 @@
       "executable": false
     },
     "src/handset/dialer/launch.ts": {
-      "sha256": "d0ecd7ed151d7f4d28239d888d520df39d643e0dd8c7611289255f69fd325d5d",
+      "sha256": "93225a36d183997b5df2aabaa69f7a344dda2cefb8f545908481b0a2377968ca",
       "executable": false
     },
     "src/handset/dialer/model.ts": {
@@ -2678,7 +2678,7 @@
       "executable": false
     },
     "tests/handset-outbound.mjs": {
-      "sha256": "322de4477c4664ad421e5751b627ab2084f61e0a9db0096de03e36056ad759e9",
+      "sha256": "5c6f44e1a50daedcfbcb66c412b265fec1a00fe868a78d8a41f8dcd6a4e79ac4",
       "executable": false
     },
     "tests/handset-queues.mjs": {
