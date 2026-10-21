@@ -357,8 +357,8 @@ Judged from the code and tests at commit `a541939c3ab764e6fd78ed78419f136286dcd5
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 0 | 0 | 0 | 0 |
-| Target and push further | 0 | 0 | 99 | 99 |
-| All | 0 | 0 | 99 | 99 |
+| Target and push further | 0 | 1 | 98 | 99 |
+| All | 0 | 1 | 98 | 99 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -425,7 +425,7 @@ Judged from the code and tests at commit `a541939c3ab764e6fd78ed78419f136286dcd5
 | `HND-061` | Newo Phonely and Beside receptionist migration | target | missing |  | No implementation: newo phonely and beside receptionist migration and the complete acceptance journey are missing. |
 | `HND-062` | Talkdesk Five9 and hosted PBX migration | target | missing |  | No implementation: talkdesk five9 and hosted pbx migration and the complete acceptance journey are missing. |
 | `HND-063` | Owner-run Cloudflare installation through Base | target | missing |  | No implementation: owner-run cloudflare installation through base and the complete acceptance journey are missing. |
-| `HND-064` | Native sign-in and protected public doors | target | missing |  | No implementation: native sign-in and protected public doors and the complete acceptance journey are missing. |
+| `HND-064` | Native sign-in and protected public doors | target | partial | `docs/HTTP-DOORS.md` — current door inventory and native expiry semantics. | Emitted-Worker auth assertions, real configured-mail confirmation/sign-out and 1440/390 browser proof pending. |
 | `HND-065` | Complete archive restore and retention policy | target | missing |  | No implementation: complete archive restore and retention policy and the complete acceptance journey are missing. |
 | `HND-066` | Operator erasure with accountable completion | target | missing |  | No implementation: operator erasure with accountable completion and the complete acceptance journey are missing. |
 | `HND-067` | Sibling products remain independent | target | missing |  | No implementation: sibling products remain independent and the complete acceptance journey are missing. |
