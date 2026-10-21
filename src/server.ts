@@ -14,6 +14,11 @@ import { applicationResponse } from './handset/authority/application'
 import { observeAuth } from './handset/audit/auth'
 import { productResponse } from './handset/http/product'
 import { privateDoorResponse } from './handset/http/private-doors'
+import { importResponse } from './handset/import/doors'
+import { protectionCarrierResponse } from './handset/protection/doors'
+import { runDueReports } from './handset/metrics/schedules'
+import { queueProviderResponse } from './handset/queues/provider'
+import { tickQueues } from './handset/queues/tick'
 
 const api = new Hono<{ Bindings: Bindings }>()
 api.get('/health', (context) => context.json({ status: 'ok', ...deploymentHealth(context.env) }))
@@ -29,10 +34,16 @@ function noTransform(response: Response): Response {
 
 export default withDemo<Bindings, ExportedHandler<Bindings>>({
   async fetch(request, env, execution) {
+    const protection = await protectionCarrierResponse(request, env)
+    if (protection) return protection
+    const queue = await queueProviderResponse(request, env)
+    if (queue) return queue
     const source = await twilioResponse(request, env)
     if (source) return source
     const application = await applicationResponse(request, env)
     if (application) return application
+    const imports = await importResponse(request, env)
+    if (imports) return imports
     const denied = await privateDoorResponse(request, env)
     if (denied) return denied
     const asset = await staticAssetResponse(request, env)
@@ -48,5 +59,9 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     const lobby = await lobbyResponse(request, runtimeBindings(env), identity)
     if (lobby) return lobby
     return rejectedResponse(request, await dispatch(request, () => api.fetch(request, env, execution), async () => noTransform(await start.fetch(request))))
+  },
+  async scheduled(_event, env) {
+    await tickQueues(runtimeBindings(env))
+    await runDueReports(runtimeBindings(env))
   },
 } satisfies ExportedHandler<Bindings>)

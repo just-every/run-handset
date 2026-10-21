@@ -91,9 +91,9 @@ export async function openHandset({ liveMail = false, twilio = false } = {}) {
   const ownerEmail = liveMail ? process.env.MAIL_TO : 'synthetic-handset-1@example.test'
   const directory = await mkdtemp(join(tmpdir(), 'synthetic-handset-'))
   // TLS trust is scoped to this client's loopback requests, never process-wide.
-  const dispatcher = new Agent({ connect: { rejectUnauthorized: false } })
+  let dispatcher = new Agent({ connect: { rejectUnauthorized: false } })
   const mails = [], twilioResources = new Map(), sourceRequests = []
-  let runtime, mailFailure = false, closing
+  let runtime, options, db, mailFailure = false, closing
   const close = () => closing ??= (async () => {
     try { await runtime?.dispose() }
     finally {
@@ -124,7 +124,7 @@ export async function openHandset({ liveMail = false, twilio = false } = {}) {
     })
   }
   try {
-    runtime = new Miniflare(convertV4MiniflareOptions({
+    options = convertV4MiniflareOptions({
       name: config.name,
       rootPath: base,
       modules, modulesRoot: base,
@@ -154,14 +154,27 @@ export async function openHandset({ liveMail = false, twilio = false } = {}) {
         MAIL_API_KEY: liveMail ? process.env.MAIL_API_KEY : 'synthetic-handset-4',
       },
       outboundService,
-    }))
+    })
+    runtime = new Miniflare(options)
     const ready = await runtime.ready
     if (ready.origin !== origin) throw new Error('Worker HTTPS listener did not bind the requested origin')
-    const db = await runtime.getD1Database('DB')
+    db = await runtime.getD1Database('DB')
     await migrate(db)
     await seed(db, ownerEmail)
     return {
-      origin, ownerEmail, mails, db, close, twilioResources, sourceRequests,
+      origin, ownerEmail, mails, get db() { return db }, close, twilioResources, sourceRequests,
+      async restart() {
+        await runtime.dispose()
+        await dispatcher.close()
+        dispatcher = new Agent({ connect: { rejectUnauthorized: false } })
+        runtime = new Miniflare(options)
+        await runtime.ready
+        db = await runtime.getD1Database('DB')
+      },
+      async scheduled(time = Date.now()) {
+        const worker = await runtime.getWorker()
+        return worker.scheduled({ scheduledTime: time, cron: '* * * * *' })
+      },
       // Direct native D1 access lets expiry tests change timestamps without sleeps.
       sql: (query, ...values) => db.prepare(query).bind(...values).all(),
       request(path, options = {}) {

@@ -9,6 +9,10 @@ import { sourceDoor } from '../providers/twilio'
 import { kinds } from '../records/model'
 import { choice, escape as e } from '../core'
 import { casesPage, casePage, recordForm, type PersonOption } from '../records/pages'
+import { adminDoor } from '../admin/doors'
+import { queueDoor } from '../queues/doors'
+import { metricsDoor } from '../metrics/doors'
+import { protectionDoor } from '../protection/doors'
 
 function formValues(data: Record<string,unknown>) {
  if (typeof data.version === 'string') data.version = Number(data.version)
@@ -18,15 +22,29 @@ function formValues(data: Record<string,unknown>) {
 }
 export async function productResponse(request: Request, original: Bindings): Promise<Response|null> {
  const url = new URL(request.url), path = url.pathname, html = path.startsWith('/app/')
- if (!/^\/(api\/handset|app\/(cases|records|audit|grants|sources))(\/|$)/.test(path)) return null
+ if (!/^\/(api\/handset|app\/(cases|records|audit|grants|sources|admin|queues|reports\/queues|protection))(\/|$)/.test(path)) return null
  let auth: {env:Bindings;session:Session}|undefined
  try {
   auth = await session(request,original)
   const {env,session:actor} = auth, db=env.DB
+  if(path==='/api/handset/admin'||path.startsWith('/api/handset/admin/')||path.startsWith('/app/admin/')){
+   const response=await adminDoor(request,env,actor,request.method==='GET'?undefined:await input(request,2097152))
+   if(response)return response
+   throw new Fault('not_found',404)
+  }
   try { owner(actor) } catch(error) { await denied(env,actor,'product.access'); throw error }
   const people = async () => (await db.prepare("SELECT id,display_name FROM oa_operators WHERE status='active' ORDER BY display_name,id").all<PersonOption>()).results
   const renderCase = async (detail:Awaited<ReturnType<typeof getCase>>,notice='',status=200) => casePage(detail,notice,status,await people())
   const read = request.method === 'GET', write = request.method === 'POST'
+  for(const [root,door] of [
+   ['queues',queueDoor],['metrics',metricsDoor],['protection',protectionDoor],
+  ] as const){
+   const appRoot=root==='metrics'?'/app/reports/queues':'/app/'+root
+   if(path==='/api/handset/'+root||path.startsWith('/api/handset/'+root+'/')||path===appRoot||path.startsWith(appRoot+'/')){
+    const response=await door(request,env,actor,read?undefined:await input(request,2097152))
+    if(response)return response
+   }
+  }
   if(path.startsWith('/api/handset/sources') || path.startsWith('/app/sources')){const response=await sourceDoor(request,env,actor,read?undefined:await input(request));if(response)return response}
   if (path.startsWith('/api/handset/grants') || path.startsWith('/app/grants') || path === '/api/handset/mcp/consent') {
    if(!read && !write)throw new Fault('method_not_allowed',405)
