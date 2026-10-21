@@ -2,7 +2,7 @@ import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { operatorMail } from '../../mail.server.mjs'
 import { actorRef, append, commit } from '../audit/store'
-import { Fault, id, keys, object, text, timestamp } from '../core'
+import { escape, Fault, id, keys, object, text, timestamp } from '../core'
 import { currentConfig, liveReport } from './store'
 
 interface Schedule {id:string;queue_id:string;config_revision:number;owner_id:string;owner_version:number;recipient:string;due_at:number;created_at:number;state:string;report_id:string|null}
@@ -40,8 +40,8 @@ export async function runDueReports(env:Bindings,now=Date.now()) {
   try{
    const sender=operatorMail(env)
    if(!sender||!env.MAIL_FROM)state='failed'
-   else {const body=JSON.stringify({reportId,...report},null,2),sent=await sender.send({deliveryId:job.id,from:env.MAIL_FROM,to:[job.recipient],subject:`Handset queue report: ${config.queueId}`,text:body,html:'',headers:{}});state=sent.status==='accepted'?'accepted':sent.status==='development'?'development':sent.status==='uncertain'?'uncertain':'failed'}
-  }catch{state='uncertain'}
+   else {const body=JSON.stringify({reportId,...report},null,2),sent=await sender.send({deliveryId:job.id,from:env.MAIL_FROM,to:[job.recipient],subject:`Handset queue report: ${config.queueId}`,text:body,html:`<pre>${escape(body)}</pre>`,headers:{}});state=sent.status==='accepted'?'accepted':sent.status==='development'?'development':sent.status==='uncertain'?'uncertain':'failed'}
+  }catch(error){state=error instanceof Error&&error.name==='MailValidationError'?'failed':'uncertain'}
   await append(env,pseudonym,'metrics.deliver',job.id,state==='accepted'||state==='development'?'completed':state==='uncertain'?'uncertain':'failed',[db.prepare("UPDATE hnd_metric_schedules SET state=? WHERE id=? AND state='sending'").bind(state,job.id)])
   results.push({id:job.id,state})
  }

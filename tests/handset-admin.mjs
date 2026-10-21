@@ -3,6 +3,8 @@ import { test } from 'node:test'
 import { openHandset } from './helpers/handset-worker.mjs'
 import { post, signIn } from './helpers/handset-auth.mjs'
 import { adminCsv, adminFixture } from './helpers/handset-admin.mjs'
+import { sourceFixture } from './helpers/handset-sources.mjs'
+import { queueFixture } from './helpers/handset-queues.mjs'
 
 test('Bulk admin validates 60 users and 40 devices, binds exact cost approval and resumes interrupted native apply without invitations or charges',async()=>{
  const runtime=await openHandset()
@@ -49,7 +51,7 @@ test('Bulk admin validates 60 users and 40 devices, binds exact cost approval an
 })
 
 test('Scoped versioned templates show selected diffs, reject stale authority, preserve independent overrides and leave consent and call evidence intact',async()=>{
- const runtime=await openHandset()
+ const runtime=await openHandset({twilio:true})
  try{
   const f=await adminFixture(runtime,{users:3,devices:1})
   await f.finish(await f.approve(await f.preview()))
@@ -62,6 +64,15 @@ test('Scoped versioned templates show selected diffs, reject stale authority, pr
   const call=await record('call_session',{direction:'inbound',state:'uncertain'},selected.record_id)
   const flow=await record('flow_version',{name:'Current locally recorded flow',revision:'1'},selected.record_id)
   const original=(await runtime.sql('SELECT * FROM hnd_records WHERE id IN (?,?,?) ORDER BY id',consent.id,call.id,flow.id)).results
+  const source=await sourceFixture(runtime)
+  const provider=await source.callback({CallSid:'synthetic-handset-860',CallStatus:'in-progress',SequenceNumber:'0',Timestamp:new Date().toUTCString()})
+  assert.equal(provider.status,200,await provider.clone().text())
+  const liveSource=await provider.json()
+  const liveBefore=await (await runtime.request('/api/handset/records/'+liveSource.recordId,{headers:f.headers})).json()
+  const queues=await queueFixture(runtime,f.cookie),active=await queues.admit(queues.support)
+  await queues.write(queues.base+'/'+queues.support.id+'/dispatch',{});await queues.action(active.id,'accept')
+  const activeBefore=(await queues.read()).reservations.find(r=>r.entry_id===active.id)
+  const providerRequests=runtime.sourceRequests.length
   const overridden=await f.result(await f.send('/profiles/'+selected.id+'/override',{version:selected.version,settings:{greeting:'Rosa’s independent greeting'}}))
   let template=await f.create('/templates',{name:'Austin reception',kind:'user',roleScope:['member'],settings:{hours:'Monday–Friday 09:00–17:00 America/Chicago',greeting:'Welcome / Bienvenidos',ringRules:'Sequential, 20 seconds'}})
   assert.equal((await f.send('/templates',{name:'Role bypass',kind:'user',roleScope:['member'],settings:{role:'admin'}})).status,400)
@@ -85,6 +96,10 @@ test('Scoped versioned templates show selected diffs, reject stale authority, pr
   assert.equal(changed.template_version,template.version)
   assert.equal(unchanged.config,other.config);assert.equal(unchanged.version,other.version)
   assert.deepEqual((await runtime.sql('SELECT * FROM hnd_records WHERE id IN (?,?,?) ORDER BY id',consent.id,call.id,flow.id)).results,original)
+  assert.deepEqual((await queues.read()).reservations.find(r=>r.entry_id===active.id),activeBefore)
+  assert.equal((await queues.read()).entries.find(e=>e.id===active.id).state,'active')
+  assert.deepEqual(await (await runtime.request('/api/handset/records/'+liveSource.recordId,{headers:f.headers})).json(),liveBefore)
+  assert.equal(runtime.sourceRequests.length,providerRequests,'templates never issue carrier call-control requests')
   const history=(await f.read('/templates/'+template.id)).history
   assert.equal(history.length,2)
   assert.notEqual(history[0].snapshot,history[1].snapshot)

@@ -1,0 +1,3 @@
+/* Keep console exports and native controls within the existing theme frame. */
+main pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+main textarea, main select { box-sizing: border-box; max-width: 100%; width: 100%; font: inherit; }

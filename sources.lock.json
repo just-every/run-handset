@@ -210,7 +210,7 @@
       "executable": false
     },
     ".gitignore": {
-      "sha256": "b1997dc843f26bc9915cbf4a00c8b27a7740ca899d173c4980f23f37b3931388",
+      "sha256": "f0ffcc9504597b1550a6ee44658faf2ab8e18938f183038bb38feddf0b99fc81",
       "executable": false
     },
     ".node-version": {
@@ -415,6 +415,10 @@
     },
     "public/fonts/README.md": {
       "sha256": "f89bdce214a6b69aa9cf8d9a49059abd95c5f4124a1e6924085eff9e07f654fa",
+      "executable": false
+    },
+    "public/handset-console.css": {
+      "sha256": "821e0dd3ba33201ed05bcbfa2b12be56baf825f99b232ea23b791e79e4d5b85b",
       "executable": false
     },
     "public/rer-theme.css": {
@@ -702,7 +706,7 @@
       "executable": false
     },
     "src/handset/core.ts": {
-      "sha256": "981212cda342dc3cb7ae927524760747839be3ccf9adc1d9aca063d6128a866b",
+      "sha256": "6043964f3caac9bfd240ada63d89d686a4b53c199286e76e3dad9eb826bda160",
       "executable": false
     },
     "src/handset/http/private-doors.ts": {
@@ -758,7 +762,7 @@
       "executable": false
     },
     "src/handset/metrics/schedules.ts": {
-      "sha256": "7519220264d6a5358ad9da2159615f8ae57e934e49ef2a1ecbf0f909a979c248",
+      "sha256": "0cd33d071f61d402bc73f885adcfa04c1821024355e59a6dc3a0ee7492277c47",
       "executable": false
     },
     "src/handset/metrics/store.ts": {
@@ -2522,7 +2526,7 @@
       "executable": false
     },
     "tests/handset-admin.mjs": {
-      "sha256": "298742f7cb23dd3eb61e70bc7d2f1af0788b69b066cb82afe6ba8e9afca8cb9b",
+      "sha256": "feca2e574f4fef5034a6e38669da71b3e926efa755ff45772aa25f62239f50c7",
       "executable": false
     },
     "tests/handset-auth-browser.mjs": {
