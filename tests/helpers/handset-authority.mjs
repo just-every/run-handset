@@ -17,4 +17,3 @@ export async function authorityFixture(runtime){
  const app=(token,path,data)=>post(runtime,'/api/handset/application/'+path,data,{authorization:'Bearer '+token})
  return {cookie,headers,caseId,number,recipients,definition,grantInput,proposed,create,issue,approve,app}
 }
-

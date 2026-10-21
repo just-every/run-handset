@@ -37,4 +37,3 @@ export async function recordsFixture(runtime, cookie) {
  await entry('comment',{text:'Please follow up / Por favor confirma',mention:person},conversation,[{targetId:person,relation:'mentions'}])
  return {detail,caseId,entries,create}
 }
-

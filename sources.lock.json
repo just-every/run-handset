@@ -196,7 +196,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "3de8a3d057852819bb8390dc657900241a56cbcd1b6b45b4112e3ca0168fe239",
+      "sha256": "33078e0219bf57969e781e0d408dea035da8e5c52db23fab0af12f0666774ea1",
       "executable": false
     },
     "deploy-site.json": {
@@ -1536,7 +1536,7 @@
       "executable": false
     },
     "tests/helpers/handset-authority.mjs": {
-      "sha256": "c87dd31ebc2b786ad94fda22a760437a99a8f8c3170ce1b5273a09a12d610fa5",
+      "sha256": "d787c3e8e2677a37c4b78158015d79aff1e610e030009fb0f2260574a1ff0f9c",
       "executable": false
     },
     "tests/helpers/handset-mailbox.mjs": {
@@ -1544,7 +1544,7 @@
       "executable": false
     },
     "tests/helpers/handset-records.mjs": {
-      "sha256": "6b87025bb88e1886e07aed425207d511092fe4c904a6f7dc2ef15223c0a2e176",
+      "sha256": "890b2c495e1bd658b123eada6c6e79045c331e20d9d779cd664b5c9b2d92b7e5",
       "executable": false
     },
     "tests/helpers/handset-sources.mjs": {
