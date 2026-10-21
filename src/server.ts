@@ -60,8 +60,8 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     if (lobby) return lobby
     return rejectedResponse(request, await dispatch(request, () => api.fetch(request, env, execution), async () => noTransform(await start.fetch(request))))
   },
-  async scheduled(_event, env) {
+  async scheduled(event, env) {
     await tickQueues(runtimeBindings(env))
-    await runDueReports(runtimeBindings(env))
+    await runDueReports(runtimeBindings(env), event.scheduledTime)
   },
 } satisfies ExportedHandler<Bindings>)

@@ -1,4 +1,4 @@
-import { page, escape as e, hidden } from '../core'
+import { consolePage as page, escape as e, hidden } from '../core'
 import type { DoorHistoryEntry } from '../../modules/import-kit/src/door/types'
 import { namespace } from './source'
 

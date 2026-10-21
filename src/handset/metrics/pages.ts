@@ -1,8 +1,8 @@
-import { escape as e, field, hidden, page } from '../core'
+import { escape as e, field, hidden, consolePage as page, id } from '../core'
 import type { Config } from './model'
 import type { liveReport } from './store'
 type Report=Awaited<ReturnType<typeof liveReport>>
-const selection=(title:string,name:string,values:string[],selected:string)=>`<label>${e(title)}<select name="${e(name)}">${values.map(value=>`<option value="${e(value)}" ${value===selected?'selected':''}>${e(value)}</option>`).join('')}</select></label>`
+const selection=(title:string,name:string,values:string[],selected:string)=>{const controlId=id();return `<label for="${controlId}">${e(title)}</label><select id="${controlId}" name="${e(name)}">${values.map(value=>`<option value="${e(value)}" ${value===selected?'selected':''}>${e(value)}</option>`).join('')}</select>`}
 const numberField=(title:string,name:string,value:number)=>field(title,name,String(value),'number')
 const value=(metric:{numerator:number;denominator:number;value:number|null},percent=false)=>metric.value===null?'Unavailable (zero denominator)':`${percent?(metric.value*100).toFixed(2)+'%':Number(metric.value.toFixed(4))} (${metric.numerator} / ${metric.denominator})`
 export function reportBody(report:Report){

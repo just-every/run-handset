@@ -1,8 +1,8 @@
-import { escape as e, field, hidden, page } from '../core'
+import { escape as e, field, hidden, consolePage as page, id } from '../core'
 import type { snapshot } from './read'
 
 type Snapshot=Awaited<ReturnType<typeof snapshot>>
-const select=(label:string,name:string,items:[string,string][],value?:string)=>`<label>${e(label)}<select name="${e(name)}">${items.map(([id,label])=>`<option value="${e(id)}" ${id===value?'selected':''}>${e(label)}</option>`).join('')}</select></label>`
+const select=(label:string,name:string,items:[string,string][],value?:string)=>{const controlId=id();return `<label for="${controlId}">${e(label)}</label><select id="${controlId}" name="${e(name)}">${items.map(([id,label])=>`<option value="${e(id)}" ${id===value?'selected':''}>${e(label)}</option>`).join('')}</select>`}
 const button=(path:string,label:string,fields:string='')=>`<form method="post" action="/app/queues/${e(path)}">${fields}<button>${e(label)}</button></form>`
 export async function queuesPage(data:Snapshot,people:{id:string;display_name:string}[]){
  const agentOptions=data.agents.map(a=>[a.operator_id,a.display_name] as [string,string]),queueOptions=data.queues.map(q=>[q.id,q.name] as [string,string])

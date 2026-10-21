@@ -1,6 +1,6 @@
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
-import { escape as e, Fault, integer, json, keys, page, text, type ObjectValue } from '../core'
+import { escape as e, Fault, integer, json, keys, consolePage as page, text, type ObjectValue } from '../core'
 import { commit } from '../audit/store'
 import { configForm, reportBody, reportPage } from './pages'
 import { configure, configs, currentConfig, datasets, liveReport, saveReport } from './store'

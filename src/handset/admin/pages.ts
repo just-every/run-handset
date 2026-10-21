@@ -1,5 +1,5 @@
 import type { Bindings } from '../../auth.server'
-import { escape as e, field, hidden, page } from '../core'
+import { escape as e, field, hidden, consolePage as page } from '../core'
 import { deviceColumns, userColumns } from './csv'
 import type { Plan, PlanSnapshot, Profile, Settings, Template } from './model'
 import { getProfile, getTemplate } from './store'

@@ -1,7 +1,7 @@
-import { escape as e, field, hidden, page } from '../core'
+import { escape as e, field, hidden, consolePage as page, id } from '../core'
 import type { Rule } from './model'
 export interface Overview {rules:Rule[];routes:Record<string,unknown>[];alerts:Record<string,unknown>[];attempts:Record<string,unknown>[];sources:Record<string,unknown>[];numbers:Record<string,unknown>[];people:Record<string,unknown>[];callbacks:Record<string,unknown>[];stops:Record<string,unknown>[]}
-const select=(label:string,name:string,options:[string,string][],empty?:string)=>`<label>${e(label)}<select name="${e(name)}">${empty!==undefined?`<option value="">${e(empty)}</option>`:''}${options.map(([value,label])=>`<option value="${e(value)}">${e(label)}</option>`).join('')}</select></label>`
+const select=(label:string,name:string,options:[string,string][],empty?:string)=>{const controlId=id();return `<label for="${controlId}">${e(label)}</label><select id="${controlId}" name="${e(name)}">${empty!==undefined?`<option value="">${e(empty)}</option>`:''}${options.map(([value,label])=>`<option value="${e(value)}">${e(label)}</option>`).join('')}</select>`}
 const confirm=(value:string,label:string)=>`<label><input type="checkbox" name="confirm" value="${e(value)}" required>${e(label)}</label>`
 export function protectionPage(d:Overview,notice=''){
  const numbers=d.numbers.map(n=>[String(n.id),String(n.e164)] as [string,string]),people=d.people.map(p=>[String(p.id),String(p.display_name)] as [string,string])

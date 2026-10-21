@@ -7,7 +7,7 @@ import { signIn,post } from './helpers/handset-auth.mjs'
 import { adminCsv,adminFixture } from './helpers/handset-admin.mjs'
 import { queueFixture } from './helpers/handset-queues.mjs'
 import { protectionFixture } from './helpers/handset-protection.mjs'
-import { metricDataset,metricStart } from './helpers/handset-metrics.mjs'
+import { metricDataset,metricStart,metricConfig } from './helpers/handset-metrics.mjs'
 import { importDataset } from './helpers/handset-import.mjs'
 
 for(const width of [1440,390])for(const domain of ['administration','queues','metrics','protection'])test(`${domain} console at ${width}`,async()=>{
@@ -96,18 +96,25 @@ for(const width of [1440,390])for(const domain of ['administration','queues','me
   await page.getByRole('button',{name:'Reconcile against native datasets',exact:true}).click();await page.waitForLoadState('load');await proof('import-reconciled')
   await page.goto(runtime.origin+'/app/reports/queues');await proof('reports-empty')
   await page.getByLabel('Queue ID',{exact:true}).fill('queue-A')
-  await page.getByLabel('Interval start (UTC)',{exact:true}).fill(new Date(metricStart).toISOString().slice(0,19))
-  await page.getByLabel('Interval end (UTC, excluded)',{exact:true}).fill(new Date(metricStart+1200000).toISOString().slice(0,19))
+  await page.getByLabel('Interval start (UTC)',{exact:true}).fill(new Date(metricStart).toISOString().slice(0,16))
+  await page.getByLabel('Interval end (UTC, excluded)',{exact:true}).fill(new Date(metricStart+1200000).toISOString().slice(0,16))
   await click('Save versioned formula');assert.ok((await page.locator('main').innerText()).includes('40.00%'));await proof('metrics-live')
   await click('Save final report');await proof('metrics-final-history')
   await page.goto(runtime.origin+'/app/reports/queues/live?queueId=queue-A')
   await page.getByLabel('Service-level method',{exact:true}).selectOption('exclude-abandons');await click('Save versioned formula')
   assert.ok((await page.locator('main').innerText()).includes('50.00%'));await proof('metrics-changed-method')
-  await page.getByLabel('Send at (UTC)',{exact:true}).fill(new Date(Date.now()-1000).toISOString().slice(0,19))
+  await page.getByLabel('Answer target T (seconds)',{exact:true}).fill('30')
+  await page.getByLabel('Short-abandon threshold S (seconds)',{exact:true}).fill('0')
+  await page.getByLabel('Service-level method',{exact:true}).selectOption('include-abandons');await click('Save versioned formula')
+  assert.ok((await page.locator('main').innerText()).includes('66.67%'));await proof('metrics-changed-thresholds')
+  await page.getByLabel('Send at (UTC)',{exact:true}).fill(new Date(Date.now()+60000).toISOString().slice(0,16))
   await page.getByRole('checkbox',{name:'I consent to this exact scheduled report and recipient',exact:true}).check();await click('Schedule report');await proof('report-scheduled')
-  await click('Run due reports');assert.ok((await page.locator('main').innerText()).includes('accepted'));await proof('report-accepted')
+  await click('Run due reports');assert.ok(!(await page.locator('main').innerText()).includes('accepted'))
+  await runtime.scheduled(Date.now()+120000);await page.reload();assert.ok((await page.locator('main').innerText()).includes('accepted'));await proof('report-accepted')
   const partial=metricDataset();delete partial.entries[0].closedAt;await importDataset(runtime,cookie,partial,true)
   await page.goto(runtime.origin+'/app/reports/queues/live?queueId=queue-A');assert.equal(await page.getByRole('button',{name:'Save final report',exact:true}).isDisabled(),true);await proof('metrics-provisional')
+  assert.equal((await post(runtime,'/api/handset/metrics/config',metricConfig('queue-empty'),{cookie})).status,201)
+  await page.goto(runtime.origin+'/app/reports/queues/live?queueId=queue-empty');assert.ok((await page.locator('main').innerText()).includes('Unavailable (zero denominator)'));await proof('metrics-zero-denominators')
   }
   if(domain==='protection'){
   await page.goto(runtime.origin+'/app/protection');await proof('protection-empty')
