@@ -78,6 +78,7 @@ test('Audit exports and restored checkpoints retain accountability without plant
   const archive=await exported.json(),encoded=JSON.stringify(archive)
   for(const secret of [...planted,runtime.ownerEmail])assert.ok(!encoded.includes(secret),secret)
   assert.ok(archive.rows.some(r=>r.action==='auth.signin'))
+  assert.ok(archive.rows.some(r=>r.outcome==='uncertain'&&archive.rows.some(receipt=>receipt.subject===r.subject&&receipt.action===r.action&&receipt.outcome==='completed'&&receipt.sequence>r.sequence)),'native auth retains a durable uncertain attempt before the terminal response receipt')
   assert.ok(archive.rows.some(r=>r.action==='audit.modify' && r.outcome==='refused'))
   assert.ok(archive.rows.every(r=>r.actor && r.occurred_at && r.policy && r.subject && r.outcome))
   const restore={archive,expectedCheckpoint:archive.checkpoint,confirm:'restore evidence only'}
@@ -121,7 +122,7 @@ test('Signed carrier events correlate transfers recording and MMS with immutable
   const recording={CallSid:root.CallSid,RecordingSid:'synthetic-handset-512',RecordingStatus:'completed',From:'',To:''}
   f.resource('Recordings',recording.RecordingSid,{call_sid:root.CallSid,start_time:timestamp,date_created:timestamp})
   assert.equal((await f.callback(recording)).status,200)
-  const message={MessageSid:'synthetic-handset-513',MessageStatus:'received',Body:'Synthetic appointment photo',NumMedia:'1',MediaUrl0:'https://api.twilio.com/2010-04-01/Accounts/synthetic-handset-502/Messages/synthetic-handset-513/Media/synthetic-handset-514',MediaContentType0:'image/png'}
+  const message={MessageSid:'synthetic-handset-513',MessageStatus:'received',Body:' Synthetic appointment photo ',NumMedia:'1',MediaUrl0:'https://api.twilio.com/2010-04-01/Accounts/synthetic-handset-502/Messages/synthetic-handset-513/Media/synthetic-handset-514',MediaContentType0:'image/png'}
   f.resource('Messages',message.MessageSid,{from:'+15125550126',to:'+15125550125',date_sent:timestamp,date_created:timestamp})
   assert.equal((await f.callback(message)).status,200)
   const duplicate=await f.callback(message);assert.equal(duplicate.status,200);assert.equal((await duplicate.json()).replay,true)
@@ -132,7 +133,7 @@ test('Signed carrier events correlate transfers recording and MMS with immutable
   const leg=detail.records.find(r=>r.kind==='call_leg'),call=detail.records.find(r=>r.kind==='call_session')
   assert.equal(leg.parent_id,call.id)
   const mms=detail.records.find(r=>r.kind==='message'),media=JSON.parse(mms.data)
-  assert.equal(media.channel,'mms');assert.equal(media.providerStatus,'received');assert.equal(media.customerOutcome,'unconfirmed')
+  assert.equal(media.text,message.Body);assert.equal(media.channel,'mms');assert.equal(media.providerStatus,'received');assert.equal(media.customerOutcome,'unconfirmed')
   assert.equal((await runtime.sql('SELECT count(*) AS count FROM hnd_cases')).results[0].count,1,'one shared caller case across sources')
   assert.ok(runtime.sourceRequests.every(r=>r.method==='GET'&&!r.url.includes('/Media/')),'source readback never downloads audio or images')
   assert.equal((await post(runtime,'/api/handset/cases/'+caseId,{title:detail.current.title,version:1,promise:'Return the requested callback',dueAt:Date.now()+86400000},f.headers)).status,200)

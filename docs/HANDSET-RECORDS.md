@@ -33,7 +33,11 @@ HND-027 must replace this default with its independently proven finer scopes.
 ## Audit controls and limits
 
 Every current product write and its audit entry commit together. Native auth
-responses are observed without reading or retaining request bodies. Events hold
+mutations append a durable uncertain attempt before entering the shared native
+handler, then append a correlated terminal response receipt. An interrupted
+operation retains uncertainty instead of losing all audit or inventing success.
+Public admission attempts remain anonymous until a verified session exists.
+No request body is read or retained by the observer. Events hold
 only server-generated opaque actor/subject IDs, fixed action/outcome vocabulary,
 a policy revision and server time. Hashes chain over the exact ordered event
 fields. Concurrent appends retry on the predecessor/sequence uniqueness fence.

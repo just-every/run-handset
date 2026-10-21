@@ -55,7 +55,7 @@ export async function productResponse(request: Request, original: Bindings): Pro
    if(read)return recordForm(nativeRecord[1],detail.records,choice(url.searchParams.get('kind')??'comment',kinds,'kind'))
    const data=await input(request),payload:Record<string,unknown>={}
    for(const [key,value] of Object.entries(data))if(key.startsWith('data.') && value!=='') {const name=key.slice(5);payload[name]=name==='dueAt'?new Date(String(value)+'Z').getTime():['amountCents','sizeBytes'].includes(name)?Number(value):value;delete data[key]}else if(key.startsWith('data.'))delete data[key]
-   await addRecord(env,actor,{...data,caseId:nativeRecord[1],occurredAt:new Date(String(data.occurredAt)+'Z').getTime(),data:payload})
+   await addRecord(env,actor,{...data,caseId:nativeRecord[1],occurredAt:new Date(String(data.occurredAt)+'Z').getTime(),data:payload,links:payload.mention?[{targetId:payload.mention,relation:'mentions'}]:[]})
    return redirect('/app/cases/'+nativeRecord[1])
   }
   const match=path.match(/^\/(?:app|api\/handset)\/cases\/([^/]+)(?:\/(edit|comment))?$/)

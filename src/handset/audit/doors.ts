@@ -16,7 +16,7 @@ export async function verifyRows(rows: AuditRow[]) {
   keys(value,['sequence','id','actor','action','policy','subject','outcome','occurred_at','previous_hash','hash'])
   if(row.sequence!==++sequence || row.previous_hash!==previous || row.hash!==await digest(auditBody(row)))throw new Fault('invalid_audit_chain')
   for(const key of ['id','actor','subject'] as const)if(!(row[key]==='installation' && key==='subject') && !(row[key]==='anonymous' && key==='actor') && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(row[key]))throw new Fault('invalid_audit_reference')
-  if(!actions.includes(row.action) || row.policy!=='owner-only-v1' || !['completed','refused','failed'].includes(row.outcome))throw new Fault('invalid_audit_vocabulary')
+  if(!actions.includes(row.action) || row.policy!=='owner-only-v1' || !['completed','refused','failed','uncertain'].includes(row.outcome))throw new Fault('invalid_audit_vocabulary')
   integer(row.occurred_at,'occurred_at')
   previous=row.hash
  }

@@ -16,7 +16,7 @@ export async function commit(env: Bindings, actor: Session, action: string, subj
  return append(env, await actorRef(env.DB, actor.operator.id), action, subject, outcome, [...(fence ? [ownerFence(env.DB,actor)] : []), ...statements])
 }
 export async function append(env: Bindings, pseudonym: string, action: string, subject: string, outcome: string, statements: D1PreparedStatement[] = []) {
- if (!actions.includes(action) || !['completed','refused','failed'].includes(outcome) || !(subject === 'installation' || /^[0-9a-f-]{36}$/.test(subject))) throw new Error('Invalid server audit event')
+ if (!actions.includes(action) || !['completed','refused','failed','uncertain'].includes(outcome) || !(subject === 'installation' || /^[0-9a-f-]{36}$/.test(subject))) throw new Error('Invalid server audit event')
  const db = env.DB
  for (let retry = 0; retry < 8; retry++) {
   const last = await db.prepare('SELECT sequence,hash FROM hnd_audit ORDER BY sequence DESC LIMIT 1').first<{sequence:number;hash:string}>()

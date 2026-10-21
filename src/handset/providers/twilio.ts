@@ -45,6 +45,7 @@ async function verify(request:Request,env:Bindings,parameters:URLSearchParams){
  // conflicting values, even though signature validation includes all values.
  for(const name of parameters.keys())if(parameters.getAll(name).length!==1)throw new Fault('duplicate_source_field')
 }
+function sourceText(value:string){text(value,'Body',1600,true);return value}
 function normalize(p:URLSearchParams){
  const get=(key:string,optional=false)=>text(p.get(key)??'',key,200,optional)
  const account=get('AccountSid'),call=p.get('CallSid'),message=p.get('MessageSid'),recording=p.get('RecordingSid')
@@ -63,7 +64,7 @@ function normalize(p:URLSearchParams){
    const address=new URL(get('MediaUrl'+index));if(address.protocol!=='https:'||address.hostname!=='api.twilio.com'||address.username||address.password||address.search||address.hash)throw new Fault('invalid_media_reference')
    media.push({providerUrl:address.href,mime:get('MediaContentType'+index)})
   }
-  return {account,externalId:get('MessageSid'),parent:'',eventId:`message:${get('MessageSid')}:${state}`,occurredAt,from,to,kind:'message',state,data:{channel:count?'mms':'sms',providerStatus:state,from,to,text:text(p.get('Body')??'','Body',1600,true),media,capture:'metadata only; media not fetched'}}
+  return {account,externalId:get('MessageSid'),parent:'',eventId:`message:${get('MessageSid')}:${state}`,occurredAt,from,to,kind:'message',state,data:{channel:count?'mms':'sms',providerStatus:state,from,to,text:sourceText(p.get('Body')??''),media,capture:'metadata only; media not fetched'}}
  }
  if(!call)throw new Fault('unsupported_source_event')
  if(recording){
