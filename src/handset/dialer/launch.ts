@@ -72,7 +72,7 @@ async function launchOne(ctx:Context,r:Run,recipient:Recipient,eventKey:string){
 }
 export async function launch(ctx:Context,sessionId:string,v:ObjectValue){
  keys(v,['eventKey','previewRecipient','confirm']);if(v.confirm!=='launch exact approved recipients now')throw new Fault('launch_approval_required',403)
- const eventKey=text(v.eventKey,'eventKey'),prior=(await sql(ctx,'SELECT * FROM hnd_dialer_attempts WHERE session_id=? AND (event_key=? OR substr(event_key,1,length(?)+1)=?||':') ORDER BY ordinal',sessionId,eventKey,eventKey,eventKey).all<Attempt>()).results
+ const eventKey=text(v.eventKey,'eventKey'),prior=(await sql(ctx,`SELECT * FROM hnd_dialer_attempts WHERE session_id=? AND (event_key=? OR substr(event_key,1,length(?)+1)=?||':') ORDER BY ordinal`,sessionId,eventKey,eventKey,eventKey).all<Attempt>()).results
  if(prior.length)return {attempts:prior,replay:true,externalEffectRepeated:false}
  let r=await run(ctx,sessionId);if(r.state!=='running')throw new Fault('session_not_running',409)
  const l=await list(ctx,r.list_id),rows=await recipients(ctx,l.id),eligible=await listEligibility(ctx,l,r.mode)
