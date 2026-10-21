@@ -58,9 +58,10 @@ Handset now has owner-only native record, audit and grant handlers described in
 inside write transactions. The exact `/api/handset/application/*` transport is
 dispatched before the native fence and independently requires a current scoped
 bearer credential; it never borrows a cookie. MCP owner consent remains behind
-the native session fence. No current handler serves recording bytes or accepts
-carrier callbacks. There are no Start server functions. Forged requests to unimplemented carrier
-paths return no data and cause no effect; there is no accepted carrier event.
+the native session fence. No current handler serves recording bytes. There are
+no Start server functions. The only accepted carrier-event door is the signed
+Twilio exception below; unimplemented carrier paths return no data and cause
+no effect.
 HND-030 inherits API and generated-handler authorization; HND-013, HND-027,
 HND-048 and HND-092 inherit private media/export authorization; HND-031 and
 HND-036 inherit provider-specific signed callbacks with narrow authority.
@@ -68,7 +69,7 @@ Those future clauses must prove their own implemented doors. Their signatures,
 product permissions and carrier qualification are not proved by a current 404.
 
 `tests/handset-auth.mjs` exercises the emitted Worker and actual numbered D1
-migrations with production auth. Only the SendGrid network edge is substituted
+migrations with production auth. These auth tests substitute only the SendGrid network edge
 in ordinary CI. `tests/handset-auth-browser.mjs` drives native forms at 1440 and
 390. With `HANDSET_LIVE_MAIL=1`, it uses the configured SendGrid sender and
 controlled receipt mailbox; development/demo admission is never enabled.
