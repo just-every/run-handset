@@ -422,7 +422,7 @@
       "executable": false
     },
     "public/handset-console.css": {
-      "sha256": "821e0dd3ba33201ed05bcbfa2b12be56baf825f99b232ea23b791e79e4d5b85b",
+      "sha256": "ba6707645db7a1b85543108d5c769dcf841b8d8b38a6bdbe1fec2e3a877a2fd6",
       "executable": false
     },
     "public/rer-theme.css": {
@@ -2546,7 +2546,7 @@
       "executable": false
     },
     "tests/handset-console-browser.mjs": {
-      "sha256": "ade82b667b89edb63589c9807f7df13520da985057f3ccea445651a272740ae1",
+      "sha256": "85c78936bb9f405be0e2e42b75b8141c05d026380d5f8641b5aa5068ce9cf580",
       "executable": false
     },
     "tests/handset-import.mjs": {
