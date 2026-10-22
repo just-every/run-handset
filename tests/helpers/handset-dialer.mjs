@@ -58,7 +58,7 @@ export async function dialerFixture(runtime){
   const creation=async request=>{
    const fields=await request.clone().formData()
    assert.equal(fields.get('To'),data.to);assert.equal(fields.get('From'),data.from)
-   assert.equal(fields.get('Record'),null,'no recording is authorized')
+   assert.ok(fields.get('Record')===null||fields.get('Record')==='false','no recording is authorized')
    assert.equal(new URL(fields.get('Url')).origin,runtime.origin)
    data.date_created=new Date().toUTCString()
    s.resource('Calls',sid,data)

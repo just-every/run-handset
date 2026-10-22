@@ -2734,7 +2734,7 @@
       "executable": false
     },
     "tests/helpers/handset-dialer.mjs": {
-      "sha256": "ca5f68f7d6520c104dd6c44343612dd1cd84df0c976c3e29eedddaf6c9e0a2f9",
+      "sha256": "0084a1451af3a09fb68070ec1b5a129353e0bfe804d37c493917cfe065ab08b0",
       "executable": false
     },
     "tests/helpers/handset-import.mjs": {
