@@ -234,7 +234,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "e8b68e506b8106952425e92a92287714a6d946de90335f3a00a4828b0deae71d",
+      "sha256": "36cd65407541a49e34b816e76bde1dfd9a954beff36ea62bd3a654b8b053e460",
       "executable": false
     },
     "deploy-site.json": {
@@ -254,7 +254,7 @@
       "executable": false
     },
     "docs/HTTP-DOORS.md": {
-      "sha256": "78d4316d78dea098a462e0b7b49365b26c457563cd0dea7fce2591b311d0a1ca",
+      "sha256": "d7fbc8046f806ddd38bc67608c77dd4a1128af9a6e66fcf7062176ae04f15f62",
       "executable": false
     },
     "edition.json": {
