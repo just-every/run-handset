@@ -43,7 +43,7 @@ export async function configure(env:Bindings,actor:Session,v:ObjectValue){
 export async function designateCallback(env:Bindings,actor:Session,v:ObjectValue){
  keys(v,['numberId','caller','expiresAt','confirm']);if(v.confirm!=='designate emergency callback')throw new Fault('explicit_callback_designation_required')
  const numberId=text(v.numberId,'numberId'),caller=e164(v.caller,'caller'),expiresAt=timestamp(v.expiresAt,'expiresAt'),callbackId=id()
- if(expiresAt<=Date.now()||expiresAt>Date.now()+86400000)throw new Fault('callback_expiry_within_one_day')
+ if(expiresAt<=Date.now())throw new Fault('callback_review_date_required')
  await nativeNumber(env,numberId)
  await commit(env,actor,'protection.configure',callbackId,'completed',[env.DB.prepare('INSERT INTO hnd_protection_callbacks VALUES (?,?,?,?,?,?)').bind(callbackId,numberId,caller,expiresAt,actor.operator.id,Date.now())])
  return {id:callbackId,caller,expiresAt,designation:'owner designated; not provider verified'}
@@ -62,4 +62,12 @@ export async function alertAction(env:Bindings,actor:Session,v:ObjectValue,relea
  if(!await env.DB.prepare('SELECT id FROM hnd_protection_alerts WHERE id=?').bind(alertId).first())throw new Fault('alert_not_found',404)
  await commit(env,actor,'protection.alert',alertId,'completed',[env.DB.prepare(release?'UPDATE hnd_protection_alerts SET released_at=COALESCE(released_at,?),released_by=COALESCE(released_by,?) WHERE id=?':'UPDATE hnd_protection_alerts SET acknowledged_at=COALESCE(acknowledged_at,?),acknowledged_by=COALESCE(acknowledged_by,?) WHERE id=?').bind(Date.now(),actor.operator.id,alertId)])
  return release?{released:true}:{acknowledged:true,containmentStillActive:true}
+}
+
+export async function callbackWindow(env:Bindings,actor:Session,v:ObjectValue){
+ keys(v,['numberId','minutes','confirm']);if(v.confirm!=='set post-911 callback window')throw new Fault('explicit_callback_window_required',403)
+ const numberId=text(v.numberId,'numberId'),minutes=integer(v.minutes,'minutes',60,Math.floor((8640000000000000-Date.now())/60000))
+ await nativeNumber(env,numberId)
+ await commit(env,actor,'protection.configure',numberId,'completed',[env.DB.prepare('INSERT INTO hnd_protection_emergency_settings VALUES (?,?,?,?) ON CONFLICT(number_id) DO UPDATE SET minutes=excluded.minutes,configured_by=excluded.configured_by,configured_at=excluded.configured_at').bind(numberId,minutes,actor.operator.id,Date.now())])
+ return {numberId,minutes}
 }

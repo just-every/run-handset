@@ -233,10 +233,6 @@ test('A signed twenty-call surge emits exact Spanish-skilled Dial targets, verif
   assert.equal(entry.queue_id,f.support.id)
   const visits=routed.visits.filter(v=>v.entry_id===entry.id)
   assert.equal(visits.length,2);assert.notEqual(visits[0].id,visits[1].id)
-  await f.write(f.base+'/sources/revoke',{bindingId:binding.id})
-  assert.equal((await edge.callback(calls[3])).status,403)
-  const audit=await (await runtime.request('/api/handset/audit/export',{headers:f.headers})).json()
-  assert.ok(audit.rows.some(r=>r.action==='source.refuse'&&r.outcome==='refused'))
 
   // Every waiting and new caller receives a native, bounded ending when the
   // selected route is revoked. Never answer a caller's Voice URL with a 409.
@@ -251,6 +247,10 @@ test('A signed twenty-call surge emits exact Spanish-skilled Dial targets, verif
   assert.ok(alerts.length>=4);assert.ok(alerts.every(a=>a.reason==='overflow_route_unavailable'))
   const alertCount=alerts.length
   await edge.callback(waiting[0]);assert.equal((await f.read()).alerts.length,alertCount,'replay retains one owner alert per call')
+  await f.write(f.base+'/sources/revoke',{bindingId:binding.id})
+  assert.equal((await edge.callback(calls[3])).status,403)
+  const audit=await (await runtime.request('/api/handset/audit/export',{headers:f.headers})).json()
+  assert.ok(audit.rows.some(r=>r.action==='source.refuse'&&r.outcome==='refused'))
   // Changing only an approver profile version does not revoke exact routes.
   await runtime.sql("UPDATE oa_operators SET display_name='Mara Patel Updated',version=version+1 WHERE id=?",f.english)
   const renewed=(await signIn(runtime)).cookie

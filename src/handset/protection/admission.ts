@@ -22,8 +22,10 @@ export async function admitProtection(env:Bindings,input:Admission){
  const outbound=a.direction!=='inbound'
  const cost=outbound?integer(a.attemptedCents??route?.attempt_cents??0,'attemptedCents',0,10000000):0
  let verdict:Verdict,contain=false
+ const window=a.direction==='inbound'&&a.channel==='voice'?await db.prepare('SELECT number_id FROM hnd_protection_emergency_windows WHERE number_id=? AND expires_at>?').bind(a.numberId,now).first():null
  const callback=a.direction==='inbound'&&a.channel==='voice'?await db.prepare('SELECT id FROM hnd_protection_callbacks WHERE number_id=? AND caller=? AND expires_at>?').bind(a.numberId,a.address,now).first():null
  if(a.channel==='voice'&&a.direction==='outbound'&&a.address==='911')verdict={decision:'exempt',reason:'direct_emergency_call',emergency:true}
+ else if(window)verdict={decision:'exempt',reason:'post_911_callback_window',emergency:true}
  else if(callback)verdict={decision:'exempt',reason:'designated_emergency_callback',emergency:true}
  else if(outbound){
   const stop=await db.prepare("SELECT reason FROM hnd_protection_stops WHERE number_id=? AND recipient=? AND channel IN (?, 'all') ORDER BY reason LIMIT 1").bind(a.numberId,a.address,a.channel).first<{reason:string}>()
@@ -45,6 +47,11 @@ export async function admitProtection(env:Bindings,input:Admission){
  }
  const statements=[...(a.fences??[]),db.prepare(`INSERT INTO hnd_protection_attempts
  (id,principal,event_key,request_hash,number_id,device_id,channel,direction,address,attempted_cents,decision,reason,rule_id,occurred_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(attemptId,a.principal,a.eventKey,requestHash,a.numberId,a.deviceId,a.channel,a.direction,a.address,cost,verdict.decision,verdict.reason,verdict.ruleId??null,now)]
+ if(verdict.reason==='direct_emergency_call'){
+  const setting=await db.prepare('SELECT minutes FROM hnd_protection_emergency_settings WHERE number_id=?').bind(a.numberId).first<{minutes:number}>()
+  const until=now+Math.max(60,setting?.minutes??60)*60000
+  statements.push(db.prepare('INSERT INTO hnd_protection_emergency_windows VALUES (?,?,?,?) ON CONFLICT(number_id) DO UPDATE SET opened_at=excluded.opened_at,expires_at=max(expires_at,excluded.expires_at),attempt_id=excluded.attempt_id').bind(a.numberId,now,until,attemptId))
+ }
  if(contain)statements.push(db.prepare(`INSERT INTO hnd_protection_alerts
  (id,number_id,device_id,channel,reason,containment,attempt_id,created_at) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(number_id,device_id,channel,reason) DO NOTHING`).bind(id(),a.numberId,a.deviceId,a.channel,verdict.reason,'device_outbound_blocked',attemptId,now))
  await append(env,a.principal,contain?'protection.contain':'protection.admit',attemptId,['block','screen','held'].includes(verdict.decision)?'refused':'completed',statements)
