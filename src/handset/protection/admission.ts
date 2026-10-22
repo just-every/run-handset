@@ -47,7 +47,8 @@ export async function admitProtection(env:Bindings,input:Admission){
  }
  const statements=[...(a.fences??[]),db.prepare(`INSERT INTO hnd_protection_attempts
  (id,principal,event_key,request_hash,number_id,device_id,channel,direction,address,attempted_cents,decision,reason,rule_id,occurred_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(attemptId,a.principal,a.eventKey,requestHash,a.numberId,a.deviceId,a.channel,a.direction,a.address,cost,verdict.decision,verdict.reason,verdict.ruleId??null,now)]
- if(verdict.reason==='direct_emergency_call'){
+ // Console policy checks place no call and cannot open future callback access.
+ if(verdict.reason==='direct_emergency_call'&&a.sourceId){
   const setting=await db.prepare('SELECT minutes FROM hnd_protection_emergency_settings WHERE number_id=?').bind(a.numberId).first<{minutes:number}>()
   const until=now+Math.max(60,setting?.minutes??60)*60000
   statements.push(db.prepare('INSERT INTO hnd_protection_emergency_windows VALUES (?,?,?,?) ON CONFLICT(number_id) DO UPDATE SET opened_at=excluded.opened_at,expires_at=max(expires_at,excluded.expires_at),attempt_id=excluded.attempt_id').bind(a.numberId,now,until,attemptId))

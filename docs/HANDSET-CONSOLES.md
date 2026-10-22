@@ -218,3 +218,6 @@ media readback and preserves uncertain and connected work on later revocation.
 The console displays imported source dates, state bounds and approval scopes;
 all global reads remain owner-only. Actual licensed dataset, provider/legal
 qualification and controlled real traffic remain required before live operation.
+
+A console protection check places no emergency call and opens no post-911 window;
+only an actual authenticated carrier admission opens that callback access.

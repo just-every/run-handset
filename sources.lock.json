@@ -246,7 +246,7 @@
       "executable": false
     },
     "docs/HANDSET-CONSOLES.md": {
-      "sha256": "a1afa3f63700a020865dd8285666b91153c28ef97e6471c35886b0307f660ecd",
+      "sha256": "155777338037bec408d6523bdd0116b1c47e765d4ef9f6e8f0edfcba0c12d5eb",
       "executable": false
     },
     "docs/HANDSET-RECORDS.md": {
@@ -878,7 +878,7 @@
       "executable": false
     },
     "src/handset/protection/admission.ts": {
-      "sha256": "195dec62f9355e24d264f23415c578b288b10f57f5890dbcb94988d9bf1ac3cf",
+      "sha256": "ee7adfe6ec92cb9a5e972bf410a3a331fe43864c5faeeb183f7fd62108a12ce7",
       "executable": false
     },
     "src/handset/protection/carrier-proof.ts": {
@@ -2718,7 +2718,7 @@
       "executable": false
     },
     "tests/handset-outbound.mjs": {
-      "sha256": "5b0afa3e1398fc59db095a6b79535a48f8905c5f8830a9cca2f6ccdbe7a7a088",
+      "sha256": "d97e6292d3e2eaa07e788b492b3930fbad24a3a3b66e8553c25132cc55a07d23",
       "executable": false
     },
     "tests/handset-queues.mjs": {

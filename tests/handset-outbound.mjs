@@ -46,6 +46,8 @@ test('Owner console policies block voice and native fax, allow exceptions, prese
   const standing=await f.write('callbacks',{numberId:f.numberId,caller:'+12125550140',expiresAt:Date.now()+3*86400000,confirm:'designate emergency callback'})
   await runtime.sql('UPDATE hnd_protection_callbacks SET created_at=created_at-? WHERE id=?',2*86400000,standing.id)
   assert.equal((await f.check({address:'+12125550140',eventKey:'synthetic-handset-683'})).decision,'exempt','standing designation remains valid after more than 24 hours')
+  await f.check({direction:'outbound',address:'911',eventKey:'synthetic-handset-687'})
+  assert.equal((await runtime.sql('SELECT count(*) AS n FROM hnd_protection_emergency_windows')).results[0].n,0,'a console policy simulation opens no emergency-callback authority')
   const history=await runtime.request('/api/handset/audit/export',{headers:f.headers}),rows=(await history.json()).rows
   assert.ok(rows.some(r=>r.action==='protection.rule'&&r.subject===block.id))
   assert.ok(rows.some(r=>r.action==='protection.revoke'&&r.subject===block.id))
