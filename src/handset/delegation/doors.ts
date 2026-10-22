@@ -45,7 +45,11 @@ export async function delegationDoor(request:Request,env:Bindings,actor:Session,
  else if(path===base+'/reconcile')result=await reconcileControl(env,actor,v)
  else throw new Fault('not_found',404)
  if(!html)return json(result,status)
- if(path===base+'/execute'||path===base+'/reconcile')return consolePage('Call control observation',`<p role="status">${e(JSON.stringify(result))}</p><a href="/app/front-desk">Return to front desk</a>`,status)
+ if(path===base+'/execute'||path===base+'/reconcile'){
+  const receipt=result as {operation:{id:string;kind:string;state:string};observation?:string;replay?:boolean;dialer?:{held?:string}}
+  const observed=receipt.operation.state==='provider_observed'
+  return consolePage('Call control observation',`<p role="status">${observed?'Provider membership observed / Membresía observada':'Request retained; outcome uncertain / Resultado incierto'}</p><p>${e(receipt.operation.kind)} · ${receipt.replay?'This request was already started; no provider write was repeated.':observed?'The provider readback matches the reviewed call and endpoint.':'No pickup, parking, transfer or completed callback is claimed until readback.'}</p>${receipt.observation?`<p>${e(receipt.observation)}</p>`:''}${receipt.dialer?.held?`<p role="alert">Callback held: ${e(receipt.dialer.held.replaceAll('_',' '))}. No additional dial was made.</p>`:''}<p>No completed customer outcome is claimed. Controlled receiver audio remains unqualified.</p><details><summary>Request reference</summary><p>${e(receipt.operation.id)}</p></details><a href="/app/front-desk">Return to front desk</a>`,status)
+ }
  if(path===base+'/operations')return consolePage('Call request held / Solicitud pendiente','<p role="status">No call effect occurred. Qualified media endpoints and exact spend approval are required before dialing or changing audio. This request retains the assistant actor, executive principal and approved business-number reference.</p><a href="/app/front-desk">Return to front desk</a>',202)
  return new Response(null,{status:303,headers:{location:'/app/front-desk','cache-control':'no-store'}})
 }

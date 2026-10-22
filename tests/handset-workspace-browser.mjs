@@ -188,12 +188,12 @@ for(const width of [1440,390])test(`Reviewed front desk call execution and provi
    await as(f.assistant.cookie);await page.goto(runtime.origin+'/app/front-desk')
    const execute=page.getByRole('button',{name:'Execute approved request '+op.id,exact:true});await execute.focus();await execute.press('Enter')
    await page.getByRole('heading',{name:'Call control observation',exact:true}).waitFor()
-   const result=JSON.parse(await page.getByRole('status').innerText());assert.equal(result.operation.state,'uncertain');await proof('executed-'+kind)
-   if(provider){assert.equal(result.dialer.attempts.length,1);await f.connect(result.dialer.attempts[0],provider)}
+   assert.match(await page.getByRole('status').innerText(),/outcome uncertain/);await proof('executed-'+kind)
+   if(provider){const attempts=(await f.read()).attempts.filter(a=>a.recipient===list.recipients[0].recipient);assert.equal(attempts.length,1);await f.connect(attempts[0],provider)}
    await page.getByRole('link',{name:'Return to front desk',exact:true}).click()
    const reconcile=page.getByRole('button',{name:'Reconcile request '+op.id,exact:true});await reconcile.focus();await reconcile.press('Enter')
    await page.getByRole('heading',{name:'Call control observation',exact:true}).waitFor()
-   const observed=JSON.parse(await page.getByRole('status').innerText());assert.equal(observed.operation.state,'provider_observed');assert.equal(observed.customerOutcome,'unconfirmed');await proof('observed-'+kind)
+   assert.match(await page.getByRole('status').innerText(),/Provider membership observed/);assert.ok((await page.locator('main').innerText()).includes('No completed customer outcome is claimed'));await proof('observed-'+kind)
   }
  }finally{await context.close();await browser.close();await runtime.close()}
 })

@@ -31,6 +31,8 @@ test('Owner console and MCP consent issue independent read and draft grants that
    assert.equal((await post(runtime,'/api/handset/grants',f.grantInput,{cookie:actor.cookie})).status,403)
    assert.equal((await post(runtime,'/api/handset/audit/modify',{}, {cookie:actor.cookie})).status,403)
   }
+  for(const path of ['/api/handset/front-desk','/api/handset/recordings/synthetic-handset-foreign/playback'])assert.equal((await runtime.request(path,{headers:{authorization:'Bearer '+read.token}})).status,401,'new native doors do not borrow an application credential')
+  for(const path of ['/api/handset/front-desk/approve','/api/handset/front-desk/execute','/api/handset/recordings/grants'])assert.equal((await post(runtime,path,{}, {authorization:'Bearer '+draft.token})).status,401,'an application cannot supply exact native human approval')
   const stored=(await runtime.sql('SELECT token_hash FROM hnd_grants WHERE id=?',read.grant.id)).results[0]
   assert.ok(stored.token_hash && !JSON.stringify(stored).includes(read.token))
   await runtime.sql('UPDATE hnd_grants SET expires_at=? WHERE id=?',Date.now()-1,read.grant.id)
@@ -179,7 +181,9 @@ test('Exact reviewed shared-line pickup park and transfer move only the existing
    const op=await f.request(kind,kind==='transfer'?f.q.english:undefined)
    assert.equal((await f.execute(op)).status,403,'an assistant grant is not an exact effect approval')
    await f.approve(op)
-   const raced=await Promise.all([f.execute(op),f.execute(op)]);assert.deepEqual(raced.map(r=>r.status).sort(),[202,409]);const response=raced.find(r=>r.status===202);assert.equal((await response.json()).operation.state,'uncertain')
+   const before=f.updates,raced=await Promise.all([f.execute(op),f.execute(op)]),receipts=[]
+   for(const r of raced){assert.ok([202,409].includes(r.status));const body=await r.json();if(r.status===202)receipts.push(body);else assert.equal(body.error,'state_changed')}
+   assert.equal(receipts.filter(r=>r.replay===false).length,1);assert.ok(receipts.every(r=>r.operation.state==='uncertain'));assert.equal(f.updates,before+1,'the racing calls perform exactly one provider write')
    const count=f.updates,observed=await f.reconcile(op)
    assert.equal(observed.operation.state,'provider_observed');assert.equal(observed.customerOutcome,'unconfirmed');assert.match(observed.observation,new RegExp(kind))
    assert.equal((await f.execute(op)).status,202);assert.equal(f.updates,count,'no second network mutation on replay')
