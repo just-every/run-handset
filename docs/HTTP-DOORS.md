@@ -53,6 +53,8 @@ function requests get 401; private GET/HEAD documents redirect to sign-in.
 Cross-origin mutations get 403 before effects. This fence does not replace
 authorization in a handler. Unknown signed-in routes still return 404.
 
+Agents use `/app/queues/self` and `/api/handset/queues/self` for only their own existing queue memberships, availability and wrap-up. Mutations repeat current native session checks in the write transaction; agents cannot add memberships or change another person, capabilities, priorities or routing policy.
+
 Handset now has owner-only native record, audit and grant handlers described in
 `docs/HANDSET-RECORDS.md`. Each repeats native authorization at its own door and
 inside write transactions. The exact `/api/handset/application/*` transport is

@@ -7,11 +7,10 @@ import { sourceCall, type BoundSource } from './provider-proof'
 import { callTerminal, readCall } from './provider-api'
 import { currentOffer, emitOffer } from './offers'
 import { recoverOffer } from './offer-readback'
-import { overflowInstructions, routeReady } from './overflow-response'
+import { overflowInstructions, routeReady, unavailableEnding } from './overflow-response'
 import type { Entry } from './model'
 
 export async function voiceInstructions(ctx:Context,source:BoundSource,p:URLSearchParams){
- await routeReady(ctx,source.queue_id)
  const callId=await sourceCall(ctx,source,p)
  let row=await statement(ctx,'SELECT * FROM hnd_queue_entries WHERE call_id=?',callId).first<Entry>()
  const parentSid=p.get('CallSid')!,parent=await readCall(ctx,source.account_id,parentSid)
@@ -30,6 +29,16 @@ export async function voiceInstructions(ctx:Context,source:BoundSource,p:URLSear
 }
 export async function continueVoice(ctx:Context,source:BoundSource,initial:Entry,parentSid:string):Promise<string>{
  let row=await entry(ctx,initial.id)
+ if(['waiting','reserved'].includes(row.state)&&!await currentOffer(ctx,row)){
+  try{await routeReady(ctx,row.queue_id)}catch(error){
+   if(!(error instanceof Fault)||error.code!=='queue_overflow_route_unqualified')throw error
+   await write(ctx,row.id,[
+    statement(ctx,'DELETE FROM hnd_queue_reservations WHERE entry_id=?',row.id),
+    statement(ctx,"UPDATE hnd_queue_entries SET state='overflow',overflow_kind='native',reason='overflow_route_unavailable',agent_id=NULL,ended_at=?,revision=revision+1 WHERE id=? AND revision=?",Date.now(),row.id,row.revision),
+   ])
+   return unavailableEnding(ctx,await entry(ctx,row.id),'overflow_route_unavailable')
+  }
+ }
  if(['waiting','reserved'].includes(row.state)){
   await reconcile(ctx,row.queue_id);row=await entry(ctx,row.id)
   if(row.state==='waiting'){await dispatch(ctx,row.queue_id);row=await entry(ctx,row.id)}

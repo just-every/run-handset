@@ -33,6 +33,11 @@ export async function productResponse(request: Request, original: Bindings): Pro
    if(response)return response
    throw new Fault('not_found',404)
   }
+  if(path==='/api/handset/queues'||path.startsWith('/api/handset/queues/')||path==='/app/queues'||path.startsWith('/app/queues/')){
+   const response=await queueDoor(request,env,actor,request.method==='GET'?undefined:await input(request))
+   if(response)return response
+   throw new Fault('not_found',404)
+  }
   try { owner(actor) } catch(error) { await denied(env,actor,'product.access'); throw error }
   const people = async () => (await db.prepare("SELECT id,display_name FROM oa_operators WHERE status='active' ORDER BY display_name,id").all<PersonOption>()).results
   const renderCase = async (detail:Awaited<ReturnType<typeof getCase>>,notice='',status=200) => casePage(detail,notice,status,await people())

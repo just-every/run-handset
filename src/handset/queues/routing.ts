@@ -42,7 +42,7 @@ export async function dispatch(ctx:Context,queueId:string){
   let staff=(await roster(ctx,q)).filter(a=>matches(a,row,q)&&a.heartbeat_at>now-presenceFreshMs&&['available','busy'].includes(a.availability))
   const source=await statement(ctx,'SELECT source_id FROM hnd_record_sources WHERE record_id=?',row.call_id).first<{source_id:string}>()
   if(source){
-   const routes=(await statement(ctx,`SELECT r.operator_id FROM hnd_queue_agent_routes r JOIN oa_operators o ON o.id=r.approved_by WHERE r.source_id=? AND r.revoked_at IS NULL AND o.status='active' AND o.role='owner' AND o.version=r.owner_version`,source.source_id).all<{operator_id:string}>()).results
+   const routes=(await statement(ctx,`SELECT r.operator_id FROM hnd_queue_agent_routes r JOIN oa_operators o ON o.id=r.approved_by WHERE r.source_id=? AND r.revoked_at IS NULL AND o.status='active' AND o.role='owner'`,source.source_id).all<{operator_id:string}>()).results
    staff=staff.filter(a=>routes.some(r=>r.operator_id===a.operator_id))
   }
   if(!staff.length){await overflow(ctx,row,q,'no_eligible_agent',now);overflowed.push(row.id);continue}

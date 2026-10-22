@@ -117,6 +117,23 @@ test('Queue logout is independent of global availability, protects active work a
   await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
   const member=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'})
   assert.equal((await runtime.request(f.base,{headers:{cookie:member.cookie}})).status,403)
+  const agentCookie=(await signIn({...runtime,ownerEmail:f.spanish+'@example.test'})).cookie
+  const self=async()=> (await runtime.request(f.base+'/self',{headers:{cookie:agentCookie}})).json()
+  let own=await self()
+  assert.equal(own.agent.operator_id,f.spanish);assert.ok(!('entries' in own))
+  for(const [q,loggedIn] of [[f.sales,0],[f.support,1]]){
+   const m=(await self()).memberships.find(m=>m.queue_id===q.id)
+   assert.equal((await post(runtime,f.base+'/'+q.id+'/memberships',{operatorId:f.spanish,loggedIn,revision:m.revision},{cookie:agentCookie})).status,200)
+  }
+  own=await self();assert.equal(own.memberships.find(m=>m.queue_id===f.sales.id).logged_in,0);assert.equal(own.memberships.find(m=>m.queue_id===f.support.id).logged_in,1)
+  assert.equal((await post(runtime,f.base+'/presence',{availability:'away',revision:own.agent.revision},{cookie:agentCookie})).status,200)
+  own=await self();assert.equal(own.agent.availability,'away')
+  assert.equal((await post(runtime,f.base+'/wrap',{seconds:45,revision:own.agent.revision},{cookie:agentCookie})).status,200)
+  assert.ok((await self()).agent.wrap_until>Date.now())
+  assert.equal((await post(runtime,f.base+'/presence',{operatorId:f.english,availability:'offline',revision:1},{cookie:agentCookie})).status,403)
+  assert.equal((await post(runtime,f.base+'/'+f.sales.id+'/memberships',{operatorId:f.english,loggedIn:0,revision:1},{cookie:agentCookie})).status,403)
+  assert.equal((await post(runtime,f.base+'/agents',{operatorId:f.spanish,capacity:10},{cookie:agentCookie})).status,403)
+
  }finally{await runtime.close()}
 })
 
@@ -220,6 +237,30 @@ test('A signed twenty-call surge emits exact Spanish-skilled Dial targets, verif
   assert.equal((await edge.callback(calls[3])).status,403)
   const audit=await (await runtime.request('/api/handset/audit/export',{headers:f.headers})).json()
   assert.ok(audit.rows.some(r=>r.action==='source.refuse'&&r.outcome==='refused'))
+
+  // Every waiting and new caller receives a native, bounded ending when the
+  // selected route is revoked. Never answer a caller's Voice URL with a 409.
+  await f.presence(f.english,'busy');await f.presence(f.spanish,'busy')
+  const waiting=[]
+  for(let n=80;n<83;n++){const c=edge.resource(n);assert.equal((await edge.callback(c)).status,200);waiting.push(c)}
+  await f.write(f.base+'/overflow/'+f.support.id+'/route/revoke',{})
+  for(const c of [...waiting,edge.resource(84)]){
+   const r=await edge.callback(c);assert.equal(r.status,200,await r.clone().text());assert.match(await r.text(),/<Say[^>]*>[^<]+<\/Say><Hangup\/>/)
+  }
+  const alerts=(await f.read()).alerts
+  assert.ok(alerts.length>=4);assert.ok(alerts.every(a=>a.reason==='overflow_route_unavailable'))
+  const alertCount=alerts.length
+  await edge.callback(waiting[0]);assert.equal((await f.read()).alerts.length,alertCount,'replay retains one owner alert per call')
+  // Changing only an approver profile version does not revoke exact routes.
+  await runtime.sql("UPDATE oa_operators SET display_name='Mara Patel Updated',version=version+1 WHERE id=?",f.english)
+  const renewed=(await signIn(runtime)).cookie
+  const refreshed=await (await runtime.request(f.base,{headers:{cookie:renewed}})).json()
+  assert.ok(refreshed.agentRoutes.every(r=>!r.suspended))
+  await runtime.sql("INSERT INTO oa_operators(id,email,display_name,role,status,created_at) VALUES ('synthetic-handset-619','synthetic-handset-619@example.test','Casey Rivera','owner','active',?)",Date.now())
+  await runtime.sql("UPDATE oa_operators SET role='member',version=version+1 WHERE id=?",f.english)
+  const replacement=(await signIn({...runtime,ownerEmail:'synthetic-handset-619@example.test'})).cookie
+  const suspended=await (await runtime.request(f.base,{headers:{cookie:replacement}})).json()
+  assert.ok(suspended.agentRoutes.every(r=>r.suspended===1));assert.ok(suspended.overflowRoutes.every(r=>r.suspended===1))
  }finally{await runtime.close()}
 })
 

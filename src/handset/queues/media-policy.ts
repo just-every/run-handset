@@ -1,8 +1,8 @@
 import { choice, Fault, integer, keys, text, type ObjectValue } from '../core'
 import { agent, event, guard, queue, statement, write, type Context, type OwnerContext } from './storage'
 
-export interface AgentRoute {operator_id:string;source_id:string;kind:'client'|'sip';destination:string;revision:number;approved_by:string;owner_version:number;approved_at:number;revoked_at:number|null}
-export interface OverflowRoute {queue_id:string;kind:'voicemail'|'receptionist';url:string;revision:number;approved_by:string;owner_version:number;approved_at:number;revoked_at:number|null}
+export interface AgentRoute {operator_id:string;source_id:string;kind:'client'|'sip';destination:string;revision:number;approved_by:string;owner_version:number;approved_at:number;revoked_at:number|null;suspended?:number}
+export interface OverflowRoute {queue_id:string;kind:'voicemail'|'receptionist';url:string;revision:number;approved_by:string;owner_version:number;approved_at:number;revoked_at:number|null;suspended?:number}
 function publicHost(host:string){
  return /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/i.test(host)&&host.includes('.')&&!/^\d+(?:\.\d+){3}$/.test(host)&&!/(?:^|\.)(?:localhost|local|internal|invalid)$/.test(host)
 }
@@ -32,7 +32,7 @@ export async function writeAgentRoute(ctx:OwnerContext,operatorId:string,value:O
  const kind=choice(value.kind,['client','sip'],'kind'),target=destination(kind,value.destination),current=await statement(ctx,'SELECT * FROM hnd_queue_agent_routes WHERE operator_id=?',operatorId).first<AgentRoute>()
  const revision=current?integer(value.revision,'revision',1):0
  if(current&&current.revision!==revision)throw new Fault('agent_route_revision_conflict',409)
- const fences=[guard(ctx,"SELECT count(*) FROM oa_operators WHERE id=? AND status='active'",operatorId),guard(ctx,`SELECT count(*) FROM hnd_sources s JOIN oa_operators o ON o.id=s.owner_id WHERE s.id=? AND s.revoked_at IS NULL AND o.status='active' AND o.role='owner' AND o.version=s.owner_version`,sourceId)]
+ const fences=[guard(ctx,"SELECT count(*) FROM oa_operators WHERE id=? AND status='active'",operatorId),guard(ctx,`SELECT count(*) FROM hnd_sources s JOIN oa_operators o ON o.id=s.owner_id WHERE s.id=? AND s.revoked_at IS NULL AND o.status='active' AND o.role='owner'`,sourceId)]
  if(current)fences.push(guard(ctx,'SELECT count(*) FROM hnd_queue_agent_routes WHERE operator_id=? AND revision=?',operatorId,revision))
  await write(ctx,'installation',[...fences,statement(ctx,`INSERT INTO hnd_queue_agent_routes VALUES (?,?,?,?,?,?,?,?,NULL) ON CONFLICT(operator_id) DO UPDATE SET source_id=excluded.source_id,kind=excluded.kind,destination=excluded.destination,revision=excluded.revision,approved_by=excluded.approved_by,owner_version=excluded.owner_version,approved_at=excluded.approved_at,revoked_at=NULL`,operatorId,sourceId,kind,target,revision+1,ctx.actor.operator.id,ctx.actor.operator.version,Date.now()),event(ctx,'agent.route_approved',null,null,operatorId,{routeRevision:revision+1,kind})])
  return statement(ctx,'SELECT * FROM hnd_queue_agent_routes WHERE operator_id=?',operatorId).first<AgentRoute>()
@@ -56,7 +56,7 @@ export async function revokeMediaRoute(ctx:OwnerContext,kind:'agent'|'overflow',
  return {revoked:true}
 }
 export async function activeOverflow(ctx:Context,queueId:string,kind:string){
- return statement(ctx,`SELECT r.* FROM hnd_queue_overflow_routes r JOIN oa_operators o ON o.id=r.approved_by WHERE r.queue_id=? AND r.kind=? AND r.revoked_at IS NULL AND o.status='active' AND o.role='owner' AND o.version=r.owner_version`,queueId,kind).first<OverflowRoute>()
+ return statement(ctx,`SELECT r.* FROM hnd_queue_overflow_routes r JOIN oa_operators o ON o.id=r.approved_by WHERE r.queue_id=? AND r.kind=? AND r.revoked_at IS NULL AND o.status='active' AND o.role='owner'`,queueId,kind).first<OverflowRoute>()
 }
 export async function routeReady(ctx:Context,queueId:string,seen=new Set<string>()){
  if(seen.has(queueId))throw new Fault('overflow_cycle',409);seen.add(queueId)

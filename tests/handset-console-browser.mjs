@@ -88,6 +88,18 @@ for(const width of [1440,390])for(const domain of ['administration','queues','qu
   const revise=page.locator('details').filter({has:page.locator('summary',{hasText:'Revise Support'})})
   await revise.locator('summary').click();await revise.getByRole('checkbox').check();await revise.getByRole('button',{name:'Save queue policy',exact:true}).click();await page.getByRole('alert').waitFor();await proof('queue-stale-refusal')
   }
+  if(domain==='queues'){
+   const operator='synthetic-handset-610',agentCookie=(await signIn({...runtime,ownerEmail:operator+'@example.test'})).cookie
+   const [agentName,...agentValue]=agentCookie.split('=')
+   await context.clearCookies();await context.addCookies([{name:agentName,value:agentValue.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
+   await page.goto(runtime.origin+'/app/queues/self');await proof('queue-self-available')
+   await page.getByLabel('Availability',{exact:true}).selectOption('away');await click('Update my availability');await proof('queue-self-away')
+   await click('Log out of Sales / Ventas');await proof('queue-self-sales-logout')
+   await page.getByLabel('Wrap-up seconds',{exact:true}).fill('45');await click('Set my wrap-up');await proof('queue-self-wrap')
+   const own=await (await runtime.request('/api/handset/queues/self',{headers:{cookie:agentCookie}})).json()
+   assert.equal(own.agent.availability,'away');assert.equal(own.memberships.find(m=>m.name==='Sales / Ventas').logged_in,0);assert.ok(own.agent.wrap_until>Date.now())
+   assert.equal(await page.getByRole('button',{name:'Configure native agent',exact:true}).count(),0)
+  }
   if(domain==='queue-media')await queueMediaJourney({runtime,page,proof,cookie})
   if(domain==='dialer')await dialerJourney({runtime,page,proof})
   if(domain==='metrics'){
