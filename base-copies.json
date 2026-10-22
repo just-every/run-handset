@@ -2,9 +2,223 @@
   "schemaVersion": 1,
   "copies": [
     {
+      "path": ".github/workflows/run-demo.yml",
+      "originPath": "export/run-demo.yml",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        ".github/workflows/run-demo.yml": "41365ec7c002e9451166313b085f9e64ed2e3ea002c27f3d5ead845bc9c302b2"
+      },
+      "modes": {
+        ".github/workflows/run-demo.yml": "100644"
+      }
+    },
+    {
+      "path": "LICENSE",
+      "originPath": "LICENSE",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "LICENSE": "2f5076ef027045b9e0e72df8aa61ca8551e54b1877d531656d6e7985b2c32324"
+      },
+      "modes": {
+        "LICENSE": "100644"
+      }
+    },
+    {
+      "path": "migrations/core/0001_owner.sql",
+      "originPath": "modules/operator-auth/accounts/schema/operator-auth.sql",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "migrations/core/0001_owner.sql": "e4cf66f7258c5b85876c16f18fb78fe3c9bd998244634ee267bb921403d01912"
+      },
+      "modes": {
+        "migrations/core/0001_owner.sql": "100644"
+      }
+    },
+    {
+      "path": "migrations/core/0002_outbox.sql",
+      "originPath": "modules/mail/src/development/schema.sql",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "migrations/core/0002_outbox.sql": "45d6b03eadfe1e91737763ae85cdff74e7216f859869e34431550bba48294996"
+      },
+      "modes": {
+        "migrations/core/0002_outbox.sql": "100644"
+      }
+    },
+    {
+      "path": "migrations/core/0003_portability.sql",
+      "originPath": "modules/portability/schema/portability.sql",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "migrations/core/0003_portability.sql": "c7db9042f6d5c571e10297c02df858ad2f3466beb4fa85649fee407cc228747b"
+      },
+      "modes": {
+        "migrations/core/0003_portability.sql": "100644"
+      }
+    },
+    {
+      "path": "migrations/core/0005_identity_providers.sql",
+      "originPath": "modules/operator-auth/identity/oidc/schema/oidc.sql",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "migrations/core/0005_identity_providers.sql": "f879fb86b079e591dfe4a8513752a8e0394e252b940aa35d3f7430f27b7382c6"
+      },
+      "modes": {
+        "migrations/core/0005_identity_providers.sql": "100644"
+      }
+    },
+    {
+      "path": "migrations/core/0006_provider_control.sql",
+      "originPath": "modules/operator-auth/accounts/schema/provider-control.sql",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "migrations/core/0006_provider_control.sql": "f19cc7a792538a8ff36d87760a3cad58fccab0316984488d1834af14fbf37cfe"
+      },
+      "modes": {
+        "migrations/core/0006_provider_control.sql": "100644"
+      }
+    },
+    {
+      "path": "migrations/core/0007_dependencies.sql",
+      "originPath": "modules/dependencies/schema/dependencies.sql",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "migrations/core/0007_dependencies.sql": "3481d8aef870a9eda153a1617e99bb71a408e61a25dea92bb132efa7dd1c2526"
+      },
+      "modes": {
+        "migrations/core/0007_dependencies.sql": "100644"
+      }
+    },
+    {
+      "path": "migrations/core/0008_owner_claim.sql",
+      "originPath": "modules/owner-claim/schema/owner-claim.sql",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "migrations/core/0008_owner_claim.sql": "c3ffe653727bb4867b064dc2489df5013613f08f4b5998d2fe2b6a8485cdb815"
+      },
+      "modes": {
+        "migrations/core/0008_owner_claim.sql": "100644"
+      }
+    },
+    {
+      "path": "migrations/core/0009_idp_owner.sql",
+      "originPath": "modules/owner-claim/schema/idp.sql",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "migrations/core/0009_idp_owner.sql": "a870102648a2226b18a2fe8168d096389b698af88333d112fa8137e582fc2b33"
+      },
+      "modes": {
+        "migrations/core/0009_idp_owner.sql": "100644"
+      }
+    },
+    {
+      "path": "migrations/core/0010_provider_pins.sql",
+      "originPath": "modules/operator-auth/accounts/schema/provider-pins.sql",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "migrations/core/0010_provider_pins.sql": "f0cfb6b3740869fd098ee449efb25807f8b1ef51c353fd07bafeb00ce38aeb63"
+      },
+      "modes": {
+        "migrations/core/0010_provider_pins.sql": "100644"
+      }
+    },
+    {
+      "path": "migrations/core/0011_dependency_setup.sql",
+      "originPath": "modules/operator-auth/accounts/schema/dependency-setup.sql",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "migrations/core/0011_dependency_setup.sql": "7b36f7e1fb0991fe3e808613d911393bbad3386ead06427082c69a48c5738108"
+      },
+      "modes": {
+        "migrations/core/0011_dependency_setup.sql": "100644"
+      }
+    },
+    {
+      "path": "migrations/core/0012_dependency_approval.sql",
+      "originPath": "modules/dependencies/schema/approval-attempt.sql",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "migrations/core/0012_dependency_approval.sql": "7d3742369189b69ea28bdc000097f150f83221c6474f7e177c7b5590691b67e9"
+      },
+      "modes": {
+        "migrations/core/0012_dependency_approval.sql": "100644"
+      }
+    },
+    {
+      "path": "migrations/core/0013_erasure.sql",
+      "originPath": "modules/erasure/schema/erasure.sql",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "migrations/core/0013_erasure.sql": "44fd4fac1aee4fda0d1d580373cbed9ef3da837e0186e7fe2130fb68dfceadbe"
+      },
+      "modes": {
+        "migrations/core/0013_erasure.sql": "100644"
+      }
+    },
+    {
+      "path": "migrations/core/0014_owner_signin.sql",
+      "originPath": "modules/operator-auth/accounts/schema/owner-signin.sql",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "migrations/core/0014_owner_signin.sql": "98da904e768e35b43fb1be83d9dcc9c9b5d86ab3a795234ed5223c4fddc567d9"
+      },
+      "modes": {
+        "migrations/core/0014_owner_signin.sql": "100644"
+      }
+    },
+    {
+      "path": "migrations/core/0015_command_receipts.sql",
+      "originPath": "foundation/runtime/command-receipts.sql",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "migrations/core/0015_command_receipts.sql": "8064fe877c22bf0500ff5c20d274cbd4e8b2e0dea986fa9e3e4fef4faf2c54a0"
+      },
+      "modes": {
+        "migrations/core/0015_command_receipts.sql": "100644"
+      }
+    },
+    {
+      "path": "migrations/core/0035_dependency_keys_sealed.sql",
+      "originPath": "modules/dependencies/schema/keys-sealed.sql",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "migrations/core/0035_dependency_keys_sealed.sql": "9c8fa5f94c48a230f326cd4d666cbc2bd1e7d5a18327b89e65b339ac6a533d9a"
+      },
+      "modes": {
+        "migrations/core/0035_dependency_keys_sealed.sql": "100644"
+      }
+    },
+    {
+      "path": "scripts/edition-authoring",
+      "originPath": "edition-authoring",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "scripts/edition-authoring/base-copies.mjs": "ca2e3b86aec67aaa5cb28d1a8311612a905fbd2116fac999a34185fa776cf876",
+        "scripts/edition-authoring/cli.mjs": "d9bc25b361c056ec4bebe2b8e506baff95fdd06ec4d4f54a63f20d873025a89b",
+        "scripts/edition-authoring/files.mjs": "eb0b8a0b9958c4ed84735d85f5298f3d1307ef60ddee1c2a3329c6ed7af0902e",
+        "scripts/edition-authoring/manifest.mjs": "0c93bd39b1dd869b23a9d2727671fe8f9c933a9d56c7a3df1ba83c4a6f816e7b",
+        "scripts/edition-authoring/parent-comparison.mjs": "fba6c894e2fe5a48c2f8706ab74b09d1935bd7fa38049a264d3d91ff6d336003",
+        "scripts/edition-authoring/projection-lock.mjs": "bbb939b4e5bc6b5db8bf51156ec770fa30fc5df7a8fbb21a751c8ede69b1444b",
+        "scripts/edition-authoring/release.mjs": "40acdb670edbde2eafa731f535bbe7403360a3327b576ed47355936bcc4a543a",
+        "scripts/edition-authoring/sources.mjs": "1033adaaa5f1f52053c34552c0979b6f868907f00cc1005d39fd8f845df4be09",
+        "scripts/edition-authoring/updates.mjs": "54e7246025a618ed16ee042c22dc9a8dc27b06175c30f81c4c6568992ed04799"
+      },
+      "modes": {
+        "scripts/edition-authoring/base-copies.mjs": "100644",
+        "scripts/edition-authoring/cli.mjs": "100644",
+        "scripts/edition-authoring/files.mjs": "100644",
+        "scripts/edition-authoring/manifest.mjs": "100644",
+        "scripts/edition-authoring/parent-comparison.mjs": "100644",
+        "scripts/edition-authoring/projection-lock.mjs": "100644",
+        "scripts/edition-authoring/release.mjs": "100644",
+        "scripts/edition-authoring/sources.mjs": "100644",
+        "scripts/edition-authoring/updates.mjs": "100644"
+      }
+    },
+    {
       "path": "src/base",
       "originPath": "foundation/runtime",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
       "files": {
         "src/base/actor.ts": "a51af00fe7b50c6552a585f00d089c8ab66717cb741a6b5eda41c5bc0e6dafab",
         "src/base/command-receipts.sql": "8064fe877c22bf0500ff5c20d274cbd4e8b2e0dea986fa9e3e4fef4faf2c54a0",
@@ -16,8 +230,8 @@
         "src/base/dispatch.ts": "695ff1bf5bdcf65a429e3853eb80bcb477297c29e55221f6cad08dcff6ba610c",
         "src/base/font-head.ts": "937fe339a397abee96e4279f2e310fa336eb30b2ec3aeb98f2c09ed0ba7d5dac",
         "src/base/font-response.ts": "55abc935a78085735ae5b7f2d441ee7a5a67d9c797417f9b5ac3c2449f8c91a8",
-        "src/base/hydration/README.md": "a25e8a1a787e141590c9b46efb313b8ba6d9b135fad880d3aacfd5289c205244",
         "src/base/hydration/intro-guard.ts": "abc289d53537b631ad6de323b9123c843aea7498aa50d429a4786d7819194fcd",
+        "src/base/hydration/README.md": "a25e8a1a787e141590c9b46efb313b8ba6d9b135fad880d3aacfd5289c205244",
         "src/base/hydration/report.ts": "38792ad67dc33c9ccd9537bcfc41b7f21a57f0d6f6266d045cb71d70630cf3d7",
         "src/base/hydration/unit.tsx": "932bf2aa40a05c76f3a2c25a121db282e17c7bc839f9c37cd102ffe7f4e7ceca",
         "src/base/icon-head.ts": "ce4fa9ca48534d926469829abd372d1c81c6de31fb18cb4df567bc84a598e86f",
@@ -25,7 +239,7 @@
         "src/base/lobby.ts": "9b43f26b89276e0551d8a1b0b10c7f98dece6ae0d0220b5f199a460c0f637636",
         "src/base/page-style.ts": "8e55d14647ffe9d31bcf922c43f272b2f6920a2bff3c685d0a36e8a7b646c8e6",
         "src/base/rejected-response.ts": "4aa9861a20497b9dde6f95951dcbecf60cee69e8dad1923c1110ef35abc10686",
-        "src/base/run-site.ts": "bd85ff68d78fb8439821dcea6e6bff0f8279e1f086df7f7fabac0b65a02fc739",
+        "src/base/run-site.ts": "57465315cebe21cf4ab6954a376d7fdfa462f9fd70c240c1083d73e00bf8632e",
         "src/base/seed-contract.d.mts": "89a49eeec744b201f66b3c5d599dad839174e28d3c463944823de25ecfae738d",
         "src/base/seed-contract.mjs": "7beada5d271beaaf63d76e1f8cf2712ba906ec7d430f8312f4abedfad57428b4",
         "src/base/select-style.ts": "4fdee657176f62f425e4d41afd564752e30374d8806043a47661218080f629b7",
@@ -45,8 +259,8 @@
         "src/base/dispatch.ts": "100644",
         "src/base/font-head.ts": "100644",
         "src/base/font-response.ts": "100644",
-        "src/base/hydration/README.md": "100644",
         "src/base/hydration/intro-guard.ts": "100644",
+        "src/base/hydration/README.md": "100644",
         "src/base/hydration/report.ts": "100644",
         "src/base/hydration/unit.tsx": "100644",
         "src/base/icon-head.ts": "100644",
@@ -65,402 +279,10 @@
       }
     },
     {
-      "path": "LICENSE",
-      "originPath": "LICENSE",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
-      "files": {
-        "LICENSE": "2f5076ef027045b9e0e72df8aa61ca8551e54b1877d531656d6e7985b2c32324"
-      },
-      "modes": {
-        "LICENSE": "100644"
-      }
-    },
-    {
-      "path": "src/modules/operator-auth",
-      "originPath": "modules/operator-auth",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
-      "files": {
-        "src/modules/operator-auth/README.md": "ce65e011c97d7c234c00e1363f1ac43a6137b88c00f8dcfcda6675db55a8310c",
-        "src/modules/operator-auth/SCHEDULED-POLICY.md": "59c8fb08ab84dbcb720086fce458ef07b94933737c5777e07b79909d95b27862",
-        "src/modules/operator-auth/accounts/adapter.mjs": "989fca51e86ecc80cb150661b6d6cb8b6a57f82a85eb408d1fa6286a8372a3aa",
-        "src/modules/operator-auth/accounts/admin.mjs": "0231d669036f8e85a7e75623b297e717d3ab30d6c3ae02382ea0970d83297aae",
-        "src/modules/operator-auth/accounts/credentials.mjs": "2f3d762e2e16145d56d45ab1ce53797a2a05fa818f2a796f086effe4c49f3e02",
-        "src/modules/operator-auth/accounts/display-name.mjs": "f4134112fb448f2baa75e9f7f4a4a54b90594ba14d64cc3bbcd0858afdaaadbb",
-        "src/modules/operator-auth/accounts/editor-owner.mjs": "ed47e235de1fc52aa4b92e9ab60be5f7fbb07d8f29a5fc3d3c0b3e86702c4da7",
-        "src/modules/operator-auth/accounts/email-change.mjs": "882d20980978bdb739d5d335d250feedb98cc393b91f121bad7bf806f649ce4b",
-        "src/modules/operator-auth/accounts/index.d.mts": "bea6399182774eaa7a2269aa1575679af98ec5d3340325098edac4aac2445cc0",
-        "src/modules/operator-auth/accounts/index.mjs": "f6510c4c973812299256c9ecaf5a8e6736f874400eeddf1cba98ae548e754ebd",
-        "src/modules/operator-auth/accounts/native.d.mts": "ab920e7d3d35119dec57cc80ade5e8e9144e0a7a5c79880dc2b2511c52544051",
-        "src/modules/operator-auth/accounts/native.mjs": "e1f15e6ef75b90c343af0a491ff45d342fe46ce027fb370eb045e80bf43947ef",
-        "src/modules/operator-auth/accounts/oa.mjs": "84508f8c507d12d3df4cd0d683baa8bbd5a3b60522bd08d31cf49ebb92a72aa1",
-        "src/modules/operator-auth/accounts/one-click.mjs": "54569eaa85085d6adc6877b832c9a651b003ecfa2f68949569e0e4fc21833416",
-        "src/modules/operator-auth/accounts/owner-signin.mjs": "20a538bf6b343edc3209718174f63f7b2015d98f64c19fe5b5f878e02e83b3a0",
-        "src/modules/operator-auth/accounts/provider-control.mjs": "2fcd981aff97943e71d29a10ab09dfa879dc4707261df9953c7b25a0f22b9650",
-        "src/modules/operator-auth/accounts/provider-pin.mjs": "ebc398d4c8dc573fdc724c3d1a7d790b9b9fbb7e18043eafdc4400ffce84aac6",
-        "src/modules/operator-auth/accounts/roles.mjs": "9c4ab78154db3c38bac35e101b3411afe610c3892f58384a84d9e8516384810e",
-        "src/modules/operator-auth/accounts/schema/dependency-setup.sql": "7b36f7e1fb0991fe3e808613d911393bbad3386ead06427082c69a48c5738108",
-        "src/modules/operator-auth/accounts/schema/dev-sessions.sql": "18754583983c09f3624038131c1b03fadecb8375dddb0a5d09c449a4238ce298",
-        "src/modules/operator-auth/accounts/schema/domain-rules-step-up.sql": "e41c7f1381f547582148cdf247b521d7f166461ab24058ace95acdf21839e815",
-        "src/modules/operator-auth/accounts/schema/invitation-cancellation.sql": "2130793483660155aaa1851b6111e51a7aeaf1f8ceb86d467d42ba684c35b562",
-        "src/modules/operator-auth/accounts/schema/last-signin.sql": "289f99fd90e5263e9bb421f14887b0540e0686f7c7aa72110dd1ad20374bc945",
-        "src/modules/operator-auth/accounts/schema/operator-auth.sql": "e4cf66f7258c5b85876c16f18fb78fe3c9bd998244634ee267bb921403d01912",
-        "src/modules/operator-auth/accounts/schema/owner-signin.sql": "98da904e768e35b43fb1be83d9dcc9c9b5d86ab3a795234ed5223c4fddc567d9",
-        "src/modules/operator-auth/accounts/schema/provider-control.sql": "f19cc7a792538a8ff36d87760a3cad58fccab0316984488d1834af14fbf37cfe",
-        "src/modules/operator-auth/accounts/schema/provider-pins.sql": "f0cfb6b3740869fd098ee449efb25807f8b1ef51c353fd07bafeb00ce38aeb63",
-        "src/modules/operator-auth/accounts/schema/scheduled-policy-hardening.sql": "71726d5009fd671101a49a0071982f710e429b976779fb10ce3d57fe2cb6750f",
-        "src/modules/operator-auth/accounts/schema/scheduled-policy.sql": "377fa07ed05a95b64385af865b66d695c127a1086c0d85fe093c3eb5bebf3ebe",
-        "src/modules/operator-auth/accounts/settings-page.mjs": "1f7bfcbceb4c7fbc95a42b23fb62f869aaf02e0b5590ce75419c14235b48af8d",
-        "src/modules/operator-auth/accounts/status.mjs": "911b30e05f2a143b6b761f664e9cccd1f1d41d9348f7c0c932f60619a7253784",
-        "src/modules/operator-auth/accounts/store.mjs": "8a803003117ef61edbf4d2dd342ded1b1efa0f18c6767c253768222d748e55ec",
-        "src/modules/operator-auth/branding.mjs": "a5d229f160df1fa4e7a7caba123856e649866b22f536ec23b7bc69746ace96ba",
-        "src/modules/operator-auth/config.mjs": "5741effe188be9e49a6c4c98ff41d5de05db0f2edad17eb06229d2bfdf44b555",
-        "src/modules/operator-auth/conformance/README.md": "523074b440f372c3f0c53b856ab25394b9be09711b2bbccb4b971b6d08dc56d8",
-        "src/modules/operator-auth/conformance/index.d.mts": "46bf3dace091c27d2308629d53116cf45021979b1aa6e18cd4c9da3d46735a71",
-        "src/modules/operator-auth/conformance/index.mjs": "60e925f31c3c927889aae0dfeb82809e3f325cb572d4c31efe591d5ddc0a5010",
-        "src/modules/operator-auth/conformance/presentation.mjs": "d4751f564d40b748919d8a7d87ecfaa98e97bc652f53e32a2bc8eed7d81d21dc",
-        "src/modules/operator-auth/crypto.mjs": "c9a843518d9223ec91698060bacd5a44cd0c4361adaa6b09c05be69f11a828b8",
-        "src/modules/operator-auth/csp.mjs": "7cf7cca59410434708213945cb762f6a9fa302b5eaf7575b903ca3f171264d8d",
-        "src/modules/operator-auth/dev-admission.d.mts": "4fa20898bba75ecf5a09005fd4ea3ae520f8a43b4b2cca5ecb5069443cd72d1d",
-        "src/modules/operator-auth/dev-admission.mjs": "d8c59cea293b24364961dc0a9a1f2bfb615ffee73cd48507147f37b577cc0ef8",
-        "src/modules/operator-auth/dev-gate.mjs": "e92f9db391137f4860e7e9483bcfb8b837e2ed3548cffb85810c08f5b8d31b77",
-        "src/modules/operator-auth/dev/cli-session.mjs": "dcce619ef8984d0cb10a629123a560602f870dcbefac6e4542effc5d377b9162",
-        "src/modules/operator-auth/dev/index.d.mts": "7bd9b7a4082d367a8fb9f330906d97e647f05977491ebf3abbdd6940ff02821c",
-        "src/modules/operator-auth/dev/index.mjs": "7ebbdf35008281a0fbeb6a0783243b25b7302ebd414ff8c4af9e6db31f304f21",
-        "src/modules/operator-auth/dev/personas.mjs": "888afa951b9520376cd1b0cdbe13e75b002213c368be26652e514eca0ca2e485",
-        "src/modules/operator-auth/dev/sign-in-as.d.mts": "e566a2c11c117ee408c3a4203326eecea4805478894f705a19f1c6edb08df992",
-        "src/modules/operator-auth/dev/sign-in-as.mjs": "c41b8030fc95b3fa401976322fb433ad547ff659471d5d5344eb120849e9b34a",
-        "src/modules/operator-auth/docs/README.md": "098a5dfc2f761b962a0dae818a6130931789efe34376cc4efbd92cfc50d6fb2e",
-        "src/modules/operator-auth/docs/native-accounts.md": "068f1c664d3e6ac55942f2ea0db5791dd9656b3607b456aacb69c8c8480d701c",
-        "src/modules/operator-auth/docs/tanstack-start.md": "52557d15e2c9840fc92d0ef148d9f7f67ba7f5d718eabd5b7dbb80ab8dbff9e1",
-        "src/modules/operator-auth/docs/vite-spa.md": "ba684430f1a5adeae8bb7c28d02ca11a95a666242048a33256ab427d8fbce781",
-        "src/modules/operator-auth/errors.mjs": "393de2f6a068fc32d0904e238e88d6fae90576b197cca463da8d7dfabef36f47",
-        "src/modules/operator-auth/http.mjs": "caf5ddf8b50070b1339afd6f19e3ef3c73677cc7726a355fbac5cda371f09b53",
-        "src/modules/operator-auth/icon-head.d.mts": "34287e49079ce872172a8c6d72e9d2b79fe50e5381919aa265f60d6ed574e7ff",
-        "src/modules/operator-auth/icon-head.mjs": "f9be2dab471d011cec8ba5da66bdb8b1974a65edfd6050679cf18f7893e6a941",
-        "src/modules/operator-auth/identity/admission.mjs": "a9247a655bf71c606cb1a9a3eae97202f7e4cde8695252f06ab4dff151e1dd39",
-        "src/modules/operator-auth/identity/after-confirm.mjs": "cb43ccb5fdb90ad1739ac581d5deb6b15fd4e490f91a658c06693d7e8f83b2d4",
-        "src/modules/operator-auth/identity/email-link/confirmation.mjs": "b6b2006fc646a2fc6fd28a01e8be050269e59c8360b9dd07a695417c5bd75826",
-        "src/modules/operator-auth/identity/email-link/expiry.mjs": "dca4a31a3796a04e4192325f1427f1d5c5d70338e59e78786c0f3d814a25889b",
-        "src/modules/operator-auth/identity/email-link/index.d.mts": "0c6209f3f74a0b483f428d5a457b8f9fa60c1ed8249b819f0098603947353f97",
-        "src/modules/operator-auth/identity/email-link/index.mjs": "001d9cdabb4dd610b80cbb9bbed02c4e5ee4b9daf69a51e382b6abef4125a255",
-        "src/modules/operator-auth/identity/email-link/message.mjs": "d076de1231d45890683595cc2889b32cc1fa15958c1d55a313cbb811821a0f65",
-        "src/modules/operator-auth/identity/index.d.mts": "5c7b8c2bf70f7a1e57dd53110ab88e4be8a46297d8838405763a3e95870a0b88",
-        "src/modules/operator-auth/identity/index.mjs": "0b68a78d59ecf553a1cacc182e280071f9554b37271249cfc037afcbf2d54cfb",
-        "src/modules/operator-auth/identity/oidc/README.md": "5e03d2ef26aee1b96ef658c3dda90fe2b4781417ff1c9f32dff0d56105f7472b",
-        "src/modules/operator-auth/identity/oidc/client-auth.mjs": "061ac35699976c075b120891f7eacb4b1c893b9081faff1e5b3bd0a5834d97ef",
-        "src/modules/operator-auth/identity/oidc/config.mjs": "008b3b62ed186be001ada722a50292837c51672cc50958995bae23aad8538083",
-        "src/modules/operator-auth/identity/oidc/crypto.mjs": "968787aa4d88b2d5323ef55dce0755d50e32502a6753505eaf3f6a0298078ff8",
-        "src/modules/operator-auth/identity/oidc/errors.mjs": "09b4452714fdbd7382d1ce71162c17cf41fd7a3e6c2ea74be768a156ec1e138d",
-        "src/modules/operator-auth/identity/oidc/index.d.mts": "db7179a81563b8b34e85b580cfcbbe8522b1a19994132f701f7c333c36245dfd",
-        "src/modules/operator-auth/identity/oidc/index.mjs": "18cd11dd1cdf57b207491a6b8d2f4ba9c9b74ca7f7ba6126ad2145c5d3389144",
-        "src/modules/operator-auth/identity/oidc/jwt.mjs": "3a0e5c5ce7df5a9784fdd732c2f57e5760bddc5aa8566c608bf05e580d0c808c",
-        "src/modules/operator-auth/identity/oidc/network.mjs": "34a1951457d6aff44e1ea5eb2b7a9ac1d63062a33eb3540ff2f3a4a18380c098",
-        "src/modules/operator-auth/identity/oidc/presets.mjs": "8fdfa82f855de54cd984ff700a396a2a89c870f724faeaa4f74a6dcd131c240c",
-        "src/modules/operator-auth/identity/oidc/schema/oidc.sql": "f879fb86b079e591dfe4a8513752a8e0394e252b940aa35d3f7430f27b7382c6",
-        "src/modules/operator-auth/identity/oidc/store.mjs": "2f00ef6ac516528cdb468dca96744b16a843cc6bbbec847bba9716cfa80eb22c",
-        "src/modules/operator-auth/identity/principal.mjs": "6b949a826dab8f63d70da4603e4da9d50d9071faf0e18684a66f86beec63ab03",
-        "src/modules/operator-auth/index.d.mts": "234369e19398f5dd19db672f239e836012ddbc7702f2f4d7c034d0e7128af36c",
-        "src/modules/operator-auth/index.mjs": "d788203c0e82f4d4e22df8884f592bc9134bdbedaee29bb416f7eee9fc82b0c1",
-        "src/modules/operator-auth/input.mjs": "0b668bdbdce75d31acc6a2918ed8131d6baeff948d91048bde9fd58fb52a91e8",
-        "src/modules/operator-auth/local-cli.mjs": "b10dafbf33fc4f342e2c3c6db343afd353c3e6264208216a6155d50e71d1f19a",
-        "src/modules/operator-auth/loopback.mjs": "13b32a076bce23a3124be1745202c18eda553f298fad3d9f5cb93ac61aee3115",
-        "src/modules/operator-auth/owner-signin-grant.mjs": "739808e5ad58b982d7d40a0ce2dc3836b90d57f515d8ce904cf6cf90965ed745",
-        "src/modules/operator-auth/page.mjs": "29615dcd137433f9119085de757dd331662b9e0ef2130678658a54dcc63c2359",
-        "src/modules/operator-auth/policy.d.mts": "c0e46fcab9ce8626b8da53f88561eb00a1e83e9460fd91407a32a2daf605c4cf",
-        "src/modules/operator-auth/policy.mjs": "d535aba35621d333cd6faae49fc3c6cb72e1d5718741f02d363cbe3e8eaf153c",
-        "src/modules/operator-auth/rejected-response.mjs": "38c4e7621901173d0bca9bc62587486951ce24d2e0e31e97f26e1dfe406c9726",
-        "src/modules/operator-auth/routes.mjs": "4f534707648a72d7fbe5b15bcbc10985a14de2f6872a0d8e7853d6fa782a838a",
-        "src/modules/operator-auth/scheduled/definition.mjs": "36330a77503bbcf8281fa36347a8d9e9f82a02e8c48ea9b2602b6a51f8249d18",
-        "src/modules/operator-auth/scheduled/expiry.mjs": "48cd273ca4db3cb170b3bf73ad3096f41f7e082ad8f6ac471320a22d76796db0",
-        "src/modules/operator-auth/scheduled/fence.mjs": "5b1e9b260c7f8207afebd0dfff4af206a97755bba0632f878b7e9af0b474e272",
-        "src/modules/operator-auth/scheduled/history.mjs": "b1428a3aef4a357211a465f6a662482d1bd9897c6f1f171b59709cb1aac2b856",
-        "src/modules/operator-auth/scheduled/index.d.mts": "a67bccea082655647aade78a09787b7996c5d3a8a6a0c78edfbcdf8f8396195a",
-        "src/modules/operator-auth/scheduled/index.mjs": "e5ed6721a8726c1393904da78c350875d317c3fbce6a6a24de9adc9410775926",
-        "src/modules/operator-auth/scheduled/runner.mjs": "d44cf0c25910197b6881697b450d804c4bcd7dc9de8a8245dfd63795a343c3be",
-        "src/modules/operator-auth/service.mjs": "5049fb59d66af8108519dcd2ef20997469eeb70dafd28bc8a3a51a76cad2cf6a",
-        "src/modules/operator-auth/signin/index.d.mts": "9acad80108b974454b1473c761222ba7daaeceb13b7c9842107cbf1b15745c10",
-        "src/modules/operator-auth/signin/index.mjs": "6830071822ad747f16e50622c0f77424d2e2f0d9c4d1a6b42f4ea41fb08e72de",
-        "src/modules/operator-auth/signin/one-click.mjs": "afb305c3055eb395e0d575f72c8c332dc56b2247848ba9940886dc1615eead40"
-      },
-      "modes": {
-        "src/modules/operator-auth/README.md": "100644",
-        "src/modules/operator-auth/SCHEDULED-POLICY.md": "100644",
-        "src/modules/operator-auth/accounts/adapter.mjs": "100644",
-        "src/modules/operator-auth/accounts/admin.mjs": "100644",
-        "src/modules/operator-auth/accounts/credentials.mjs": "100644",
-        "src/modules/operator-auth/accounts/display-name.mjs": "100644",
-        "src/modules/operator-auth/accounts/editor-owner.mjs": "100644",
-        "src/modules/operator-auth/accounts/email-change.mjs": "100644",
-        "src/modules/operator-auth/accounts/index.d.mts": "100644",
-        "src/modules/operator-auth/accounts/index.mjs": "100644",
-        "src/modules/operator-auth/accounts/native.d.mts": "100644",
-        "src/modules/operator-auth/accounts/native.mjs": "100644",
-        "src/modules/operator-auth/accounts/oa.mjs": "100644",
-        "src/modules/operator-auth/accounts/one-click.mjs": "100644",
-        "src/modules/operator-auth/accounts/owner-signin.mjs": "100644",
-        "src/modules/operator-auth/accounts/provider-control.mjs": "100644",
-        "src/modules/operator-auth/accounts/provider-pin.mjs": "100644",
-        "src/modules/operator-auth/accounts/roles.mjs": "100644",
-        "src/modules/operator-auth/accounts/schema/dependency-setup.sql": "100644",
-        "src/modules/operator-auth/accounts/schema/dev-sessions.sql": "100644",
-        "src/modules/operator-auth/accounts/schema/domain-rules-step-up.sql": "100644",
-        "src/modules/operator-auth/accounts/schema/invitation-cancellation.sql": "100644",
-        "src/modules/operator-auth/accounts/schema/last-signin.sql": "100644",
-        "src/modules/operator-auth/accounts/schema/operator-auth.sql": "100644",
-        "src/modules/operator-auth/accounts/schema/owner-signin.sql": "100644",
-        "src/modules/operator-auth/accounts/schema/provider-control.sql": "100644",
-        "src/modules/operator-auth/accounts/schema/provider-pins.sql": "100644",
-        "src/modules/operator-auth/accounts/schema/scheduled-policy-hardening.sql": "100644",
-        "src/modules/operator-auth/accounts/schema/scheduled-policy.sql": "100644",
-        "src/modules/operator-auth/accounts/settings-page.mjs": "100644",
-        "src/modules/operator-auth/accounts/status.mjs": "100644",
-        "src/modules/operator-auth/accounts/store.mjs": "100644",
-        "src/modules/operator-auth/branding.mjs": "100644",
-        "src/modules/operator-auth/config.mjs": "100644",
-        "src/modules/operator-auth/conformance/README.md": "100644",
-        "src/modules/operator-auth/conformance/index.d.mts": "100644",
-        "src/modules/operator-auth/conformance/index.mjs": "100644",
-        "src/modules/operator-auth/conformance/presentation.mjs": "100644",
-        "src/modules/operator-auth/crypto.mjs": "100644",
-        "src/modules/operator-auth/csp.mjs": "100644",
-        "src/modules/operator-auth/dev-admission.d.mts": "100644",
-        "src/modules/operator-auth/dev-admission.mjs": "100644",
-        "src/modules/operator-auth/dev-gate.mjs": "100644",
-        "src/modules/operator-auth/dev/cli-session.mjs": "100644",
-        "src/modules/operator-auth/dev/index.d.mts": "100644",
-        "src/modules/operator-auth/dev/index.mjs": "100644",
-        "src/modules/operator-auth/dev/personas.mjs": "100644",
-        "src/modules/operator-auth/dev/sign-in-as.d.mts": "100644",
-        "src/modules/operator-auth/dev/sign-in-as.mjs": "100644",
-        "src/modules/operator-auth/docs/README.md": "100644",
-        "src/modules/operator-auth/docs/native-accounts.md": "100644",
-        "src/modules/operator-auth/docs/tanstack-start.md": "100644",
-        "src/modules/operator-auth/docs/vite-spa.md": "100644",
-        "src/modules/operator-auth/errors.mjs": "100644",
-        "src/modules/operator-auth/http.mjs": "100644",
-        "src/modules/operator-auth/icon-head.d.mts": "100644",
-        "src/modules/operator-auth/icon-head.mjs": "100644",
-        "src/modules/operator-auth/identity/admission.mjs": "100644",
-        "src/modules/operator-auth/identity/after-confirm.mjs": "100644",
-        "src/modules/operator-auth/identity/email-link/confirmation.mjs": "100644",
-        "src/modules/operator-auth/identity/email-link/expiry.mjs": "100644",
-        "src/modules/operator-auth/identity/email-link/index.d.mts": "100644",
-        "src/modules/operator-auth/identity/email-link/index.mjs": "100644",
-        "src/modules/operator-auth/identity/email-link/message.mjs": "100644",
-        "src/modules/operator-auth/identity/index.d.mts": "100644",
-        "src/modules/operator-auth/identity/index.mjs": "100644",
-        "src/modules/operator-auth/identity/oidc/README.md": "100644",
-        "src/modules/operator-auth/identity/oidc/client-auth.mjs": "100644",
-        "src/modules/operator-auth/identity/oidc/config.mjs": "100644",
-        "src/modules/operator-auth/identity/oidc/crypto.mjs": "100644",
-        "src/modules/operator-auth/identity/oidc/errors.mjs": "100644",
-        "src/modules/operator-auth/identity/oidc/index.d.mts": "100644",
-        "src/modules/operator-auth/identity/oidc/index.mjs": "100644",
-        "src/modules/operator-auth/identity/oidc/jwt.mjs": "100644",
-        "src/modules/operator-auth/identity/oidc/network.mjs": "100644",
-        "src/modules/operator-auth/identity/oidc/presets.mjs": "100644",
-        "src/modules/operator-auth/identity/oidc/schema/oidc.sql": "100644",
-        "src/modules/operator-auth/identity/oidc/store.mjs": "100644",
-        "src/modules/operator-auth/identity/principal.mjs": "100644",
-        "src/modules/operator-auth/index.d.mts": "100644",
-        "src/modules/operator-auth/index.mjs": "100644",
-        "src/modules/operator-auth/input.mjs": "100644",
-        "src/modules/operator-auth/local-cli.mjs": "100644",
-        "src/modules/operator-auth/loopback.mjs": "100644",
-        "src/modules/operator-auth/owner-signin-grant.mjs": "100644",
-        "src/modules/operator-auth/page.mjs": "100644",
-        "src/modules/operator-auth/policy.d.mts": "100644",
-        "src/modules/operator-auth/policy.mjs": "100644",
-        "src/modules/operator-auth/rejected-response.mjs": "100644",
-        "src/modules/operator-auth/routes.mjs": "100644",
-        "src/modules/operator-auth/scheduled/definition.mjs": "100644",
-        "src/modules/operator-auth/scheduled/expiry.mjs": "100644",
-        "src/modules/operator-auth/scheduled/fence.mjs": "100644",
-        "src/modules/operator-auth/scheduled/history.mjs": "100644",
-        "src/modules/operator-auth/scheduled/index.d.mts": "100644",
-        "src/modules/operator-auth/scheduled/index.mjs": "100644",
-        "src/modules/operator-auth/scheduled/runner.mjs": "100644",
-        "src/modules/operator-auth/service.mjs": "100644",
-        "src/modules/operator-auth/signin/index.d.mts": "100644",
-        "src/modules/operator-auth/signin/index.mjs": "100644",
-        "src/modules/operator-auth/signin/one-click.mjs": "100644"
-      }
-    },
-    {
-      "path": "src/modules/mail",
-      "originPath": "modules/mail",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
-      "files": {
-        "src/modules/mail/.gitignore": "bac5cb305c3cbf6aa42e50e7f2c0f5331a71d70dac15f239b8ec6746afed0db5",
-        "src/modules/mail/LICENSE": "2f5076ef027045b9e0e72df8aa61ca8551e54b1877d531656d6e7985b2c32324",
-        "src/modules/mail/README.md": "7a041dddfa7161acfb2d53c7fd4522551c5e0c8a6061a8001eefaf9d0539be33",
-        "src/modules/mail/doctor.mjs": "861a2be20c051247d590cc14d173037f648666fc28ac39f826d69e38e5e2f5d9",
-        "src/modules/mail/index.mjs": "c0501b55f9ba53796926bed1abb22c8690ad2a66b03e09407a84a632c5a4a0c0",
-        "src/modules/mail/live-proof/README.md": "2f6cf1d376a9356b24291765361930b502f8644a0dde4019650d5dddc7478a59",
-        "src/modules/mail/live-proof/run.mjs": "e0c9a4838d6e3ab467f98a7c5be3a74f874267ced6ec025e4de26e906fb45a04",
-        "src/modules/mail/package.json": "b6e2d1e285c44deffbec6ae94ab67599d8dda0aaa548066c415ec94418ffbd30",
-        "src/modules/mail/pnpm-lock.yaml": "0a2e74e7c7f6e3a92636845c04f8c9a8cad9005fbbcc5f4cc9d772b4831c4372",
-        "src/modules/mail/src/adapters/cloudflare/README.md": "80531ce460180b853b7db0480b4ff3d4f919fa5ccc119f71255fb1ac13485c5a",
-        "src/modules/mail/src/adapters/cloudflare/headers.mjs": "6bee46c1edb6228b9d3df8b26ca1acbb163c36d94ecbd8e28ace1a6811095f23",
-        "src/modules/mail/src/adapters/cloudflare/index.mjs": "377e4a322ac7803a1c56986ac909c35c1328896cff07c0610abbad5e8f8c3f86",
-        "src/modules/mail/src/adapters/cloudflare/response.mjs": "5eb6749653c10e45c712a76029f5f87503f660315f8f3f665531f2d346f70ddf",
-        "src/modules/mail/src/adapters/messaging/README.md": "b9dcfc5aeeb1ee2118486efa584b790cee9f77e1c7c95036d6ff99e48df317db",
-        "src/modules/mail/src/adapters/messaging/contract.mjs": "33397b933e393dca874b673e45c65cbcc1c96b84eeaab10d0346e2b1230f30df",
-        "src/modules/mail/src/adapters/messaging/event-schema.mjs": "c1e971e32859954f7087412bd4044cec0a3a4d1e7b81c3b186dbd3aab3aa1fd1",
-        "src/modules/mail/src/adapters/messaging/index.mjs": "cb6165778b1265db6b68ed6fc7fdbe04f72beeea56e64d47cc8f3808b3d438e7",
-        "src/modules/mail/src/adapters/messaging/jws.mjs": "bac3ac5de7f1c65ac6a23d53e9e0508917ed9bba55c0b4011d466c117a5bfd0a",
-        "src/modules/mail/src/adapters/messaging/request.mjs": "40a8a800c8791bceb8a9d7c86976693c9fb6eeb37d0b902c0fdab93b6b5c7f71",
-        "src/modules/mail/src/adapters/messaging/serialize.mjs": "4ee46c1ccb75edfd53b94bfff67ccdb08196a3ee68576c1eb0aa2494f9d4e1f5",
-        "src/modules/mail/src/adapters/rer/contract.mjs": "b5daebf8e3b3e0a8cb9482d93af021db74e5202d75d1d414a98259841fa35ac3",
-        "src/modules/mail/src/adapters/rer/index.mjs": "bbf0d393bc9a5488595cc6f50854e3e7a90fe7272c4ba80721239913ca8be5c7",
-        "src/modules/mail/src/adapters/rer/list-headers.mjs": "2ee80e4fa4e9185efebc5ce02fca2f777dfce7b423f31d6a1ede5a19f411195b",
-        "src/modules/mail/src/adapters/resend/README.md": "07487907a351cde380774bed9b1f7b8d387f55f19be02990a521e25bdb09d468",
-        "src/modules/mail/src/adapters/resend/index.mjs": "03d292468577cb51b012b2c71c13654cd7b0af82c240ec124921ee88e05639dc",
-        "src/modules/mail/src/adapters/resend/response.mjs": "a0f26cafacdae8c6b8070a9ddeb7c1a68a67b47310d27932e59f425450b4b650",
-        "src/modules/mail/src/adapters/resend/serialize.mjs": "724e04eba7ed515d0a137c69faf388c04061185677335076af7d9d91fdd7de94",
-        "src/modules/mail/src/adapters/resend/size.mjs": "1726a4e7ce6ca1198dce3b0fcfe43e0d1e9795ca0e334824a61560318c2eabd5",
-        "src/modules/mail/src/adapters/sendgrid/README.md": "37a03786dd7cbc6d114a344389daa828334967642574f939df35219b094ad536",
-        "src/modules/mail/src/adapters/sendgrid/index.mjs": "bd94b2d46151ed35f4b0f8ba720588e4d64c899654111e114691b4c6421dfa4e",
-        "src/modules/mail/src/adapters/sendgrid/serialize.mjs": "60d7836f94068a92283b1b66ccd27efeb78173c013fd1c9a6caaef1b928e09c0",
-        "src/modules/mail/src/core/errors.mjs": "8ffe417be05ef9f9f6eae1f84641f8da0e3c244f0a5ee712befc979dec455869",
-        "src/modules/mail/src/core/transport.mjs": "67b721f37bdde8a5f419ca88eda0e88650ffaca06bcbf91eab0e33c879d0e230",
-        "src/modules/mail/src/core/validation.mjs": "742a3ca756c15a6e7973ab48cd3c46ee697ab62d44b78ceae59a8fb7ec524f4d",
-        "src/modules/mail/src/development/index.d.mts": "c5a98aa45d773ca730dda8a197aa3c9ee3fcf44c7999cfe5fd8365c28f8f2faf",
-        "src/modules/mail/src/development/index.mjs": "e4feac5772dd57b02b380584f38395063758905e8c850034f822a3c23ffb2c3f",
-        "src/modules/mail/src/development/outbox.mjs": "ca97ec8816a03cd606c90a37a98d3764fab809dba73411922cbd6f7a3f314376",
-        "src/modules/mail/src/development/schema.sql": "45d6b03eadfe1e91737763ae85cdff74e7216f859869e34431550bba48294996",
-        "src/modules/mail/src/doctor/README.md": "03fbc37879c24a39d864147142b3474ade2f3611a3bc9343be214f2280619e14",
-        "src/modules/mail/src/doctor/common.mjs": "09d55a9065b133ca5e3c64e35a652cac6c5220cd1f130328c9014f994ebd1e23",
-        "src/modules/mail/src/doctor/dns.mjs": "dbbd30abedf91cbf041597be0016d8f308f86951685161af89eeee1e99a9450e",
-        "src/modules/mail/src/doctor/index.mjs": "bc7e27eb1066b48b0c10bf0d874e858016675124e87f9795b04aa90cd5a11860",
-        "src/modules/mail/src/doctor/probe.mjs": "8f784edc9b8b1d28543471a406bfb7539db0f4070cdd24065798804012b735c0",
-        "src/modules/mail/src/doctor/receive.mjs": "c113c033011d3a98c4407c5d7bb5a1f7130de088620a03d36d9087fc536a24c7",
-        "src/modules/mail/src/doctor/records.mjs": "f5a8f43ab1d3e5a125056f34068380f7634ed178b238937eac26c92b67c686b1",
-        "src/modules/mail/src/events/README.md": "31ca618acfcff4a9303772b31cf6ab4cec0c45d80e4ffb4eb5e1bbc8b97d8def",
-        "src/modules/mail/src/events/d1-schema.sql": "c18a168f27d6994d2930730e775422d65cb97023f5550cdccc2d95fdf64440b1",
-        "src/modules/mail/src/events/d1-storage.mjs": "994d21831a0783e9338e2cc2832c4e4936b4a8b9f962938ed947a32923305fe5",
-        "src/modules/mail/src/events/index.mjs": "b59cbd19c3676bd36931929379e1a80605192ed4adb496fe39287e927b799ddc",
-        "src/modules/mail/src/events/intake.mjs": "27b4092955b0e9fe58ad860f9e386d9c57656816bd9855db62022455a6bab2b4",
-        "src/modules/mail/src/events/storage.mjs": "56a1befc9d7bb799de431d7e938bf84470cd10f891c5275cb0be89704f2de32b",
-        "src/modules/mail/src/events/verify.mjs": "d5ab927fdcca001bebdf1128e7cdf4c6006b49468406aff983c10957ef5bf286",
-        "src/modules/mail/src/inbound/README.md": "19f1c3448ae767095f257e2aa0bef8e19e94bd9d00fe0cd7515fb4d0d9f53eff",
-        "src/modules/mail/src/inbound/bytes.mjs": "cf6d59fff8c693a2833d0015f134d5c2559ec749aeb69b292b38585be7b7db7f",
-        "src/modules/mail/src/inbound/headers.mjs": "7f97376f6817e84940503dcc29d9e99ad4490d3260c142700538ec941b8bfc4f",
-        "src/modules/mail/src/inbound/index.mjs": "6defd48ac74f7a267f63d84f5b7cc8c1acfecfb26940df1a200088aa8be9f824",
-        "src/modules/mail/src/inbound/mime.mjs": "743ae43126ba32aa0cbc00b3be738a7486612b220787c548455c7a778fa1803c",
-        "src/modules/mail/src/inbound/multipart.mjs": "3696b971db5cf7a8c43eae84faca32123645293dcf97304382359be501d19cca",
-        "src/modules/mail/src/inbound/resend-attachment.mjs": "a2ca74f17f0018c96b12a6bcaadc31c9b20d870687c5a2d7374de50e4c8fbff3",
-        "src/modules/mail/src/inbound/resend.mjs": "7d279b6dcb1280b0c3902afc05c7356a9fbfcc015051a5c852fbfbb789a41e17",
-        "src/modules/mail/src/inbound/sendgrid.mjs": "b599533e99e7912adfd10fc7343ba59e9387d783a623af0c6ac0843314265118",
-        "src/modules/mail/src/sender.mjs": "32a413be1866cd5ca060b72c0e30de2c09ff4d37c87c1c94fbcf3de6f86d1dc6",
-        "src/modules/mail/src/sendgrid-email/index.d.mts": "65efe2ed9647dd24ce7a7c1055cc5d8213ce94061db7597fb0460309baaa48be",
-        "src/modules/mail/src/sendgrid-email/index.mjs": "4b0a9132941f0ba7a2f91b86b46b16bb0cdb5d3b9396b19ad13fb060bd02737d",
-        "src/modules/mail/src/unsubscribe/index.mjs": "5804439f7b5981c73dba442cb33237ba73eedfaf1a71fd1c2f5e5a91cb1b2927"
-      },
-      "modes": {
-        "src/modules/mail/.gitignore": "100644",
-        "src/modules/mail/LICENSE": "100644",
-        "src/modules/mail/README.md": "100644",
-        "src/modules/mail/doctor.mjs": "100644",
-        "src/modules/mail/index.mjs": "100644",
-        "src/modules/mail/live-proof/README.md": "100644",
-        "src/modules/mail/live-proof/run.mjs": "100644",
-        "src/modules/mail/package.json": "100644",
-        "src/modules/mail/pnpm-lock.yaml": "100644",
-        "src/modules/mail/src/adapters/cloudflare/README.md": "100644",
-        "src/modules/mail/src/adapters/cloudflare/headers.mjs": "100644",
-        "src/modules/mail/src/adapters/cloudflare/index.mjs": "100644",
-        "src/modules/mail/src/adapters/cloudflare/response.mjs": "100644",
-        "src/modules/mail/src/adapters/messaging/README.md": "100644",
-        "src/modules/mail/src/adapters/messaging/contract.mjs": "100644",
-        "src/modules/mail/src/adapters/messaging/event-schema.mjs": "100644",
-        "src/modules/mail/src/adapters/messaging/index.mjs": "100644",
-        "src/modules/mail/src/adapters/messaging/jws.mjs": "100644",
-        "src/modules/mail/src/adapters/messaging/request.mjs": "100644",
-        "src/modules/mail/src/adapters/messaging/serialize.mjs": "100644",
-        "src/modules/mail/src/adapters/rer/contract.mjs": "100644",
-        "src/modules/mail/src/adapters/rer/index.mjs": "100644",
-        "src/modules/mail/src/adapters/rer/list-headers.mjs": "100644",
-        "src/modules/mail/src/adapters/resend/README.md": "100644",
-        "src/modules/mail/src/adapters/resend/index.mjs": "100644",
-        "src/modules/mail/src/adapters/resend/response.mjs": "100644",
-        "src/modules/mail/src/adapters/resend/serialize.mjs": "100644",
-        "src/modules/mail/src/adapters/resend/size.mjs": "100644",
-        "src/modules/mail/src/adapters/sendgrid/README.md": "100644",
-        "src/modules/mail/src/adapters/sendgrid/index.mjs": "100644",
-        "src/modules/mail/src/adapters/sendgrid/serialize.mjs": "100644",
-        "src/modules/mail/src/core/errors.mjs": "100644",
-        "src/modules/mail/src/core/transport.mjs": "100644",
-        "src/modules/mail/src/core/validation.mjs": "100644",
-        "src/modules/mail/src/development/index.d.mts": "100644",
-        "src/modules/mail/src/development/index.mjs": "100644",
-        "src/modules/mail/src/development/outbox.mjs": "100644",
-        "src/modules/mail/src/development/schema.sql": "100644",
-        "src/modules/mail/src/doctor/README.md": "100644",
-        "src/modules/mail/src/doctor/common.mjs": "100644",
-        "src/modules/mail/src/doctor/dns.mjs": "100644",
-        "src/modules/mail/src/doctor/index.mjs": "100644",
-        "src/modules/mail/src/doctor/probe.mjs": "100644",
-        "src/modules/mail/src/doctor/receive.mjs": "100644",
-        "src/modules/mail/src/doctor/records.mjs": "100644",
-        "src/modules/mail/src/events/README.md": "100644",
-        "src/modules/mail/src/events/d1-schema.sql": "100644",
-        "src/modules/mail/src/events/d1-storage.mjs": "100644",
-        "src/modules/mail/src/events/index.mjs": "100644",
-        "src/modules/mail/src/events/intake.mjs": "100644",
-        "src/modules/mail/src/events/storage.mjs": "100644",
-        "src/modules/mail/src/events/verify.mjs": "100644",
-        "src/modules/mail/src/inbound/README.md": "100644",
-        "src/modules/mail/src/inbound/bytes.mjs": "100644",
-        "src/modules/mail/src/inbound/headers.mjs": "100644",
-        "src/modules/mail/src/inbound/index.mjs": "100644",
-        "src/modules/mail/src/inbound/mime.mjs": "100644",
-        "src/modules/mail/src/inbound/multipart.mjs": "100644",
-        "src/modules/mail/src/inbound/resend-attachment.mjs": "100644",
-        "src/modules/mail/src/inbound/resend.mjs": "100644",
-        "src/modules/mail/src/inbound/sendgrid.mjs": "100644",
-        "src/modules/mail/src/sender.mjs": "100644",
-        "src/modules/mail/src/sendgrid-email/index.d.mts": "100644",
-        "src/modules/mail/src/sendgrid-email/index.mjs": "100644",
-        "src/modules/mail/src/unsubscribe/index.mjs": "100644"
-      }
-    },
-    {
-      "path": "src/modules/demo",
-      "originPath": "modules/demo",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
-      "files": {
-        "src/modules/demo/README.md": "8fb9b98295fa59c8d4bdd6bd0d0b9940dc1113bb4a6d01813e76b5c878a445fc",
-        "src/modules/demo/effects.mjs": "e74d46fec165fdb5eafc62e53d6691e3064d5b9b5257c53f3cd6dd9a40386226",
-        "src/modules/demo/index.d.mts": "71caa39f5001ab8bd2891ae5bdb9bf1ab4910c121fb038d83ae549adaf8fcf10",
-        "src/modules/demo/index.mjs": "a90f58afaf7d7d54121f1e49746a51631c1b12c603e44edba81b1570eaa68d96",
-        "src/modules/demo/label.d.mts": "96a4692d568cfb6fd5593c9d7d4296bced338e0f54c2d17f80ae1da105287285",
-        "src/modules/demo/label.mjs": "5a879dba78bcebfa5f12ce79856998ac1f54706955a0346b94babed7da5a8cf5",
-        "src/modules/demo/responses.mjs": "f91b6cb14dfde5c30750e6d248820f7218a855353e43e2defbc10fcc25fedc5d",
-        "src/modules/demo/sockets.mjs": "af88b298b721b3b2a9fe2425b9a8b7c95d842f28b56b3c48cf4366226ec90389",
-        "src/modules/demo/vite.d.mts": "f43b152b4a993feaf96afdbc276922bfa20d64725ea0150a12ec6ec805a7c7b3",
-        "src/modules/demo/vite.mjs": "e38556e50c954814ee8e12278babd627d5cdd051a7ea2c242a61d6c5d84d12f8"
-      },
-      "modes": {
-        "src/modules/demo/README.md": "100644",
-        "src/modules/demo/effects.mjs": "100644",
-        "src/modules/demo/index.d.mts": "100644",
-        "src/modules/demo/index.mjs": "100644",
-        "src/modules/demo/label.d.mts": "100644",
-        "src/modules/demo/label.mjs": "100644",
-        "src/modules/demo/responses.mjs": "100644",
-        "src/modules/demo/sockets.mjs": "100644",
-        "src/modules/demo/vite.d.mts": "100644",
-        "src/modules/demo/vite.mjs": "100644"
-      }
-    },
-    {
       "path": "src/modules/ai",
       "originPath": "modules/ai",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
       "files": {
-        "src/modules/ai/LICENSE": "2f5076ef027045b9e0e72df8aa61ca8551e54b1877d531656d6e7985b2c32324",
-        "src/modules/ai/README.md": "6ebf7160bc2952aaa1620def0bc3f9059cc86bbcaa6db15ddcb38f81bd95a251",
         "src/modules/ai/client.mjs": "ab2d451f20bb618646e8cd56711ee5b665e7a639374b40af8e79543026045ab1",
         "src/modules/ai/config.mjs": "04b1f03a17c9268ce222f25fda041b049bf623b2f5fb4155e7c5c9af775e62ab",
         "src/modules/ai/dev/index.d.mts": "7c53486beecb6800ac7dd383667300753c15098ac6ba01c7b1bb2c6ef0611375",
@@ -471,11 +293,11 @@
         "src/modules/ai/fake/index.mjs": "cc9cfdaf67482b626c3a9c1f2c82f8aeff10fb3774043715acbdb579224087b2",
         "src/modules/ai/index.d.mts": "42c1cd6b07cfb4eba6b63a0f3876d412422e6130509870cf7c70d395b02a80cc",
         "src/modules/ai/index.mjs": "dc9100f9df3dabab1b43eecdba8aa4d337c85f987935eb28707335125380271a",
-        "src/modules/ai/package.json": "e1952aea5cd307285f9b8ce5a5a43fbda965098c2de85e005049d0f6bc661601"
+        "src/modules/ai/LICENSE": "2f5076ef027045b9e0e72df8aa61ca8551e54b1877d531656d6e7985b2c32324",
+        "src/modules/ai/package.json": "e1952aea5cd307285f9b8ce5a5a43fbda965098c2de85e005049d0f6bc661601",
+        "src/modules/ai/README.md": "6ebf7160bc2952aaa1620def0bc3f9059cc86bbcaa6db15ddcb38f81bd95a251"
       },
       "modes": {
-        "src/modules/ai/LICENSE": "100644",
-        "src/modules/ai/README.md": "100644",
         "src/modules/ai/client.mjs": "100644",
         "src/modules/ai/config.mjs": "100644",
         "src/modules/ai/dev/index.d.mts": "100644",
@@ -486,273 +308,101 @@
         "src/modules/ai/fake/index.mjs": "100644",
         "src/modules/ai/index.d.mts": "100644",
         "src/modules/ai/index.mjs": "100644",
-        "src/modules/ai/package.json": "100644"
+        "src/modules/ai/LICENSE": "100644",
+        "src/modules/ai/package.json": "100644",
+        "src/modules/ai/README.md": "100644"
+      }
+    },
+    {
+      "path": "src/modules/d1-transport",
+      "originPath": "modules/d1-transport",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "src/modules/d1-transport/index.d.mts": "b1dcfba529210c9237fa257faa0da8c9062bef946961ba8edeb8af7e171611f3",
+        "src/modules/d1-transport/index.mjs": "a8a79a0c2673536e221facd892e688000bfae71485d864b4fff9801eb7aaf4a9"
+      },
+      "modes": {
+        "src/modules/d1-transport/index.d.mts": "100644",
+        "src/modules/d1-transport/index.mjs": "100644"
+      }
+    },
+    {
+      "path": "src/modules/demo",
+      "originPath": "modules/demo",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "src/modules/demo/effects.mjs": "e74d46fec165fdb5eafc62e53d6691e3064d5b9b5257c53f3cd6dd9a40386226",
+        "src/modules/demo/index.d.mts": "71caa39f5001ab8bd2891ae5bdb9bf1ab4910c121fb038d83ae549adaf8fcf10",
+        "src/modules/demo/index.mjs": "a90f58afaf7d7d54121f1e49746a51631c1b12c603e44edba81b1570eaa68d96",
+        "src/modules/demo/label.d.mts": "96a4692d568cfb6fd5593c9d7d4296bced338e0f54c2d17f80ae1da105287285",
+        "src/modules/demo/label.mjs": "5a879dba78bcebfa5f12ce79856998ac1f54706955a0346b94babed7da5a8cf5",
+        "src/modules/demo/README.md": "8fb9b98295fa59c8d4bdd6bd0d0b9940dc1113bb4a6d01813e76b5c878a445fc",
+        "src/modules/demo/responses.mjs": "f91b6cb14dfde5c30750e6d248820f7218a855353e43e2defbc10fcc25fedc5d",
+        "src/modules/demo/sockets.mjs": "af88b298b721b3b2a9fe2425b9a8b7c95d842f28b56b3c48cf4366226ec90389",
+        "src/modules/demo/vite.d.mts": "f43b152b4a993feaf96afdbc276922bfa20d64725ea0150a12ec6ec805a7c7b3",
+        "src/modules/demo/vite.mjs": "e38556e50c954814ee8e12278babd627d5cdd051a7ea2c242a61d6c5d84d12f8"
+      },
+      "modes": {
+        "src/modules/demo/effects.mjs": "100644",
+        "src/modules/demo/index.d.mts": "100644",
+        "src/modules/demo/index.mjs": "100644",
+        "src/modules/demo/label.d.mts": "100644",
+        "src/modules/demo/label.mjs": "100644",
+        "src/modules/demo/README.md": "100644",
+        "src/modules/demo/responses.mjs": "100644",
+        "src/modules/demo/sockets.mjs": "100644",
+        "src/modules/demo/vite.d.mts": "100644",
+        "src/modules/demo/vite.mjs": "100644"
       }
     },
     {
       "path": "src/modules/dependencies",
       "originPath": "modules/dependencies",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
       "files": {
-        "src/modules/dependencies/README.md": "d60674a6d0f221787bdd5b46a9a4fa0e0cf916e5927ca78c7e5003390aa9d69b",
         "src/modules/dependencies/approval.mjs": "7398c2f5ec6c8505f7fa24d5fab7848967dfb3f61720892d1f31494a68237a69",
-        "src/modules/dependencies/auth.mjs": "c1e864461c204731395555b0235a9cb058a8979fde84ae58abce559053ba27f0",
+        "src/modules/dependencies/auth.mjs": "6dd0ee20fff4a25af3d5657a1c139af184b92f18776a21fac8906b99ee60957b",
         "src/modules/dependencies/authority.mjs": "fe89cd1fb7da306cf145b8ef3ebe160902f4e4a82284681eccb97193c68e8750",
-        "src/modules/dependencies/crypto.mjs": "8dc3397e90b6f8ec1dad81ba68da6e1a5e966ddd8c1b9ace943e964098fea950",
-        "src/modules/dependencies/index.d.mts": "667f8fd42fb7319b5d43c5cced539ad0ad13bfca46887c45b52c1bee19ef7a22",
-        "src/modules/dependencies/index.mjs": "6ce61db101b89b60fd69ea1eaa62da4226b18fcea5dd1ec46e42a73282309e89",
+        "src/modules/dependencies/crypto.mjs": "2df5bdc44e90b067e8c44514d32e4a67672765a9641d345ebe99cb520dc05040",
+        "src/modules/dependencies/custody.mjs": "281acc20689432729a07bb4b9dc8633c839b9088dbbe2897a2133da664e182f0",
+        "src/modules/dependencies/index.d.mts": "0528c460eb7f012bae6853bf2d9464aa381e8e1c66d0bd93cb41998eb063198d",
+        "src/modules/dependencies/index.mjs": "27a0aa745fdacac6deae5a58b35744e1db4db6ca3765bc95adffa21e1afa11ab",
         "src/modules/dependencies/logout.mjs": "d2760dc2d9143094ddf9a883cf54f98ed7818c471e7ca99d5e195f524b2ae8b1",
         "src/modules/dependencies/native.mjs": "746b101f850bbf8ab18070352bb4920e2ab7252978b2594e9b4aa66e021534ce",
         "src/modules/dependencies/protocol.mjs": "9d51f351d80d30b37f771110b3f6cb97d383d8128229314ad59cc17947666f14",
+        "src/modules/dependencies/README.md": "79e0eef431e8211ed74a14198a39ba201ad67db3de5e03310ac297834c691d22",
         "src/modules/dependencies/schema/approval-attempt.sql": "7d3742369189b69ea28bdc000097f150f83221c6474f7e177c7b5590691b67e9",
         "src/modules/dependencies/schema/dependencies.sql": "3481d8aef870a9eda153a1617e99bb71a408e61a25dea92bb132efa7dd1c2526",
-        "src/modules/dependencies/store.mjs": "1d102b080d60634fe28da383c80d32a191b9b99cd94600168d6071ac25f0a606"
+        "src/modules/dependencies/schema/keys-sealed.sql": "9c8fa5f94c48a230f326cd4d666cbc2bd1e7d5a18327b89e65b339ac6a533d9a",
+        "src/modules/dependencies/sealing.mjs": "e91021a57168c8cd26b3be283ee17e8b5d8822c9c9bd2475e6d563f898fc5b8d",
+        "src/modules/dependencies/store.mjs": "cd3c17373565ff5e4ffd1222299bcc9f8f018ec476db7def8d6d3aef52fa610f"
       },
       "modes": {
-        "src/modules/dependencies/README.md": "100644",
         "src/modules/dependencies/approval.mjs": "100644",
         "src/modules/dependencies/auth.mjs": "100644",
         "src/modules/dependencies/authority.mjs": "100644",
         "src/modules/dependencies/crypto.mjs": "100644",
+        "src/modules/dependencies/custody.mjs": "100644",
         "src/modules/dependencies/index.d.mts": "100644",
         "src/modules/dependencies/index.mjs": "100644",
         "src/modules/dependencies/logout.mjs": "100644",
         "src/modules/dependencies/native.mjs": "100644",
         "src/modules/dependencies/protocol.mjs": "100644",
+        "src/modules/dependencies/README.md": "100644",
         "src/modules/dependencies/schema/approval-attempt.sql": "100644",
         "src/modules/dependencies/schema/dependencies.sql": "100644",
+        "src/modules/dependencies/schema/keys-sealed.sql": "100644",
+        "src/modules/dependencies/sealing.mjs": "100644",
         "src/modules/dependencies/store.mjs": "100644"
-      }
-    },
-    {
-      "path": "src/modules/owner-claim",
-      "originPath": "modules/owner-claim",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
-      "files": {
-        "src/modules/owner-claim/README.md": "ab3ead07f6a21347c4f084c48acbdd5d62ee9abc711982cc09ffb1c53f239459",
-        "src/modules/owner-claim/idp.mjs": "edb09dfeb0b66849cd84b651099d46c6420d1dc3f270446ae96595d91754d3e6",
-        "src/modules/owner-claim/index.d.mts": "33fc8d1b756cb2c0a4317ea4dbc29ae704dd137f76993278859d98ae5e9ad184",
-        "src/modules/owner-claim/index.mjs": "71e4b0f9f967981146dd1daa5f6b14ab30f577adac4901c8e3d47bb8a5a76991",
-        "src/modules/owner-claim/page.mjs": "98f76844f55e2726654a1ff5030268b4a8327f7cf460a446856964989dfb4542",
-        "src/modules/owner-claim/schema/idp.sql": "a870102648a2226b18a2fe8168d096389b698af88333d112fa8137e582fc2b33",
-        "src/modules/owner-claim/schema/owner-claim.sql": "c3ffe653727bb4867b064dc2489df5013613f08f4b5998d2fe2b6a8485cdb815",
-        "src/modules/owner-claim/transaction.mjs": "56f9cf605a5a4afae2be22012e84035e661fb38c07612ec7d4f8cdc39526aa54",
-        "src/modules/owner-claim/verify.d.mts": "2af3697c67421d2105e2f45cedcced5b1ed562978b7007003189f93d0dd597c5",
-        "src/modules/owner-claim/verify.mjs": "a1cc5094a30415c60f739b67ad2eda40750e8d963d199fad45bdd562f7d0248b"
-      },
-      "modes": {
-        "src/modules/owner-claim/README.md": "100644",
-        "src/modules/owner-claim/idp.mjs": "100644",
-        "src/modules/owner-claim/index.d.mts": "100644",
-        "src/modules/owner-claim/index.mjs": "100644",
-        "src/modules/owner-claim/page.mjs": "100644",
-        "src/modules/owner-claim/schema/idp.sql": "100644",
-        "src/modules/owner-claim/schema/owner-claim.sql": "100644",
-        "src/modules/owner-claim/transaction.mjs": "100644",
-        "src/modules/owner-claim/verify.d.mts": "100644",
-        "src/modules/owner-claim/verify.mjs": "100644"
-      }
-    },
-    {
-      "path": "migrations/core/0006_provider_control.sql",
-      "originPath": "modules/operator-auth/accounts/schema/provider-control.sql",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
-      "files": {
-        "migrations/core/0006_provider_control.sql": "f19cc7a792538a8ff36d87760a3cad58fccab0316984488d1834af14fbf37cfe"
-      },
-      "modes": {
-        "migrations/core/0006_provider_control.sql": "100644"
-      }
-    },
-    {
-      "path": "migrations/core/0007_dependencies.sql",
-      "originPath": "modules/dependencies/schema/dependencies.sql",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
-      "files": {
-        "migrations/core/0007_dependencies.sql": "3481d8aef870a9eda153a1617e99bb71a408e61a25dea92bb132efa7dd1c2526"
-      },
-      "modes": {
-        "migrations/core/0007_dependencies.sql": "100644"
-      }
-    },
-    {
-      "path": "migrations/core/0008_owner_claim.sql",
-      "originPath": "modules/owner-claim/schema/owner-claim.sql",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
-      "files": {
-        "migrations/core/0008_owner_claim.sql": "c3ffe653727bb4867b064dc2489df5013613f08f4b5998d2fe2b6a8485cdb815"
-      },
-      "modes": {
-        "migrations/core/0008_owner_claim.sql": "100644"
-      }
-    },
-    {
-      "path": "migrations/core/0009_idp_owner.sql",
-      "originPath": "modules/owner-claim/schema/idp.sql",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
-      "files": {
-        "migrations/core/0009_idp_owner.sql": "a870102648a2226b18a2fe8168d096389b698af88333d112fa8137e582fc2b33"
-      },
-      "modes": {
-        "migrations/core/0009_idp_owner.sql": "100644"
-      }
-    },
-    {
-      "path": "migrations/core/0010_provider_pins.sql",
-      "originPath": "modules/operator-auth/accounts/schema/provider-pins.sql",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
-      "files": {
-        "migrations/core/0010_provider_pins.sql": "f0cfb6b3740869fd098ee449efb25807f8b1ef51c353fd07bafeb00ce38aeb63"
-      },
-      "modes": {
-        "migrations/core/0010_provider_pins.sql": "100644"
-      }
-    },
-    {
-      "path": "migrations/core/0011_dependency_setup.sql",
-      "originPath": "modules/operator-auth/accounts/schema/dependency-setup.sql",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
-      "files": {
-        "migrations/core/0011_dependency_setup.sql": "7b36f7e1fb0991fe3e808613d911393bbad3386ead06427082c69a48c5738108"
-      },
-      "modes": {
-        "migrations/core/0011_dependency_setup.sql": "100644"
-      }
-    },
-    {
-      "path": "migrations/core/0012_dependency_approval.sql",
-      "originPath": "modules/dependencies/schema/approval-attempt.sql",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
-      "files": {
-        "migrations/core/0012_dependency_approval.sql": "7d3742369189b69ea28bdc000097f150f83221c6474f7e177c7b5590691b67e9"
-      },
-      "modes": {
-        "migrations/core/0012_dependency_approval.sql": "100644"
-      }
-    },
-    {
-      "path": "migrations/core/0014_owner_signin.sql",
-      "originPath": "modules/operator-auth/accounts/schema/owner-signin.sql",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
-      "files": {
-        "migrations/core/0014_owner_signin.sql": "98da904e768e35b43fb1be83d9dcc9c9b5d86ab3a795234ed5223c4fddc567d9"
-      },
-      "modes": {
-        "migrations/core/0014_owner_signin.sql": "100644"
-      }
-    },
-    {
-      "path": "migrations/core/0001_owner.sql",
-      "originPath": "modules/operator-auth/accounts/schema/operator-auth.sql",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
-      "files": {
-        "migrations/core/0001_owner.sql": "e4cf66f7258c5b85876c16f18fb78fe3c9bd998244634ee267bb921403d01912"
-      },
-      "modes": {
-        "migrations/core/0001_owner.sql": "100644"
-      }
-    },
-    {
-      "path": "migrations/core/0005_identity_providers.sql",
-      "originPath": "modules/operator-auth/identity/oidc/schema/oidc.sql",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
-      "files": {
-        "migrations/core/0005_identity_providers.sql": "f879fb86b079e591dfe4a8513752a8e0394e252b940aa35d3f7430f27b7382c6"
-      },
-      "modes": {
-        "migrations/core/0005_identity_providers.sql": "100644"
-      }
-    },
-    {
-      "path": "migrations/core/0002_outbox.sql",
-      "originPath": "modules/mail/src/development/schema.sql",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
-      "files": {
-        "migrations/core/0002_outbox.sql": "45d6b03eadfe1e91737763ae85cdff74e7216f859869e34431550bba48294996"
-      },
-      "modes": {
-        "migrations/core/0002_outbox.sql": "100644"
-      }
-    },
-    {
-      "path": "migrations/core/0003_portability.sql",
-      "originPath": "modules/portability/schema/portability.sql",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
-      "files": {
-        "migrations/core/0003_portability.sql": "c7db9042f6d5c571e10297c02df858ad2f3466beb4fa85649fee407cc228747b"
-      },
-      "modes": {
-        "migrations/core/0003_portability.sql": "100644"
-      }
-    },
-    {
-      "path": "migrations/core/0013_erasure.sql",
-      "originPath": "modules/erasure/schema/erasure.sql",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
-      "files": {
-        "migrations/core/0013_erasure.sql": "44fd4fac1aee4fda0d1d580373cbed9ef3da837e0186e7fe2130fb68dfceadbe"
-      },
-      "modes": {
-        "migrations/core/0013_erasure.sql": "100644"
-      }
-    },
-    {
-      "path": "migrations/core/0015_command_receipts.sql",
-      "originPath": "foundation/runtime/command-receipts.sql",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
-      "files": {
-        "migrations/core/0015_command_receipts.sql": "8064fe877c22bf0500ff5c20d274cbd4e8b2e0dea986fa9e3e4fef4faf2c54a0"
-      },
-      "modes": {
-        "migrations/core/0015_command_receipts.sql": "100644"
-      }
-    },
-    {
-      "path": "VERIFY-WORKFLOW.md",
-      "originPath": "export/VERIFY-WORKFLOW.md",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
-      "files": {
-        "VERIFY-WORKFLOW.md": "97d25a60dabe02ab4c30efbe226c8967b8fbac25b39f61467c2ef5a26186261d"
-      },
-      "modes": {
-        "VERIFY-WORKFLOW.md": "100644"
-      }
-    },
-    {
-      "path": "scripts/edition-authoring",
-      "originPath": "edition-authoring",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
-      "files": {
-        "scripts/edition-authoring/release.mjs": "40acdb670edbde2eafa731f535bbe7403360a3327b576ed47355936bcc4a543a",
-        "scripts/edition-authoring/updates.mjs": "54e7246025a618ed16ee042c22dc9a8dc27b06175c30f81c4c6568992ed04799",
-        "scripts/edition-authoring/projection-lock.mjs": "bbb939b4e5bc6b5db8bf51156ec770fa30fc5df7a8fbb21a751c8ede69b1444b",
-        "scripts/edition-authoring/base-copies.mjs": "ca2e3b86aec67aaa5cb28d1a8311612a905fbd2116fac999a34185fa776cf876",
-        "scripts/edition-authoring/sources.mjs": "1033adaaa5f1f52053c34552c0979b6f868907f00cc1005d39fd8f845df4be09",
-        "scripts/edition-authoring/files.mjs": "eb0b8a0b9958c4ed84735d85f5298f3d1307ef60ddee1c2a3329c6ed7af0902e",
-        "scripts/edition-authoring/parent-comparison.mjs": "fba6c894e2fe5a48c2f8706ab74b09d1935bd7fa38049a264d3d91ff6d336003",
-        "scripts/edition-authoring/manifest.mjs": "0c93bd39b1dd869b23a9d2727671fe8f9c933a9d56c7a3df1ba83c4a6f816e7b",
-        "scripts/edition-authoring/cli.mjs": "d9bc25b361c056ec4bebe2b8e506baff95fdd06ec4d4f54a63f20d873025a89b"
-      },
-      "modes": {
-        "scripts/edition-authoring/release.mjs": "100644",
-        "scripts/edition-authoring/updates.mjs": "100644",
-        "scripts/edition-authoring/projection-lock.mjs": "100644",
-        "scripts/edition-authoring/base-copies.mjs": "100644",
-        "scripts/edition-authoring/sources.mjs": "100644",
-        "scripts/edition-authoring/files.mjs": "100644",
-        "scripts/edition-authoring/parent-comparison.mjs": "100644",
-        "scripts/edition-authoring/manifest.mjs": "100644",
-        "scripts/edition-authoring/cli.mjs": "100644"
       }
     },
     {
       "path": "src/modules/import-kit",
       "originPath": "modules/import-kit",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
       "files": {
         "src/modules/import-kit/schema/importer-verification-receipt.schema.json": "710740a418fbd1fda5dd7a9017c247040c2bef98a6eadbec2a59220a5afa0ae7",
         "src/modules/import-kit/schema/importers.schema.json": "70ffac46763ab493388cad8fb0bc40946be819b8e8036274a7bff30cf3b4d9c3",
-        "src/modules/import-kit/src/d1/README.md": "e79578a054503ec99732939525a1daf79c9364966ca94cfadec7ac583dcab50c",
         "src/modules/import-kit/src/d1/apply.ts": "68ef23214fa11ca8fed729e4ef38661be5a7d3d14415c04cd6ab7d271839ce52",
         "src/modules/import-kit/src/d1/budget.ts": "b555798bf820bafbbe1e1162f8fb4432dcd9f7037304f0fe63aa5cd12443410b",
         "src/modules/import-kit/src/d1/compressed-plan.ts": "b96a798a51902178361933ac2509a7ccb549c932a778a7c3662b604f3b7a1430",
@@ -828,6 +478,7 @@
         "src/modules/import-kit/src/d1/published-stream.ts": "8e672ca3c1921fce0dc2fe37fa4470a5ada1dd38924a9b39db0cb5a97060a222",
         "src/modules/import-kit/src/d1/read-fence.ts": "e77cf651e56af1d6d37c78ac68ae339b7a5e98049dad2e3f501b602b01b203b3",
         "src/modules/import-kit/src/d1/read-results.ts": "75fe5cb009f41c2aa850941e8db21bfe77261baeccf5a0203505871d4ef66e2d",
+        "src/modules/import-kit/src/d1/README.md": "e79578a054503ec99732939525a1daf79c9364966ca94cfadec7ac583dcab50c",
         "src/modules/import-kit/src/d1/redacted-custody.ts": "4ff48e38c5063bab4911c4a117fc89fb32898f3924a35d01340e106a87fa2692",
         "src/modules/import-kit/src/d1/redaction-step.ts": "f80c6181f3941e5c2e9ac9c7618c4b4c87b959eb61aa912e36936c19266d5edd",
         "src/modules/import-kit/src/d1/referenced-plans.ts": "71db1440bd8e8e14e5a1802915893de71c994d6ef51be17d807b80b2f3256b68",
@@ -880,9 +531,8 @@
         "src/modules/import-kit/src/d1/undo-snapshot.ts": "e92301721da9d72c37213a99a308701c94c882657d2fe0a263ad95614d3928d2",
         "src/modules/import-kit/src/d1/undo-state.ts": "170ade2e4b9430ab1f96e713a6a7e11f7093f7bf19586647874cf751ecd37db1",
         "src/modules/import-kit/src/d1/undo-types.ts": "6690cc39744fdd257925a541af770e6c243eb923e23f4b7582570cae30edbfd5",
-        "src/modules/import-kit/src/door/ADOPTING.md": "7afe9806c8b878297e51f82210447c0d5369921606e458c3e2a558ee805b8ed6",
-        "src/modules/import-kit/src/door/README.md": "98f650890e5380191bf4b236d72debb9c2c93aae603500ec3b58b81d98ceb904",
         "src/modules/import-kit/src/door/admission.ts": "be300af64f0572d69c09567c5129f5d83564ae0f753b344526655260321d94ac",
+        "src/modules/import-kit/src/door/ADOPTING.md": "7afe9806c8b878297e51f82210447c0d5369921606e458c3e2a558ee805b8ed6",
         "src/modules/import-kit/src/door/archive.ts": "ea3ce0e1520d92b7b1b57f700def0a357c014dfcf8736293f1615b55b7ab4551",
         "src/modules/import-kit/src/door/authority.ts": "bc5fa04f2c86ef6b5dc09b6c443752ab172774ea11e1688c0b20822b132b11ef",
         "src/modules/import-kit/src/door/failures.ts": "5dbf118cd5ea2f5e565f1fe868559d197cb2bcdf6cd13ea73d3cedf38cdcfc91",
@@ -895,6 +545,7 @@
         "src/modules/import-kit/src/door/operator.ts": "5dadb86bb47792009ddae79c0e3db4c84c327a7047e2035b4415d1e2d57a532d",
         "src/modules/import-kit/src/door/planning.ts": "d06a2a4116ffa42a45e3f51a3a1742948f4e94a69bd22ee5b5c903710b0b2c56",
         "src/modules/import-kit/src/door/protocol.ts": "69d3a7f33e55d9eef7a64ab6784576d650fdbd6fec1aa808e8ee18c260f8a57c",
+        "src/modules/import-kit/src/door/README.md": "98f650890e5380191bf4b236d72debb9c2c93aae603500ec3b58b81d98ceb904",
         "src/modules/import-kit/src/door/refusals.ts": "1c03c2366bac97733ba30ad9e0f69311191735dcddced839a5e804dc2e4f6d6e",
         "src/modules/import-kit/src/door/schema.ts": "50326e8ce5bc7ef11946d882177b4e476db0ef15dcd82ba479e30be05efb9c5f",
         "src/modules/import-kit/src/door/store.ts": "ab418e02292a52929b3560a241ead4047252873eae685701dad2783010afab69",
@@ -920,7 +571,6 @@
         "src/modules/import-kit/src/provenance/numeric-credentials.ts": "dd21174c30a70a93e984a06a30f1045d1d36ca0d6a789c676c1cc183605f66c4",
         "src/modules/import-kit/src/provenance/resumable-sha256.ts": "2ded24de0d94c79ba98c9d15f7c84570e1b9efb89be82ca9cf259acbc86f4142",
         "src/modules/import-kit/src/provenance/validate-json.ts": "43d2424fb804f11b10b716504bf1f0ab9c03381372e2c9fe5eb7500224449007",
-        "src/modules/import-kit/src/readers/README.md": "a219b8979a5a94f7d4be3ad62b4be8c4ef822c70496ce03f8a41928c825ae74e",
         "src/modules/import-kit/src/readers/api-policy.ts": "ebbe7df062cc4dee2e2fc42e1d7c8aa40570c39b2f7f4ff1fd505278b38b9380",
         "src/modules/import-kit/src/readers/api.ts": "e7ffd06ea57383553296e5904d1e5773ab7fc101f1e9022e4388a05a587f6747",
         "src/modules/import-kit/src/readers/bytes.ts": "deedcee195b9755a1cc531b1332ce8e7a1df0b4760f2bd86f04e849e705c9e5c",
@@ -930,6 +580,7 @@
         "src/modules/import-kit/src/readers/json.ts": "027363a82d7a1e2a343cfc9a6a464bccee0f397bdb34c63acb68f5e36de06aa7",
         "src/modules/import-kit/src/readers/numeric-lexemes.ts": "7db8e41a1660d86be02468fb6bb3b5f38fed31c2c84b3a65ef02ceea2a4c311b",
         "src/modules/import-kit/src/readers/original.ts": "dd24c02854f80d86005d4f2677945a55ad736c478b752583e719bdd5141227a6",
+        "src/modules/import-kit/src/readers/README.md": "a219b8979a5a94f7d4be3ad62b4be8c4ef822c70496ce03f8a41928c825ae74e",
         "src/modules/import-kit/src/readers/records.ts": "70ae03031d410934836528223239fd4c30921ffe8e9a024002d9f41feb601814",
         "src/modules/import-kit/src/reconcile/index.ts": "0d73e5867657405de295b20e3aaaf659062a4f2e357b3a3ae18d1b5289d54f54",
         "src/modules/import-kit/src/status/encoding.ts": "27c23888a400c38e63fad8febda18d339d9a6114a3f2fa6db79d3e1c7e18c49d",
@@ -948,7 +599,6 @@
       "modes": {
         "src/modules/import-kit/schema/importer-verification-receipt.schema.json": "100644",
         "src/modules/import-kit/schema/importers.schema.json": "100644",
-        "src/modules/import-kit/src/d1/README.md": "100644",
         "src/modules/import-kit/src/d1/apply.ts": "100644",
         "src/modules/import-kit/src/d1/budget.ts": "100644",
         "src/modules/import-kit/src/d1/compressed-plan.ts": "100644",
@@ -1024,6 +674,7 @@
         "src/modules/import-kit/src/d1/published-stream.ts": "100644",
         "src/modules/import-kit/src/d1/read-fence.ts": "100644",
         "src/modules/import-kit/src/d1/read-results.ts": "100644",
+        "src/modules/import-kit/src/d1/README.md": "100644",
         "src/modules/import-kit/src/d1/redacted-custody.ts": "100644",
         "src/modules/import-kit/src/d1/redaction-step.ts": "100644",
         "src/modules/import-kit/src/d1/referenced-plans.ts": "100644",
@@ -1076,9 +727,8 @@
         "src/modules/import-kit/src/d1/undo-snapshot.ts": "100644",
         "src/modules/import-kit/src/d1/undo-state.ts": "100644",
         "src/modules/import-kit/src/d1/undo-types.ts": "100644",
-        "src/modules/import-kit/src/door/ADOPTING.md": "100644",
-        "src/modules/import-kit/src/door/README.md": "100644",
         "src/modules/import-kit/src/door/admission.ts": "100644",
+        "src/modules/import-kit/src/door/ADOPTING.md": "100644",
         "src/modules/import-kit/src/door/archive.ts": "100644",
         "src/modules/import-kit/src/door/authority.ts": "100644",
         "src/modules/import-kit/src/door/failures.ts": "100644",
@@ -1091,6 +741,7 @@
         "src/modules/import-kit/src/door/operator.ts": "100644",
         "src/modules/import-kit/src/door/planning.ts": "100644",
         "src/modules/import-kit/src/door/protocol.ts": "100644",
+        "src/modules/import-kit/src/door/README.md": "100644",
         "src/modules/import-kit/src/door/refusals.ts": "100644",
         "src/modules/import-kit/src/door/schema.ts": "100644",
         "src/modules/import-kit/src/door/store.ts": "100644",
@@ -1116,7 +767,6 @@
         "src/modules/import-kit/src/provenance/numeric-credentials.ts": "100644",
         "src/modules/import-kit/src/provenance/resumable-sha256.ts": "100644",
         "src/modules/import-kit/src/provenance/validate-json.ts": "100644",
-        "src/modules/import-kit/src/readers/README.md": "100644",
         "src/modules/import-kit/src/readers/api-policy.ts": "100644",
         "src/modules/import-kit/src/readers/api.ts": "100644",
         "src/modules/import-kit/src/readers/bytes.ts": "100644",
@@ -1126,6 +776,7 @@
         "src/modules/import-kit/src/readers/json.ts": "100644",
         "src/modules/import-kit/src/readers/numeric-lexemes.ts": "100644",
         "src/modules/import-kit/src/readers/original.ts": "100644",
+        "src/modules/import-kit/src/readers/README.md": "100644",
         "src/modules/import-kit/src/readers/records.ts": "100644",
         "src/modules/import-kit/src/reconcile/index.ts": "100644",
         "src/modules/import-kit/src/status/encoding.ts": "100644",
@@ -1143,16 +794,395 @@
       }
     },
     {
-      "path": "src/modules/d1-transport",
-      "originPath": "modules/d1-transport",
-      "revision": "d1249b3d696c4011e9c72de2097f3757436074a6",
+      "path": "src/modules/mail",
+      "originPath": "modules/mail",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
       "files": {
-        "src/modules/d1-transport/index.d.mts": "b1dcfba529210c9237fa257faa0da8c9062bef946961ba8edeb8af7e171611f3",
-        "src/modules/d1-transport/index.mjs": "a8a79a0c2673536e221facd892e688000bfae71485d864b4fff9801eb7aaf4a9"
+        "src/modules/mail/.gitignore": "bac5cb305c3cbf6aa42e50e7f2c0f5331a71d70dac15f239b8ec6746afed0db5",
+        "src/modules/mail/doctor.mjs": "861a2be20c051247d590cc14d173037f648666fc28ac39f826d69e38e5e2f5d9",
+        "src/modules/mail/index.mjs": "c0501b55f9ba53796926bed1abb22c8690ad2a66b03e09407a84a632c5a4a0c0",
+        "src/modules/mail/LICENSE": "2f5076ef027045b9e0e72df8aa61ca8551e54b1877d531656d6e7985b2c32324",
+        "src/modules/mail/live-proof/README.md": "2f6cf1d376a9356b24291765361930b502f8644a0dde4019650d5dddc7478a59",
+        "src/modules/mail/live-proof/run.mjs": "e0c9a4838d6e3ab467f98a7c5be3a74f874267ced6ec025e4de26e906fb45a04",
+        "src/modules/mail/package.json": "b6e2d1e285c44deffbec6ae94ab67599d8dda0aaa548066c415ec94418ffbd30",
+        "src/modules/mail/pnpm-lock.yaml": "0a2e74e7c7f6e3a92636845c04f8c9a8cad9005fbbcc5f4cc9d772b4831c4372",
+        "src/modules/mail/README.md": "7a041dddfa7161acfb2d53c7fd4522551c5e0c8a6061a8001eefaf9d0539be33",
+        "src/modules/mail/src/adapters/cloudflare/headers.mjs": "6bee46c1edb6228b9d3df8b26ca1acbb163c36d94ecbd8e28ace1a6811095f23",
+        "src/modules/mail/src/adapters/cloudflare/index.mjs": "377e4a322ac7803a1c56986ac909c35c1328896cff07c0610abbad5e8f8c3f86",
+        "src/modules/mail/src/adapters/cloudflare/README.md": "80531ce460180b853b7db0480b4ff3d4f919fa5ccc119f71255fb1ac13485c5a",
+        "src/modules/mail/src/adapters/cloudflare/response.mjs": "5eb6749653c10e45c712a76029f5f87503f660315f8f3f665531f2d346f70ddf",
+        "src/modules/mail/src/adapters/messaging/contract.mjs": "33397b933e393dca874b673e45c65cbcc1c96b84eeaab10d0346e2b1230f30df",
+        "src/modules/mail/src/adapters/messaging/event-schema.mjs": "c1e971e32859954f7087412bd4044cec0a3a4d1e7b81c3b186dbd3aab3aa1fd1",
+        "src/modules/mail/src/adapters/messaging/index.mjs": "cb6165778b1265db6b68ed6fc7fdbe04f72beeea56e64d47cc8f3808b3d438e7",
+        "src/modules/mail/src/adapters/messaging/jws.mjs": "bac3ac5de7f1c65ac6a23d53e9e0508917ed9bba55c0b4011d466c117a5bfd0a",
+        "src/modules/mail/src/adapters/messaging/README.md": "b9dcfc5aeeb1ee2118486efa584b790cee9f77e1c7c95036d6ff99e48df317db",
+        "src/modules/mail/src/adapters/messaging/request.mjs": "40a8a800c8791bceb8a9d7c86976693c9fb6eeb37d0b902c0fdab93b6b5c7f71",
+        "src/modules/mail/src/adapters/messaging/serialize.mjs": "4ee46c1ccb75edfd53b94bfff67ccdb08196a3ee68576c1eb0aa2494f9d4e1f5",
+        "src/modules/mail/src/adapters/rer/contract.mjs": "b5daebf8e3b3e0a8cb9482d93af021db74e5202d75d1d414a98259841fa35ac3",
+        "src/modules/mail/src/adapters/rer/index.mjs": "bbf0d393bc9a5488595cc6f50854e3e7a90fe7272c4ba80721239913ca8be5c7",
+        "src/modules/mail/src/adapters/rer/list-headers.mjs": "2ee80e4fa4e9185efebc5ce02fca2f777dfce7b423f31d6a1ede5a19f411195b",
+        "src/modules/mail/src/adapters/resend/index.mjs": "03d292468577cb51b012b2c71c13654cd7b0af82c240ec124921ee88e05639dc",
+        "src/modules/mail/src/adapters/resend/README.md": "07487907a351cde380774bed9b1f7b8d387f55f19be02990a521e25bdb09d468",
+        "src/modules/mail/src/adapters/resend/response.mjs": "a0f26cafacdae8c6b8070a9ddeb7c1a68a67b47310d27932e59f425450b4b650",
+        "src/modules/mail/src/adapters/resend/serialize.mjs": "724e04eba7ed515d0a137c69faf388c04061185677335076af7d9d91fdd7de94",
+        "src/modules/mail/src/adapters/resend/size.mjs": "1726a4e7ce6ca1198dce3b0fcfe43e0d1e9795ca0e334824a61560318c2eabd5",
+        "src/modules/mail/src/adapters/sendgrid/index.mjs": "bd94b2d46151ed35f4b0f8ba720588e4d64c899654111e114691b4c6421dfa4e",
+        "src/modules/mail/src/adapters/sendgrid/README.md": "37a03786dd7cbc6d114a344389daa828334967642574f939df35219b094ad536",
+        "src/modules/mail/src/adapters/sendgrid/serialize.mjs": "60d7836f94068a92283b1b66ccd27efeb78173c013fd1c9a6caaef1b928e09c0",
+        "src/modules/mail/src/core/errors.mjs": "8ffe417be05ef9f9f6eae1f84641f8da0e3c244f0a5ee712befc979dec455869",
+        "src/modules/mail/src/core/transport.mjs": "67b721f37bdde8a5f419ca88eda0e88650ffaca06bcbf91eab0e33c879d0e230",
+        "src/modules/mail/src/core/validation.mjs": "742a3ca756c15a6e7973ab48cd3c46ee697ab62d44b78ceae59a8fb7ec524f4d",
+        "src/modules/mail/src/development/index.d.mts": "c5a98aa45d773ca730dda8a197aa3c9ee3fcf44c7999cfe5fd8365c28f8f2faf",
+        "src/modules/mail/src/development/index.mjs": "e4feac5772dd57b02b380584f38395063758905e8c850034f822a3c23ffb2c3f",
+        "src/modules/mail/src/development/outbox.mjs": "ca97ec8816a03cd606c90a37a98d3764fab809dba73411922cbd6f7a3f314376",
+        "src/modules/mail/src/development/schema.sql": "45d6b03eadfe1e91737763ae85cdff74e7216f859869e34431550bba48294996",
+        "src/modules/mail/src/doctor/common.mjs": "09d55a9065b133ca5e3c64e35a652cac6c5220cd1f130328c9014f994ebd1e23",
+        "src/modules/mail/src/doctor/dns.mjs": "dbbd30abedf91cbf041597be0016d8f308f86951685161af89eeee1e99a9450e",
+        "src/modules/mail/src/doctor/index.mjs": "bc7e27eb1066b48b0c10bf0d874e858016675124e87f9795b04aa90cd5a11860",
+        "src/modules/mail/src/doctor/probe.mjs": "8f784edc9b8b1d28543471a406bfb7539db0f4070cdd24065798804012b735c0",
+        "src/modules/mail/src/doctor/README.md": "03fbc37879c24a39d864147142b3474ade2f3611a3bc9343be214f2280619e14",
+        "src/modules/mail/src/doctor/receive.mjs": "c113c033011d3a98c4407c5d7bb5a1f7130de088620a03d36d9087fc536a24c7",
+        "src/modules/mail/src/doctor/records.mjs": "f5a8f43ab1d3e5a125056f34068380f7634ed178b238937eac26c92b67c686b1",
+        "src/modules/mail/src/events/d1-schema.sql": "c18a168f27d6994d2930730e775422d65cb97023f5550cdccc2d95fdf64440b1",
+        "src/modules/mail/src/events/d1-storage.mjs": "994d21831a0783e9338e2cc2832c4e4936b4a8b9f962938ed947a32923305fe5",
+        "src/modules/mail/src/events/index.mjs": "b59cbd19c3676bd36931929379e1a80605192ed4adb496fe39287e927b799ddc",
+        "src/modules/mail/src/events/intake.mjs": "27b4092955b0e9fe58ad860f9e386d9c57656816bd9855db62022455a6bab2b4",
+        "src/modules/mail/src/events/README.md": "31ca618acfcff4a9303772b31cf6ab4cec0c45d80e4ffb4eb5e1bbc8b97d8def",
+        "src/modules/mail/src/events/storage.mjs": "56a1befc9d7bb799de431d7e938bf84470cd10f891c5275cb0be89704f2de32b",
+        "src/modules/mail/src/events/verify.mjs": "d5ab927fdcca001bebdf1128e7cdf4c6006b49468406aff983c10957ef5bf286",
+        "src/modules/mail/src/inbound/bytes.mjs": "cf6d59fff8c693a2833d0015f134d5c2559ec749aeb69b292b38585be7b7db7f",
+        "src/modules/mail/src/inbound/headers.mjs": "7f97376f6817e84940503dcc29d9e99ad4490d3260c142700538ec941b8bfc4f",
+        "src/modules/mail/src/inbound/index.mjs": "6defd48ac74f7a267f63d84f5b7cc8c1acfecfb26940df1a200088aa8be9f824",
+        "src/modules/mail/src/inbound/mime.mjs": "743ae43126ba32aa0cbc00b3be738a7486612b220787c548455c7a778fa1803c",
+        "src/modules/mail/src/inbound/multipart.mjs": "3696b971db5cf7a8c43eae84faca32123645293dcf97304382359be501d19cca",
+        "src/modules/mail/src/inbound/README.md": "19f1c3448ae767095f257e2aa0bef8e19e94bd9d00fe0cd7515fb4d0d9f53eff",
+        "src/modules/mail/src/inbound/resend-attachment.mjs": "a2ca74f17f0018c96b12a6bcaadc31c9b20d870687c5a2d7374de50e4c8fbff3",
+        "src/modules/mail/src/inbound/resend.mjs": "7d279b6dcb1280b0c3902afc05c7356a9fbfcc015051a5c852fbfbb789a41e17",
+        "src/modules/mail/src/inbound/sendgrid.mjs": "b599533e99e7912adfd10fc7343ba59e9387d783a623af0c6ac0843314265118",
+        "src/modules/mail/src/sender.mjs": "32a413be1866cd5ca060b72c0e30de2c09ff4d37c87c1c94fbcf3de6f86d1dc6",
+        "src/modules/mail/src/sendgrid-email/index.d.mts": "65efe2ed9647dd24ce7a7c1055cc5d8213ce94061db7597fb0460309baaa48be",
+        "src/modules/mail/src/sendgrid-email/index.mjs": "4b0a9132941f0ba7a2f91b86b46b16bb0cdb5d3b9396b19ad13fb060bd02737d",
+        "src/modules/mail/src/unsubscribe/index.mjs": "5804439f7b5981c73dba442cb33237ba73eedfaf1a71fd1c2f5e5a91cb1b2927"
       },
       "modes": {
-        "src/modules/d1-transport/index.d.mts": "100644",
-        "src/modules/d1-transport/index.mjs": "100644"
+        "src/modules/mail/.gitignore": "100644",
+        "src/modules/mail/doctor.mjs": "100644",
+        "src/modules/mail/index.mjs": "100644",
+        "src/modules/mail/LICENSE": "100644",
+        "src/modules/mail/live-proof/README.md": "100644",
+        "src/modules/mail/live-proof/run.mjs": "100644",
+        "src/modules/mail/package.json": "100644",
+        "src/modules/mail/pnpm-lock.yaml": "100644",
+        "src/modules/mail/README.md": "100644",
+        "src/modules/mail/src/adapters/cloudflare/headers.mjs": "100644",
+        "src/modules/mail/src/adapters/cloudflare/index.mjs": "100644",
+        "src/modules/mail/src/adapters/cloudflare/README.md": "100644",
+        "src/modules/mail/src/adapters/cloudflare/response.mjs": "100644",
+        "src/modules/mail/src/adapters/messaging/contract.mjs": "100644",
+        "src/modules/mail/src/adapters/messaging/event-schema.mjs": "100644",
+        "src/modules/mail/src/adapters/messaging/index.mjs": "100644",
+        "src/modules/mail/src/adapters/messaging/jws.mjs": "100644",
+        "src/modules/mail/src/adapters/messaging/README.md": "100644",
+        "src/modules/mail/src/adapters/messaging/request.mjs": "100644",
+        "src/modules/mail/src/adapters/messaging/serialize.mjs": "100644",
+        "src/modules/mail/src/adapters/rer/contract.mjs": "100644",
+        "src/modules/mail/src/adapters/rer/index.mjs": "100644",
+        "src/modules/mail/src/adapters/rer/list-headers.mjs": "100644",
+        "src/modules/mail/src/adapters/resend/index.mjs": "100644",
+        "src/modules/mail/src/adapters/resend/README.md": "100644",
+        "src/modules/mail/src/adapters/resend/response.mjs": "100644",
+        "src/modules/mail/src/adapters/resend/serialize.mjs": "100644",
+        "src/modules/mail/src/adapters/resend/size.mjs": "100644",
+        "src/modules/mail/src/adapters/sendgrid/index.mjs": "100644",
+        "src/modules/mail/src/adapters/sendgrid/README.md": "100644",
+        "src/modules/mail/src/adapters/sendgrid/serialize.mjs": "100644",
+        "src/modules/mail/src/core/errors.mjs": "100644",
+        "src/modules/mail/src/core/transport.mjs": "100644",
+        "src/modules/mail/src/core/validation.mjs": "100644",
+        "src/modules/mail/src/development/index.d.mts": "100644",
+        "src/modules/mail/src/development/index.mjs": "100644",
+        "src/modules/mail/src/development/outbox.mjs": "100644",
+        "src/modules/mail/src/development/schema.sql": "100644",
+        "src/modules/mail/src/doctor/common.mjs": "100644",
+        "src/modules/mail/src/doctor/dns.mjs": "100644",
+        "src/modules/mail/src/doctor/index.mjs": "100644",
+        "src/modules/mail/src/doctor/probe.mjs": "100644",
+        "src/modules/mail/src/doctor/README.md": "100644",
+        "src/modules/mail/src/doctor/receive.mjs": "100644",
+        "src/modules/mail/src/doctor/records.mjs": "100644",
+        "src/modules/mail/src/events/d1-schema.sql": "100644",
+        "src/modules/mail/src/events/d1-storage.mjs": "100644",
+        "src/modules/mail/src/events/index.mjs": "100644",
+        "src/modules/mail/src/events/intake.mjs": "100644",
+        "src/modules/mail/src/events/README.md": "100644",
+        "src/modules/mail/src/events/storage.mjs": "100644",
+        "src/modules/mail/src/events/verify.mjs": "100644",
+        "src/modules/mail/src/inbound/bytes.mjs": "100644",
+        "src/modules/mail/src/inbound/headers.mjs": "100644",
+        "src/modules/mail/src/inbound/index.mjs": "100644",
+        "src/modules/mail/src/inbound/mime.mjs": "100644",
+        "src/modules/mail/src/inbound/multipart.mjs": "100644",
+        "src/modules/mail/src/inbound/README.md": "100644",
+        "src/modules/mail/src/inbound/resend-attachment.mjs": "100644",
+        "src/modules/mail/src/inbound/resend.mjs": "100644",
+        "src/modules/mail/src/inbound/sendgrid.mjs": "100644",
+        "src/modules/mail/src/sender.mjs": "100644",
+        "src/modules/mail/src/sendgrid-email/index.d.mts": "100644",
+        "src/modules/mail/src/sendgrid-email/index.mjs": "100644",
+        "src/modules/mail/src/unsubscribe/index.mjs": "100644"
+      }
+    },
+    {
+      "path": "src/modules/operator-auth",
+      "originPath": "modules/operator-auth",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "src/modules/operator-auth/accounts/adapter.mjs": "989fca51e86ecc80cb150661b6d6cb8b6a57f82a85eb408d1fa6286a8372a3aa",
+        "src/modules/operator-auth/accounts/admin.mjs": "0231d669036f8e85a7e75623b297e717d3ab30d6c3ae02382ea0970d83297aae",
+        "src/modules/operator-auth/accounts/credentials.mjs": "2f3d762e2e16145d56d45ab1ce53797a2a05fa818f2a796f086effe4c49f3e02",
+        "src/modules/operator-auth/accounts/display-name.mjs": "f4134112fb448f2baa75e9f7f4a4a54b90594ba14d64cc3bbcd0858afdaaadbb",
+        "src/modules/operator-auth/accounts/editor-owner.mjs": "ed47e235de1fc52aa4b92e9ab60be5f7fbb07d8f29a5fc3d3c0b3e86702c4da7",
+        "src/modules/operator-auth/accounts/email-change.mjs": "882d20980978bdb739d5d335d250feedb98cc393b91f121bad7bf806f649ce4b",
+        "src/modules/operator-auth/accounts/index.d.mts": "bea6399182774eaa7a2269aa1575679af98ec5d3340325098edac4aac2445cc0",
+        "src/modules/operator-auth/accounts/index.mjs": "f6510c4c973812299256c9ecaf5a8e6736f874400eeddf1cba98ae548e754ebd",
+        "src/modules/operator-auth/accounts/native.d.mts": "ab920e7d3d35119dec57cc80ade5e8e9144e0a7a5c79880dc2b2511c52544051",
+        "src/modules/operator-auth/accounts/native.mjs": "e1f15e6ef75b90c343af0a491ff45d342fe46ce027fb370eb045e80bf43947ef",
+        "src/modules/operator-auth/accounts/oa.mjs": "84508f8c507d12d3df4cd0d683baa8bbd5a3b60522bd08d31cf49ebb92a72aa1",
+        "src/modules/operator-auth/accounts/one-click.mjs": "54569eaa85085d6adc6877b832c9a651b003ecfa2f68949569e0e4fc21833416",
+        "src/modules/operator-auth/accounts/owner-signin.mjs": "20a538bf6b343edc3209718174f63f7b2015d98f64c19fe5b5f878e02e83b3a0",
+        "src/modules/operator-auth/accounts/provider-control.mjs": "2fcd981aff97943e71d29a10ab09dfa879dc4707261df9953c7b25a0f22b9650",
+        "src/modules/operator-auth/accounts/provider-pin.mjs": "ebc398d4c8dc573fdc724c3d1a7d790b9b9fbb7e18043eafdc4400ffce84aac6",
+        "src/modules/operator-auth/accounts/roles.mjs": "9c4ab78154db3c38bac35e101b3411afe610c3892f58384a84d9e8516384810e",
+        "src/modules/operator-auth/accounts/schema/dependency-setup.sql": "7b36f7e1fb0991fe3e808613d911393bbad3386ead06427082c69a48c5738108",
+        "src/modules/operator-auth/accounts/schema/dev-sessions.sql": "18754583983c09f3624038131c1b03fadecb8375dddb0a5d09c449a4238ce298",
+        "src/modules/operator-auth/accounts/schema/domain-rules-step-up.sql": "e41c7f1381f547582148cdf247b521d7f166461ab24058ace95acdf21839e815",
+        "src/modules/operator-auth/accounts/schema/invitation-cancellation.sql": "2130793483660155aaa1851b6111e51a7aeaf1f8ceb86d467d42ba684c35b562",
+        "src/modules/operator-auth/accounts/schema/last-signin.sql": "289f99fd90e5263e9bb421f14887b0540e0686f7c7aa72110dd1ad20374bc945",
+        "src/modules/operator-auth/accounts/schema/operator-auth.sql": "e4cf66f7258c5b85876c16f18fb78fe3c9bd998244634ee267bb921403d01912",
+        "src/modules/operator-auth/accounts/schema/owner-signin.sql": "98da904e768e35b43fb1be83d9dcc9c9b5d86ab3a795234ed5223c4fddc567d9",
+        "src/modules/operator-auth/accounts/schema/provider-control.sql": "f19cc7a792538a8ff36d87760a3cad58fccab0316984488d1834af14fbf37cfe",
+        "src/modules/operator-auth/accounts/schema/provider-pins.sql": "f0cfb6b3740869fd098ee449efb25807f8b1ef51c353fd07bafeb00ce38aeb63",
+        "src/modules/operator-auth/accounts/schema/scheduled-policy-hardening.sql": "71726d5009fd671101a49a0071982f710e429b976779fb10ce3d57fe2cb6750f",
+        "src/modules/operator-auth/accounts/schema/scheduled-policy.sql": "377fa07ed05a95b64385af865b66d695c127a1086c0d85fe093c3eb5bebf3ebe",
+        "src/modules/operator-auth/accounts/settings-page.mjs": "1f7bfcbceb4c7fbc95a42b23fb62f869aaf02e0b5590ce75419c14235b48af8d",
+        "src/modules/operator-auth/accounts/status.mjs": "911b30e05f2a143b6b761f664e9cccd1f1d41d9348f7c0c932f60619a7253784",
+        "src/modules/operator-auth/accounts/store.mjs": "8a803003117ef61edbf4d2dd342ded1b1efa0f18c6767c253768222d748e55ec",
+        "src/modules/operator-auth/branding.mjs": "a5d229f160df1fa4e7a7caba123856e649866b22f536ec23b7bc69746ace96ba",
+        "src/modules/operator-auth/config.mjs": "5741effe188be9e49a6c4c98ff41d5de05db0f2edad17eb06229d2bfdf44b555",
+        "src/modules/operator-auth/conformance/index.d.mts": "46bf3dace091c27d2308629d53116cf45021979b1aa6e18cd4c9da3d46735a71",
+        "src/modules/operator-auth/conformance/index.mjs": "60e925f31c3c927889aae0dfeb82809e3f325cb572d4c31efe591d5ddc0a5010",
+        "src/modules/operator-auth/conformance/presentation.mjs": "d4751f564d40b748919d8a7d87ecfaa98e97bc652f53e32a2bc8eed7d81d21dc",
+        "src/modules/operator-auth/conformance/README.md": "523074b440f372c3f0c53b856ab25394b9be09711b2bbccb4b971b6d08dc56d8",
+        "src/modules/operator-auth/crypto.mjs": "c9a843518d9223ec91698060bacd5a44cd0c4361adaa6b09c05be69f11a828b8",
+        "src/modules/operator-auth/csp.mjs": "7cf7cca59410434708213945cb762f6a9fa302b5eaf7575b903ca3f171264d8d",
+        "src/modules/operator-auth/dev-admission.d.mts": "4fa20898bba75ecf5a09005fd4ea3ae520f8a43b4b2cca5ecb5069443cd72d1d",
+        "src/modules/operator-auth/dev-admission.mjs": "d8c59cea293b24364961dc0a9a1f2bfb615ffee73cd48507147f37b577cc0ef8",
+        "src/modules/operator-auth/dev-gate.mjs": "e92f9db391137f4860e7e9483bcfb8b837e2ed3548cffb85810c08f5b8d31b77",
+        "src/modules/operator-auth/dev/cli-session.mjs": "dcce619ef8984d0cb10a629123a560602f870dcbefac6e4542effc5d377b9162",
+        "src/modules/operator-auth/dev/index.d.mts": "7bd9b7a4082d367a8fb9f330906d97e647f05977491ebf3abbdd6940ff02821c",
+        "src/modules/operator-auth/dev/index.mjs": "7ebbdf35008281a0fbeb6a0783243b25b7302ebd414ff8c4af9e6db31f304f21",
+        "src/modules/operator-auth/dev/personas.mjs": "888afa951b9520376cd1b0cdbe13e75b002213c368be26652e514eca0ca2e485",
+        "src/modules/operator-auth/dev/sign-in-as.d.mts": "e566a2c11c117ee408c3a4203326eecea4805478894f705a19f1c6edb08df992",
+        "src/modules/operator-auth/dev/sign-in-as.mjs": "c41b8030fc95b3fa401976322fb433ad547ff659471d5d5344eb120849e9b34a",
+        "src/modules/operator-auth/docs/native-accounts.md": "9aca0b540aff3f134cef296d48267e4dd1536e5631119c5c49b4dc59e6ba6df0",
+        "src/modules/operator-auth/docs/README.md": "098a5dfc2f761b962a0dae818a6130931789efe34376cc4efbd92cfc50d6fb2e",
+        "src/modules/operator-auth/docs/tanstack-start.md": "52557d15e2c9840fc92d0ef148d9f7f67ba7f5d718eabd5b7dbb80ab8dbff9e1",
+        "src/modules/operator-auth/docs/vite-spa.md": "ba684430f1a5adeae8bb7c28d02ca11a95a666242048a33256ab427d8fbce781",
+        "src/modules/operator-auth/errors.mjs": "393de2f6a068fc32d0904e238e88d6fae90576b197cca463da8d7dfabef36f47",
+        "src/modules/operator-auth/http.mjs": "caf5ddf8b50070b1339afd6f19e3ef3c73677cc7726a355fbac5cda371f09b53",
+        "src/modules/operator-auth/icon-head.d.mts": "34287e49079ce872172a8c6d72e9d2b79fe50e5381919aa265f60d6ed574e7ff",
+        "src/modules/operator-auth/icon-head.mjs": "f9be2dab471d011cec8ba5da66bdb8b1974a65edfd6050679cf18f7893e6a941",
+        "src/modules/operator-auth/identity/admission.mjs": "a9247a655bf71c606cb1a9a3eae97202f7e4cde8695252f06ab4dff151e1dd39",
+        "src/modules/operator-auth/identity/after-confirm.mjs": "cb43ccb5fdb90ad1739ac581d5deb6b15fd4e490f91a658c06693d7e8f83b2d4",
+        "src/modules/operator-auth/identity/email-link/confirmation.mjs": "b6b2006fc646a2fc6fd28a01e8be050269e59c8360b9dd07a695417c5bd75826",
+        "src/modules/operator-auth/identity/email-link/expiry.mjs": "dca4a31a3796a04e4192325f1427f1d5c5d70338e59e78786c0f3d814a25889b",
+        "src/modules/operator-auth/identity/email-link/index.d.mts": "0c6209f3f74a0b483f428d5a457b8f9fa60c1ed8249b819f0098603947353f97",
+        "src/modules/operator-auth/identity/email-link/index.mjs": "001d9cdabb4dd610b80cbb9bbed02c4e5ee4b9daf69a51e382b6abef4125a255",
+        "src/modules/operator-auth/identity/email-link/message.mjs": "d076de1231d45890683595cc2889b32cc1fa15958c1d55a313cbb811821a0f65",
+        "src/modules/operator-auth/identity/index.d.mts": "5c7b8c2bf70f7a1e57dd53110ab88e4be8a46297d8838405763a3e95870a0b88",
+        "src/modules/operator-auth/identity/index.mjs": "0b68a78d59ecf553a1cacc182e280071f9554b37271249cfc037afcbf2d54cfb",
+        "src/modules/operator-auth/identity/oidc/aes-gcm.mjs": "afe49eda22b936c7582c2db203c529861f16492fd96267fe6daca91683aee103",
+        "src/modules/operator-auth/identity/oidc/client-auth.mjs": "061ac35699976c075b120891f7eacb4b1c893b9081faff1e5b3bd0a5834d97ef",
+        "src/modules/operator-auth/identity/oidc/config.mjs": "008b3b62ed186be001ada722a50292837c51672cc50958995bae23aad8538083",
+        "src/modules/operator-auth/identity/oidc/crypto.mjs": "51fa925f5467544784514f727ab4d27797e2486533c9edca896623566da93db2",
+        "src/modules/operator-auth/identity/oidc/errors.mjs": "09b4452714fdbd7382d1ce71162c17cf41fd7a3e6c2ea74be768a156ec1e138d",
+        "src/modules/operator-auth/identity/oidc/index.d.mts": "db7179a81563b8b34e85b580cfcbbe8522b1a19994132f701f7c333c36245dfd",
+        "src/modules/operator-auth/identity/oidc/index.mjs": "18cd11dd1cdf57b207491a6b8d2f4ba9c9b74ca7f7ba6126ad2145c5d3389144",
+        "src/modules/operator-auth/identity/oidc/jwt.mjs": "3a0e5c5ce7df5a9784fdd732c2f57e5760bddc5aa8566c608bf05e580d0c808c",
+        "src/modules/operator-auth/identity/oidc/network.mjs": "34a1951457d6aff44e1ea5eb2b7a9ac1d63062a33eb3540ff2f3a4a18380c098",
+        "src/modules/operator-auth/identity/oidc/presets.mjs": "8fdfa82f855de54cd984ff700a396a2a89c870f724faeaa4f74a6dcd131c240c",
+        "src/modules/operator-auth/identity/oidc/README.md": "5e03d2ef26aee1b96ef658c3dda90fe2b4781417ff1c9f32dff0d56105f7472b",
+        "src/modules/operator-auth/identity/oidc/schema/oidc.sql": "f879fb86b079e591dfe4a8513752a8e0394e252b940aa35d3f7430f27b7382c6",
+        "src/modules/operator-auth/identity/oidc/store.mjs": "2f00ef6ac516528cdb468dca96744b16a843cc6bbbec847bba9716cfa80eb22c",
+        "src/modules/operator-auth/identity/principal.mjs": "6b949a826dab8f63d70da4603e4da9d50d9071faf0e18684a66f86beec63ab03",
+        "src/modules/operator-auth/index.d.mts": "ebbcdb87aba07fdb94de45264d78221627e23685836d54fbdd3ad10aef419c36",
+        "src/modules/operator-auth/index.mjs": "d788203c0e82f4d4e22df8884f592bc9134bdbedaee29bb416f7eee9fc82b0c1",
+        "src/modules/operator-auth/input.mjs": "0b668bdbdce75d31acc6a2918ed8131d6baeff948d91048bde9fd58fb52a91e8",
+        "src/modules/operator-auth/local-cli.mjs": "b10dafbf33fc4f342e2c3c6db343afd353c3e6264208216a6155d50e71d1f19a",
+        "src/modules/operator-auth/loopback.mjs": "13b32a076bce23a3124be1745202c18eda553f298fad3d9f5cb93ac61aee3115",
+        "src/modules/operator-auth/owner-signin-grant.mjs": "739808e5ad58b982d7d40a0ce2dc3836b90d57f515d8ce904cf6cf90965ed745",
+        "src/modules/operator-auth/page.mjs": "29615dcd137433f9119085de757dd331662b9e0ef2130678658a54dcc63c2359",
+        "src/modules/operator-auth/policy.d.mts": "c0e46fcab9ce8626b8da53f88561eb00a1e83e9460fd91407a32a2daf605c4cf",
+        "src/modules/operator-auth/policy.mjs": "d535aba35621d333cd6faae49fc3c6cb72e1d5718741f02d363cbe3e8eaf153c",
+        "src/modules/operator-auth/README.md": "ce65e011c97d7c234c00e1363f1ac43a6137b88c00f8dcfcda6675db55a8310c",
+        "src/modules/operator-auth/rejected-response.mjs": "38c4e7621901173d0bca9bc62587486951ce24d2e0e31e97f26e1dfe406c9726",
+        "src/modules/operator-auth/routes.mjs": "4f534707648a72d7fbe5b15bcbc10985a14de2f6872a0d8e7853d6fa782a838a",
+        "src/modules/operator-auth/SCHEDULED-POLICY.md": "59c8fb08ab84dbcb720086fce458ef07b94933737c5777e07b79909d95b27862",
+        "src/modules/operator-auth/scheduled/definition.mjs": "36330a77503bbcf8281fa36347a8d9e9f82a02e8c48ea9b2602b6a51f8249d18",
+        "src/modules/operator-auth/scheduled/expiry.mjs": "48cd273ca4db3cb170b3bf73ad3096f41f7e082ad8f6ac471320a22d76796db0",
+        "src/modules/operator-auth/scheduled/fence.mjs": "5b1e9b260c7f8207afebd0dfff4af206a97755bba0632f878b7e9af0b474e272",
+        "src/modules/operator-auth/scheduled/history.mjs": "b1428a3aef4a357211a465f6a662482d1bd9897c6f1f171b59709cb1aac2b856",
+        "src/modules/operator-auth/scheduled/index.d.mts": "a67bccea082655647aade78a09787b7996c5d3a8a6a0c78edfbcdf8f8396195a",
+        "src/modules/operator-auth/scheduled/index.mjs": "e5ed6721a8726c1393904da78c350875d317c3fbce6a6a24de9adc9410775926",
+        "src/modules/operator-auth/scheduled/runner.mjs": "d44cf0c25910197b6881697b450d804c4bcd7dc9de8a8245dfd63795a343c3be",
+        "src/modules/operator-auth/service.mjs": "5049fb59d66af8108519dcd2ef20997469eeb70dafd28bc8a3a51a76cad2cf6a",
+        "src/modules/operator-auth/signin/index.d.mts": "9acad80108b974454b1473c761222ba7daaeceb13b7c9842107cbf1b15745c10",
+        "src/modules/operator-auth/signin/index.mjs": "6830071822ad747f16e50622c0f77424d2e2f0d9c4d1a6b42f4ea41fb08e72de",
+        "src/modules/operator-auth/signin/one-click.mjs": "afb305c3055eb395e0d575f72c8c332dc56b2247848ba9940886dc1615eead40"
+      },
+      "modes": {
+        "src/modules/operator-auth/accounts/adapter.mjs": "100644",
+        "src/modules/operator-auth/accounts/admin.mjs": "100644",
+        "src/modules/operator-auth/accounts/credentials.mjs": "100644",
+        "src/modules/operator-auth/accounts/display-name.mjs": "100644",
+        "src/modules/operator-auth/accounts/editor-owner.mjs": "100644",
+        "src/modules/operator-auth/accounts/email-change.mjs": "100644",
+        "src/modules/operator-auth/accounts/index.d.mts": "100644",
+        "src/modules/operator-auth/accounts/index.mjs": "100644",
+        "src/modules/operator-auth/accounts/native.d.mts": "100644",
+        "src/modules/operator-auth/accounts/native.mjs": "100644",
+        "src/modules/operator-auth/accounts/oa.mjs": "100644",
+        "src/modules/operator-auth/accounts/one-click.mjs": "100644",
+        "src/modules/operator-auth/accounts/owner-signin.mjs": "100644",
+        "src/modules/operator-auth/accounts/provider-control.mjs": "100644",
+        "src/modules/operator-auth/accounts/provider-pin.mjs": "100644",
+        "src/modules/operator-auth/accounts/roles.mjs": "100644",
+        "src/modules/operator-auth/accounts/schema/dependency-setup.sql": "100644",
+        "src/modules/operator-auth/accounts/schema/dev-sessions.sql": "100644",
+        "src/modules/operator-auth/accounts/schema/domain-rules-step-up.sql": "100644",
+        "src/modules/operator-auth/accounts/schema/invitation-cancellation.sql": "100644",
+        "src/modules/operator-auth/accounts/schema/last-signin.sql": "100644",
+        "src/modules/operator-auth/accounts/schema/operator-auth.sql": "100644",
+        "src/modules/operator-auth/accounts/schema/owner-signin.sql": "100644",
+        "src/modules/operator-auth/accounts/schema/provider-control.sql": "100644",
+        "src/modules/operator-auth/accounts/schema/provider-pins.sql": "100644",
+        "src/modules/operator-auth/accounts/schema/scheduled-policy-hardening.sql": "100644",
+        "src/modules/operator-auth/accounts/schema/scheduled-policy.sql": "100644",
+        "src/modules/operator-auth/accounts/settings-page.mjs": "100644",
+        "src/modules/operator-auth/accounts/status.mjs": "100644",
+        "src/modules/operator-auth/accounts/store.mjs": "100644",
+        "src/modules/operator-auth/branding.mjs": "100644",
+        "src/modules/operator-auth/config.mjs": "100644",
+        "src/modules/operator-auth/conformance/index.d.mts": "100644",
+        "src/modules/operator-auth/conformance/index.mjs": "100644",
+        "src/modules/operator-auth/conformance/presentation.mjs": "100644",
+        "src/modules/operator-auth/conformance/README.md": "100644",
+        "src/modules/operator-auth/crypto.mjs": "100644",
+        "src/modules/operator-auth/csp.mjs": "100644",
+        "src/modules/operator-auth/dev-admission.d.mts": "100644",
+        "src/modules/operator-auth/dev-admission.mjs": "100644",
+        "src/modules/operator-auth/dev-gate.mjs": "100644",
+        "src/modules/operator-auth/dev/cli-session.mjs": "100644",
+        "src/modules/operator-auth/dev/index.d.mts": "100644",
+        "src/modules/operator-auth/dev/index.mjs": "100644",
+        "src/modules/operator-auth/dev/personas.mjs": "100644",
+        "src/modules/operator-auth/dev/sign-in-as.d.mts": "100644",
+        "src/modules/operator-auth/dev/sign-in-as.mjs": "100644",
+        "src/modules/operator-auth/docs/native-accounts.md": "100644",
+        "src/modules/operator-auth/docs/README.md": "100644",
+        "src/modules/operator-auth/docs/tanstack-start.md": "100644",
+        "src/modules/operator-auth/docs/vite-spa.md": "100644",
+        "src/modules/operator-auth/errors.mjs": "100644",
+        "src/modules/operator-auth/http.mjs": "100644",
+        "src/modules/operator-auth/icon-head.d.mts": "100644",
+        "src/modules/operator-auth/icon-head.mjs": "100644",
+        "src/modules/operator-auth/identity/admission.mjs": "100644",
+        "src/modules/operator-auth/identity/after-confirm.mjs": "100644",
+        "src/modules/operator-auth/identity/email-link/confirmation.mjs": "100644",
+        "src/modules/operator-auth/identity/email-link/expiry.mjs": "100644",
+        "src/modules/operator-auth/identity/email-link/index.d.mts": "100644",
+        "src/modules/operator-auth/identity/email-link/index.mjs": "100644",
+        "src/modules/operator-auth/identity/email-link/message.mjs": "100644",
+        "src/modules/operator-auth/identity/index.d.mts": "100644",
+        "src/modules/operator-auth/identity/index.mjs": "100644",
+        "src/modules/operator-auth/identity/oidc/aes-gcm.mjs": "100644",
+        "src/modules/operator-auth/identity/oidc/client-auth.mjs": "100644",
+        "src/modules/operator-auth/identity/oidc/config.mjs": "100644",
+        "src/modules/operator-auth/identity/oidc/crypto.mjs": "100644",
+        "src/modules/operator-auth/identity/oidc/errors.mjs": "100644",
+        "src/modules/operator-auth/identity/oidc/index.d.mts": "100644",
+        "src/modules/operator-auth/identity/oidc/index.mjs": "100644",
+        "src/modules/operator-auth/identity/oidc/jwt.mjs": "100644",
+        "src/modules/operator-auth/identity/oidc/network.mjs": "100644",
+        "src/modules/operator-auth/identity/oidc/presets.mjs": "100644",
+        "src/modules/operator-auth/identity/oidc/README.md": "100644",
+        "src/modules/operator-auth/identity/oidc/schema/oidc.sql": "100644",
+        "src/modules/operator-auth/identity/oidc/store.mjs": "100644",
+        "src/modules/operator-auth/identity/principal.mjs": "100644",
+        "src/modules/operator-auth/index.d.mts": "100644",
+        "src/modules/operator-auth/index.mjs": "100644",
+        "src/modules/operator-auth/input.mjs": "100644",
+        "src/modules/operator-auth/local-cli.mjs": "100644",
+        "src/modules/operator-auth/loopback.mjs": "100644",
+        "src/modules/operator-auth/owner-signin-grant.mjs": "100644",
+        "src/modules/operator-auth/page.mjs": "100644",
+        "src/modules/operator-auth/policy.d.mts": "100644",
+        "src/modules/operator-auth/policy.mjs": "100644",
+        "src/modules/operator-auth/README.md": "100644",
+        "src/modules/operator-auth/rejected-response.mjs": "100644",
+        "src/modules/operator-auth/routes.mjs": "100644",
+        "src/modules/operator-auth/SCHEDULED-POLICY.md": "100644",
+        "src/modules/operator-auth/scheduled/definition.mjs": "100644",
+        "src/modules/operator-auth/scheduled/expiry.mjs": "100644",
+        "src/modules/operator-auth/scheduled/fence.mjs": "100644",
+        "src/modules/operator-auth/scheduled/history.mjs": "100644",
+        "src/modules/operator-auth/scheduled/index.d.mts": "100644",
+        "src/modules/operator-auth/scheduled/index.mjs": "100644",
+        "src/modules/operator-auth/scheduled/runner.mjs": "100644",
+        "src/modules/operator-auth/service.mjs": "100644",
+        "src/modules/operator-auth/signin/index.d.mts": "100644",
+        "src/modules/operator-auth/signin/index.mjs": "100644",
+        "src/modules/operator-auth/signin/one-click.mjs": "100644"
+      }
+    },
+    {
+      "path": "src/modules/owner-claim",
+      "originPath": "modules/owner-claim",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "src/modules/owner-claim/idp.mjs": "edb09dfeb0b66849cd84b651099d46c6420d1dc3f270446ae96595d91754d3e6",
+        "src/modules/owner-claim/index.d.mts": "33fc8d1b756cb2c0a4317ea4dbc29ae704dd137f76993278859d98ae5e9ad184",
+        "src/modules/owner-claim/index.mjs": "71e4b0f9f967981146dd1daa5f6b14ab30f577adac4901c8e3d47bb8a5a76991",
+        "src/modules/owner-claim/page.mjs": "98f76844f55e2726654a1ff5030268b4a8327f7cf460a446856964989dfb4542",
+        "src/modules/owner-claim/README.md": "ab3ead07f6a21347c4f084c48acbdd5d62ee9abc711982cc09ffb1c53f239459",
+        "src/modules/owner-claim/schema/idp.sql": "a870102648a2226b18a2fe8168d096389b698af88333d112fa8137e582fc2b33",
+        "src/modules/owner-claim/schema/owner-claim.sql": "c3ffe653727bb4867b064dc2489df5013613f08f4b5998d2fe2b6a8485cdb815",
+        "src/modules/owner-claim/transaction.mjs": "56f9cf605a5a4afae2be22012e84035e661fb38c07612ec7d4f8cdc39526aa54",
+        "src/modules/owner-claim/verify.d.mts": "2af3697c67421d2105e2f45cedcced5b1ed562978b7007003189f93d0dd597c5",
+        "src/modules/owner-claim/verify.mjs": "a1cc5094a30415c60f739b67ad2eda40750e8d963d199fad45bdd562f7d0248b"
+      },
+      "modes": {
+        "src/modules/owner-claim/idp.mjs": "100644",
+        "src/modules/owner-claim/index.d.mts": "100644",
+        "src/modules/owner-claim/index.mjs": "100644",
+        "src/modules/owner-claim/page.mjs": "100644",
+        "src/modules/owner-claim/README.md": "100644",
+        "src/modules/owner-claim/schema/idp.sql": "100644",
+        "src/modules/owner-claim/schema/owner-claim.sql": "100644",
+        "src/modules/owner-claim/transaction.mjs": "100644",
+        "src/modules/owner-claim/verify.d.mts": "100644",
+        "src/modules/owner-claim/verify.mjs": "100644"
+      }
+    },
+    {
+      "path": "VERIFY-WORKFLOW.md",
+      "originPath": "export/VERIFY-WORKFLOW.md",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "VERIFY-WORKFLOW.md": "97d25a60dabe02ab4c30efbe226c8967b8fbac25b39f61467c2ef5a26186261d"
+      },
+      "modes": {
+        "VERIFY-WORKFLOW.md": "100644"
       }
     }
   ]

@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "domain": "run-handset.com",
+  "name": "Handset",
+  "settings": { "MAIL_FROM": "Handset <owner@demo.invalid>" }
+}

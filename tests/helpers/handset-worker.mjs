@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module'
+import { randomBytes } from 'node:crypto'
 import { createServer } from 'node:net'
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -152,7 +153,7 @@ export async function openHandset({ liveMail = false, twilio = false } = {}) {
       bindings: {
         ...(twilio?{HANDSET_TWILIO_AUTH_TOKEN:'synthetic-handset-500'}:{}),
         AUTH_LOCAL: 'false', AUTH_ORIGIN: origin, OWNER_EMAIL: ownerEmail,
-        SESSION_SECRET: 'synthetic-handset-7-synthetic-handset-8',
+        SESSION_SECRET: 'synthetic-handset-7-synthetic-handset-8', INSTALLATION_KEY: randomBytes(32).toString('hex'),
         MAIL_PROVIDER: 'sendgrid',
         MAIL_FROM: liveMail ? process.env.MAIL_FROM : 'synthetic-handset-3@example.test',
         MAIL_API_KEY: liveMail ? process.env.MAIL_API_KEY : 'synthetic-handset-4',

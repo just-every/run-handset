@@ -1,4 +1,5 @@
 import { withDemo } from './modules/demo/index.mjs'
+import { seedDemo } from './demo'
 import { rejectedResponse } from './base/rejected-response'
 import start from '@tanstack/react-start/server-entry'
 import { Hono } from 'hono'
@@ -72,4 +73,4 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     await runDueReports(runtimeBindings(env), event.scheduledTime)
     await tickDialer(runtimeBindings(env))
   },
-} satisfies ExportedHandler<Bindings>)
+} satisfies ExportedHandler<Bindings>, { seed: seedDemo })
