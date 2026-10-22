@@ -2698,7 +2698,7 @@
       "executable": false
     },
     "tests/handset-queues.mjs": {
-      "sha256": "96156452df01baafd26c0f48808660052aed0df85a48336fafe481eafbf4b915",
+      "sha256": "c0ab6eb385dde7bed63c46064a5629c293d518f23532d0d5ca6a082a2cda4f34",
       "executable": false
     },
     "tests/handset-records.mjs": {
@@ -2754,7 +2754,7 @@
       "executable": false
     },
     "tests/helpers/handset-queue-browser.mjs": {
-      "sha256": "f8996718c8ee1db38d278d9fff3f5e94d3a9bb0613b621892d385206e6123bd6",
+      "sha256": "1bf3534db6976083660cd9f99a64090b45d368ed19cb81a72a1b91699335a6d8",
       "executable": false
     },
     "tests/helpers/handset-queues.mjs": {
