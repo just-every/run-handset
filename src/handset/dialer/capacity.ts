@@ -25,7 +25,7 @@ export async function capacity(ctx:Context,l:List,policy:QualificationDefinition
  return {free,reserve,available:free-reserve,candidates,now}
 }
 export async function reserveCandidate(ctx:Context,l:List,account:string,policy:QualificationDefinition){
- const c=await capacity(ctx,l,policy),selected=c.candidates[0]
+ const c=await capacity(ctx,l,policy),selected=ctx.requiredAgentId?c.candidates.find(c=>c.agent.operator_id===ctx.requiredAgentId):c.candidates[0]
  if(!selected)throw new Fault('waiting_agent_required',409)
  await waitingAgent(ctx,account,selected.ready,selected.route.destination)
  const now=Date.now(),{agent,ready,route,slot}=selected

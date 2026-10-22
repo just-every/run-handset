@@ -59,7 +59,8 @@ async function launchOne(ctx:Context,r:Run,recipient:Recipient,eventKey:string){
   await pause(ctx,await run(ctx,r.id),error.code)
   return attempt(ctx,target)
  }
- const body=new URLSearchParams({To:recipient.recipient,From:definition.from,Url:base+'/answer',Method:'POST',StatusCallback:base+'/status',StatusCallbackMethod:'POST',Timeout:String(eligible.policy.ringSeconds),TimeLimit:'3600',Record:'false'})
+ if(ctx.fences)await ctx.env.DB.batch([...ctx.fences(),sql(ctx,'DELETE FROM hnd_guard')])
+ const body=new URLSearchParams({To:recipient.recipient,From:definition.from,Url:base+'/answer',Method:'POST',StatusCallback:base+'/status',StatusCallbackMethod:'POST',Timeout:String(eligible.policy.ringSeconds),TimeLimit:String(ctx.maxCallSeconds??3600),Record:'false'})
  for(const item of ['initiated','ringing','answered','completed'])body.append('StatusCallbackEvent',item)
  let response:Response
  try{response=await fetch(accountBase(eligible.source.account_id)+'/Calls.json',{method:'POST',headers:{authorization:'Basic '+btoa(eligible.source.account_id+':'+ctx.env.HANDSET_TWILIO_AUTH_TOKEN),'content-type':'application/x-www-form-urlencoded'},body,redirect:'manual',signal:AbortSignal.timeout(5000)})}catch{return attempt(ctx,target)}

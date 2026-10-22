@@ -110,9 +110,10 @@ path retains the native namespace fence and ordinary refusal.
 Native front-desk and consented recording doors are now inventoried in
 `docs/HANDSET-RECORDS.md`. `/app/front-desk` and
 `/api/handset/front-desk/*` require current native sessions and exact line
- delegation; owner-only grants never imply admin, port or media authority.
+delegation; owner-only grants never imply admin, port or media authority.
 `/app/recordings` and `/api/handset/recordings/*` require native sessions; playback
 also requires the exact-person recording grant independently inside its handler.
 No recording bytes are static or public. Current requests are audited by fixed
-action family without retaining request content. Held call requests cause no
-provider call and certify no pickup, park, transfer or callback outcome.
+action family without retaining request content. Held call requests cause no provider call. Separately approved one-shot call
+controls and their provider readback are documented above; they certify no
+human pickup, park, transfer or received callback identity without live proof.

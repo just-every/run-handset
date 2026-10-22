@@ -219,11 +219,11 @@ calls. Presence POST changes only the current person's state; lamps older than
 POST `operations` accepts the delegation, reviewed line revision, kind
 (pickup/park/transfer/callback), source-linked call ID, an exact destination where
 needed and idempotency key. It rechecks all current people/source authority and
-line policy atomically. **Requests stay held. No qualified live media client or
-exact spend approval exists here; no carrier or audio effect occurs.** The UI
-supports ordinary keyboard form operation and shows that hold explicitly. Actual
-shared-line pickup, parking, transfer and received business identity remain
-HND-034's open acceptance obligations. No delegated recording, port or admin right
+line policy atomically. **Requests start held.** The owner must separately approve the exact call
+move or independently qualified single-recipient callback before execution.
+The UI supports ordinary keyboard request, execution and reconciliation. Actual
+receiver audio and received business identity remain HND-034's live
+qualification obligations; official-schema readback is not human outcome proof. No delegated recording, port or admin right
 is implied. HND-007/008/009/031 inherit endpoint and carrier control qualification.
 
 `/app/recordings` provides explicit owner approval and revocation forms.
@@ -245,3 +245,38 @@ credential. Every attempted/permitted/refused/failed playback is attributable.
 Network-edge tests use generated synthetic WAV data, not captured speech. Live
 capture/media/carrier qualification remains open. Future retention/erasure gates
 must bind this producer before HND-013/065/066 claim their wider lifecycle proof.
+
+
+### One-shot call controls
+
+Owner POST `front-desk/approve` selects one held `operationId`, at most five
+minutes of approval lifetime, `maxSeconds` (1–3600), optional callback `listId`,
+and `confirm:"approve this exact existing call move or single callback"`.
+For pickup/transfer, the selected native operator must have an owner-approved
+route and an independently read-back active single-agent conference. A transfer
+target is that exact native operator ID, never an arbitrary external phone. Park
+uses a private conference derived from the opaque operation ID. Parent-call
+account, source, direction, From/To and current state are read back. No new
+outbound leg or recording is created by moving that existing inbound call.
+
+The assistant POSTs `front-desk/execute` with the operation ID and
+`confirm:"execute exact approved call request"`. It repeats current line,
+delegation, source, issuer, endpoint and exact approval predicates. A durable
+uncertain record commits before the single provider write; no retry reissues it,
+even after a lost response or process restart. A provider acknowledgment never
+becomes completed pickup/park/transfer. POST `front-desk/reconcile` requires
+identity-matched current conference membership with exactly the expected caller
+and endpoint, and records only `provider_observed`; human audio stays unqualified.
+Revocation denies subsequent execution and leaves unrelated/preexisting calls
+alone. Approval expiry requires a new request, never mutation of the old review.
+
+A callback additionally requires an existing exact one-recipient preview list,
+matching line source, assistant representative and requested destination. It uses
+the established dialer qualification, current consent/DNC/time/state registry
+checks, atomic budget reservation and exact assistant's independently connected
+endpoint. The delegation adds a current authority fence to every dialer write and
+immediately before its one network effect. No campaign or general manager scope
+is conveyed. Callback readback retains provider From/To, assistant and conference
+identity separately from actual controlled-receiver proof. Live credential and
+controlled-endpoint proof are unavailable in this cloud run; the permitted known
+Twilio key-family check returned not provisioned. No alternate key was sought.

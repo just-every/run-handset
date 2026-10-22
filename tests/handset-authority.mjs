@@ -120,11 +120,11 @@ test('Executive delegation scopes presence and held call controls, preserves act
   assert.equal(desk.lines.length,1);assert.equal(desk.lines[0].presence,'busy');assert.equal(desk.calls[0].id,f.callId)
   const states=[]
   for(const kind of ['pickup','park','transfer','callback']){
-   const op={...f.operation,kind,idempotencyKey:'synthetic-handset-703-'+kind,...(['transfer','callback'].includes(kind)?{target:'+15125550180'}:{})}
+   const op={...f.operation,kind,idempotencyKey:'synthetic-handset-703-'+kind,...(kind==='transfer'?{target:'synthetic-handset-700'}:kind==='callback'?{target:'+15125550180'}:{})}
    const r=await post(runtime,'/api/handset/front-desk/operations',op,f.assistantHeaders)
    assert.equal(r.status,202,await r.clone().text());const result=await r.json();assert.equal(result.effectOccurred,false);assert.equal(result.operation.state,'held');states.push(result.operation)
    const replay=await (await post(runtime,'/api/handset/front-desk/operations',op,f.assistantHeaders)).json();assert.equal(replay.operation.id,result.operation.id);assert.equal(replay.replay,true)
-   assert.equal((await post(runtime,'/api/handset/front-desk/operations',{...op,target:'+15125550181'},f.assistantHeaders)).status,409)
+   assert.equal((await post(runtime,'/api/handset/front-desk/operations',{...op,target:kind==='transfer'?'synthetic-handset-1':'+15125550181'},f.assistantHeaders)).status,409)
   }
   assert.ok(states.every(s=>s.actor!==s.principal&&s.fromNumberId===f.numberId))
   assert.ok(runtime.sourceRequests.every(r=>r.method==='GET'),'held call intents never make outbound requests')
@@ -166,5 +166,46 @@ test('Executive line DND hours forwarding stale policy and changed native author
   await runtime.sql('UPDATE hnd_frontdesk_presence SET observed_at=?',Date.now()-120000)
   assert.equal((await runtime.request('/api/handset/front-desk')).status,401)
   assert.ok(runtime.sourceRequests.every(r=>r.method==='GET'))
+ }finally{await runtime.close()}
+})
+
+test('Exact reviewed shared-line pickup park and transfer move only the existing call, reconcile endpoint membership and never repeat an uncertain write',async()=>{
+ const {controlFixture}=await import('./helpers/handset-delegation.mjs'),runtime=await openHandset({twilio:true})
+ try{
+  const f=await controlFixture(runtime)
+  for(const kind of ['pickup','park','transfer']){
+   if(kind!=='park')await f.ready(kind==='transfer'?f.q.english:f.q.spanish)
+   const op=await f.request(kind,kind==='transfer'?f.q.english:undefined)
+   assert.equal((await f.execute(op)).status,403,'an assistant grant is not an exact effect approval')
+   await f.approve(op)
+   const response=await f.execute(op);assert.equal(response.status,202,await response.clone().text());assert.equal((await response.json()).operation.state,'uncertain')
+   const count=f.updates,observed=await f.reconcile(op)
+   assert.equal(observed.operation.state,'provider_observed');assert.equal(observed.customerOutcome,'unconfirmed');assert.match(observed.observation,new RegExp(kind))
+   assert.equal((await f.execute(op)).status,202);assert.equal(f.updates,count,'no second network mutation on replay')
+  }
+  const pending=await f.request('park');await f.approve(pending)
+  await post(runtime,f.base+'/revoke',{delegationId:f.grant.id},f.headers)
+  const count=f.updates;assert.equal((await f.execute(pending)).status,403);assert.equal(f.updates,count)
+  const before=(await runtime.sql('SELECT state FROM hnd_frontdesk_operations WHERE id=?',pending.id)).results[0];assert.equal(before.state,'held')
+  const archived=await (await runtime.request('/api/handset/audit/export',{headers:f.headers})).json()
+  for(const kind of ['pickup','park','transfer'])assert.ok(archived.rows.some(r=>r.action==='frontdesk.'+kind&&r.principal&&r.outcome==='completed'))
+ }finally{await runtime.close()}
+})
+
+test('An executive callback reuses exact recipient consent and budget, selects the assistant endpoint and retains approved business identity without automatic redial',async()=>{
+ const {controlFixture}=await import('./helpers/handset-delegation.mjs'),runtime=await openHandset({twilio:true})
+ try{
+  const f=await controlFixture(runtime),l=await f.makeList({count:1,mode:'preview',repId:f.q.spanish}),op=await f.request('callback',l.recipients[0].recipient)
+  await f.ready(f.q.spanish);const provider=f.prepare(l)
+  await f.approve(op,l.id)
+  const response=await f.execute(op);assert.equal(response.status,202,await response.clone().text());const launched=await response.json()
+  assert.equal(launched.dialer.attempts.length,1,JSON.stringify(launched));const attempt=launched.dialer.attempts[0]
+  assert.equal(attempt.agent_id,f.q.spanish);assert.equal(attempt.from_number,'+15125550125');assert.equal(attempt.recipient,l.recipients[0].recipient)
+  await f.connect(attempt,provider)
+  const observed=await f.reconcile(op);assert.equal(observed.operation.state,'provider_observed');assert.match(observed.observation,/business From/)
+  const writes=runtime.sourceRequests.filter(r=>r.method==='POST').length
+  await f.execute(op);await runtime.restart();await f.execute(op)
+  assert.equal(runtime.sourceRequests.filter(r=>r.method==='POST').length,writes)
+  assert.equal((await runtime.sql('SELECT reserved_cents FROM hnd_dialer_lists WHERE id=?',l.id)).results[0].reserved_cents,100)
  }finally{await runtime.close()}
 })

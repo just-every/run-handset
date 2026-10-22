@@ -67,7 +67,7 @@ export async function intent(env:Bindings,actor:Session,v:ObjectValue){
  if(policy.dnd||!policy.withinHours||policy.forwardTo)return refused(policy.dnd?'executive_dnd':!policy.withinHours?'executive_outside_hours':'executive_forwarding_active')
  const target=v.target?text(v.target,'target'):null,callId=v.callId?text(v.callId,'callId'):null
  if(kind==='callback'&&(!target||!/^\+[1-9]\d{7,14}$/.test(target)))throw new Fault('invalid_callback_destination')
- if(kind==='transfer'&&(!target||!/^\+[1-9]\d{7,14}$/.test(target)))throw new Fault('invalid_transfer_destination')
+ if(kind==='transfer'&&(!target||!await sql(env,"SELECT id FROM oa_operators WHERE id=? AND status='active'",target).first()))throw new Fault('invalid_transfer_endpoint')
  if(kind!=='callback'){
   if(!callId)return refused('call_required')
   const call=await sql(env,`SELECT r.id FROM hnd_records r JOIN hnd_record_sources rs ON rs.record_id=r.id WHERE r.id=? AND rs.source_id=? AND r.kind='call_session'`,callId,l.source_id).first()

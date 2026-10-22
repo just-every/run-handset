@@ -1,7 +1,8 @@
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
+import { approveControl, executeControl, reconcileControl } from './controls'
 import { commit } from '../audit/store'
-import { Fault, consolePage, integer, json, keys, owner, text, type ObjectValue } from '../core'
+import { Fault, escape as e, consolePage, integer, json, keys, owner, text, type ObjectValue } from '../core'
 import { configureLine, createDelegation, delegated, intent, linePolicy, presence, revokeDelegation, sql, type Line } from './store'
 import { deskPage, type Desk } from './pages'
 
@@ -19,7 +20,7 @@ export async function desk(env:Bindings,actor:Session):Promise<Desk>{
  }
  const calls:Desk['calls']=[]
  for(const sourceId of new Set(lines.map(l=>l.source_id))){const found=(await sql(env,"SELECT r.id,rs.source_id,r.data FROM hnd_records r JOIN hnd_record_sources rs ON rs.record_id=r.id WHERE r.kind='call_session' AND rs.source_id=? ORDER BY r.received_at DESC LIMIT 50",sourceId).all<Desk['calls'][number]>()).results;calls.push(...found)}
- const operations=(await sql(env,'SELECT id,actor,principal,kind,state,created_at FROM hnd_frontdesk_operations WHERE actor=(SELECT pseudonym FROM hnd_actor_refs WHERE operator_id=?) ORDER BY created_at DESC LIMIT 50',actor.operator.id).all<Desk['operations'][number]>()).results
+ const operations=(await sql(env,'SELECT id,actor,principal,kind,state,created_at FROM hnd_frontdesk_operations WHERE (?=1 OR actor=(SELECT pseudonym FROM hnd_actor_refs WHERE operator_id=?)) ORDER BY created_at DESC LIMIT 50',isOwner?1:0,actor.operator.id).all<Desk['operations'][number]>()).results
  const people=isOwner?(await sql(env,"SELECT id,display_name FROM oa_operators WHERE status='active' ORDER BY display_name").all<Desk['people'][number]>()).results:[]
  const sources=isOwner?(await sql(env,'SELECT id,number_id FROM hnd_sources WHERE revoked_at IS NULL').all<Desk['sources'][number]>()).results:[]
  const ownPresence=await sql(env,'SELECT state,revision FROM hnd_frontdesk_presence WHERE operator_id=?',actor.operator.id).first<{state:string;revision:number}>()
@@ -32,15 +33,19 @@ export async function delegationDoor(request:Request,env:Bindings,actor:Session,
  if(request.method==='GET'&&path===base){keys(Object.fromEntries(new URL(request.url).searchParams),[]);const result=await desk(env,actor);return html?deskPage(result,actor.operator.role==='owner'):json(result)}
  if(request.method!=='POST')throw new Fault('method_not_allowed',405)
  const v={...value}
- if(html){for(const key of ['revision','lineRevision','dnd'])if(typeof v[key]==='string')v[key]=v[key]===''?undefined:Number(v[key]);if(typeof v.weekdays==='string')v.weekdays=v.weekdays.split(',').map(Number);if(typeof v.expiresAt==='string')v.expiresAt=new Date(v.expiresAt+'Z').getTime();for(const k of ['id','revision','callId','target','forwardTo'])if(v[k]===''||v[k]===undefined)delete v[k]}
+ if(html){for(const key of ['revision','lineRevision','dnd','maxSeconds'])if(typeof v[key]==='string')v[key]=v[key]===''?undefined:Number(v[key]);if(typeof v.weekdays==='string')v.weekdays=v.weekdays.split(',').map(Number);if(typeof v.expiresAt==='string')v.expiresAt=new Date(v.expiresAt+'Z').getTime();for(const k of ['id','revision','callId','target','forwardTo','listId'])if(v[k]===''||v[k]===undefined)delete v[k]}
  let result:unknown,status=200
  if(path===base+'/lines'){result=await configureLine(env,actor,v);status=201}
  else if(path===base+'/delegations'){result=await createDelegation(env,actor,v);status=201}
  else if(path===base+'/revoke'){owner(actor);keys(v,['delegationId']);result=await revokeDelegation(env,actor,text(v.delegationId,'delegationId'))}
  else if(path===base+'/presence'){if(html)v.revision=integer(Number(v.revision),'revision',0);result=await presence(env,actor,v)}
  else if(path===base+'/operations'){result=await intent(env,actor,v);status=202}
+ else if(path===base+'/approve')result=await approveControl(env,actor,v)
+ else if(path===base+'/execute'){result=await executeControl(env,actor,v);status=202}
+ else if(path===base+'/reconcile')result=await reconcileControl(env,actor,v)
  else throw new Fault('not_found',404)
  if(!html)return json(result,status)
+ if(path===base+'/execute'||path===base+'/reconcile')return consolePage('Call control observation',`<p role="status">${e(JSON.stringify(result))}</p><a href="/app/front-desk">Return to front desk</a>`,status)
  if(path===base+'/operations')return consolePage('Call request held / Solicitud pendiente','<p role="status">No call effect occurred. Qualified media endpoints and exact spend approval are required before dialing or changing audio. This request retains the assistant actor, executive principal and approved business-number reference.</p><a href="/app/front-desk">Return to front desk</a>',202)
  return new Response(null,{status:303,headers:{location:'/app/front-desk','cache-control':'no-store'}})
 }
