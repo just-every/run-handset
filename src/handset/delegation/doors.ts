@@ -20,7 +20,7 @@ export async function desk(env:Bindings,actor:Session):Promise<Desk>{
  }
  const calls:Desk['calls']=[]
  for(const sourceId of new Set(lines.map(l=>l.source_id))){const found=(await sql(env,"SELECT r.id,rs.source_id,r.data FROM hnd_records r JOIN hnd_record_sources rs ON rs.record_id=r.id WHERE r.kind='call_session' AND rs.source_id=? ORDER BY r.received_at DESC LIMIT 50",sourceId).all<Desk['calls'][number]>()).results;calls.push(...found)}
- const operations=(await sql(env,'SELECT id,actor,principal,kind,state,created_at FROM hnd_frontdesk_operations WHERE (?=1 OR actor=(SELECT pseudonym FROM hnd_actor_refs WHERE operator_id=?)) ORDER BY created_at DESC LIMIT 50',isOwner?1:0,actor.operator.id).all<Desk['operations'][number]>()).results
+ const operations=(await sql(env,'SELECT id,actor,principal,kind,state,created_at,call_id,target,line_revision FROM hnd_frontdesk_operations WHERE (?=1 OR actor=(SELECT pseudonym FROM hnd_actor_refs WHERE operator_id=?)) ORDER BY created_at DESC LIMIT 50',isOwner?1:0,actor.operator.id).all<Desk['operations'][number]>()).results
  const people=isOwner?(await sql(env,"SELECT id,display_name FROM oa_operators WHERE status='active' ORDER BY display_name").all<Desk['people'][number]>()).results:[]
  const sources=isOwner?(await sql(env,'SELECT id,number_id FROM hnd_sources WHERE revoked_at IS NULL').all<Desk['sources'][number]>()).results:[]
  const ownPresence=await sql(env,'SELECT state,revision FROM hnd_frontdesk_presence WHERE operator_id=?',actor.operator.id).first<{state:string;revision:number}>()

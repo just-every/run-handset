@@ -156,3 +156,44 @@ for(const width of [1440,390])test(`Explicit executive delegation and consented 
   await page.goto(runtime.origin+'/app/front-desk/lines');await page.getByRole('alert').waitFor();await proof('front-desk-invalid-door')
  }finally{await context.close();await browser.close();await runtime.close()}
 })
+
+for(const width of [1440,390])test(`Reviewed front desk call execution and provider observations at ${width}`,async()=>{
+ const {controlFixture}=await import('./helpers/handset-delegation.mjs')
+ const runtime=await openHandset({twilio:true}),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage(),evidence=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-workspace'
+ await mkdir(evidence,{recursive:true})
+ async function as(cookie){const [name,...value]=cookie.split('=');await context.clearCookies();await context.addCookies([{name,value:value.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])}
+ async function proof(name){assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name);await page.screenshot({path:`${evidence}/${width}-${name}.png`,fullPage:true})}
+ try{
+  const f=await controlFixture(runtime)
+  for(const kind of ['pickup','park','transfer','callback']){
+   let list
+   if(kind==='callback')list=await f.makeList({count:1,mode:'preview',repId:f.q.spanish})
+   if(kind!=='park')await f.ready(kind==='transfer'?f.q.english:f.q.spanish)
+   const provider=kind==='callback'?f.prepare(list):null
+   await as(f.assistant.cookie);await page.goto(runtime.origin+'/app/front-desk')
+   await page.getByLabel('Call action / Acción',{exact:true}).selectOption(kind)
+   if(kind!=='callback')await page.getByLabel('Line call',{exact:true}).selectOption(f.callId)
+   if(kind==='transfer'||kind==='callback')await page.getByLabel('Transfer operator ID or callback phone / Destino',{exact:true}).fill(kind==='transfer'?f.q.english:list.recipients[0].recipient)
+   const request=page.getByRole('button',{name:'Review call request / Revisar solicitud',exact:true});await request.focus();await request.press('Enter')
+   await page.getByRole('heading',{name:'Call request held / Solicitud pendiente',exact:true}).waitFor()
+   const desk=await (await runtime.request(f.base,{headers:f.assistantHeaders})).json(),op=desk.operations.find(o=>o.kind===kind)
+   assert.ok(op)
+   await as(f.cookie);await page.goto(runtime.origin+'/app/front-desk');await proof('review-'+kind)
+   await page.getByLabel('Call request ID',{exact:true}).fill(op.id)
+   if(list)await page.getByLabel('Qualified single callback list ID (callback only)',{exact:true}).fill(list.id)
+   await page.getByLabel('Exact call approval expiry (UTC, within five minutes)',{exact:true}).fill(new Date(Date.now()+240000).toISOString().slice(0,16))
+   await page.getByRole('checkbox',{name:'I approve this exact existing call move or single callback',exact:true}).check()
+   await page.getByRole('button',{name:'Approve exact call request',exact:true}).click();await page.waitForLoadState('load')
+   await as(f.assistant.cookie);await page.goto(runtime.origin+'/app/front-desk')
+   const execute=page.getByRole('button',{name:'Execute approved request '+op.id,exact:true});await execute.focus();await execute.press('Enter')
+   await page.getByRole('heading',{name:'Call control observation',exact:true}).waitFor()
+   const result=JSON.parse(await page.getByRole('status').innerText());assert.equal(result.operation.state,'uncertain');await proof('executed-'+kind)
+   if(provider){assert.equal(result.dialer.attempts.length,1);await f.connect(result.dialer.attempts[0],provider)}
+   await page.getByRole('link',{name:'Return to front desk',exact:true}).click()
+   const reconcile=page.getByRole('button',{name:'Reconcile request '+op.id,exact:true});await reconcile.focus();await reconcile.press('Enter')
+   await page.getByRole('heading',{name:'Call control observation',exact:true}).waitFor()
+   const observed=JSON.parse(await page.getByRole('status').innerText());assert.equal(observed.operation.state,'provider_observed');assert.equal(observed.customerOutcome,'unconfirmed');await proof('observed-'+kind)
+  }
+ }finally{await context.close();await browser.close();await runtime.close()}
+})

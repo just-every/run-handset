@@ -1,6 +1,7 @@
 import { runtimeBindings, type Bindings } from '../../auth.server'
 import { escape as e, Fault, json } from '../core'
 import { verifyQueueRequest } from '../queues/provider-proof'
+import { callbackAuthority } from '../delegation/callback-authority'
 import { waitingAgent } from './network'
 import { listEligibility, recipientEligibility } from './eligibility'
 import { attempt, event, guard, list, recipients, sql, write, type Context } from './storage'
@@ -13,6 +14,7 @@ async function instructions(ctx:Context,attemptId:string){
  if(['completed','failed','held'].includes(a.state))return xml('<Hangup/>')
  let eligibility:Awaited<ReturnType<typeof listEligibility>>
  try{
+  await callbackAuthority(ctx.env,a.session_id)
   eligibility=await listEligibility(ctx,l,a.mode)
   const recipient=(await recipients(ctx,l.id)).find(r=>r.ordinal===a.ordinal)!
   await recipientEligibility(ctx,l,recipient,a.mode,eligibility.policy,a.id)
@@ -25,7 +27,7 @@ async function instructions(ctx:Context,attemptId:string){
   if(!ready||!present||!reservation||!route)throw new Fault('waiting_agent_unavailable',409)
   await waitingAgent(ctx,a.account_id,ready,route.destination)
   const recipientFences=await recipientEligibility(ctx,l,recipient,a.mode,eligibility.policy,a.id)
-  await write(ctx,a.id,[...eligibility.fences,...recipientFences,guard(ctx,'SELECT count(*) FROM hnd_dialer_attempts WHERE id=? AND bridge_emitted_at IS NULL',a.id),guard(ctx,'SELECT count(*) FROM hnd_dialer_ready WHERE agent_id=? AND agent_call_sid=? AND expires_at>?',a.agent_id,a.agent_call_sid,Date.now()),sql(ctx,'UPDATE hnd_dialer_attempts SET bridge_emitted_at=?,version=version+1 WHERE id=?',Date.now(),a.id),event(ctx,'attempt.bridge_instructions',l.id,a.session_id,a.id,{conferenceSid:a.conference_sid,disclosure:eligibility.policy.disclosure,disclosureResponsibility:'preconnected human agent; no prerecorded marketing',audioReceipt:'pending'})])
+  await write(ctx,a.id,[...await callbackAuthority(ctx.env,a.session_id),...eligibility.fences,...recipientFences,guard(ctx,'SELECT count(*) FROM hnd_dialer_attempts WHERE id=? AND bridge_emitted_at IS NULL',a.id),guard(ctx,'SELECT count(*) FROM hnd_dialer_ready WHERE agent_id=? AND agent_call_sid=? AND expires_at>?',a.agent_id,a.agent_call_sid,Date.now()),sql(ctx,'UPDATE hnd_dialer_attempts SET bridge_emitted_at=?,version=version+1 WHERE id=?',Date.now(),a.id),event(ctx,'attempt.bridge_instructions',l.id,a.session_id,a.id,{conferenceSid:a.conference_sid,disclosure:eligibility.policy.disclosure,disclosureResponsibility:'preconnected human agent; no prerecorded marketing',audioReceipt:'pending'})])
   // The agent is already connected. No customer waits for an agent phone to
   // ring, and no recorded sales pitch consumes the connection deadline.
   return xml(`<Dial action="${e(ctx.env.AUTH_ORIGIN+'/providers/twilio/dialer/'+a.id+'/status')}" method="POST"><Conference beep="false" startConferenceOnEnter="false" endConferenceOnExit="true" waitUrl="">${e(a.conference_name)}</Conference></Dial>`)
