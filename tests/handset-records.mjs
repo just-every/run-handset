@@ -191,7 +191,7 @@ test('Exact-person supervisor playback is audited, denies inherited delegation a
    return original
   })
   const requests=runtime.sourceRequests.length
-  assert.equal((await runtime.request(path,{headers:f.assistantHeaders})).status,503)
+  assert.equal((await runtime.request(path,{headers:f.assistantHeaders})).status,409)
   assert.equal(runtime.sourceRequests.length,requests+1,'revocation after metadata prevents the media fetch')
   runtime.twilioResources.set(media.meta,original)
   const second=await f.create('recordings/grants',media.grantInput)
@@ -199,7 +199,7 @@ test('Exact-person supervisor playback is audited, denies inherited delegation a
    await runtime.sql('UPDATE hnd_recording_grants SET revoked_at=? WHERE id=?',Date.now(),second.id)
    return {__audio:[...media.bytes]}
   })
-  assert.equal((await runtime.request(path,{headers:f.assistantHeaders})).status,503,'revocation while receiving media prevents byte release')
+  const withheld=await runtime.request(path,{headers:f.assistantHeaders});assert.equal(withheld.status,409,'revocation while receiving media prevents byte release');assert.ok(!(await withheld.text()).includes('RIFF'))
   runtime.twilioResources.set(media.url,{__audio:[...media.bytes]})
   const third=await f.create('recordings/grants',media.grantInput)
   runtime.twilioResources.set(media.meta,{...original,call_sid:'synthetic-handset-foreign'})

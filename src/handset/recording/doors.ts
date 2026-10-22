@@ -1,7 +1,7 @@
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { actorRef, append, commit } from '../audit/store'
-import { Fault, id, integer, json, keys, owner, text, type ObjectValue } from '../core'
+import { Fault, id, integer, json, keys, owner, text, consolePage, escape as e, field, type ObjectValue } from '../core'
 import { guard, nativeFence, sql } from '../delegation/store'
 
 interface Recording {id:string;source_id:string;external_id:string;account_id:string;source_owner:string;source_owner_version:number;parent_external:string}
@@ -58,18 +58,17 @@ export async function recordingDoor(request:Request,env:Bindings,actor:Session,v
   // Never publish bytes if authority changed while the provider was responding.
   await append(env,auditActor,'recording.playback',r.id,'completed',fences())
   return new Response(bytes,{headers:{'content-type':'audio/wav','content-length':String(bytes.length),'cache-control':'private, no-store','content-disposition':'inline; filename="recording.wav"','x-content-type-options':'nosniff','referrer-policy':'no-referrer','content-security-policy':"default-src 'none'; sandbox"}})
- }catch(error){await append(env,auditActor,'recording.playback',r.id,'failed');if(error instanceof Fault)throw error;throw new Fault('recording_playback_unavailable',503)}
+ }catch(error){await append(env,auditActor,'recording.playback',r.id,'failed');if(error instanceof Fault)throw error;if(String(error).includes('CHECK constraint failed'))throw new Fault('recording_authority_changed',409);throw new Fault('recording_playback_unavailable',503)}
 }
 
 export async function recordingsPage(request:Request,env:Bindings,actor:Session,value?:ObjectValue):Promise<Response|null>{
  const path=new URL(request.url).pathname
  if(path.startsWith('/api/handset/recordings/'))return recordingDoor(request,env,actor,value)
  if(path==='/app/recordings'&&request.method==='GET'){
-  const {consolePage,escape:e,field,hidden}=await import('../core')
   const grants=(await sql(env,`SELECT g.id,g.recording_id,g.expires_at FROM hnd_recording_grants g JOIN oa_operators o ON o.id=g.created_by WHERE g.person_id=? AND g.person_version=? AND g.revoked_at IS NULL AND g.expires_at>? AND o.role='owner' AND o.status='active' AND o.version=g.owner_version ORDER BY g.created_at DESC`,actor.operator.id,actor.operator.version,Date.now()).all<{id:string;recording_id:string;expires_at:number}>()).results
   const records=actor.operator.role==='owner'?(await sql(env,"SELECT id FROM hnd_records WHERE kind='recording' AND json_extract(data,'$.providerStatus')='completed' ORDER BY received_at DESC LIMIT 100").all<{id:string}>()).results:[]
   const people=actor.operator.role==='owner'?(await sql(env,"SELECT id,display_name FROM oa_operators WHERE status='active' ORDER BY display_name").all<{id:string;display_name:string}>()).results:[]
-  return consolePage('Consented recordings',`<p>Executive delegation never conveys recording rights. Every playback, including an owner or supervisor, needs a current exact-person approval for this consented recording. Playback fetches provider bytes on demand without keeping a media copy.</p><h2>My approved recordings</h2><ul>${grants.map(g=>`<li>Recording ${e(g.recording_id)} · expires ${e(new Date(g.expires_at).toISOString())}<p><a href="/api/handset/recordings/${e(g.recording_id)}/playback">Play approved recording ${e(g.recording_id)}</a></p></li>`).join('')||'<li>No current recording approvals.</li>'}</ul>${actor.operator.role==='owner'?`<h2>Owner: exact-person consent approval</h2><p>Approve only after verifying participant consent and the exact person’s need. An owner approval is a recorded attestation; this screen does not prove capture consent or US custody qualification.</p><form method="post" action="/app/recordings/grants"><label>Consented provider recording<select name="recordingId">${records.map(r=>`<option value="${e(r.id)}">${e(r.id)}</option>`).join('')}</select></label><label>Exact approved person<select name="personId">${people.map(p=>`<option value="${e(p.id)}">${e(p.display_name)} · ${e(p.id)}</option>`).join('')}</select></label>${field('Recording approval expiry (UTC)','expiresAt','','datetime-local')}<label><input type="checkbox" name="confirm" value="approve consented recording for this exact person" required>I approve this consented recording for this exact person</label><button>Approve recording playback</button></form><h2>Revoke recording approval</h2><form method="post" action="/app/recordings/revoke">${field('Recording grant ID','grantId')}<button>Revoke recording approval now</button></form>`:''}<p><a href="/app/front-desk">Return to front desk</a></p>`)
+  return consolePage('Consented recordings',`<p>Executive delegation never conveys recording rights. Every playback, including an owner or supervisor, needs a current exact-person approval for this consented recording. Playback fetches provider bytes on demand without keeping a media copy.</p><h2>My approved recordings</h2><ul>${grants.map(g=>`<li>Recording ${e(g.recording_id)} · expires ${e(new Date(g.expires_at).toISOString())}<p><a href="/api/handset/recordings/${e(g.recording_id)}/playback">Play approved recording ${e(g.recording_id)}</a></p></li>`).join('')||'<li>No current recording approvals.</li>'}</ul>${actor.operator.role==='owner'?`<h2>Owner: exact-person consent approval</h2><p>Approve only after verifying participant consent and the exact person’s need. An owner approval is a recorded attestation; this screen does not prove capture consent or US custody qualification.</p><form method="post" action="/app/recordings/grants"><label for="recording-recordingId">Consented provider recording</label><select id="recording-recordingId" name="recordingId">${records.map(r=>`<option value="${e(r.id)}">${e(r.id)}</option>`).join('')}</select><label for="recording-personId">Exact approved person</label><select id="recording-personId" name="personId">${people.map(p=>`<option value="${e(p.id)}">${e(p.display_name)} · ${e(p.id)}</option>`).join('')}</select>${field('Recording approval expiry (UTC)','expiresAt','','datetime-local')}<label><input type="checkbox" name="confirm" value="approve consented recording for this exact person" required>I approve this consented recording for this exact person</label><button>Approve recording playback</button></form><h2>Revoke recording approval</h2><form method="post" action="/app/recordings/revoke">${field('Recording grant ID','grantId')}<button>Revoke recording approval now</button></form>`:''}<p><a href="/app/front-desk">Return to front desk</a></p>`)
  }
  if(request.method==='POST'&&['/app/recordings/grants','/app/recordings/revoke'].includes(path)){
   owner(actor);const v={...value}
@@ -79,7 +78,6 @@ export async function recordingsPage(request:Request,env:Bindings,actor:Session,
   const requestUrl=new URL(request.url);requestUrl.pathname=api
   const result=await recordingDoor(new Request(requestUrl,{method:'POST'}),env,actor,v)
   if(result&&!result.ok)return result
-  const {consolePage,escape:e}=await import('../core')
   return consolePage('Recording approval recorded',`<p role="status">${path.endsWith('/grants')?'Exact-person approval recorded. Grant ID '+e((await result!.json() as {id:string}).id):'Recording approval revoked.'}</p><a href="/app/recordings">Return to recordings</a>`)
  }
  throw new Fault('not_found',404)
