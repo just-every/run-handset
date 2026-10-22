@@ -26,7 +26,7 @@ async function endpoint(ctx:Context,sourceId:string,operatorId:string){
 function approvalFence(env:Bindings,a:Approval){return guard(env,`SELECT count(*) FROM hnd_frontdesk_controls c JOIN oa_operators o ON o.id=c.approved_by WHERE c.operation_id=? AND c.expires_at>? AND o.role='owner' AND o.status='active' AND o.version=c.owner_version`,a.operation_id,Date.now())}
 function endpointFence(env:Bindings,s:Snapshot){return guard(env,`SELECT count(*) FROM hnd_dialer_ready r JOIN hnd_queue_agent_routes route ON route.operator_id=r.agent_id AND route.source_id=r.source_id JOIN oa_operators o ON o.id=route.approved_by JOIN oa_operators a ON a.id=r.approved_by JOIN oa_operators p ON p.id=r.agent_id WHERE r.agent_id=? AND r.source_id=? AND r.conference_sid=? AND r.conference_name=? AND r.agent_call_sid=? AND r.expires_at>? AND route.revision=? AND route.revoked_at IS NULL AND o.status='active' AND o.role='owner' AND o.version=route.owner_version AND a.status='active' AND a.version=r.owner_version AND (a.role='owner' OR r.approved_by=r.agent_id) AND p.status='active'`,s.endpointId!,s.sourceId,s.conferenceSid!,s.conferenceName!,s.agentCallSid!,Date.now(),s.routeRevision!)}
 export async function approveControl(env:Bindings,actor:Session,v:ObjectValue){
- owner(actor);keys(v,['operationId','listId','maxSeconds','expiresAt','confirm'])
+ owner(actor);if(!env.HANDSET_TWILIO_AUTH_TOKEN)throw new Fault('provider_credentials_unavailable',503);keys(v,['operationId','listId','maxSeconds','expiresAt','confirm'])
  if(v.confirm!=='approve this exact existing call move or single callback')throw new Fault('exact_call_control_approval_required',403)
  const op=await operation(env,text(v.operationId,'operationId'))
  if(op.state!=='held')throw new Fault('call_request_already_started',409)
@@ -60,6 +60,7 @@ export async function approveControl(env:Bindings,actor:Session,v:ObjectValue){
  return {operationId:op.id,snapshot,expiresAt:expires,effectOccurred:false}
 }
 export async function executeControl(env:Bindings,actor:Session,v:ObjectValue){
+ if(!env.HANDSET_TWILIO_AUTH_TOKEN)throw new Fault('provider_credentials_unavailable',503)
  keys(v,['operationId','confirm']);if(v.confirm!=='execute exact approved call request')throw new Fault('call_control_confirmation_required',403)
  const op=await operation(env,text(v.operationId,'operationId')),{d,l}=await delegated(env,actor,op.delegation_id)
  if(op.actor!==await actorRef(env.DB,actor.operator.id))throw new Fault('assistant_actor_required',403)

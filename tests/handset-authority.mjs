@@ -133,8 +133,9 @@ test('Executive delegation scopes presence and held call controls, preserves act
   assert.equal((await post(runtime,'/api/handset/front-desk/operations',{...f.operation,callId:crypto.randomUUID(),idempotencyKey:'synthetic-handset-704'},f.assistantHeaders)).status,403)
   const media=await recordingFixture(runtime,f)
   assert.equal((await runtime.request('/api/handset/recordings/'+media.recordingId+'/playback',{headers:f.assistantHeaders})).status,403,'delegation is never playback authority')
+  const parallel=await f.create('front-desk/delegations',f.grantInput)
   const before=(await runtime.sql('SELECT * FROM hnd_frontdesk_operations')).results
-  assert.equal((await post(runtime,'/api/handset/front-desk/revoke',{delegationId:f.grant.id},f.headers)).status,200)
+  assert.equal((await post(runtime,'/api/handset/front-desk/revoke',{delegationId:parallel.id},f.headers)).status,200)
   assert.equal((await post(runtime,'/api/handset/front-desk/operations',{...f.operation,idempotencyKey:'synthetic-handset-705'},f.assistantHeaders)).status,403)
   assert.equal((await (await runtime.request('/api/handset/front-desk',{headers:f.assistantHeaders})).json()).lines.length,0)
   assert.deepEqual((await runtime.sql('SELECT * FROM hnd_frontdesk_operations')).results,before)

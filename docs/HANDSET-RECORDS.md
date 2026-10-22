@@ -211,8 +211,8 @@ old assistant grants rather than silently enlarging them.
 
 Owner POST `delegations` requires `lineId`, `assistantId`, `expiresAt` (at most
 one day) and `confirm:"approve exact assistant and executive line"`. POST
-`revoke` stops subsequent operations on every session immediately without ending
-any call. Assistant reads expose only current granted lines and source-linked
+`revoke` stops subsequent operations on every session immediately and revokes
+all parallel grants for the same assistant/line pair without ending any call. Assistant reads expose only current granted lines and source-linked
 calls. Presence POST changes only the current person's state; lamps older than
 90 seconds display unknown. A lamp never proves receipt or audio.
 
