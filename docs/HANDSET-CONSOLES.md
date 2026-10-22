@@ -157,8 +157,9 @@ External qualification records are audited owner attestations with current nativ
 evidence references and owned-number readback; this console does not certify law
 or actual media. Independent provider/media receiver, final legal configuration
 and permitted real-traffic qualification remain required before a live campaign
-is qualified. Owner-only administration and explicit human verification are the
-conservative defaults pending ct. HND-021 inherits the remaining campaign/CRM
+is qualified. ct’s 22 October ruling governs specificity-first nuisance policy, post-911
+callback windows, exact source/queue/budget approvals and separate licensed
+compliance results. Owner administration remains separate from agent self-service. HND-021 inherits the remaining campaign/CRM
 controls, HND-027 scoped representatives, HND-031 actual carrier qualification,
 and HND-065/066 complete dialer and screening custody/erasure. No automatic
 campaign launch, recording or data pruning is introduced.

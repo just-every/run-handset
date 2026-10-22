@@ -9,7 +9,7 @@ export async function dialerJourney({runtime,page,proof}){
  const form=path=>page.locator(`form[action="/app/dialer/${path}"]`)
  await page.goto(base);await proof('dialer-empty')
  const f=await dialerFixture(runtime),list=await f.makeList({count:2,mode:'preview',check:false,name:'Austin appointment callbacks / Recordatorios'})
- await page.goto(base+'?listId='+list.id);await show('dialer-reviewed-audience','lists')
+ await page.goto(base+'?listId='+list.id);assert.ok((await page.locator('main').innerText()).includes('Compliance data and review dates'));await proof('dialer-imported-compliance');await show('dialer-reviewed-audience','lists')
  const details=page.locator('details').filter({has:page.locator('summary').filter({hasText:'Verify Alicia Torres'})})
  await details.locator('summary').click()
  const check=form('lists/'+list.id+'/recipients/0/verify')
@@ -70,4 +70,6 @@ export async function dialerJourney({runtime,page,proof}){
  await submit(form('lists/'+list.id+'/revoke'));await show('dialer-list-revoked','lists')
  assert.ok((await f.read()).lists.find(l=>l.id===list.id).revoked_at)
  await submit(form('sessions/'+run.id+'/resume'));await page.getByRole('alert').waitFor();await proof('dialer-stale-approval-refusal')
+ await f.importResults('national',{publishedAt:Date.now()-32*86400000})
+ await page.goto(base);assert.ok((await page.locator('main').innerText()).includes('Stale — held'));await proof('dialer-stale-registry-held')
 }

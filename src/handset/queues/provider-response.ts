@@ -2,7 +2,7 @@ import { escape as e, Fault } from '../core'
 import { enqueue, entryAction, overflow } from './entries'
 import { announcement } from './read'
 import { dispatch, reconcile } from './routing'
-import { entry, event, queue, statement, write, type Context } from './storage'
+import { entry, entryGuard, event, queue, statement, write, type Context } from './storage'
 import { sourceCall, type BoundSource } from './provider-proof'
 import { callTerminal, readCall } from './provider-api'
 import { currentOffer, emitOffer } from './offers'
@@ -32,7 +32,7 @@ export async function continueVoice(ctx:Context,source:BoundSource,initial:Entry
  if(['waiting','reserved'].includes(row.state)&&!await currentOffer(ctx,row)){
   try{await routeReady(ctx,row.queue_id)}catch(error){
    if(!(error instanceof Fault)||error.code!=='queue_overflow_route_unqualified')throw error
-   await write(ctx,row.id,[
+   await write(ctx,row.id,[entryGuard(ctx,row),
     statement(ctx,'DELETE FROM hnd_queue_reservations WHERE entry_id=?',row.id),
     statement(ctx,"UPDATE hnd_queue_entries SET state='overflow',overflow_kind='native',reason='overflow_route_unavailable',agent_id=NULL,ended_at=?,revision=revision+1 WHERE id=? AND revision=?",Date.now(),row.id,row.revision),
    ])

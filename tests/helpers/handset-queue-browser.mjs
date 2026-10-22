@@ -1,3 +1,4 @@
+import { signIn } from './handset-auth.mjs'
 import assert from 'node:assert/strict'
 import { sourceFixture } from './handset-sources.mjs'
 import { queueFixture, queueProviderFixture } from './handset-queues.mjs'
@@ -68,4 +69,10 @@ export async function queueMediaJourney({runtime,page,proof,cookie}){
  offer=(await f.read()).offers.find(o=>o.id===offer.id)
  assert.equal(offer.state,'completed');assert.equal(offer.child_call_sid,sid)
  await proof('queue-media-completed')
+ await runtime.sql("INSERT INTO oa_operators(id,email,display_name,role,status,created_at) VALUES ('synthetic-handset-619','synthetic-handset-619@example.test','Casey Rivera','owner','active',?)",Date.now())
+ await runtime.sql("UPDATE oa_operators SET role='member',version=version+1 WHERE id=?",f.english)
+ const replacement=(await signIn({...runtime,ownerEmail:'synthetic-handset-619@example.test'})).cookie
+ const [key,...value]=replacement.split('=')
+ await page.context().clearCookies();await page.context().addCookies([{name:key,value:value.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
+ await page.goto(url);assert.ok((await page.locator('main').innerText()).includes('Suspended — approver no longer authorized'));await proof('queue-media-suspended-approver')
 }
