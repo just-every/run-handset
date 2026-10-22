@@ -171,3 +171,90 @@ test('Unsigned foreign-number revoked and failed-readback carrier events cannot 
   assert.equal((await runtime.sql('SELECT count(*) AS count FROM hnd_source_receipts')).results[0].count,1)
  }finally{await runtime.close()}
 })
+
+test('Exact-person supervisor playback is audited, denies inherited delegation and fails closed on revoke during provider readback',async()=>{
+ const {delegationFixture,recordingFixture}=await import('./helpers/handset-delegation.mjs')
+ const runtime=await openHandset({twilio:true})
+ try{
+  const f=await delegationFixture(runtime),media=await recordingFixture(runtime,f),path='/api/handset/recordings/'+media.recordingId+'/playback'
+  assert.equal((await runtime.request(path,{headers:f.assistantHeaders})).status,403)
+  assert.equal((await runtime.request(path,{headers:f.headers})).status,403,'owner still needs exact-person consent')
+  assert.equal((await post(runtime,'/api/handset/recordings/grants',media.grantInput,f.assistantHeaders)).status,403)
+  const grant=await f.create('recordings/grants',media.grantInput)
+  const played=await runtime.request(path,{headers:f.assistantHeaders})
+  assert.equal(played.status,200,await played.clone().text());assert.equal(played.headers.get('cache-control'),'private, no-store')
+  assert.deepEqual(Buffer.from(await played.arrayBuffer()),media.bytes)
+  assert.equal((await runtime.request(path+'?token=synthetic-handset-711',{headers:f.assistantHeaders})).status,400)
+  const original=runtime.twilioResources.get(media.meta)
+  runtime.twilioResources.set(media.meta,async()=>{
+   await runtime.sql('UPDATE hnd_recording_grants SET revoked_at=? WHERE id=?',Date.now(),grant.id)
+   return original
+  })
+  const requests=runtime.sourceRequests.length
+  assert.equal((await runtime.request(path,{headers:f.assistantHeaders})).status,503)
+  assert.equal(runtime.sourceRequests.length,requests+1,'revocation after metadata prevents the media fetch')
+  runtime.twilioResources.set(media.meta,original)
+  const second=await f.create('recordings/grants',media.grantInput)
+  runtime.twilioResources.set(media.url,async()=>{
+   await runtime.sql('UPDATE hnd_recording_grants SET revoked_at=? WHERE id=?',Date.now(),second.id)
+   return {__audio:[...media.bytes]}
+  })
+  assert.equal((await runtime.request(path,{headers:f.assistantHeaders})).status,503,'revocation while receiving media prevents byte release')
+  runtime.twilioResources.set(media.url,{__audio:[...media.bytes]})
+  const third=await f.create('recordings/grants',media.grantInput)
+  runtime.twilioResources.set(media.meta,{...original,call_sid:'synthetic-handset-foreign'})
+  assert.equal((await runtime.request(path,{headers:f.assistantHeaders})).status,502)
+  runtime.twilioResources.set(media.meta,original)
+  assert.equal((await post(runtime,'/api/handset/recordings/grants/'+third.id+'/revoke',{},f.headers)).status,200)
+  assert.equal((await runtime.request(path,{headers:f.assistantHeaders})).status,403)
+  const archive=await (await runtime.request('/api/handset/audit/export',{headers:f.headers})).json(),actor=(await runtime.sql('SELECT pseudonym FROM hnd_actor_refs WHERE operator_id=?','synthetic-handset-2')).results[0].pseudonym
+  assert.ok(archive.rows.some(r=>r.actor===actor&&r.action==='recording.playback'&&r.subject===media.recordingId&&r.outcome==='completed'))
+  assert.ok(archive.rows.some(r=>r.actor===actor&&r.action==='recording.playback'&&r.outcome==='refused'))
+  assert.ok(archive.rows.some(r=>r.actor===actor&&r.action==='recording.playback'&&r.outcome==='failed'))
+ }finally{await runtime.close()}
+})
+
+test('Every current native action family retains opaque request outcomes and principal hashes survive evidence restore and actor anonymization',async()=>{
+ const {delegationFixture}=await import('./helpers/handset-delegation.mjs')
+ const {authorityFixture}=await import('./helpers/handset-authority.mjs')
+ const runtime=await openHandset({twilio:true})
+ try{
+  const f=await delegationFixture(runtime),planted=['Synthetic private actor name','+15125550198','Synthetic secret call text','synthetic-handset-720']
+  await post(runtime,'/api/handset/front-desk/operations',f.operation,f.assistantHeaders)
+  const families={records:'/api/handset/cases',authority:'/api/handset/grants',audit:'/api/handset/audit',source:'/api/handset/sources',admin:'/api/handset/admin/bulk',queue:'/api/handset/queues',metrics:'/api/handset/metrics',protection:'/api/handset/protection',dialer:'/api/handset/dialer',import:'/app/import',frontdesk:'/api/handset/front-desk',recording:'/app/recordings'}
+  for(const path of Object.values(families)){
+   await runtime.request(path,{headers:f.headers})
+   await post(runtime,path,{unknown:planted.join(' ')},f.headers)
+  }
+  const application=await authorityFixture(runtime),g=await application.issue()
+  assert.equal((await application.app(g.token,'prepare',{state:application.proposed,idempotencyKey:'synthetic-handset-721',callerInstructions:planted.join(' ')})).status,403)
+  for(const role of ['admin','member']){
+   await runtime.sql('UPDATE oa_operators SET role=? WHERE id=?',role,'synthetic-handset-2')
+   const actor=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'})
+   for(const method of ['POST','PUT','DELETE']){
+    const response=await runtime.request('/api/handset/audit/modify',{method,headers:{cookie:actor.cookie,origin:runtime.origin,'content-type':'application/json'},body:JSON.stringify({payload:planted.join(' ')})})
+    assert.equal(response.status,403)
+   }
+  }
+  const archive=await (await runtime.request('/api/handset/audit/export',{headers:f.headers})).json()
+  for(const family of Object.keys(families)){
+   const attempts=archive.rows.filter(r=>r.action===family+'.request'&&r.outcome==='uncertain')
+   assert.ok(attempts.length,family)
+   assert.ok(attempts.some(a=>archive.rows.some(r=>r.action===a.action&&r.subject===a.subject&&r.sequence>a.sequence&&['completed','refused','failed'].includes(r.outcome))),family+' correlated response')
+  }
+  assert.ok(archive.rows.some(r=>r.actor===g.grant.id&&r.action==='application.attempt'&&r.outcome==='refused'))
+  for(const value of [...planted,g.token,runtime.ownerEmail,'Elliot Brooks','Elena Rivera'])assert.ok(!JSON.stringify(archive).includes(value),value)
+  const onBehalf=archive.rows.find(r=>r.action==='frontdesk.pickup'&&r.principal)
+  assert.ok(onBehalf&&onBehalf.actor!==onBehalf.principal)
+  const restore={archive,expectedCheckpoint:archive.checkpoint,confirm:'restore evidence only'}
+  assert.equal((await post(runtime,'/api/handset/audit/restore',restore,f.headers)).status,201)
+  const changed=structuredClone(restore);changed.archive.rows.find(r=>r.principal).principal=crypto.randomUUID()
+  assert.equal((await post(runtime,'/api/handset/audit/restore',changed,f.headers)).status,400)
+  await runtime.sql("UPDATE oa_operators SET status='inactive' WHERE id='synthetic-handset-2'")
+  assert.equal((await post(runtime,'/api/handset/audit/anonymize',{operatorId:'synthetic-handset-2',confirm:'anonymize audit identity'},f.headers)).status,200)
+  const restored=await (await runtime.request('/api/handset/audit/archive/'+archive.checkpoint,{headers:f.headers})).json()
+  assert.deepEqual(restored.rows,archive.rows)
+  assert.equal((await runtime.sql('SELECT count(*) AS n FROM hnd_actor_refs WHERE operator_id=?','synthetic-handset-2')).results[0].n,0)
+  await assert.rejects(runtime.sql("UPDATE hnd_audit SET principal=? WHERE id=?",crypto.randomUUID(),onBehalf.id),/append_only/)
+ }finally{await runtime.close()}
+})

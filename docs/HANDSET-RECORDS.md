@@ -181,3 +181,67 @@ on one case; carrier completion never closes the case or clears a human promise.
 The source readback edge is a fake in tests using documented provider fields;
 no live carrier qualification is claimed. `POST /api/handset/sources/revoke`
 with `{sourceId}` stops further admission and preserves completed receipts.
+
+## Current action families and on-behalf accountability
+
+Native `/app` and `/api/handset` doors for records, grants, audit, sources,
+administration, queues, reports, protection, dialer, front desk and recordings,
+and native import doors retain an uncertain request receipt before dispatch and
+an opaque correlated response receipt afterwards. A 202 remains uncertain. These
+receipts describe HTTP handling, never a paid effect or completed customer work.
+Existing transactional decision/effect audit remains in place. Current external
+application and signed carrier doors retain their independent scoped-actor audit.
+New family producers must append atomic audit with their own authority fences.
+
+On-behalf events additionally retain an opaque principal. The principal extends
+the ordered hash input only when present; preexisting rows and independently kept
+checkpoints remain valid. Exports and restored ledgers verify that field too.
+Anonymizing a native person removes their mapping, not the operational actor or
+principal references. Product erasure remains HND-066. No names, numbers, call
+text, URL/query/body, provider payload or credentials enter the audit observer.
+
+## Front desk and exact recording approval
+
+`/app/front-desk` and `/api/handset/front-desk` use native sessions. Owner POST
+`lines` approves an exact executive, business-number record, current inbound
+source, timezone, weekdays, local hours, DND and optional explicit forwarding
+configuration. Same-day hours are supported; unsupported overnight intervals are
+refused. Saving configuration never activates forwarding. A policy edit revokes
+old assistant grants rather than silently enlarging them.
+
+Owner POST `delegations` requires `lineId`, `assistantId`, `expiresAt` (at most
+one day) and `confirm:"approve exact assistant and executive line"`. POST
+`revoke` stops subsequent operations on every session immediately without ending
+any call. Assistant reads expose only current granted lines and source-linked
+calls. Presence POST changes only the current person's state; lamps older than
+90 seconds display unknown. A lamp never proves receipt or audio.
+
+POST `operations` accepts the delegation, reviewed line revision, kind
+(pickup/park/transfer/callback), source-linked call ID, an exact destination where
+needed and idempotency key. It rechecks all current people/source authority and
+line policy atomically. **Requests stay held. No qualified live media client or
+exact spend approval exists here; no carrier or audio effect occurs.** The UI
+supports ordinary keyboard form operation and shows that hold explicitly. Actual
+shared-line pickup, parking, transfer and received business identity remain
+HND-034's open acceptance obligations. No delegated recording, port or admin right
+is implied. HND-007/008/009/031 inherit endpoint and carrier control qualification.
+
+`/app/recordings` provides explicit owner approval and revocation forms.
+POST `/api/handset/recordings/grants` requires an existing completed provider
+recording, exact native `personId`, expiry at most one hour and
+`confirm:"approve consented recording for this exact person"`. This human
+attestation does not prove capture consent, jurisdiction or US custody (HND-013 /
+HND-046). No role, including owner, implies playback rights. POST
+`recordings/grants/:id/revoke` revokes immediately. Delegation never supplies a
+grant. These conservative defaults await ct approval; no automatic capture,
+sharing, download copy or outbound work is introduced.
+
+GET `/api/handset/recordings/:id/playback` verifies an exact current-person grant,
+current source/issuer/person authority and provider recording/account/parent-call
+readback. It fetches only the constructed Twilio WAV URL with redirects refused,
+requires a bounded declared size (10 MB maximum), and rechecks revocation before
+fetch and before release. It never persists bytes or returns a provider URL or
+credential. Every attempted/permitted/refused/failed playback is attributable.
+Network-edge tests use generated synthetic WAV data, not captured speech. Live
+capture/media/carrier qualification remains open. Future retention/erasure gates
+must bind this producer before HND-013/065/066 claim their wider lifecycle proof.

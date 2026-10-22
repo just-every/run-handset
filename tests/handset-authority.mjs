@@ -108,3 +108,63 @@ test('Standing call policies retain the exact checked list and human revision an
   assert.equal(fresh.status,202);assert.equal((await fresh.json()).job.standing_revision,2)
  }finally{await runtime.close()}
 })
+
+
+test('Executive delegation scopes presence and held call controls, preserves actor and principal, and revokes all direct access immediately',async()=>{
+ const {delegationFixture,recordingFixture}=await import('./helpers/handset-delegation.mjs')
+ const runtime=await openHandset({twilio:true})
+ try{
+  const f=await delegationFixture(runtime)
+  assert.equal((await post(runtime,'/api/handset/front-desk/presence',{state:'busy',revision:0},{cookie:f.principal.cookie})).status,200)
+  let desk=await (await runtime.request('/api/handset/front-desk',{headers:f.assistantHeaders})).json()
+  assert.equal(desk.lines.length,1);assert.equal(desk.lines[0].presence,'busy');assert.equal(desk.calls[0].id,f.callId)
+  const states=[]
+  for(const kind of ['pickup','park','transfer','callback']){
+   const op={...f.operation,kind,idempotencyKey:'synthetic-handset-703-'+kind,...(['transfer','callback'].includes(kind)?{target:'+15125550180'}:{})}
+   const r=await post(runtime,'/api/handset/front-desk/operations',op,f.assistantHeaders)
+   assert.equal(r.status,202,await r.clone().text());const result=await r.json();assert.equal(result.effectOccurred,false);assert.equal(result.operation.state,'held');states.push(result.operation)
+   const replay=await (await post(runtime,'/api/handset/front-desk/operations',op,f.assistantHeaders)).json();assert.equal(replay.operation.id,result.operation.id);assert.equal(replay.replay,true)
+   assert.equal((await post(runtime,'/api/handset/front-desk/operations',{...op,target:'+15125550181'},f.assistantHeaders)).status,409)
+  }
+  assert.ok(states.every(s=>s.actor!==s.principal&&s.fromNumberId===f.numberId))
+  assert.ok(runtime.sourceRequests.every(r=>r.method==='GET'),'held call intents never make outbound requests')
+  assert.equal((await post(runtime,'/api/handset/front-desk/lines',f.lineInput,f.assistantHeaders)).status,403)
+  assert.equal((await post(runtime,'/api/handset/front-desk/delegations',f.grantInput,f.assistantHeaders)).status,403)
+  assert.equal((await post(runtime,'/api/handset/front-desk/operations',{...f.operation,callId:crypto.randomUUID(),idempotencyKey:'synthetic-handset-704'},f.assistantHeaders)).status,403)
+  const media=await recordingFixture(runtime,f)
+  assert.equal((await runtime.request('/api/handset/recordings/'+media.recordingId+'/playback',{headers:f.assistantHeaders})).status,403,'delegation is never playback authority')
+  const before=(await runtime.sql('SELECT * FROM hnd_frontdesk_operations')).results
+  assert.equal((await post(runtime,'/api/handset/front-desk/revoke',{delegationId:f.grant.id},f.headers)).status,200)
+  assert.equal((await post(runtime,'/api/handset/front-desk/operations',{...f.operation,idempotencyKey:'synthetic-handset-705'},f.assistantHeaders)).status,403)
+  assert.equal((await (await runtime.request('/api/handset/front-desk',{headers:f.assistantHeaders})).json()).lines.length,0)
+  assert.deepEqual((await runtime.sql('SELECT * FROM hnd_frontdesk_operations')).results,before)
+  await runtime.restart()
+  assert.equal((await post(runtime,'/api/handset/front-desk/operations',f.operation,f.assistantHeaders)).status,403)
+  const exported=await (await runtime.request('/api/handset/audit/export',{headers:f.headers})).json()
+  for(const state of states)assert.ok(exported.rows.some(r=>r.subject===state.id&&r.actor===state.actor&&r.principal===state.principal&&r.action==='frontdesk.'+state.kind))
+ }finally{await runtime.close()}
+})
+
+test('Executive line DND hours forwarding stale policy and changed native authority cannot authorize another on-behalf request',async()=>{
+ const {delegationFixture}=await import('./helpers/handset-delegation.mjs')
+ const runtime=await openHandset({twilio:true})
+ try{
+  const f=await delegationFixture(runtime)
+  for(const changed of [{dnd:1},{opens:'00:00',closes:'00:01'},{forwardTo:'+15125550182'}]){
+   const current=(await runtime.sql('SELECT revision FROM hnd_frontdesk_lines WHERE id=?',f.line.id)).results[0].revision
+   const updated=await f.create('front-desk/lines',{...f.lineInput,...changed,id:f.line.id,revision:current})
+   assert.equal((await post(runtime,'/api/handset/front-desk/operations',f.operation,f.assistantHeaders)).status,403,'policy changes revoke existing grants')
+   const grant=await f.create('front-desk/delegations',f.grantInput)
+   const op={...f.operation,delegationId:grant.id,lineRevision:updated.revision,idempotencyKey:'synthetic-handset-706-'+updated.revision}
+   assert.equal((await post(runtime,'/api/handset/front-desk/operations',op,f.assistantHeaders)).status,403,'the executive line policy applies to the assistant')
+   assert.equal((await post(runtime,'/api/handset/front-desk/operations',{...op,lineRevision:1},f.assistantHeaders)).status,409)
+  }
+  await f.create('front-desk/lines',{...f.lineInput,id:f.line.id,revision:4})
+  const grant=await f.create('front-desk/delegations',f.grantInput)
+  await runtime.sql("UPDATE oa_operators SET version=version+1 WHERE id=?",f.line.principal_id)
+  assert.equal((await post(runtime,'/api/handset/front-desk/operations',{...f.operation,delegationId:grant.id,lineRevision:5},f.assistantHeaders)).status,403)
+  await runtime.sql('UPDATE hnd_frontdesk_presence SET observed_at=?',Date.now()-120000)
+  assert.equal((await runtime.request('/api/handset/front-desk')).status,401)
+  assert.ok(runtime.sourceRequests.every(r=>r.method==='GET'))
+ }finally{await runtime.close()}
+})

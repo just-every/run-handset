@@ -96,3 +96,62 @@ for(const width of [1440,390])test(`Native case work, conflict and source drill-
   await page.goto(runtime.origin+'/app/sources');await page.getByRole('alert').waitFor();await proof('sources-permission-denied')
  }finally{await context.close();await browser.close();await runtime.close()}
 })
+
+for(const width of [1440,390])test(`Explicit executive delegation and consented playback forms retain truthful end states at ${width}`,async()=>{
+ const {delegationFixture,recordingFixture}=await import('./helpers/handset-delegation.mjs')
+ const runtime=await openHandset({twilio:true}),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage(),evidence=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-workspace'
+ await mkdir(evidence,{recursive:true})
+ async function as(cookie){const [name,...value]=cookie.split('=');await context.clearCookies();await context.addCookies([{name,value:value.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])}
+ async function proof(name){assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name);await page.screenshot({path:`${evidence}/${width}-${name}.png`,fullPage:true})}
+ try{
+  const owner=await signIn(runtime);await as(owner.cookie)
+  await page.goto(runtime.origin+'/app/front-desk');await proof('empty-front-desk')
+  const f=await delegationFixture(runtime),media=await recordingFixture(runtime,f)
+  await page.reload();await proof('owner-line-policy')
+  await page.getByLabel('Selected line ID',{exact:true}).fill(f.line.id)
+  await page.getByLabel('Assistant operator ID',{exact:true}).fill('synthetic-handset-2')
+  await page.getByLabel('Delegation expiry (UTC)',{exact:true}).fill(new Date(Date.now()+1800000).toISOString().slice(0,16))
+  await page.getByRole('checkbox',{name:'I approve this exact assistant and executive line',exact:true}).check()
+  await page.getByRole('button',{name:'Grant call controls',exact:true}).click();await page.waitForLoadState('load')
+  await as(f.principal.cookie);await page.goto(runtime.origin+'/app/front-desk')
+  await page.getByLabel('My availability',{exact:true}).selectOption('busy');await page.getByRole('button',{name:'Update my presence',exact:true}).click();await page.waitForLoadState('load')
+  await as(f.assistant.cookie);await page.goto(runtime.origin+'/app/front-desk')
+  assert.ok((await page.locator('main').innerText()).includes('busy'));await proof('assistant-busy-lamp')
+  for(const kind of ['pickup','park','transfer','callback']){
+   const action=page.getByLabel('Call action / Acción',{exact:true});await action.focus()
+   await action.press('Home');for(let i=0;i<['pickup','park','transfer','callback'].indexOf(kind);i++)await action.press('ArrowDown')
+   assert.equal(await action.inputValue(),kind)
+   await page.getByLabel('Line call',{exact:true}).selectOption(f.callId)
+   if(['transfer','callback'].includes(kind))await page.getByLabel('Transfer or callback destination / Destino',{exact:true}).fill('+15125550180')
+   const submit=page.getByRole('button',{name:'Review call request / Revisar solicitud',exact:true});await submit.focus();await submit.press('Enter')
+   await page.getByRole('heading',{name:'Call request held / Solicitud pendiente',exact:true}).waitFor();await proof('held-'+kind)
+   assert.ok((await page.getByRole('status').innerText()).includes('No call effect occurred'))
+   await page.getByRole('link',{name:'Return to front desk',exact:true}).click()
+  }
+  await proof('assistant-principal-history')
+  await page.goto(runtime.origin+'/app/recordings');await proof('recording-no-implicit-grant')
+  assert.ok((await page.locator('main').innerText()).includes('No current recording approvals'))
+  await as(f.cookie);await page.goto(runtime.origin+'/app/recordings');await proof('owner-recording-consent')
+  await page.getByLabel('Consented provider recording',{exact:true}).selectOption(media.recordingId)
+  await page.getByLabel('Exact approved person',{exact:true}).selectOption('synthetic-handset-2')
+  await page.getByLabel('Recording approval expiry (UTC)',{exact:true}).fill(new Date(Date.now()+1800000).toISOString().slice(0,16))
+  await page.getByRole('checkbox',{name:'I approve this consented recording for this exact person',exact:true}).check()
+  await page.getByRole('button',{name:'Approve recording playback',exact:true}).click()
+  await page.getByRole('heading',{name:'Recording approval recorded',exact:true}).waitFor();await proof('recording-consent-receipt')
+  await as(f.assistant.cookie);await page.goto(runtime.origin+'/app/recordings');await proof('approved-recording')
+  const playback=page.waitForResponse(r=>r.url().endsWith('/playback'))
+  await page.getByRole('link',{name:'Play approved recording '+media.recordingId,exact:true}).click()
+  const response=await playback;assert.equal(response.status(),200);assert.deepEqual(Buffer.from(await response.body()),media.bytes)
+  await as(f.cookie);await page.goto(runtime.origin+'/app/audit');await proof('audit-recording-and-principal')
+  const desk=await (await runtime.request('/api/handset/front-desk',{headers:f.assistantHeaders})).json()
+  for(const d of desk.lines){await post(runtime,'/api/handset/front-desk/revoke',{delegationId:d.delegation_id},f.headers)}
+  await as(f.assistant.cookie);await page.goto(runtime.origin+'/app/front-desk');await proof('revoked-delegation')
+  assert.ok((await page.locator('main').innerText()).includes('No delegated executive lines'))
+  const refused=await post(runtime,'/api/handset/front-desk/operations',f.operation,f.assistantHeaders);assert.equal(refused.status,403)
+  await page.goto(runtime.origin+'/app/recordings');const g=(await runtime.sql('SELECT id FROM hnd_recording_grants')).results[0]
+  await post(runtime,'/api/handset/recordings/grants/'+g.id+'/revoke',{},f.headers)
+  await page.reload();await proof('revoked-recording')
+  await page.goto(runtime.origin+'/app/front-desk/lines');await page.getByRole('alert').waitFor();await proof('front-desk-invalid-door')
+ }finally{await context.close();await browser.close();await runtime.close()}
+})

@@ -13,10 +13,11 @@ export async function verifyRows(rows: AuditRow[]) {
  let previous=zero, sequence=0
  for(const row of rows){
   const value=object(row)
-  keys(value,['sequence','id','actor','action','policy','subject','outcome','occurred_at','previous_hash','hash'])
+  keys(value,['sequence','id','actor','action','policy','subject','outcome','occurred_at','previous_hash','hash','principal'])
   if(row.sequence!==++sequence || row.previous_hash!==previous || row.hash!==await digest(auditBody(row)))throw new Fault('invalid_audit_chain')
   for(const key of ['id','actor','subject'] as const)if(!(row[key]==='installation' && key==='subject') && !(row[key]==='anonymous' && key==='actor') && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(row[key]))throw new Fault('invalid_audit_reference')
   if(!actions.includes(row.action) || row.policy!=='owner-only-v1' || !['completed','refused','failed','uncertain'].includes(row.outcome))throw new Fault('invalid_audit_vocabulary')
+  if(row.principal!==undefined && row.principal!==null && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(row.principal))throw new Fault('invalid_audit_principal')
   integer(row.occurred_at,'occurred_at')
   previous=row.hash
  }
@@ -58,7 +59,7 @@ export async function auditDoor(request:Request,env:Bindings,actor:Session,value
   await commit(env,actor,'audit.read','installation','completed')
   if(!html)return json({rows:rows.slice(0,100),next:rows.length>100?rows[99].sequence:null})
   const archives=(await env.DB.prepare('SELECT checkpoint,imported_at FROM hnd_audit_archives ORDER BY imported_at').all<{checkpoint:string;imported_at:number}>()).results
-  return page('Accountable audit',`<p>Owner-only access. Append-only history with opaque references. Export a checkpoint and keep it in independent owner storage to detect infrastructure changes.</p><p><a href="/api/handset/audit/export">Export checked ledger</a></p><ol>${rows.slice(0,100).map(row=>`<li><strong>${e(row.action)} · ${e(row.outcome)}</strong><p>${e(new Date(row.occurred_at).toISOString())} · Actor ${e(row.actor)} · Subject ${e(row.subject)} · Policy ${e(row.policy)}</p><p>${e(row.hash)}</p></li>`).join('')||'<li>No audit events.</li>'}</ol>${rows.length>100?`<a href="/app/audit?after=${rows[99].sequence}">Next audit page</a>`:''}<h2>Restored ledgers</h2><ul>${archives.map(a=>`<li><a href="/api/handset/audit/archive/${e(a.checkpoint)}">${e(a.checkpoint)}</a></li>`).join('')||'<li>No restored ledgers.</li>'}</ul><h2>Anonymize inactive actor</h2><p>This removes the audit identity mapping only. Other product records are not erased.</p><form method="post" action="/app/audit/anonymize">${field('Inactive non-owner operator ID','operatorId')}<label><input type="checkbox" name="confirm" value="anonymize audit identity" required>I approve anonymizing audit identity</label><button>Anonymize audit identity</button></form>`)
+  return page('Accountable audit',`<p>Owner-only access. Append-only history with opaque references. Export a checkpoint and keep it in independent owner storage to detect infrastructure changes.</p><p><a href="/api/handset/audit/export">Export checked ledger</a></p><ol>${rows.slice(0,100).map(row=>`<li><strong>${e(row.action)} · ${e(row.outcome)}</strong><p>${e(new Date(row.occurred_at).toISOString())} · Actor ${e(row.actor)}${row.principal?` · Principal ${e(row.principal)}`:''} · Subject ${e(row.subject)} · Policy ${e(row.policy)}</p><p>${e(row.hash)}</p></li>`).join('')||'<li>No audit events.</li>'}</ol>${rows.length>100?`<a href="/app/audit?after=${rows[99].sequence}">Next audit page</a>`:''}<h2>Restored ledgers</h2><ul>${archives.map(a=>`<li><a href="/api/handset/audit/archive/${e(a.checkpoint)}">${e(a.checkpoint)}</a></li>`).join('')||'<li>No restored ledgers.</li>'}</ul><h2>Anonymize inactive actor</h2><p>This removes the audit identity mapping only. Other product records are not erased.</p><form method="post" action="/app/audit/anonymize">${field('Inactive non-owner operator ID','operatorId')}<label><input type="checkbox" name="confirm" value="anonymize audit identity" required>I approve anonymizing audit identity</label><button>Anonymize audit identity</button></form>`)
  }
  if(read && path===base+'/export'){
   const archive=await auditExport(env)

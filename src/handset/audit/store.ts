@@ -4,10 +4,10 @@ import { digest, id, policy, ownerFence, Fault } from '../core'
 
 export interface AuditRow {
  sequence: number; id: string; actor: string; action: string; policy: string; subject: string; outcome: string;
- occurred_at: number; previous_hash: string; hash: string
+ occurred_at: number; previous_hash: string; hash: string; principal?: string | null
 }
 export const zero = '0'.repeat(64)
-export const auditBody = (row: Omit<AuditRow, 'hash'>) => [row.sequence, row.id, row.actor, row.action, row.policy, row.subject, row.outcome, row.occurred_at, row.previous_hash]
+export const auditBody = (row: Omit<AuditRow, 'hash'>) => [row.sequence, row.id, row.actor, row.action, row.policy, row.subject, row.outcome, row.occurred_at, row.previous_hash, ...(row.principal ? [row.principal] : [])]
 export async function actorRef(db: D1Database, operatorId: string) {
  await db.prepare('INSERT INTO hnd_actor_refs(operator_id,pseudonym) VALUES (?,?) ON CONFLICT DO NOTHING').bind(operatorId, id()).run()
  return (await db.prepare('SELECT pseudonym FROM hnd_actor_refs WHERE operator_id=?').bind(operatorId).first<{pseudonym:string}>())!.pseudonym
@@ -15,17 +15,18 @@ export async function actorRef(db: D1Database, operatorId: string) {
 export async function commit(env: Bindings, actor: Session, action: string, subject: string, outcome: string, statements: D1PreparedStatement[] = [], fence = true) {
  return append(env, await actorRef(env.DB, actor.operator.id), action, subject, outcome, [...(fence ? [ownerFence(env.DB,actor)] : []), ...statements])
 }
-export async function append(env: Bindings, pseudonym: string, action: string, subject: string, outcome: string, statements: D1PreparedStatement[] = []) {
+export async function append(env: Bindings, pseudonym: string, action: string, subject: string, outcome: string, statements: D1PreparedStatement[] = [], principal: string | null = null) {
+ if (principal && !/^[0-9a-f-]{36}$/.test(principal)) throw new Error('Invalid audit principal')
  if (!actions.includes(action) || !['completed','refused','failed','uncertain'].includes(outcome) || !(subject === 'installation' || /^[0-9a-f-]{36}$/.test(subject))) throw new Error('Invalid server audit event')
  const db = env.DB
  for (let retry = 0; retry < 8; retry++) {
   const last = await db.prepare('SELECT sequence,hash FROM hnd_audit ORDER BY sequence DESC LIMIT 1').first<{sequence:number;hash:string}>()
-  const row = { sequence: (last?.sequence ?? 0) + 1, id: id(), actor: pseudonym, action, policy, subject, outcome, occurred_at: Date.now(), previous_hash: last?.hash ?? zero }
+  const row = { sequence: (last?.sequence ?? 0) + 1, id: id(), actor: pseudonym, action, policy, subject, outcome, occurred_at: Date.now(), previous_hash: last?.hash ?? zero, principal }
   const hash = await digest(auditBody(row))
   try {
    await db.batch([
     ...statements,
-    db.prepare('INSERT INTO hnd_audit VALUES (?,?,?,?,?,?,?,?,?,?)').bind(row.sequence, row.id, row.actor, row.action, row.policy, row.subject, row.outcome, row.occurred_at, row.previous_hash, hash),
+    db.prepare('INSERT INTO hnd_audit(sequence,id,actor,action,policy,subject,outcome,occurred_at,previous_hash,hash,principal) VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(row.sequence, row.id, row.actor, row.action, row.policy, row.subject, row.outcome, row.occurred_at, row.previous_hash, hash, principal),
     db.prepare('DELETE FROM hnd_guard'),
    ])
    return { ...row, hash }
@@ -42,4 +43,4 @@ export async function denied(env: Bindings, actor: Session, action: string, subj
  await commit(env, actor, action, subject, 'refused', [], false)
 }
 
-export const actions = ['admin.read','admin.preview','admin.approve','admin.apply','admin.override','template.create','template.revise','metrics.read','metrics.configure','metrics.finalize','metrics.schedule','metrics.deliver','protection.read','protection.rule','protection.revoke','protection.configure','protection.admit','protection.contain','protection.alert','source.create','source.revoke','source.read','source.held','source.receive','source.replay','source.refuse','case.create','case.correct','case.list','case.read','record.create','record.read','filter.create','product.access','product.request','auth.signin','auth.signout','auth.access','auth.permission','auth.profile','auth.session','audit.read','audit.export','audit.restore','audit.anonymize','audit.modify','grant.create','grant.revoke','grant.read','grant.consent','approval.create','approval.revoke','policy.create','policy.revoke','application.read','application.draft','application.attempt','application.execute']
+export const actions = ['records.request','authority.request','audit.request','source.request','admin.request','queue.request','metrics.request','protection.request','dialer.request','import.request','frontdesk.request','recording.request','delegation.create','delegation.revoke','delegation.read','line.configure','presence.change','frontdesk.pickup','frontdesk.park','frontdesk.transfer','frontdesk.callback','recording.grant','recording.revoke','recording.playback','admin.read','admin.preview','admin.approve','admin.apply','admin.override','template.create','template.revise','metrics.read','metrics.configure','metrics.finalize','metrics.schedule','metrics.deliver','protection.read','protection.rule','protection.revoke','protection.configure','protection.admit','protection.contain','protection.alert','source.create','source.revoke','source.read','source.held','source.receive','source.replay','source.refuse','case.create','case.correct','case.list','case.read','record.create','record.read','filter.create','product.access','product.request','auth.signin','auth.signout','auth.access','auth.permission','auth.profile','auth.session','audit.read','audit.export','audit.restore','audit.anonymize','audit.modify','grant.create','grant.revoke','grant.read','grant.consent','approval.create','approval.revoke','policy.create','policy.revoke','application.read','application.draft','application.attempt','application.execute']

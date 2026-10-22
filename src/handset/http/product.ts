@@ -1,6 +1,8 @@
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { session, owner, json, input, Fault, page, text, id } from '../core'
+import { delegationDoor } from '../delegation/doors'
+import { recordingsPage } from '../recording/doors'
 import { authorityDoor } from '../authority/doors'
 import { auditDoor } from '../audit/doors'
 import { commit, denied } from '../audit/store'
@@ -23,7 +25,7 @@ function formValues(data: Record<string,unknown>) {
 }
 export async function productResponse(request: Request, original: Bindings): Promise<Response|null> {
  const url = new URL(request.url), path = url.pathname, html = path.startsWith('/app/')
- if (!/^\/(api\/handset|app\/(cases|records|audit|grants|sources|admin|queues|reports\/queues|protection|dialer))(\/|$)/.test(path)) return null
+ if (!/^\/(api\/handset|app\/(cases|records|audit|grants|sources|admin|queues|reports\/queues|protection|dialer|front-desk|recordings))(\/|$)/.test(path)) return null
  let auth: {env:Bindings;session:Session}|undefined
  try {
   auth = await session(request,original)
@@ -42,6 +44,12 @@ export async function productResponse(request: Request, original: Bindings): Pro
    const response=await dialerDoor(request,env,actor,request.method==='GET'?undefined:await input(request,2097152))
    if(response)return response
    throw new Fault('not_found',404)
+  }
+  if(path==='/app/front-desk'||path.startsWith('/app/front-desk/')||path==='/api/handset/front-desk'||path.startsWith('/api/handset/front-desk/')){
+   return await delegationDoor(request,env,actor,request.method==='GET'?undefined:await input(request))
+  }
+  if(path==='/app/recordings'||path.startsWith('/app/recordings/')||path.startsWith('/api/handset/recordings/')){
+   return await recordingsPage(request,env,actor,request.method==='GET'?undefined:await input(request))
   }
   try { owner(actor) } catch(error) { await denied(env,actor,'product.access'); throw error }
   const people = async () => (await db.prepare("SELECT id,display_name FROM oa_operators WHERE status='active' ORDER BY display_name,id").all<PersonOption>()).results
