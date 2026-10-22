@@ -918,7 +918,7 @@
       "executable": false
     },
     "src/handset/queues/media-pages.ts": {
-      "sha256": "f4e31a2c30fb6c7c8bb74f1d1bfa935d83f99921fea1962d69c0f0fe02657849",
+      "sha256": "b33e501cd2f06daaeb845be5524bee79a508fc21e5b669e9f6f6f20722a08f25",
       "executable": false
     },
     "src/handset/queues/media-policy.ts": {
@@ -2686,7 +2686,7 @@
       "executable": false
     },
     "tests/handset-console-browser.mjs": {
-      "sha256": "78406c83470693562c49f4342c271f1ca98faa9ec6a8c1f73ea3a37015384c38",
+      "sha256": "2a63bda32ee13d9006ec8a47f63cce6e1bc5fb8d4b2ed705e303c0da2b78a901",
       "executable": false
     },
     "tests/handset-import.mjs": {
@@ -2694,7 +2694,7 @@
       "executable": false
     },
     "tests/handset-outbound.mjs": {
-      "sha256": "50d4d27663c41cdb872d36e3e21086df01897dcc83741f6f49e6f8bc5a7d99e5",
+      "sha256": "b8cb4af7ed334b2352a0f5a9420e3cf2a6a93f54bdf54c00d7b497ae7083cb55",
       "executable": false
     },
     "tests/handset-queues.mjs": {
@@ -2725,12 +2725,16 @@
       "sha256": "d787c3e8e2677a37c4b78158015d79aff1e610e030009fb0f2260574a1ff0f9c",
       "executable": false
     },
+    "tests/helpers/handset-browser-time.mjs": {
+      "sha256": "ca2e79c90185ed76626f41f9feefcc6c3dc500e9859691e68d24447e0cfa890f",
+      "executable": false
+    },
     "tests/helpers/handset-dialer-browser.mjs": {
-      "sha256": "b5fbecbbb517f3b4927996200cb89c60e10189a2673f53add1178374dfad35c5",
+      "sha256": "170206bcc608a1abc48005fa806da78c22cee70da42665582d44235d941d463c",
       "executable": false
     },
     "tests/helpers/handset-dialer.mjs": {
-      "sha256": "ff0132e98d595867e39406f63c00d8749435e99c14ea015cfb4a5d51ba17600a",
+      "sha256": "ca5f68f7d6520c104dd6c44343612dd1cd84df0c976c3e29eedddaf6c9e0a2f9",
       "executable": false
     },
     "tests/helpers/handset-import.mjs": {
@@ -2770,7 +2774,7 @@
       "executable": false
     },
     "tests/helpers/handset-worker.mjs": {
-      "sha256": "dcda8ca06f6fae39195f312c7c7c28e588050737307113648d1d225bfff2ef70",
+      "sha256": "9c28f4e612504aa37b77a8082d6cc2e53394359c5fbe80c90e261dd7f82e873d",
       "executable": false
     },
     "tests/incremental-typecheck.test.mjs": {

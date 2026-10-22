@@ -167,7 +167,7 @@ test('Bounded parallel calls reserve distinct waiting agents; an uncertain carri
   await f.ready();const call1=f.prepare(l,0)
   await f.ready(second);const call2=f.prepare(l,1)
   const creates=`https://api.twilio.com/2010-04-01/Accounts/${f.account}/Calls.json`
-  runtime.twilioResources.set(creates,{__responses:[{__httpStatus:201,...call1.data},{__httpStatus:201,...call2.data}]})
+  runtime.twilioResources.set(creates,{__responses:[call1.creation,call2.creation]})
   const eventKey=f.next(),result=await f.launch(run,l.recipients[0].recipient,{eventKey})
   assert.equal(result.attempts.length,2,JSON.stringify(result))
   let current=await f.read();assert.equal(current.reservations.length,2)

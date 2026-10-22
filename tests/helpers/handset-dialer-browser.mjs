@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { localDateTime } from './handset-browser-time.mjs'
 import { dialerFixture } from './handset-dialer.mjs'
 
 export async function dialerJourney({runtime,page,proof}){
@@ -14,7 +15,7 @@ export async function dialerJourney({runtime,page,proof}){
  await check.getByLabel('Current consent verification evidence',{exact:true}).selectOption(list.recipients[0].consentId)
  for(const scope of ['Company','National','State','Campaign'])await check.getByLabel(scope+' suppression check',{exact:true}).selectOption('clear')
  await check.getByLabel('Exact verified customer purpose',{exact:true}).fill(f.purpose)
- await check.getByLabel('Verification expires, within one day (UTC)',{exact:true}).fill(new Date(Date.now()+600000).toISOString().slice(0,19))
+ await check.getByLabel('Verification expires, within one day (UTC)',{exact:true}).fill(localDateTime(Date.now()+600000))
  await check.getByRole('checkbox',{name:'Preview',exact:true}).check()
  await check.locator('input[name="confirm"]').check();await submit(check)
  await proof('dialer-recipient-verified')
@@ -38,7 +39,7 @@ export async function dialerJourney({runtime,page,proof}){
  await ready.getByLabel('Provider conference SID',{exact:true}).fill(waiting.conferenceSid)
  await ready.getByLabel('Exact provider conference friendly name',{exact:true}).fill(waiting.conferenceName)
  await ready.getByLabel('Connected agent Call SID',{exact:true}).fill(waiting.agentCallSid)
- await ready.getByLabel('Waiting-agent evidence expires, within 90 seconds (UTC)',{exact:true}).fill(new Date(Date.now()+80000).toISOString().slice(0,19))
+ await ready.getByLabel('Waiting-agent evidence expires, within 90 seconds (UTC)',{exact:true}).fill(localDateTime(Date.now()+80000))
  await ready.locator('input[name="confirm"]').check();await submit(ready)
  await page.goto(base+'?listId='+list.id);await proof('dialer-waiting-agent-verified')
  await submit(form('sessions/'+run.id+'/resume'))

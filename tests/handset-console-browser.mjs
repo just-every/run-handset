@@ -5,6 +5,7 @@ import { chromium } from '@playwright/test'
 import { openHandset } from './helpers/handset-worker.mjs'
 import { signIn,post } from './helpers/handset-auth.mjs'
 import { adminCsv,adminFixture } from './helpers/handset-admin.mjs'
+import { localDateTime } from './helpers/handset-browser-time.mjs'
 import { dialerJourney } from './helpers/handset-dialer-browser.mjs'
 import { queueMediaJourney } from './helpers/handset-queue-browser.mjs'
 import { queueFixture } from './helpers/handset-queues.mjs'
@@ -113,7 +114,7 @@ for(const width of [1440,390])for(const domain of ['administration','queues','qu
   await page.getByLabel('Short-abandon threshold S (seconds)',{exact:true}).fill('0')
   await page.getByLabel('Service-level method',{exact:true}).selectOption('include-abandons');await click('Save versioned formula')
   assert.ok((await page.locator('main').innerText()).includes('66.67%'));await proof('metrics-changed-thresholds')
-  await page.getByLabel('Send at (UTC)',{exact:true}).fill(new Date(Date.now()+60000).toISOString().slice(0,19))
+  await page.getByLabel('Send at (UTC)',{exact:true}).fill(localDateTime(Date.now()+60000))
   await page.getByRole('checkbox',{name:'I consent to this exact scheduled report and recipient',exact:true}).check();await click('Schedule report');await page.waitForURL(runtime.origin+'/app/reports/queues');await proof('report-scheduled')
   await click('Run due reports');assert.ok(!(await page.locator('main').innerText()).includes('accepted'))
   await runtime.scheduled(Date.now()+120000);await page.reload();assert.ok((await page.locator('main').innerText()).includes('accepted'));await proof('report-accepted')
@@ -142,11 +143,11 @@ for(const width of [1440,390])for(const domain of ['administration','queues','qu
   await ruleForm.getByLabel('Business number',{exact:true}).selectOption(protection.numberId)
   await ruleForm.getByLabel('Channel',{exact:true}).selectOption('voice')
   await ruleForm.getByLabel('Match',{exact:true}).selectOption('number')
-  await ruleForm.getByLabel('Number or prefix (leave empty for anonymous)',{exact:true}).fill('+15125550129')
+  await ruleForm.getByLabel('Number or prefix (leave empty for anonymous)',{exact:true}).fill('+12125550129')
   await ruleForm.getByLabel('Action',{exact:true}).selectOption('screen')
   await ruleForm.getByRole('checkbox').check();await ruleForm.getByRole('button',{name:'Apply rule',exact:true}).click();await page.waitForLoadState('load')
   await page.goto(runtime.origin+'/app/protection')
-  const challenge=await protection.startScreening({CallSid:'synthetic-handset-1710',From:'+15125550129'})
+  const challenge=await protection.startScreening({CallSid:'synthetic-handset-1710',From:'+12125550129'})
   await page.reload();await proof('protection-screening-pending')
   const continuation=await challenge.answer();assert.equal(continuation.status,200);assert.ok((await continuation.text()).includes(protection.continuation))
   await page.reload();await proof('protection-screening-passed')

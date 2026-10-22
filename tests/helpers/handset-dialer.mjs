@@ -55,9 +55,17 @@ export async function dialerFixture(runtime){
  async function session(l,mode='progressive'){return write(base+'/lists/'+l.id+'/sessions',{mode,confirm:'start exact approved list in this mode'},201)}
  function prepare(l,ordinal=0,{status='queued',createStatus=201}={}){
   const sid=next(),created=new Date().toUTCString(),data={account_sid:s.account,sid,from:'+15125550125',to:l.recipients[ordinal].recipient,direction:'outbound-api',status,date_created:created,start_time:null,end_time:null,duration:null}
-  runtime.twilioResources.set(`https://api.twilio.com/2010-04-01/Accounts/${s.account}/Calls.json`,{__httpStatus:createStatus,...data})
-  s.resource('Calls',sid,data)
-  return {sid,data,waiting:currentReady}
+  const creation=async request=>{
+   const fields=await request.clone().formData()
+   assert.equal(fields.get('To'),data.to);assert.equal(fields.get('From'),data.from)
+   assert.equal(fields.get('Record'),null,'no recording is authorized')
+   assert.equal(new URL(fields.get('Url')).origin,runtime.origin)
+   data.date_created=new Date().toUTCString()
+   s.resource('Calls',sid,data)
+   return {__httpStatus:createStatus,...data}
+  }
+  runtime.twilioResources.set(`https://api.twilio.com/2010-04-01/Accounts/${s.account}/Calls.json`,creation)
+  return {sid,data,waiting:currentReady,creation}
  }
  async function launch(run,recipient,extra={}){return write(base+'/sessions/'+run.id+'/launch',{eventKey:next(),...(run.mode==='preview'?{previewRecipient:recipient}:{}),confirm:'launch exact approved recipients now',...extra})}
  function callback(a,call,kind='status',{signature=true,...fields}={}){
