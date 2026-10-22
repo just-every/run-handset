@@ -194,6 +194,18 @@ test('A signed twenty-call surge emits exact Spanish-skilled Dial targets, verif
   assert.equal((await edge.callback({...edge.resource(52),AccountSid:'synthetic-handset-999'})).status,403)
   assert.equal((await edge.callback({...edge.resource(53),To:'+15125550199'})).status,403)
   assert.equal((await f.read()).entries.length,before)
+  // A caller entering Sales follows its selected queue overflow while this
+  // agent is logged out there and independently logged into Support.
+  await f.changeMembership(f.sales,f.english,0)
+  const currentSales=(await f.read()).queues.find(q=>q.id===f.sales.id)
+  await f.write(f.base+'/'+f.sales.id+'/configure',{name:currentSales.name,mode:'longest_idle',skills:[],maxWaitSeconds:120,wrapSeconds:30,maxWaiting:100,overflowKind:'queue',overflowQueueId:f.support.id,revision:currentSales.revision,confirm:'approve native queue policy'})
+  const receivingCall=edge.resource(55),receiving=await edge.callback(receivingCall)
+  assert.equal(receiving.status,200,await receiving.clone().text())
+  assert.ok((await receiving.text()).includes('>'+destinations[f.english]+'</Sip>'),'the signed caller reaches the eligible receiving-queue agent')
+  const routed=await f.read(),entry=routed.entries.find(e=>e.external_call_id===receivingCall.CallSid)
+  assert.equal(entry.queue_id,f.support.id)
+  const visits=routed.visits.filter(v=>v.entry_id===entry.id)
+  assert.equal(visits.length,2);assert.notEqual(visits[0].id,visits[1].id)
   await f.write(f.base+'/sources/revoke',{bindingId:binding.id})
   assert.equal((await edge.callback(calls[3])).status,403)
   const audit=await (await runtime.request('/api/handset/audit/export',{headers:f.headers})).json()
