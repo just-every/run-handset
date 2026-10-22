@@ -1,19 +1,26 @@
-/* 02: the receiver and its cord across the lower third, anchored to the window's left edge; a hairline drops from the
-   log to the cord. On phones the receiver stands upright in the left gutter and each entry is ticked onto its cord. */
+/* 02: the receiver and its cord across the lower third, anchored to the stage's left edge (the window's, up to 1600 px);
+   a hairline drops from the log to the cord. On phones the receiver stands upright in the left gutter and each entry is
+   ticked onto its cord. */
 .burst-wire { display: block; background: var(--white); }
 .burst-log li { color: var(--white); }
 
 @media (min-width: 1024px) {
-  .s-burst .burst-art { position: absolute; left: 0; top: calc(600 * var(--u)); width: calc(1350 * var(--u)); }
-  .burst-wire { position: absolute; left: calc(700 * var(--u)); top: calc(593 * var(--u)); width: max(1px, var(--u)); height: calc(150 * var(--u)); }
-  .burst-log { position: absolute; left: calc(718 * var(--u)); top: calc(583.5 * var(--u)); }
+  .s-burst .burst-art { position: absolute; left: var(--edge); top: calc(600 * var(--u)); width: calc(1350 * var(--u)); }
+  .burst-wire { position: absolute; left: calc(var(--edge) + 700 * var(--u)); top: calc(593 * var(--u)); width: max(1px, var(--u)); height: calc(150 * var(--u)); }
+  .burst-log { position: absolute; left: calc(var(--edge) + 718 * var(--u)); top: calc(583.5 * var(--u)); }
+}
+/* Past the stage the receiver's cropped end fades into the ground instead of stopping short of the window's edge. The
+   mask sits on the image itself, so its lighten blend still meets the page's black without a seam. */
+@media (min-width: 1601px) {
+  .s-burst .burst-art img { -webkit-mask-image: linear-gradient(to right, transparent, #000 min(var(--edge), 150px)); mask-image: linear-gradient(to right, transparent, #000 min(var(--edge), 150px)); }
 }
 
 @media (max-width: 1023.98px) {
   /* The phone plan: the sentence on the gutter under the heading, then the upright receiver at the window's left edge
      with its cord down the gutter, each log entry ticked onto the cord where the plan puts it. The strip is --strip wide
-     and ten times as tall, the cord's right side 0.62 of its width from the window's edge. */
-  .s-burst .stage { --strip: clamp(74px, 19cqi, 120px); display: grid; grid-template-columns: var(--strip) minmax(0, 1fr); grid-template-areas: "copy copy" "art log"; padding-bottom: 72px; }
+     and ten times as tall, the cord's right side 0.62 of its width from the window's edge. It keeps the 390 plan's size
+     (19% of 390 px) on tablets too, so the section does not grow a 1,200 px cord with half the screen empty. */
+  .s-burst .stage { --strip: 74px; display: grid; grid-template-columns: var(--strip) minmax(0, 1fr); grid-template-areas: "copy copy" "art log"; padding-bottom: 72px; }
   .s-burst .screen-copy { grid-area: copy; }
   .s-burst .burst-art { grid-area: art; width: var(--strip); margin: 36px 0 0 calc(-1 * var(--gutter)); }
   .burst-wire { display: none; }

@@ -32,7 +32,7 @@ When Handset is ready, `rer` prints two lines:
 
 ## Finish setup
 
-The first time you open Handset it shows **Finish setup**. Check the owner's name and email, tick
+The first time you open Handset it shows **Finish setup**. Make sure the owner's name and email are right, check
 **I confirm this owner account is ready to use** and choose **Finish setup**. Until you do, Handset sends you back to
 this page. You can correct your name here.
 

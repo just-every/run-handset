@@ -9,7 +9,12 @@
 .home-hero h1 .line { display: block; white-space: nowrap; }
 .hero-day { font-family: var(--font-mono); color: var(--white); }
 .hero-alt { font-family: var(--font-sans); color: var(--white); text-wrap: pretty; }
-.hero-alt b { font-weight: 600; }
+.hero-alt b { font-weight: 600; white-space: nowrap; }
+/* The day's line fits on one line from 1080 px; narrower it takes two, one group each, and drops the separator between them. */
+@media (max-width: 1079.98px) {
+  .hero-day .sep { display: none; }
+  .hero-day .group { display: block; }
+}
 
 @media (min-width: 1024px) {
   .home-hero { height: calc(1024 * var(--h)); }
@@ -19,9 +24,15 @@
   .home-hero h1 { font-size: calc(190 * var(--h)); --stroke: max(1.5px, calc(3 * var(--h))); }
   .hero-day { margin-top: calc(31.4 * var(--h)); margin-left: calc(14 * var(--h)); max-width: calc(820 * var(--h)); font-size: max(11.5px, calc(16.1 * var(--h))); line-height: 1.4; }
   .hero-offer { left: calc(50% - 768 * var(--h) + 986 * var(--h)); top: calc(76 * var(--h)); width: calc(530 * var(--h)); }
-  .hero-alt { font-size: calc(17.6 * var(--h)); line-height: 1.33; max-width: calc(530 * var(--h)); }
-  .home-hero .cta-row { margin-top: calc(20 * var(--h)); gap: calc(14 * var(--h)) calc(28 * var(--h)); font-size: calc(16.5 * var(--h)); }
-  .home-hero .run-button { min-height: calc(48 * var(--h)); padding: 0 calc(31 * var(--h)); }
+  /* The offer scales with the plate but never below the header's 15 px type and a 44 px button. */
+  .hero-alt { font-size: max(15px, calc(17.6 * var(--h))); line-height: 1.33; max-width: calc(530 * var(--h)); }
+  .home-hero .cta-row { margin-top: calc(20 * var(--h)); gap: calc(14 * var(--h)) calc(28 * var(--h)); font-size: max(15px, calc(16.5 * var(--h))); }
+  .home-hero .run-button { min-height: max(44px, calc(48 * var(--h))); padding: 0 calc(31 * var(--h)); }
+}
+/* At the floor the three actions need tighter spacing to stay on one row in the plate's top-right black. */
+@media (min-width: 1024px) and (max-width: 1119.98px) {
+  .home-hero .cta-row { column-gap: 12px; }
+  .home-hero .run-button { padding: 0 14px; }
 }
 /* Past 1920 px the plate stops growing; its cropped side edges fade into the ground. */
 @media (min-width: 1921px) {
@@ -34,7 +45,8 @@
   .hero-head, .hero-offer { padding: 0 var(--gutter); max-width: calc(680px + 2 * var(--gutter)); margin: 0 auto; }
   .hero-head { margin-top: 28px; }
   .home-hero h1 { font-size: clamp(56px, 20.4cqi, 132px); --stroke: 1.5px; }
-  .hero-day { margin-top: 18px; font-size: clamp(13px, 3.6cqi, 17px); line-height: 1.6; }
+  /* Never wider than the column: the longer group is 40 characters, 24 em. */
+  .hero-day { margin-top: 18px; font-size: clamp(11px, min(3.6cqi, (100cqi - 2 * var(--gutter)) / 24.2), 17px); line-height: 1.6; }
   .hero-offer { margin-top: 22px; }
   .hero-alt { font-size: clamp(16px, 4.2cqi, 19px); line-height: 1.45; }
   .home-hero .cta-row { margin-top: 22px; gap: 18px 28px; font-size: 17px; }

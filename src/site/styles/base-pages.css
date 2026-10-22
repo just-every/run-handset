@@ -5,7 +5,7 @@ body.base-page { background: var(--ground); color: var(--white); font-family: va
 .base-page .intro h1, .not-found-page .home-hero h1, .not-found-page main h1, .contract-page main > h1 {
   font-family: var(--font-display); font-weight: 800; color: transparent; -webkit-text-stroke: 1.5px var(--white); letter-spacing: -.035em; word-spacing: .12em;
 }
-.run-page .intro h1 { font-size: 72px; line-height: 1; }
+.run-page .intro h1 { font-size: 72px; line-height: 1; text-wrap: balance; }
 .run-page .sub { color: var(--film-2); }
 .run-page .step { background: transparent; border: 1.5px solid var(--film-5); border-radius: 22px; box-shadow: none; backdrop-filter: none; }
 .run-page .num { background: none; color: transparent; -webkit-text-stroke: 1.25px var(--white); font: 800 52px/1 var(--font-display); width: 62px; height: 62px; }
@@ -26,6 +26,8 @@ body.base-page { background: var(--ground); color: var(--white); font-family: va
 @media (forced-colors: active) { .base-page .intro h1, .contract-page main > h1, .not-found-page main h1, .run-page .num { color: CanvasText; -webkit-text-stroke: 0; } }
 @media (max-width: 760px) {
   .run-page .intro h1, .not-found-page main h1 { font-size: 44px; -webkit-text-stroke-width: 1.25px; }
+  /* "Run Handset on / your computer." keeps two lines down to 360 px, never "computer." alone. */
+  .run-page .intro h1 { font-size: min(44px, 11vw); }
   .contract-page main > h1 { font-size: 36px; -webkit-text-stroke-width: 1.25px; }
   .run-page .num { width: 34px; height: 34px; font-size: 30px; -webkit-text-stroke-width: 1px; }
 }

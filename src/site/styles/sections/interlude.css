@@ -19,3 +19,8 @@
   .display { top: 10.15%; }
   .interlude-tag { margin-top: 48px; }
 }
+/* The tag fits on one line from 780 px; narrower, the time and then the closing. */
+@media (max-width: 779.98px) {
+  .interlude-tag .sep { display: none; }
+  .interlude-tag .group { display: block; }
+}

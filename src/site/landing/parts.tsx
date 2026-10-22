@@ -19,6 +19,11 @@ export function Plate({ name, widths, sizes, width, height, className, phone, ea
 export const Rec = ({ parts, className }: { parts: ReactNode[]; className?: string }) =>
   <span className={className}>{parts.map((part, index) => <Fragment key={index}>{index ? ' ' : ''}<span className="nw">{part}{index < parts.length - 1 ? '\u00a0·' : ''}</span></Fragment>)}</span>
 
+/** A record in groups that never break inside: while it runs on one line a " · " joins them; where a narrow screen sets
+ * each group on its own line, the section's stylesheet hides that `.sep`, so no line ends or starts with a separator. */
+export const Groups = ({ groups, className }: { groups: ReactNode[][]; className?: string }) =>
+  <span className={className}>{groups.map((parts, index) => <Fragment key={index}>{index ? <span className="sep">{' · '}</span> : null}<Rec className="group" parts={parts} /></Fragment>)}</span>
+
 /** A screen of the page: one outline heading (its id is `${id}-title`), at most one sentence and one proof. A screen
  * without a heading names itself with `label`. */
 export function Screen({ id, className, label, children }: { id: string; className: string; label?: string; children: ReactNode }) {

@@ -250,7 +250,7 @@
       "executable": false
     },
     "docs/getting-started.md": {
-      "sha256": "3587fa690de8b5ad8a14d47bec160a6f4a52fb705d1e0137354e39c538ac8cb7",
+      "sha256": "60766fdd9fb7238e932fea6811fc26b218ed766ee8a8d2361f48bb467a4ffa19",
       "executable": false
     },
     "docs/HANDSET-CONSOLES.md": {
@@ -442,7 +442,7 @@
       "executable": false
     },
     "public/brand/favicon-32.png": {
-      "sha256": "0bff6cfd0c3bfdc5b2bd3605a49a2cc16d8cf65fb0015fdeb1562dd1c700f21f",
+      "sha256": "727c1da9371d3e11cf711c6ff4e5eca8b8dc6ed0200e757e3e2e7041762995ce",
       "executable": false
     },
     "public/brand/icon-192.png": {
@@ -462,11 +462,11 @@
       "executable": false
     },
     "public/favicon-32.svg": {
-      "sha256": "82f23e4d5a11d130566ff659a53a8685dc3245605c6da08f680f4a84cd65d924",
+      "sha256": "bd1ab5a958796ab2490c91f239b707d2c5922d535443c378095ec5ec62f8177b",
       "executable": false
     },
     "public/favicon.ico": {
-      "sha256": "78f237417f5c0aef3933a44468d12d61b2a66ab6db9e15bfb4d8abfe7ce8ef06",
+      "sha256": "93fd8848871892de7684c37310f5ef397bfb9ca030f7d85466d97d2175c720ae",
       "executable": false
     },
     "public/fonts/archivo/archivo-latin-wght.woff2": {
@@ -2954,7 +2954,7 @@
       "executable": false
     },
     "src/site/landing/Hero.tsx": {
-      "sha256": "005c75ee282028dc651b92d5bbc3afa4867a6544e06a0ca2edb5fd7cf3d6f078",
+      "sha256": "0ceddfee8c3b6602e4848ce5e1a5786c486366a41d13a0190aaf57d542910ce3",
       "executable": false
     },
     "src/site/landing/Landing.tsx": {
@@ -2962,7 +2962,7 @@
       "executable": false
     },
     "src/site/landing/parts.tsx": {
-      "sha256": "50a0b740b6db00ac4697258fcb14f1093863535ba9283011c35c9150b2cb67f3",
+      "sha256": "7c2d9bc0403a5110740e139d19f8adf0b236622ac4dbf573ff9b0781e369214b",
       "executable": false
     },
     "src/site/landing/sections/Burst.tsx": {
@@ -2970,31 +2970,31 @@
       "executable": false
     },
     "src/site/landing/sections/Closing.tsx": {
-      "sha256": "5d4bfde4a7e335effd138f94bdc4ae49c797506f902778746b0a8142d8c399fa",
+      "sha256": "1794f8e88e55073d1c77301f17ff9066cf829006a9143e2f8e5f735d0daada4e",
       "executable": false
     },
     "src/site/landing/sections/FollowUps.tsx": {
-      "sha256": "84de7d3685473266f3025b33f73021f047d8d58069d21fab1feec0e79ad270eb",
+      "sha256": "2497e8f440103b797863364d298dcf98ba68e2d61320c73ef39bca014ecb6928",
       "executable": false
     },
     "src/site/landing/sections/Interlude.tsx": {
-      "sha256": "482b9439d122a6ac8e9633c8cf728c9e0a2e419d469cc0bf4ffa3abe99e8dfe2",
+      "sha256": "3a4c60686f6bdc7a4facb0b1bc819c3da05c8451bd1e9a20d63b29fd177af72c",
       "executable": false
     },
     "src/site/landing/sections/NameBack.tsx": {
-      "sha256": "e5abdb14758b3e604c2d88fbd9ec0fdf34a07988922c6c023636fad85ddb3eb9",
+      "sha256": "0069b6198fab35bf18c2b23a35481681af285c0b07543da40fd0074ed914bfa9",
       "executable": false
     },
     "src/site/landing/sections/Numbers.tsx": {
-      "sha256": "c46b33d59423af1c8e594bd0acedda218e73bb7cac262cda462ed9469998db7b",
+      "sha256": "391418ea34c9f9fd5a92f1df2dcfa63b1a1c1f8b7048d7b781415642b84213c6",
       "executable": false
     },
     "src/site/landing/sections/PressTwo.tsx": {
-      "sha256": "0b78a4cbfd805629318aed060872e9e077b5d77ded7623672556d6bfac6913da",
+      "sha256": "ff53959b5a902a3bfa8237223c302040fed50846e02c7c379c1638886674d6e7",
       "executable": false
     },
     "src/site/landing/sections/Surge.tsx": {
-      "sha256": "a3dbc25c4f967c60a3f8a830d37c71e7e6e51d7675be4ef55f484dd234d0042b",
+      "sha256": "fee0516ff750fe603da01b1ed229600a51d828542d7f755b87d91c6be2c34b69",
       "executable": false
     },
     "src/site/pages.tsx": {
@@ -3026,31 +3026,31 @@
       "executable": false
     },
     "src/site/styles/base-pages.css": {
-      "sha256": "664598a34236cea666b76686694346cbbdfed254a123cd4b0766a8a72f7d1d3f",
+      "sha256": "e390aa209130272e1602b4d251ab0d302766a367ee3afbddeeb1cd578bf3ff45",
       "executable": false
     },
     "src/site/styles/docs.css": {
-      "sha256": "cfe80f7d59c489bb2b10d60189da14c3090c73b1ec319a5fcdb60de6d42811dc",
+      "sha256": "8156fa325f7e593cc58b0cf645e248e2870cac5ffbe7948e2af842183f88c85b",
       "executable": false
     },
     "src/site/styles/landing.css": {
-      "sha256": "9bc80faf0c8cd9795a182bc1e720036fe476c9d0758174195149ec45383f3fe8",
+      "sha256": "9920609c4528cccf31f537bf5df25338aa4983c1fbcf0adc87ff725798cfe429",
       "executable": false
     },
     "src/site/styles/sections/burst.css": {
-      "sha256": "33d6aed97fda8292661871c093736d9e43c4bbbb534a27f36978b1f9fbfdc1ea",
+      "sha256": "13a8919f873fe644a71c36169616fb17c0836cf6451fe4638386ec6cf4661fff",
       "executable": false
     },
     "src/site/styles/sections/closing.css": {
-      "sha256": "b3e1b2e716ee4dd2b5c91567de5a4133043e2bcb4323176244577b8b4bab799a",
+      "sha256": "4da8f0d38eab9867358be8473cfbde049c558996dd53d709cb73ea7ea9b2741b",
       "executable": false
     },
     "src/site/styles/sections/hero.css": {
-      "sha256": "9c86f5f4268de107d87556d72e1dba3889a77b8425471ba92df1482b71ef7e55",
+      "sha256": "f6fb2d49a91b1f0bf5ac2e02e5dc80f568f7ad29582642d983cedcae859eef2a",
       "executable": false
     },
     "src/site/styles/sections/interlude.css": {
-      "sha256": "4e85136ba2acec585b58902e977cb9775beeb75c26de49fd4308416103d7de0b",
+      "sha256": "aa7c888327e2ef86d59e918b2d4d043fd3170ce9f2cd4c1185ce4704e1103aa9",
       "executable": false
     },
     "src/site/styles/sections/name.css": {
@@ -3062,15 +3062,15 @@
       "executable": false
     },
     "src/site/styles/sections/numbers.css": {
-      "sha256": "5a1e0a16d2667bddb9386d79f0c8f54e5b89baacdc9eae1af47235f888758784",
+      "sha256": "48c509b9de1347ee49d24057fd53f5a05ca4633002a4463aa146f31c729f41ba",
       "executable": false
     },
     "src/site/styles/sections/press.css": {
-      "sha256": "42fc2933c7e8dd554cf7be95166c1d12e5a32fd1e813b4b9d91873be571720da",
+      "sha256": "69dca80bfb80a42ee692df1643c95b66044468a714d174d91c23c771f0dab02c",
       "executable": false
     },
     "src/site/styles/site.css": {
-      "sha256": "156cdcf28c17e19947249f61e3ff2ebc54e1784c519cc7b54c28bb026c08fe37",
+      "sha256": "4dd59bce0c52807921ab9e3bbdb7b698996de66c4d60054d9d283ccf8c9e1fb6",
       "executable": false
     },
     "src/site/styles/tokens.css": {

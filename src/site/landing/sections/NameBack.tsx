@@ -7,7 +7,8 @@ export function NameBack() {
   const { date, mesaRidge: m } = day
   return <Screen id="name-back" className="s-name">
     <div className="screen-copy">
-      <Heading id="name-back-title" lines={[m.number, 'gets its', 'name back.']} />
+      {/* Non-breaking hyphens: the number never splits across lines. */}
+      <Heading id="name-back-title" lines={[m.number.replaceAll('-', '\u2011'), 'gets its', 'name back.']} />
       <Sentence lines={['Handset spotted the Spam Likely label,', 'prepared every filing, and the number', 'was clean by Monday.']} />
     </div>
     <ol className="log name-log">

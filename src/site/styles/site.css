@@ -29,7 +29,8 @@ a { color: inherit; }
 .lockup img { flex: none; display: block; }
 .site-header { position: relative; z-index: 3; }
 .site-header.over-art { position: absolute; top: 0; left: 0; right: 0; }
-.site-header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px 24px; padding: 12px clamp(24px, 2.865vw, 56px); min-height: 60px; }
+/* The row stops at the hero plate's 1920 px and centres with it, so the lockup and nav stay on the plate. */
+.site-header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px 24px; max-width: 1920px; margin: 0 auto; padding: 12px clamp(24px, 2.865vw, 56px); min-height: 60px; }
 .site-header nav, .site-footer nav { display: flex; gap: 36px; font-size: 15px; line-height: 1.2; }
 .site-header nav a, .site-footer nav a { text-decoration: none; padding: 6px 0; text-underline-offset: 5px; }
 .site-header nav a:hover, .site-footer nav a:hover, .site-header nav a[aria-current=page] { text-decoration: underline; text-decoration-thickness: 1px; }
@@ -61,9 +62,7 @@ a { color: inherit; }
 @media (max-width: 640px) {
   .lockup { font-size: 21px; gap: 9px; }
   .lockup img { width: 30px; height: 30px; }
-  .site-header-row { padding: 10px 20px; }
   .site-header nav { gap: 16px; font-size: 14px; }
-  .site-footer { margin: 0 20px; }
   .site-footer-row { flex-direction: column; align-items: flex-start; gap: 14px; }
   .site-footer-brand { flex-direction: column; align-items: flex-start; gap: 8px; }
   .site-footer nav { gap: 24px; }

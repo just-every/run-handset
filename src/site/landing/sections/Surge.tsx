@@ -7,7 +7,7 @@ export function Surge() {
   return <Screen id="surge" className="s-surge s-number">
     <div className="screen-copy">
       <Heading id="surge-title" lines={['Twenty callers,', 'each told', 'their place.']} />
-      <Sentence lines={['A fiber cut sent Mesa Ridge Internet\'s', 'customers to the support line at once,', 'and nobody gave up.']} />
+      <Sentence lines={['A fiber cut sent Mesa Ridge Internet’s', 'customers to the support line at once,', 'and nobody gave up.']} />
     </div>
     <figure className="number-figure">
       <p className="outline numeral" aria-label={`${mesaRidge.waiting} callers`}>{mesaRidge.waiting}</p>

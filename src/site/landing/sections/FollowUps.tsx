@@ -7,7 +7,7 @@ export function FollowUps() {
   return <Screen id="follow-ups" className="s-follow s-number">
     <div className="screen-copy">
       <Heading id="follow-ups-title" lines={['The follow‑ups', 'get done.']} />
-      <Sentence lines={['After each call, Handset writes down', 'every promise and chases it until', 'the customer\'s side is done.']} />
+      <Sentence lines={['After each call, Handset writes down', 'every promise and chases it until', 'the customer’s side is done.']} />
     </div>
     <figure className="number-figure">
       <p className="outline numeral" aria-label={`${f.done} of ${f.promised}`}>{f.done}</p>

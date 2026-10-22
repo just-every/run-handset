@@ -14,7 +14,7 @@
 .log, .tag, .caption { font-family: var(--font-mono); font-weight: 400; }
 .art { display: block; }
 .art img { display: block; width: 100%; height: auto; mix-blend-mode: lighten; }
-.log .when { white-space: nowrap; }
+.log .when, .group { white-space: nowrap; }
 
 @media (min-width: 1024px) {
   .screen { height: calc(var(--screen-h, 960) * var(--u)); }
@@ -35,7 +35,8 @@
 
 @media (max-width: 1023.98px) {
   .stage { position: relative; padding: clamp(96px, 14cqi, 128px) var(--gutter); }
-  .heading { font-size: clamp(36px, 12.3cqi, 76px); --stroke: 1.25px; }
+  /* Balanced lines, so a heading never ends on one word (with the number's non-breaking hyphens, the desk's breaks). */
+  .heading { font-size: clamp(36px, 12.3cqi, 76px); --stroke: 1.25px; text-wrap: balance; }
   .sentence { margin-top: 20px; font-size: clamp(17px, 4.62cqi, 22px); line-height: 1.45; max-width: 34em; }
   .log, .tag, .caption { font-size: clamp(13px, 3.85cqi, 18px); line-height: 1.6; }
   .numeral { line-height: .8; letter-spacing: -.02em; --stroke: 1.5px; }

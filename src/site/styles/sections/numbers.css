@@ -12,3 +12,8 @@
   .numbers-tag { margin-top: 28px; }
   .numbers-tag .tag-line { display: block; }
 }
+/* The second line fits from 640 px; narrower, the ported numbers and then the desk phones. */
+@media (max-width: 639.98px) {
+  .numbers-tag .sep { display: none; }
+  .numbers-tag .group { display: block; }
+}

@@ -1,7 +1,7 @@
 /* 03: the call-flow node, a white-outlined rounded rectangle, with the x-ray cord dropping from its bottom edge out
    of the frame; the heading and sentence right-aligned at the top right. */
 .node { border: 2px solid var(--white); color: var(--white); font-family: var(--font-mono); }
-.node-route { white-space: normal; }
+.node-route { white-space: nowrap; }
 .press-cord { display: block; }
 
 @media (min-width: 1024px) {
@@ -16,7 +16,13 @@
   .s-press .stage { padding-bottom: 0; }
   .node-wrap { margin-top: 40px; }
   .node { border-radius: 18px; padding: 22px 22px 24px; }
-  .node-route { font-size: clamp(20px, 6.2cqi, 30px); line-height: 1.25; }
+  /* The route stays on one line, as page-03 draws it: its 22 characters (13.2 em) fit the node's inner width, the window less 96 px. */
+  .node-route { font-size: clamp(16px, min(6.2cqi, (100cqi - 2 * var(--gutter) - 48px) / 13.4), 30px); line-height: 1.25; }
   .node-day { margin-top: 8px; font-size: clamp(13px, 3.85cqi, 18px); line-height: 1.5; }
   .press-cord { width: 96px; margin: -1px auto 0; height: 300px; overflow: hidden; }
+}
+/* The day line fits on one line from 520 px; narrower, the date and then the counts. */
+@media (max-width: 519.98px) {
+  .node-day .sep { display: none; }
+  .node-day .group { display: block; }
 }
