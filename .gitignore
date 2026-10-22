@@ -10,3 +10,4 @@ dist/
 *.tsbuildinfo
 
 .rer/local/
+src/routeTree.gen.ts

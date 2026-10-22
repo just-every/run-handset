@@ -37,6 +37,7 @@ export interface Bindings {
  MAIL_PROVIDER?: 'development' | 'resend' | 'sendgrid' | 'cloudflare'
  MAIL_FROM?: string
  MAIL_API_KEY?: string
+ HANDSET_TWILIO_AUTH_TOKEN?: string
  MAIL_ACCOUNT_ID?: string
 }
 
@@ -83,7 +84,7 @@ async function handleAuthResponse(request: Request, original: Bindings): Promise
  if (url.pathname === '/app') {
   const session = await operatorAuth(env).getSession(request)
   if (!session) return new Response(null, { status: 303, headers: { ...privateHeaders, location: '/signin' } })
-  return html(`<h1 data-rer-name>${escape(branding.name)}</h1><p>Signed in as ${escape(session.operator.displayName)}</p><form method="post" action="/auth/signout"><button type="submit">Sign out</button></form>`)
+  return html(`<h1 data-rer-name>${escape(branding.name)}</h1><p>Signed in as ${escape(session.operator.displayName)}</p><p><a href="/app/cases">Shared cases</a> · <a href="/app/audit">Audit</a> · <a href="/app/grants">Application grants</a> · <a href="/app/admin/bulk">Bulk administration</a> · <a href="/app/admin/templates">Templates</a> · <a href="/app/queues">Queues</a> · <a href="/app/reports/queues">Queue reports</a> · <a href="/app/protection">Protection</a> · <a href="/app/import">Move in</a></p><form method="post" action="/auth/signout"><button type="submit">Sign out</button></form>`)
  }
  return null
 }

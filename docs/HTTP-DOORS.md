@@ -53,9 +53,15 @@ function requests get 401; private GET/HEAD documents redirect to sign-in.
 Cross-origin mutations get 403 before effects. This fence does not replace
 authorization in a handler. Unknown signed-in routes still return 404.
 
-There are currently no product API handlers, Start server functions, private
-media handlers or carrier callbacks. Forged requests to unimplemented carrier
-paths return no data and cause no effect; there is no accepted carrier event.
+Handset now has owner-only native record, audit and grant handlers described in
+`docs/HANDSET-RECORDS.md`. Each repeats native authorization at its own door and
+inside write transactions. The exact `/api/handset/application/*` transport is
+dispatched before the native fence and independently requires a current scoped
+bearer credential; it never borrows a cookie. MCP owner consent remains behind
+the native session fence. No current handler serves recording bytes. There are
+no Start server functions. The only accepted carrier-event door is the signed
+Twilio exception below; unimplemented carrier paths return no data and cause
+no effect.
 HND-030 inherits API and generated-handler authorization; HND-013, HND-027,
 HND-048 and HND-092 inherit private media/export authorization; HND-031 and
 HND-036 inherit provider-specific signed callbacks with narrow authority.
@@ -63,7 +69,14 @@ Those future clauses must prove their own implemented doors. Their signatures,
 product permissions and carrier qualification are not proved by a current 404.
 
 `tests/handset-auth.mjs` exercises the emitted Worker and actual numbered D1
-migrations with production auth. Only the SendGrid network edge is substituted
+migrations with production auth. These auth tests substitute only the SendGrid network edge
 in ordinary CI. `tests/handset-auth-browser.mjs` drives native forms at 1440 and
 390. With `HANDSET_LIVE_MAIL=1`, it uses the configured SendGrid sender and
 controlled receipt mailbox; development/demo admission is never enabled.
+
+The current narrowly declared exception is `POST /providers/twilio/events`:
+installation-local account signature, exact URL/Host, explicit owner-authorized
+account/number, current-owner and source-revocation fences, bounded official
+callback fields, and no outbound effect. See `docs/HANDSET-RECORDS.md` and the
+signed-source/refusal tests in `tests/handset-records.mjs`. Every other carrier
+path retains the native namespace fence and ordinary refusal.

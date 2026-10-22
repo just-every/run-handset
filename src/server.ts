@@ -9,7 +9,18 @@ import { lobbyResponse } from './base/lobby'
 import { setupStateResponse } from './base/setup-state'
 import { authResponse, runtimeBindings, type Bindings } from './auth.server'
 import { identity } from './identity'
+import { twilioResponse } from './handset/providers/twilio'
+import { applicationResponse } from './handset/authority/application'
+import { observeAuth } from './handset/audit/auth'
+import { productResponse } from './handset/http/product'
 import { privateDoorResponse } from './handset/http/private-doors'
+import { importResponse } from './handset/import/doors'
+import { protectionCarrierResponse } from './handset/protection/doors'
+import { runDueReports } from './handset/metrics/schedules'
+import { queueProviderResponse } from './handset/queues/provider'
+import { tickQueues } from './handset/queues/tick'
+import { dialerProviderResponse } from './handset/dialer/provider'
+import { tickDialer } from './handset/dialer/tick'
 
 const api = new Hono<{ Bindings: Bindings }>()
 api.get('/health', (context) => context.json({ status: 'ok', ...deploymentHealth(context.env) }))
@@ -25,12 +36,26 @@ function noTransform(response: Response): Response {
 
 export default withDemo<Bindings, ExportedHandler<Bindings>>({
   async fetch(request, env, execution) {
+    const protection = await protectionCarrierResponse(request, env)
+    if (protection) return protection
+    const queue = await queueProviderResponse(request, env)
+    if (queue) return queue
+    const dialer = await dialerProviderResponse(request, env)
+    if (dialer) return dialer
+    const source = await twilioResponse(request, env)
+    if (source) return source
+    const application = await applicationResponse(request, env)
+    if (application) return application
+    const imports = await importResponse(request, env)
+    if (imports) return imports
     const denied = await privateDoorResponse(request, env)
     if (denied) return denied
     const asset = await staticAssetResponse(request, env)
     if (asset) return asset
-    const auth = await authResponse(request, env)
+    const auth = await observeAuth(request, env, () => authResponse(request, env))
     if (auth) return auth
+    const product = await productResponse(request, env)
+    if (product) return product
     // The installed variant: the Lobby at / and the public claim state it reads.
     // Local dev serves the saved origin's data at its own port (RER_DEV_ORIGIN).
     const state = await setupStateResponse(request, runtimeBindings(env))
@@ -38,5 +63,10 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     const lobby = await lobbyResponse(request, runtimeBindings(env), identity)
     if (lobby) return lobby
     return rejectedResponse(request, await dispatch(request, () => api.fetch(request, env, execution), async () => noTransform(await start.fetch(request))))
+  },
+  async scheduled(event, env) {
+    await tickQueues(runtimeBindings(env))
+    await runDueReports(runtimeBindings(env), event.scheduledTime)
+    await tickDialer(runtimeBindings(env))
   },
 } satisfies ExportedHandler<Bindings>)

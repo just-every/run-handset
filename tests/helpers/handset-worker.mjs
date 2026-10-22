@@ -78,7 +78,7 @@ async function seed(db, ownerEmail) {
  * launch headless with --use-mock-keychain and --password-store=basic, real HOME.
  * mails contains raw SendGrid JSON, without transport headers or credentials.
  */
-export async function openHandset({ liveMail = false } = {}) {
+export async function openHandset({ liveMail = false, twilio = false } = {}) {
   if (liveMail && ['MAIL_TO', 'MAIL_FROM', 'MAIL_API_KEY'].some(name => !process.env[name])) {
     throw new Error('Live mail requires MAIL_TO, MAIL_FROM and MAIL_API_KEY')
   }
@@ -91,9 +91,9 @@ export async function openHandset({ liveMail = false } = {}) {
   const ownerEmail = liveMail ? process.env.MAIL_TO : 'synthetic-handset-1@example.test'
   const directory = await mkdtemp(join(tmpdir(), 'synthetic-handset-'))
   // TLS trust is scoped to this client's loopback requests, never process-wide.
-  const dispatcher = new Agent({ connect: { rejectUnauthorized: false } })
-  const mails = []
-  let runtime, mailFailure = false, closing
+  let dispatcher = new Agent({ connect: { rejectUnauthorized: false } })
+  const mails = [], twilioResources = new Map(), sourceRequests = []
+  let runtime, options, db, mailFailure = false, closing
   const close = () => closing ??= (async () => {
     try { await runtime?.dispose() }
     finally {
@@ -102,6 +102,14 @@ export async function openHandset({ liveMail = false } = {}) {
     }
   })()
   async function outboundService(request) {
+    if(twilio && request.url.startsWith('https://api.twilio.com/2010-04-01/Accounts/')) {
+      sourceRequests.push({url:request.url,method:request.method})
+      const mapped=twilioResources.get(request.url)
+      const response=Array.isArray(mapped?.__responses)?mapped.__responses.shift():mapped
+      const payload=typeof response==='function'?await response(request):response
+      const {__httpStatus=200,...body}=payload??{}
+      return new WorkerResponse(JSON.stringify(payload?body:{code:20404,message:'Synthetic resource not found'}),{status:payload?__httpStatus:404,headers:{'content-type':'application/json'}})
+    }
     const isMail = request.url === 'https://api.sendgrid.com/v3/mail/send'
     if (isMail) {
       mails.push(await request.clone().json())
@@ -119,7 +127,7 @@ export async function openHandset({ liveMail = false } = {}) {
     })
   }
   try {
-    runtime = new Miniflare(convertV4MiniflareOptions({
+    options = convertV4MiniflareOptions({
       name: config.name,
       rootPath: base,
       modules, modulesRoot: base,
@@ -141,6 +149,7 @@ export async function openHandset({ liveMail = false } = {}) {
         },
       },
       bindings: {
+        ...(twilio?{HANDSET_TWILIO_AUTH_TOKEN:'synthetic-handset-500'}:{}),
         AUTH_LOCAL: 'false', AUTH_ORIGIN: origin, OWNER_EMAIL: ownerEmail,
         SESSION_SECRET: 'synthetic-handset-7-synthetic-handset-8',
         MAIL_PROVIDER: 'sendgrid',
@@ -148,14 +157,27 @@ export async function openHandset({ liveMail = false } = {}) {
         MAIL_API_KEY: liveMail ? process.env.MAIL_API_KEY : 'synthetic-handset-4',
       },
       outboundService,
-    }))
+    })
+    runtime = new Miniflare(options)
     const ready = await runtime.ready
     if (ready.origin !== origin) throw new Error('Worker HTTPS listener did not bind the requested origin')
-    const db = await runtime.getD1Database('DB')
+    db = await runtime.getD1Database('DB')
     await migrate(db)
     await seed(db, ownerEmail)
     return {
-      origin, ownerEmail, mails, db, close,
+      origin, ownerEmail, mails, get db() { return db }, close, twilioResources, sourceRequests,
+      async restart() {
+        await runtime.dispose()
+        await dispatcher.close()
+        dispatcher = new Agent({ connect: { rejectUnauthorized: false } })
+        runtime = new Miniflare(options)
+        await runtime.ready
+        db = await runtime.getD1Database('DB')
+      },
+      async scheduled(time = Date.now()) {
+        const worker = await runtime.getWorker()
+        return worker.scheduled({ scheduledTime: time, cron: '* * * * *' })
+      },
       // Direct native D1 access lets expiry tests change timestamps without sleeps.
       sql: (query, ...values) => db.prepare(query).bind(...values).all(),
       request(path, options = {}) {
