@@ -59,9 +59,11 @@ inside write transactions. The exact `/api/handset/application/*` transport is
 dispatched before the native fence and independently requires a current scoped
 bearer credential; it never borrows a cookie. MCP owner consent remains behind
 the native session fence. No current handler serves recording bytes. There are
-no Start server functions. The only accepted carrier-event door is the signed
-Twilio exception below; unimplemented carrier paths return no data and cause
-no effect.
+no Start server functions. Accepted signed Twilio ingress includes
+`/providers/twilio/events`, `/providers/twilio/queues/:id` and its offer callbacks,
+`/providers/twilio/protection` and its challenge callbacks, and
+`/providers/twilio/dialer/:id/{answer,status}`, inventoried below; unimplemented
+carrier paths return no data and cause no effect.
 HND-030 inherits API and generated-handler authorization; HND-013, HND-027,
 HND-048 and HND-092 inherit private media/export authorization; HND-031 and
 HND-036 inherit provider-specific signed callbacks with narrow authority.
@@ -74,9 +76,31 @@ in ordinary CI. `tests/handset-auth-browser.mjs` drives native forms at 1440 and
 390. With `HANDSET_LIVE_MAIL=1`, it uses the configured SendGrid sender and
 controlled receipt mailbox; development/demo admission is never enabled.
 
-The current narrowly declared exception is `POST /providers/twilio/events`:
-installation-local account signature, exact URL/Host, explicit owner-authorized
-account/number, current-owner and source-revocation fences, bounded official
-callback fields, and no outbound effect. See `docs/HANDSET-RECORDS.md` and the
-signed-source/refusal tests in `tests/handset-records.mjs`. Every other carrier
+The narrowly declared signed exceptions are:
+
+- `POST /providers/twilio/events`: bounded official event ingestion, with no
+  outbound effect.
+- `POST /providers/twilio/queues/:id` and
+  `POST /providers/twilio/queues/:id/offers/:offerId/{status,action}`: inbound
+  queue call control and offer callbacks, with provider parent/child readback
+  and owner-approved agent and overflow routes. Dial instructions can incur
+  carrier charges; emitted instructions do not prove audio delivery.
+- `POST /providers/twilio/protection` and
+  `POST /providers/twilio/protection/challenges/:id/:round`: voice/SIP admission
+  and bounded screening rounds, with approved continuation/emergency redirects,
+  challenge prompts and refusal instructions.
+- `POST /providers/twilio/dialer/:id/{answer,status}`: existing-attempt callbacks
+  bound to account, From/To and provider call readback. Answer instructions
+  require current source, list, qualification and recipient eligibility before
+  bridging to a preconnected agent; status readback records observed outcomes.
+
+All require installation-local HMAC-SHA1 signatures, exact URL/origin and Host,
+POST form content and bounded request bodies. Events, queue and protection
+handlers require an active owner-authorized, unrevoked source; queues also
+require a current owner-authorized binding. Dialer bridge eligibility repeats
+current source and owner-approval checks. These are exercised with synthetic
+signatures and a substituted provider edge, not live carrier traffic. See
+`docs/HANDSET-RECORDS.md`, `docs/HANDSET-CONSOLES.md` and the signed-source/refusal
+tests in `tests/handset-records.mjs`, `tests/handset-queues.mjs` and
+`tests/handset-outbound.mjs`. Every other carrier
 path retains the native namespace fence and ordinary refusal.
