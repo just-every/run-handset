@@ -19,10 +19,11 @@ for(const width of [1440,390])for(const domain of ['administration','queues','qu
  page.setDefaultTimeout(10000)
  const directory=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-console'
  await mkdir(directory,{recursive:true})
- async function proof(name){
+ async function proof(name,focus){
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name+' fits viewport')
   assert.equal(await page.locator('h1').count(),1,name+' has a single page heading')
   await page.screenshot({path:`${directory}/${width}-${name}.png`,fullPage:true})
+  if(focus)await focus.screenshot({path:`${directory}/${width}-${name}-focus.png`})
   const tree=await page.locator('main').ariaSnapshot()
   assert.match(tree,/heading/,name+' accessibility tree')
  }
