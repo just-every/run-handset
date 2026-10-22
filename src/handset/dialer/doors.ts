@@ -1,3 +1,6 @@
+import { importExtract, configureState, previewState } from './compliance'
+import { scopeApprover } from './authority'
+import { sql, write } from './storage'
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { Fault, input, integer, json, keys, owner, session, type ObjectValue } from '../core'
@@ -12,8 +15,9 @@ import { attempt } from './storage'
 export async function dialerDoor(request:Request,env:Bindings,actor:Session,data?:ObjectValue):Promise<Response|null>{
  const url=new URL(request.url),html=url.pathname.startsWith('/app/'),base=html?'/app/dialer':'/api/handset/dialer',path=url.pathname
  if(path!==base&&!path.startsWith(base+'/'))return null
- const checked=await session(request,env);if(checked.session.id!==actor.id)throw new Fault('session_mismatch',403);owner(checked.session)
+ const checked=await session(request,env);if(checked.session.id!==actor.id)throw new Fault('session_mismatch',403)
  const ctx={env:checked.env,actor:checked.session}
+ if(actor.operator.role!=='owner'&&(html||request.method!=='POST'||![base+'/ready',base+'/lists',base+'/policies'].includes(path)))throw new Fault('owner_required',403)
  if(request.method==='GET'){
   keys(Object.fromEntries(url.searchParams),html&&path===base?['recipientCount','listId']:[])
   const recipientCount=html&&url.searchParams.has('recipientCount')?integer(Number(url.searchParams.get('recipientCount')),'recipientCount',1,100):1
@@ -29,7 +33,12 @@ export async function dialerDoor(request:Request,env:Bindings,actor:Session,data
  }
  let result:unknown,status=200
  const sessionMatch=path.match(new RegExp('^'+base+'/sessions/([^/]+)/(launch|pause|resume)$')),listMatch=path.match(new RegExp('^'+base+'/lists/([^/]+)/(sessions|recipients/([0-9]+)/verify)$')),revokeMatch=path.match(new RegExp('^'+base+'/(lists|qualifications|policies)/([^/]+)/revoke$')),attemptMatch=path.match(new RegExp('^'+base+'/attempts/([^/]+)/(reconcile|disposition)$'))
- if(path===base+'/qualifications'){result=await qualify(ctx,value);status=201}
+ if(path===base+'/state-preview')result=await previewState(ctx,value)
+ else if(path===base+'/extracts'){result=await importExtract(ctx,value);status=201}
+ else if(path===base+'/state-rules'){result=await configureState(ctx,value);status=201}
+ else if(path===base+'/approver-scopes'){result=await scopeApprover(ctx,value);status=201}
+ else if(path===base+'/approver-scopes/revoke'){owner(actor);keys(value,['operatorId']);await write(ctx,'installation',[sql(ctx,'UPDATE hnd_dialer_approver_scopes SET revoked_at=?,revision=revision+1 WHERE operator_id=?',Date.now(),String(value.operatorId))]);result={revoked:true}}
+ else if(path===base+'/qualifications'){result=await qualify(ctx,value);status=201}
  else if(path===base+'/policies'){result=await standingPolicy(ctx,value);status=201}
  else if(path===base+'/lists'){result=await approveList(ctx,value);status=201}
  else if(path===base+'/ready')result=await readyAgent(ctx,value)

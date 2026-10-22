@@ -1,6 +1,7 @@
 import { runtimeBindings, type Bindings } from '../../auth.server'
 import { escape as e, Fault, json } from '../core'
 import { verifyQueueRequest } from '../queues/provider-proof'
+import { callbackAuthority } from '../delegation/callback-authority'
 import { waitingAgent } from './network'
 import { listEligibility, recipientEligibility } from './eligibility'
 import { attempt, event, guard, list, recipients, sql, write, type Context } from './storage'
@@ -13,19 +14,20 @@ async function instructions(ctx:Context,attemptId:string){
  if(['completed','failed','held'].includes(a.state))return xml('<Hangup/>')
  let eligibility:Awaited<ReturnType<typeof listEligibility>>
  try{
+  await callbackAuthority(ctx.env,a.session_id)
   eligibility=await listEligibility(ctx,l,a.mode)
   const recipient=(await recipients(ctx,l.id)).find(r=>r.ordinal===a.ordinal)!
-  await recipientEligibility(ctx,l,recipient,a.mode,eligibility.policy)
+  await recipientEligibility(ctx,l,recipient,a.mode,eligibility.policy,a.id)
   // A reservation survives a pause. At answer, the preconnected agent must
   // still be staffed and in its exact one-agent conference, without new Dial.
-  const now=Date.now(),ready=await sql(ctx,'SELECT * FROM hnd_dialer_ready WHERE agent_id=? AND agent_call_sid=? AND expires_at>?',a.agent_id,a.agent_call_sid,now).first<Ready>()
+  const now=Date.now(),ready=await sql(ctx,"SELECT r.* FROM hnd_dialer_ready r JOIN oa_operators o ON o.id=r.approved_by WHERE r.agent_id=? AND r.agent_call_sid=? AND r.expires_at>? AND o.status='active' AND o.version=r.owner_version AND (o.role='owner' OR r.approved_by=r.agent_id)",a.agent_id,a.agent_call_sid,now).first<Ready>()
   const present=await sql(ctx,`SELECT a.operator_id FROM hnd_queue_agents a JOIN hnd_queue_memberships m ON m.operator_id=a.operator_id JOIN oa_operators o ON o.id=a.operator_id WHERE a.operator_id=? AND a.availability='available' AND a.heartbeat_at>? AND m.queue_id=? AND m.logged_in=1 AND o.status='active'`,a.agent_id,now-90000,l.queue_id).first()
   const reservation=await sql(ctx,'SELECT attempt_id FROM hnd_dialer_reservations WHERE attempt_id=? AND agent_id=?',a.id,a.agent_id).first()
-  const route=await sql(ctx,'SELECT destination FROM hnd_queue_agent_routes r JOIN oa_operators o ON o.id=r.approved_by WHERE r.operator_id=? AND r.source_id=? AND r.revoked_at IS NULL AND o.status=\'active\' AND o.role=\'owner\' AND o.version=r.owner_version',a.agent_id,l.source_id).first<{destination:string}>()
+  const route=await sql(ctx,'SELECT destination FROM hnd_queue_agent_routes r JOIN oa_operators o ON o.id=r.approved_by WHERE r.operator_id=? AND r.source_id=? AND r.revoked_at IS NULL AND o.status=\'active\' AND o.role=\'owner\'',a.agent_id,l.source_id).first<{destination:string}>()
   if(!ready||!present||!reservation||!route)throw new Fault('waiting_agent_unavailable',409)
   await waitingAgent(ctx,a.account_id,ready,route.destination)
-  const recipientFences=await recipientEligibility(ctx,l,recipient,a.mode,eligibility.policy)
-  await write(ctx,a.id,[...eligibility.fences,...recipientFences,guard(ctx,'SELECT count(*) FROM hnd_dialer_attempts WHERE id=? AND bridge_emitted_at IS NULL',a.id),guard(ctx,'SELECT count(*) FROM hnd_dialer_ready WHERE agent_id=? AND agent_call_sid=? AND expires_at>?',a.agent_id,a.agent_call_sid,Date.now()),sql(ctx,'UPDATE hnd_dialer_attempts SET bridge_emitted_at=?,version=version+1 WHERE id=?',Date.now(),a.id),event(ctx,'attempt.bridge_instructions',l.id,a.session_id,a.id,{conferenceSid:a.conference_sid,disclosure:eligibility.policy.disclosure,disclosureResponsibility:'preconnected human agent; no prerecorded marketing',audioReceipt:'pending'})])
+  const recipientFences=await recipientEligibility(ctx,l,recipient,a.mode,eligibility.policy,a.id)
+  await write(ctx,a.id,[...await callbackAuthority(ctx.env,a.session_id),...eligibility.fences,...recipientFences,guard(ctx,'SELECT count(*) FROM hnd_dialer_attempts WHERE id=? AND bridge_emitted_at IS NULL',a.id),guard(ctx,'SELECT count(*) FROM hnd_dialer_ready WHERE agent_id=? AND agent_call_sid=? AND expires_at>?',a.agent_id,a.agent_call_sid,Date.now()),sql(ctx,'UPDATE hnd_dialer_attempts SET bridge_emitted_at=?,version=version+1 WHERE id=?',Date.now(),a.id),event(ctx,'attempt.bridge_instructions',l.id,a.session_id,a.id,{conferenceSid:a.conference_sid,disclosure:eligibility.policy.disclosure,disclosureResponsibility:'preconnected human agent; no prerecorded marketing',audioReceipt:'pending'})])
   // The agent is already connected. No customer waits for an agent phone to
   // ring, and no recorded sales pitch consumes the connection deadline.
   return xml(`<Dial action="${e(ctx.env.AUTH_ORIGIN+'/providers/twilio/dialer/'+a.id+'/status')}" method="POST"><Conference beep="false" startConferenceOnEnter="false" endConferenceOnExit="true" waitUrl="">${e(a.conference_name)}</Conference></Dial>`)

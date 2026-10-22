@@ -1,4 +1,4 @@
-import { id } from '../core'
+import { id, Fault } from '../core'
 import { entryGuard, event, statement, write, type Context } from './storage'
 import { presenceFreshMs, type Agent, type Entry, type Membership, type Queue, type Reservation } from './model'
 import { reconcile } from './routing'
@@ -26,7 +26,7 @@ export async function announcement(ctx:Context,row:Entry){
  return (await statement(ctx,'SELECT * FROM hnd_queue_announcements WHERE id=?',target).first())!
 }
 export async function snapshot(ctx:Context,queueId?:string){
- await reconcile(ctx,queueId)
+ try{await reconcile(ctx,queueId)}catch(error){if(!(error instanceof Fault)||error.code!=='queue_source_authority_changed')throw error}
  const [queues,agents,memberships,entries,reservations,bindings,sources,offers,visits,agentRoutes,overflowRoutes]=await Promise.all([
   statement(ctx,`SELECT * FROM hnd_queues ${queueId?'WHERE id=?':''} ORDER BY name,id`,...(queueId?[queueId]:[])).all<Queue>(),
   statement(ctx,'SELECT a.*,o.display_name,o.status AS operator_status FROM hnd_queue_agents a JOIN oa_operators o ON o.id=a.operator_id ORDER BY o.display_name,a.operator_id').all<Agent&{display_name:string;operator_status:string}>(),
@@ -37,8 +37,8 @@ export async function snapshot(ctx:Context,queueId?:string){
   statement(ctx,'SELECT id,account_id,revoked_at FROM hnd_sources ORDER BY created_at,id').all<{id:string;account_id:string;revoked_at:number|null}>(),
   statement(ctx,`SELECT * FROM hnd_queue_offers ${queueId?'WHERE queue_id=?':''} ORDER BY emitted_at DESC LIMIT 1000`,...(queueId?[queueId]:[])).all<Offer>(),
   statement(ctx,`SELECT * FROM hnd_queue_visits ${queueId?'WHERE queue_id=?':''} ORDER BY arrived_at DESC,ordinal LIMIT 2000`,...(queueId?[queueId]:[])).all<Visit>(),
-  statement(ctx,'SELECT * FROM hnd_queue_agent_routes ORDER BY operator_id').all<AgentRoute>(),
-  statement(ctx,'SELECT * FROM hnd_queue_overflow_routes ORDER BY queue_id').all<OverflowRoute>(),
+  statement(ctx,"SELECT r.*,CASE WHEN o.status='active' AND o.role='owner' THEN 0 ELSE 1 END AS suspended FROM hnd_queue_agent_routes r JOIN oa_operators o ON o.id=r.approved_by ORDER BY operator_id").all<AgentRoute>(),
+  statement(ctx,"SELECT r.*,CASE WHEN o.status='active' AND o.role='owner' THEN 0 ELSE 1 END AS suspended FROM hnd_queue_overflow_routes r JOIN oa_operators o ON o.id=r.approved_by ORDER BY queue_id").all<OverflowRoute>(),
  ])
  const pending=entries.results.filter(row=>['waiting','reserved'].includes(row.state)),announcements=[]
  for(const row of pending){const item=await announcement(ctx,row);if(item)announcements.push(item)}
@@ -47,6 +47,7 @@ export async function snapshot(ctx:Context,queueId?:string){
   queues:queues.results,agents:agents.results.map(a=>({...a,presenceFresh:a.heartbeat_at>now-presenceFreshMs,wrapping:a.wrap_until>now})),
   memberships:memberships.results,entries:entries.results.slice(0,1000),limited:entries.results.length>1000,reservations:reservations.results,announcements,
   offers:offers.results,visits:visits.results,agentRoutes:agentRoutes.results,overflowRoutes:overflowRoutes.results,bindings:bindings.results,sources:sources.results,counts,observedAt:now,transport:'unknown',countsMeaning:'Native queue entries and occupied assignment slots; actual media legs are unverified.',
+  alerts:(await statement(ctx,'SELECT * FROM hnd_queue_alerts ORDER BY created_at DESC LIMIT 100').all()).results,
   gaps:['Live receiver and bidirectional audio qualification are outstanding.','Emitted Dial, Say and Redirect instructions are separate from actual audio and destination receipt.'],
  }
 }

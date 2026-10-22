@@ -11,6 +11,7 @@ import { authResponse, runtimeBindings, type Bindings } from './auth.server'
 import { identity } from './identity'
 import { twilioResponse } from './handset/providers/twilio'
 import { applicationResponse } from './handset/authority/application'
+import { observeProduct } from './handset/audit/requests'
 import { observeAuth } from './handset/audit/auth'
 import { productResponse } from './handset/http/product'
 import { privateDoorResponse } from './handset/http/private-doors'
@@ -36,6 +37,7 @@ function noTransform(response: Response): Response {
 
 export default withDemo<Bindings, ExportedHandler<Bindings>>({
   async fetch(request, env, execution) {
+    return observeProduct(request,env,async()=>{
     const protection = await protectionCarrierResponse(request, env)
     if (protection) return protection
     const queue = await queueProviderResponse(request, env)
@@ -63,6 +65,7 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     const lobby = await lobbyResponse(request, runtimeBindings(env), identity)
     if (lobby) return lobby
     return rejectedResponse(request, await dispatch(request, () => api.fetch(request, env, execution), async () => noTransform(await start.fetch(request))))
+    })
   },
   async scheduled(event, env) {
     await tickQueues(runtimeBindings(env))

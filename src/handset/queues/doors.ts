@@ -10,6 +10,7 @@ import { queuesPage } from './pages'
 import { queue } from './storage'
 import { bindSource, revokeBinding } from './provider-consent'
 import { revokeMediaRoute, writeAgentRoute, writeOverflowRoute } from './media-policy'
+import { selfService } from './self-service'
 import { offerById } from './offers'
 import { recoverOffer } from './offer-readback'
 import { queueMediaPage } from './media-pages'
@@ -29,6 +30,8 @@ export async function queueDoor(request:Request,env:Bindings,actor:Session,data?
  // in the product router; direct handler callers cannot bypass native auth.
  const checked=await session(request,env)
  if(checked.session.id!==actor.id)throw new Fault('session_mismatch',403)
+ if(html&&path===base&&request.method==='GET'&&checked.session.operator.role!=='owner')return new Response(null,{status:303,headers:{location:base+'/self','cache-control':'no-store'}})
+ if(path===base+'/self'||checked.session.operator.role!=='owner')return selfService(request,checked.env,checked.session,base,data)
  try{owner(checked.session)}catch(error){await denied(env,actor,'product.access');throw error}
  const ctx={env,actor:checked.session},read=request.method==='GET'
  if(!read&&request.method!=='POST')throw new Fault('method_not_allowed',405)

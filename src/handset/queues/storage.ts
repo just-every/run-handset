@@ -4,7 +4,7 @@ import { append, commit } from '../audit/store'
 import { Fault, id } from '../core'
 import type { Agent, Entry, Queue } from './model'
 
-export type Context={env:Bindings;actor?:Session;auditActor?:string;fences?:()=>D1PreparedStatement[];observation?:string}
+export type Context={env:Bindings;actor?:Session;auditActor?:string;fences?:()=>D1PreparedStatement[];observation?:string;selfService?:boolean}
 export type OwnerContext=Context&{actor:Session}
 export const statement=(ctx:Context,sql:string,...values:(string|number|null)[])=>ctx.env.DB.prepare(sql).bind(...values)
 export const guard=(ctx:Context,sql:string,...values:(string|number|null)[])=>statement(ctx,'INSERT INTO hnd_guard(ok) '+sql,...values)
@@ -13,7 +13,7 @@ export function event(ctx:Context,type:string,queueId:string|null,entryId:string
 }
 export async function write(ctx:Context,subject:string,statements:D1PreparedStatement[]){
  const guarded=[...(ctx.fences?.()??[]),...statements]
- if(ctx.actor)await commit(ctx.env,ctx.actor,'product.request',subject,'completed',guarded)
+ if(ctx.actor)await commit(ctx.env,ctx.actor,'product.request',subject,'completed',guarded,!ctx.selfService)
  else if(ctx.auditActor)await append(ctx.env,ctx.auditActor,'product.request',subject,'completed',guarded)
  else throw new Fault('queue_writer_authority_required',403)
 }

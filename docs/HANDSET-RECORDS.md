@@ -39,7 +39,11 @@ operation retains uncertainty instead of losing all audit or inventing success.
 Public admission attempts remain anonymous until a verified session exists.
 No request body is read or retained by the observer. Events hold
 only server-generated opaque actor/subject IDs, fixed action/outcome vocabulary,
-a policy revision and server time. Hashes chain over the exact ordered event
+a policy revision and server time. Current events use **handset-authorization-v2**,
+which identifies the documented native self-service, exact delegation/media,
+owner, application and signed-source authorization rules. Existing
+**owner-only-v1** ledgers remain verifiable; this audit revision does not change
+the separate exact application approval policy snapshot. Hashes chain over the exact ordered event
 fields. Concurrent appends retry on the predecessor/sequence uniqueness fence.
 SQL triggers refuse updates and deletes to records, history, audit and restored
 ledgers. Normal product roles have no mutation endpoint for those ledgers.
@@ -181,3 +185,102 @@ on one case; carrier completion never closes the case or clears a human promise.
 The source readback edge is a fake in tests using documented provider fields;
 no live carrier qualification is claimed. `POST /api/handset/sources/revoke`
 with `{sourceId}` stops further admission and preserves completed receipts.
+
+## Current action families and on-behalf accountability
+
+Native `/app` and `/api/handset` doors for records, grants, audit, sources,
+administration, queues, reports, protection, dialer, front desk and recordings,
+and native import doors retain an uncertain request receipt before dispatch and
+an opaque correlated response receipt afterwards. A 202 remains uncertain. These
+receipts describe HTTP handling, never a paid effect or completed customer work.
+Existing transactional decision/effect audit remains in place. Current external
+application and signed carrier doors retain their independent scoped-actor audit.
+New family producers must append atomic audit with their own authority fences.
+
+On-behalf events additionally retain an opaque principal. The principal extends
+the ordered hash input only when present; preexisting rows and independently kept
+checkpoints remain valid. Exports and restored ledgers verify that field too.
+Anonymizing a native person removes their mapping, not the operational actor or
+principal references. Product erasure remains HND-066. No names, numbers, call
+text, URL/query/body, provider payload or credentials enter the audit observer.
+
+## Front desk and exact recording approval
+
+`/app/front-desk` and `/api/handset/front-desk` use native sessions. Owner POST
+`lines` approves an exact executive, business-number record, current inbound
+source, timezone, weekdays, local hours, DND and optional explicit forwarding
+configuration. Same-day hours are supported; unsupported overnight intervals are
+refused. Saving configuration never activates forwarding. A policy edit revokes
+old assistant grants rather than silently enlarging them.
+
+Owner POST `delegations` requires `lineId`, `assistantId`, `expiresAt` (at most
+one day) and `confirm:"approve exact assistant and executive line"`. POST
+`revoke` stops subsequent operations on every session immediately and revokes
+all parallel grants for the same assistant/line pair without ending any call. Assistant reads expose only current granted lines and source-linked
+calls. Presence POST changes only the current person's state; lamps older than
+90 seconds display unknown. A lamp never proves receipt or audio.
+
+POST `operations` accepts the delegation, reviewed line revision, kind
+(pickup/park/transfer/callback), source-linked call ID, an exact destination where
+needed and idempotency key. It rechecks all current people/source authority and
+line policy atomically. **Requests start held.** The owner must separately approve the exact call
+move or independently qualified single-recipient callback before execution.
+The UI supports ordinary keyboard request, execution and reconciliation. Actual
+receiver audio and received business identity remain HND-034's live
+qualification obligations; official-schema readback is not human outcome proof. No delegated recording, port or admin right
+is implied. HND-007/008/009/031 inherit endpoint and carrier control qualification.
+
+`/app/recordings` provides explicit owner approval and revocation forms.
+POST `/api/handset/recordings/grants` requires an existing completed provider
+recording, exact native `personId`, expiry at most one hour and
+`confirm:"approve consented recording for this exact person"`. This human
+attestation does not prove capture consent, jurisdiction or US custody (HND-013 /
+HND-046). No role, including owner, implies playback rights. POST
+`recordings/grants/:id/revoke` revokes immediately. Delegation never supplies a
+grant. These conservative defaults await ct approval; no automatic capture,
+sharing, download copy or outbound work is introduced.
+
+GET `/api/handset/recordings/:id/playback` verifies an exact current-person grant,
+current source/issuer/person authority and provider recording/account/parent-call
+readback. It fetches only the constructed Twilio WAV URL with redirects refused,
+requires a bounded declared size (10 MB maximum), and rechecks revocation before
+fetch and before release. It never persists bytes or returns a provider URL or
+credential. Every attempted/permitted/refused/failed playback is attributable.
+Network-edge tests use generated synthetic WAV data, not captured speech. Live
+capture/media/carrier qualification remains open. Future retention/erasure gates
+must bind this producer before HND-013/065/066 claim their wider lifecycle proof.
+
+
+### One-shot call controls
+
+Owner POST `front-desk/approve` selects one held `operationId`, at most five
+minutes of approval lifetime, `maxSeconds` (1–3600), optional callback `listId`,
+and `confirm:"approve this exact existing call move or single callback"`.
+For pickup/transfer, the selected native operator must have an owner-approved
+route and an independently read-back active single-agent conference. A transfer
+target is that exact native operator ID, never an arbitrary external phone. Park
+uses a private conference derived from the opaque operation ID. Parent-call
+account, source, direction, From/To and current state are read back. No new
+outbound leg or recording is created by moving that existing inbound call.
+
+The assistant POSTs `front-desk/execute` with the operation ID and
+`confirm:"execute exact approved call request"`. It repeats current line,
+delegation, source, issuer, endpoint and exact approval predicates. A durable
+uncertain record commits before the single provider write; no retry reissues it,
+even after a lost response or process restart. A provider acknowledgment never
+becomes completed pickup/park/transfer. POST `front-desk/reconcile` requires
+identity-matched current conference membership with exactly the expected caller
+and endpoint, and records only `provider_observed`; human audio stays unqualified.
+Revocation denies subsequent execution and leaves unrelated/preexisting calls
+alone. Approval expiry requires a new request, never mutation of the old review.
+
+A callback additionally requires an existing exact one-recipient preview list,
+matching line source, assistant representative and requested destination. It uses
+the established dialer qualification, current consent/DNC/time/state registry
+checks, atomic budget reservation and exact assistant's independently connected
+endpoint. The delegation adds a current authority fence to every dialer write and
+immediately before its one network effect. No campaign or general manager scope
+is conveyed. Callback readback retains provider From/To, assistant and conference
+identity separately from actual controlled-receiver proof. Live qualification requires installation-authorized carrier credentials and
+controlled receiving endpoints. Protocol fixtures do not establish real receiver
+audio or externally displayed business identity.

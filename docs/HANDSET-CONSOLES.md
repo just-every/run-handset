@@ -157,8 +157,67 @@ External qualification records are audited owner attestations with current nativ
 evidence references and owned-number readback; this console does not certify law
 or actual media. Independent provider/media receiver, final legal configuration
 and permitted real-traffic qualification remain required before a live campaign
-is qualified. Owner-only administration and explicit human verification are the
-conservative defaults pending ct. HND-021 inherits the remaining campaign/CRM
+is qualified. ct’s 22 October ruling governs specificity-first nuisance policy, post-911
+callback windows, exact source/queue/budget approvals and separate licensed
+compliance results. Owner administration remains separate from agent self-service. HND-021 inherits the remaining campaign/CRM
 controls, HND-027 scoped representatives, HND-031 actual carrier qualification,
 and HND-065/066 complete dialer and screening custody/erasure. No automatic
 campaign launch, recording or data pruning is introduced.
+
+
+## Licensed outbound compliance results and named approval scopes
+
+The owner imports the business's licensed National DNC, applicable state-list and
+Reassigned Numbers Database results through `POST /api/handset/dialer/extracts`.
+The JSON envelope names `kind` (`national`, `state`, `reassigned`), `jurisdiction`
+(`US` or a state such as `US-FL`), `publishedAt`, `expiresAt`, `sourceReference`,
+a current native license/provenance `evidenceId`, and `rows`. Each row names the
+exact `recipient` and a `status` (`clear`, `blocked`, `reassigned`, `unknown`).
+Reassignment results additionally bind `consentId` to the exact native consent
+record used for the check. Confirm with `import licensed compliance results`.
+An absent number is unknown, never an inferred clear result. These are imports
+of licensed source results, not a live Registry subscription or provider/legal
+certification. The business must retain its actual license and source receipts.
+
+The newest extract governs, including missing and blocked rows; a newer partial
+extract never falls back to an older clear result. National, state and RND
+extracts older than 31 days or past their declared expiry hold calling. Native
+company and campaign stops remain binding. Approval and each dial repeat these
+checks beside a separate, at-most-one-day human verification. Imported results
+never grant consent, audience selection or automatic launch authority.
+
+`POST /api/handset/dialer/state-rules` records one reviewed jurisdiction's
+`startMinute`, `endMinute`, `maxAttempts`, rolling `windowHours`, `writtenModes`,
+current native `evidenceId` and `reviewAt` (at most 90 days), confirmed with
+`approve reviewed state calling rules`. Updates require the current `revision`.
+Calling uses the intersection with the recipient's local window and counts
+attempts across lists and sources. Florida rows cannot extend past 20:00 or
+permit more than three attempts in 24 hours. Every required written-consent
+mode needs current `writtenConsentEvidenceId` on the recipient. Unknown state
+rules hold calling. `POST /api/handset/dialer/state-preview` is an owner-only
+simulation with an explicit `at` time; it grants no authority and cannot dial.
+Paid launch handlers always select their own current clock.
+
+`POST /api/handset/dialer/approver-scopes` lets the owner grant an active named
+person exact `sourceIds`, `queueIds`, `budgetCents`, manager standing-policy
+power (`standing` 0 or 1), and `reviewAt`, confirmed with
+`grant exact campaign approval scope`. Updates require `revision`; revoke via
+`POST /api/handset/dialer/approver-scopes/revoke` with `operatorId`. Named
+approvers can POST exact lists and managers can POST policies within those
+bounds. They cannot read the owner's global console or administer compliance,
+qualification or scopes. Current native authority and scope are repeated inside
+the transaction and at launch; a wider list, expired/revoked scope or policy is
+refused. Lists, policies and qualification have explicit review dates of at most
+90 days. Scopes are a narrow campaign capability; HND-027 retains product-wide
+roles, revocation, media and actual custody duties.
+
+Agents can POST `/api/handset/dialer/ready` only for themselves. Current provider
+readback must show the exact preconnected agent on the owner-approved route.
+A different agent or a fabricated provider result is refused. Each launch repeats
+media readback and preserves uncertain and connected work on later revocation.
+The console displays imported source dates, state bounds and approval scopes;
+all global reads remain owner-only. Actual licensed dataset, provider/legal
+qualification and controlled real traffic remain required before live operation.
+
+A console protection check places no emergency call and opens no post-911 window;
+only an actual authenticated carrier admission opens that callback access.

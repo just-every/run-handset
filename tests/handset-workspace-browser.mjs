@@ -96,3 +96,104 @@ for(const width of [1440,390])test(`Native case work, conflict and source drill-
   await page.goto(runtime.origin+'/app/sources');await page.getByRole('alert').waitFor();await proof('sources-permission-denied')
  }finally{await context.close();await browser.close();await runtime.close()}
 })
+
+for(const width of [1440,390])test(`Explicit executive delegation and consented playback forms retain truthful end states at ${width}`,async()=>{
+ const {delegationFixture,recordingFixture}=await import('./helpers/handset-delegation.mjs')
+ const runtime=await openHandset({twilio:true}),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage(),evidence=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-workspace'
+ await mkdir(evidence,{recursive:true})
+ async function as(cookie){const [name,...value]=cookie.split('=');await context.clearCookies();await context.addCookies([{name,value:value.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])}
+ async function proof(name){assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name);await page.screenshot({path:`${evidence}/${width}-${name}.png`,fullPage:true})}
+ try{
+  const owner=await signIn(runtime);await as(owner.cookie)
+  await page.goto(runtime.origin+'/app/front-desk');await proof('empty-front-desk')
+  const f=await delegationFixture(runtime),media=await recordingFixture(runtime,f)
+  await page.reload();await proof('owner-line-policy')
+  await page.getByLabel('Selected line ID',{exact:true}).fill(f.line.id)
+  await page.getByLabel('Assistant operator ID',{exact:true}).fill('synthetic-handset-2')
+  await page.getByLabel('Delegation expiry (UTC)',{exact:true}).fill(new Date(Date.now()+1800000).toISOString().slice(0,16))
+  await page.getByRole('checkbox',{name:'I approve this exact assistant and executive line',exact:true}).check()
+  await page.getByRole('button',{name:'Grant call controls',exact:true}).click();await page.waitForLoadState('load')
+  await as(f.principal.cookie);await page.goto(runtime.origin+'/app/front-desk')
+  await page.getByLabel('My availability',{exact:true}).selectOption('busy');await page.getByRole('button',{name:'Update my presence',exact:true}).click();await page.waitForLoadState('load')
+  await as(f.assistant.cookie);await page.goto(runtime.origin+'/app/front-desk')
+  assert.ok((await page.locator('main').innerText()).includes('busy'));await proof('assistant-busy-lamp')
+  for(const kind of ['pickup','park','transfer','callback']){
+   const action=page.getByLabel('Call action / Acción',{exact:true});await action.focus()
+   await action.press('Home');for(let i=0;i<['pickup','park','transfer','callback'].indexOf(kind);i++)await action.press('ArrowDown')
+   assert.equal(await action.inputValue(),kind)
+   await page.getByLabel('Line call',{exact:true}).selectOption(f.callId)
+   if(['transfer','callback'].includes(kind))await page.getByLabel('Transfer operator ID or callback phone / Destino',{exact:true}).fill(kind==='transfer'?'synthetic-handset-700':'+15125550180')
+   const submit=page.getByRole('button',{name:'Review call request / Revisar solicitud',exact:true});await submit.focus();await submit.press('Enter')
+   await page.getByRole('heading',{name:'Call request held / Solicitud pendiente',exact:true}).waitFor();await proof('held-'+kind)
+   assert.ok((await page.getByRole('status').innerText()).includes('No call effect occurred'))
+   await page.getByRole('link',{name:'Return to front desk',exact:true}).click()
+  }
+  await proof('assistant-principal-history')
+  await page.goto(runtime.origin+'/app/recordings');await proof('recording-no-implicit-grant')
+  assert.ok((await page.locator('main').innerText()).includes('No current recording approvals'))
+  await as(f.cookie);await page.goto(runtime.origin+'/app/recordings');await proof('owner-recording-consent')
+  await page.getByLabel('Consented provider recording',{exact:true}).selectOption(media.recordingId)
+  await page.getByLabel('Exact approved person',{exact:true}).selectOption('synthetic-handset-2')
+  await page.getByLabel('Recording approval expiry (UTC)',{exact:true}).fill(new Date(Date.now()+1800000).toISOString().slice(0,16))
+  await page.getByRole('checkbox',{name:'I approve this consented recording for this exact person',exact:true}).check()
+  await page.getByRole('button',{name:'Approve recording playback',exact:true}).click()
+  await page.getByRole('heading',{name:'Recording approval recorded',exact:true}).waitFor();await proof('recording-consent-receipt')
+  await as(f.assistant.cookie);await page.goto(runtime.origin+'/app/recordings');await proof('approved-recording')
+  await page.getByRole('link',{name:'Play approved recording '+media.recordingId,exact:true}).click()
+  await page.getByRole('heading',{name:'Approved recording playback',exact:true}).waitFor();await proof('recording-player')
+  assert.equal(await page.locator('audio').getAttribute('preload'),'none')
+  const response=await context.request.get(runtime.origin+'/api/handset/recordings/'+media.recordingId+'/playback');assert.equal(response.status(),200);assert.deepEqual(Buffer.from(await response.body()),media.bytes)
+  await as(f.cookie);await page.goto(runtime.origin+'/app/audit');await proof('audit-recording-and-principal')
+  const desk=await (await runtime.request('/api/handset/front-desk',{headers:f.assistantHeaders})).json()
+  for(const d of desk.lines){await post(runtime,'/api/handset/front-desk/revoke',{delegationId:d.delegation_id},f.headers)}
+  await as(f.assistant.cookie);await page.goto(runtime.origin+'/app/front-desk');await proof('revoked-delegation')
+  assert.ok((await page.locator('main').innerText()).includes('No delegated executive lines'))
+  const refused=await post(runtime,'/api/handset/front-desk/operations',f.operation,f.assistantHeaders);assert.equal(refused.status,403)
+  await page.goto(runtime.origin+'/app/recordings');const g=(await runtime.sql('SELECT id FROM hnd_recording_grants')).results[0]
+  await post(runtime,'/api/handset/recordings/grants/'+g.id+'/revoke',{},f.headers)
+  await page.reload();await proof('revoked-recording')
+  await page.goto(runtime.origin+'/app/front-desk/lines');await page.getByRole('alert').waitFor();await proof('front-desk-invalid-door')
+ }finally{await context.close();await browser.close();await runtime.close()}
+})
+
+for(const width of [1440,390])test(`Reviewed front desk call execution and provider observations at ${width}`,async()=>{
+ const {controlFixture}=await import('./helpers/handset-delegation.mjs')
+ const runtime=await openHandset({twilio:true}),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage(),evidence=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-workspace'
+ await mkdir(evidence,{recursive:true})
+ async function as(cookie){const [name,...value]=cookie.split('=');await context.clearCookies();await context.addCookies([{name,value:value.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])}
+ async function proof(name){assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name);await page.screenshot({path:`${evidence}/${width}-${name}.png`,fullPage:true})}
+ try{
+  const f=await controlFixture(runtime)
+  for(const kind of ['pickup','park','transfer','callback']){
+   let list
+   if(kind==='callback')list=await f.makeList({count:1,mode:'preview',repId:f.q.spanish})
+   if(kind!=='park')await f.ready(kind==='transfer'?f.q.english:f.q.spanish)
+   const provider=kind==='callback'?f.prepare(list):null
+   await as(f.assistant.cookie);await page.goto(runtime.origin+'/app/front-desk')
+   await page.getByLabel('Call action / Acción',{exact:true}).selectOption(kind)
+   if(kind!=='callback')await page.getByLabel('Line call',{exact:true}).selectOption(f.callId)
+   if(kind==='transfer'||kind==='callback')await page.getByLabel('Transfer operator ID or callback phone / Destino',{exact:true}).fill(kind==='transfer'?f.q.english:list.recipients[0].recipient)
+   const request=page.getByRole('button',{name:'Review call request / Revisar solicitud',exact:true});await request.focus();await request.press('Enter')
+   await page.getByRole('heading',{name:'Call request held / Solicitud pendiente',exact:true}).waitFor()
+   const desk=await (await runtime.request(f.base,{headers:f.assistantHeaders})).json(),op=desk.operations.find(o=>o.kind===kind)
+   assert.ok(op)
+   await as(f.cookie);await page.goto(runtime.origin+'/app/front-desk');await proof('review-'+kind)
+   await page.getByLabel('Call request ID',{exact:true}).fill(op.id)
+   if(list)await page.getByLabel('Qualified single callback list ID (callback only)',{exact:true}).fill(list.id)
+   await page.getByLabel('Exact call approval expiry (UTC, within five minutes)',{exact:true}).fill(new Date(Date.now()+240000).toISOString().slice(0,16))
+   await page.getByRole('checkbox',{name:'I approve this exact existing call move or single callback',exact:true}).check()
+   await page.getByRole('button',{name:'Approve exact call request',exact:true}).click();await page.waitForLoadState('load')
+   await as(f.assistant.cookie);await page.goto(runtime.origin+'/app/front-desk')
+   const execute=page.getByRole('button',{name:'Execute approved request '+op.id,exact:true});await execute.focus();await execute.press('Enter')
+   await page.getByRole('heading',{name:'Call control observation',exact:true}).waitFor()
+   assert.match(await page.getByRole('status').innerText(),/outcome uncertain/);await proof('executed-'+kind)
+   if(provider){const attempts=(await f.read()).attempts.filter(a=>a.recipient===list.recipients[0].recipient);assert.equal(attempts.length,1);await f.connect(attempts[0],provider)}
+   await page.getByRole('link',{name:'Return to front desk',exact:true}).click()
+   const reconcile=page.getByRole('button',{name:'Reconcile request '+op.id,exact:true});await reconcile.focus();await reconcile.press('Enter')
+   await page.getByRole('heading',{name:'Call control observation',exact:true}).waitFor()
+   assert.match(await page.getByRole('status').innerText(),/Provider membership observed/);assert.ok((await page.locator('main').innerText()).includes('No completed customer outcome is claimed'));await proof('observed-'+kind)
+  }
+ }finally{await context.close();await browser.close();await runtime.close()}
+})

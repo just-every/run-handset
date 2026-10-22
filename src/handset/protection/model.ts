@@ -20,13 +20,13 @@ export function ruleInput(v:ObjectValue){
  if(scope==='owner'&&v.personalId)throw new Fault('owner_rule_has_no_personal_scope')
  return {scope,personalId,numberId:v.numberId?text(v.numberId,'numberId'):null,channel:choice(v.channel,['voice','fax','all'],'channel'),matchKind,pattern,effect:choice(v.effect,['allow','block','screen'],'effect')}
 }
-/** Emergency bypass is resolved before this nuisance-only evaluator. Owner rules
- * win over personal rules, then allow exceptions, then specific matches. */
+/** Emergency callbacks decide first. Owner restrictions bind everyone; owner
+ * allows lift only owner restrictions. Specificity wins before equal-match ties. */
 export function evaluateRules(rules:Rule[],a:Admission):Verdict{
  const matching=rules.filter(r=>!r.revoked_at&&(!r.number_id||r.number_id===a.numberId)&&(r.scope==='owner'||r.personal_id===a.personalId)&&(r.channel==='all'||r.channel===a.channel)&&
   (r.match_kind==='anonymous'?anonymous(a.address):r.match_kind==='number'?r.pattern===a.address:a.address.startsWith(r.pattern)))
- const order=(r:Rule)=>[(r.scope==='owner'?1:0),(r.effect==='allow'?2:r.effect==='block'?1:0),(r.match_kind==='number'?3:r.match_kind==='prefix'?2:1),r.pattern.length]
- matching.sort((a,b)=>{const x=order(a),y=order(b);for(let n=0;n<x.length;n++)if(x[n]!==y[n])return y[n]-x[n];return a.id.localeCompare(b.id)})
- const r=matching[0]
+ const order=(r:Rule)=>[r.match_kind==='number'?3:r.match_kind==='prefix'?2:1,r.pattern.length,r.effect==='allow'?2:r.effect==='block'?1:0]
+ const pick=(scope:string)=>matching.filter(r=>r.scope===scope).sort((a,b)=>{const x=order(a),y=order(b);for(let n=0;n<x.length;n++)if(x[n]!==y[n])return y[n]-x[n];return a.id.localeCompare(b.id)})[0]
+ const owner=pick('owner'),personal=pick('personal'),r=owner&&owner.effect!=='allow'?owner:personal??owner
  return r?{decision:r.effect,reason:r.effect==='allow'?'allow_exception':r.effect==='block'?'nuisance_rule':'screening_digit_required',ruleId:r.id}:{decision:'allow',reason:'no_nuisance_match'}
 }

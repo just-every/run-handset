@@ -3,11 +3,11 @@ import type { Session } from '../../modules/operator-auth/index.mjs'
 import { append, commit } from '../audit/store'
 import { Fault, id } from '../core'
 import type { Attempt, List, Qualification, Recipient, Run } from './model'
-export type Context={env:Bindings;actor?:Session;auditActor?:string}
+export type Context={env:Bindings;actor?:Session;auditActor?:string;requiredAgentId?:string;maxCallSeconds?:number;fences?:()=>D1PreparedStatement[]}
 export const sql=(ctx:Context,query:string,...values:(string|number|null)[])=>ctx.env.DB.prepare(query).bind(...values)
 export const guard=(ctx:Context,query:string,...values:(string|number|null)[])=>sql(ctx,'INSERT INTO hnd_guard(ok) '+query,...values)
 export function event(ctx:Context,type:string,listId:string|null,sessionId:string|null,attemptId:string|null,payload:unknown={}){return sql(ctx,'INSERT INTO hnd_dialer_events(id,session_id,list_id,attempt_id,actor,type,occurred_at,payload) VALUES (?,?,?,?,?,?,?,?)',id(),sessionId,listId,attemptId,ctx.actor?.operator.id??ctx.auditActor??'dialer',type,Date.now(),JSON.stringify(payload))}
-export async function write(ctx:Context,subject:string,statements:D1PreparedStatement[]){if(ctx.actor)return commit(ctx.env,ctx.actor,'product.request',subject,'completed',statements);if(ctx.auditActor)return append(ctx.env,ctx.auditActor,'product.request',subject,'completed',statements);throw new Fault('dialer_writer_required',403)}
+export async function write(ctx:Context,subject:string,statements:D1PreparedStatement[]){statements=[...(ctx.fences?.()??[]),...statements];if(ctx.actor){const a=ctx.actor;return commit(ctx.env,a,'product.request',subject,'completed',[guard(ctx,`SELECT count(*) FROM oa_sessions s JOIN oa_operators o ON o.id=s.operator_id WHERE s.id=? AND s.operator_id=? AND s.operator_version=o.version AND o.status='active' AND s.revoked_at IS NULL AND s.expires_at>?`,a.id,a.operator.id,Date.now()),...statements],a.operator.role==='owner')};if(ctx.auditActor)return append(ctx.env,ctx.auditActor,'product.request',subject,'completed',statements);throw new Fault('dialer_writer_required',403)}
 async function requireRow<T>(ctx:Context,table:string,id:string):Promise<T>{const row=await sql(ctx,'SELECT * FROM '+table+' WHERE id=?',id).first<T>();if(!row)throw new Fault('dialer_record_not_found',404);return row}
 export const list=(ctx:Context,id:string)=>requireRow<List>(ctx,'hnd_dialer_lists',id)
 export const run=(ctx:Context,id:string)=>requireRow<Run>(ctx,'hnd_dialer_sessions',id)

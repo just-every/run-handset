@@ -88,6 +88,18 @@ for(const width of [1440,390])for(const domain of ['administration','queues','qu
   const revise=page.locator('details').filter({has:page.locator('summary',{hasText:'Revise Support'})})
   await revise.locator('summary').click();await revise.getByRole('checkbox').check();await revise.getByRole('button',{name:'Save queue policy',exact:true}).click();await page.getByRole('alert').waitFor();await proof('queue-stale-refusal')
   }
+  if(domain==='queues'){
+   const operator='synthetic-handset-610',agentCookie=(await signIn({...runtime,ownerEmail:operator+'@example.test'})).cookie
+   const [agentName,...agentValue]=agentCookie.split('=')
+   await context.clearCookies();await context.addCookies([{name:agentName,value:agentValue.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
+   await page.goto(runtime.origin+'/app/queues');await page.waitForURL(runtime.origin+'/app/queues/self');await proof('queue-self-available')
+   await page.getByLabel('Availability',{exact:true}).selectOption('away');await click('Update my availability');await proof('queue-self-away')
+   await click('Log out of Sales / Ventas');await proof('queue-self-sales-logout')
+   await page.getByLabel('Wrap-up seconds',{exact:true}).fill('45');await click('Set my wrap-up');await proof('queue-self-wrap')
+   const own=await (await runtime.request('/api/handset/queues/self',{headers:{cookie:agentCookie}})).json()
+   assert.equal(own.agent.availability,'away');assert.equal(own.memberships.find(m=>m.name==='Sales / Ventas').logged_in,0);assert.ok(own.agent.wrap_until>Date.now())
+   assert.equal(await page.getByRole('button',{name:'Configure native agent',exact:true}).count(),0)
+  }
   if(domain==='queue-media')await queueMediaJourney({runtime,page,proof,cookie})
   if(domain==='dialer')await dialerJourney({runtime,page,proof})
   if(domain==='metrics'){
@@ -154,6 +166,20 @@ for(const width of [1440,390])for(const domain of ['administration','queues','qu
   await page.reload();await proof('protection-screening-passed')
   assert.equal((await protection.overview()).challenges.find(c=>c.call_sid==='synthetic-handset-1710').status,'passed')
   assert.equal((await challenge.answer()).status,409)
+
+  await page.goto(runtime.origin+'/app/protection')
+  const windowForm=page.locator('form[action="/app/protection/callback-window"]')
+  await windowForm.getByLabel('Business number',{exact:true}).selectOption(protection.numberId)
+  await windowForm.getByLabel('Post-911 callback window (minutes, at least 60)',{exact:true}).fill('120')
+  await windowForm.getByRole('checkbox').check();await windowForm.getByRole('button').click();await page.waitForLoadState('load')
+  const emergency=await protection.carrier({CallSid:'synthetic-handset-1711',From:'sip:synthetic-handset-1712@synthetic-handset-1713.example.test',To:'sip:911@synthetic-handset-1713.example.test',SipUsername:'synthetic-handset-1712'})
+  assert.equal(emergency.status,200)
+  await page.reload();await proof('protection-post911-window')
+  const callbackForm=page.locator('form[action="/app/protection/callbacks"]')
+  await callbackForm.getByLabel('Business number',{exact:true}).selectOption(protection.numberId)
+  await callbackForm.getByLabel('Expected callback number',{exact:true}).fill('+12125550142')
+  await callbackForm.getByLabel('Expires at (UTC)',{exact:true}).fill(new Date(Date.now()+3*86400000).toISOString().slice(0,16))
+  await callbackForm.getByRole('checkbox').check();await callbackForm.getByRole('button').click();await page.waitForLoadState('load');await proof('protection-standing-designation')
 
   }
   await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")

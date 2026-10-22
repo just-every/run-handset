@@ -20,7 +20,7 @@ export const offerGuard=(ctx:Context,offer:Offer)=>guard(ctx,'SELECT count(*) FR
 export async function emitOffer(ctx:Context,source:BoundSource,row:Entry,parentSid:string){
  if(row.state!=='reserved'||!row.agent_id||!row.current_visit_id)throw new Fault('entry_not_reserved',409)
  if(await currentOffer(ctx,row))throw new Fault('queue_offer_already_emitted',409)
- const route=await statement(ctx,`SELECT r.* FROM hnd_queue_agent_routes r JOIN oa_operators o ON o.id=r.approved_by WHERE r.operator_id=? AND r.source_id=? AND r.revoked_at IS NULL AND o.status='active' AND o.role='owner' AND o.version=r.owner_version`,row.agent_id,source.source_id).first<AgentRoute>()
+ const route=await statement(ctx,`SELECT r.* FROM hnd_queue_agent_routes r JOIN oa_operators o ON o.id=r.approved_by WHERE r.operator_id=? AND r.source_id=? AND r.revoked_at IS NULL AND o.status='active' AND o.role='owner'`,row.agent_id,source.source_id).first<AgentRoute>()
  if(!route)throw new Fault('queue_agent_route_unqualified',409)
  const now=Date.now(),q=await queue(ctx,row.queue_id),remaining=Math.floor((row.deadline_at-now)/1000)
  // Twilio imposes a five-second minimum and adds five seconds to Dial timeout.
@@ -29,7 +29,7 @@ export async function emitOffer(ctx:Context,source:BoundSource,row:Entry,parentS
  const timeout=Math.min(30,remaining-15),target=id()
  await write(ctx,row.id,[entryGuard(ctx,row),
   guard(ctx,'SELECT count(*) FROM hnd_queues WHERE id=? AND revision=?',q.id,q.revision),
-  guard(ctx,`SELECT count(*) FROM hnd_queue_agent_routes r JOIN oa_operators o ON o.id=r.approved_by WHERE r.operator_id=? AND r.source_id=? AND r.revision=? AND r.revoked_at IS NULL AND o.status='active' AND o.role='owner' AND o.version=r.owner_version`,row.agent_id,source.source_id,route.revision),
+  guard(ctx,`SELECT count(*) FROM hnd_queue_agent_routes r JOIN oa_operators o ON o.id=r.approved_by WHERE r.operator_id=? AND r.source_id=? AND r.revision=? AND r.revoked_at IS NULL AND o.status='active' AND o.role='owner'`,row.agent_id,source.source_id,route.revision),
   guard(ctx,`SELECT count(*) FROM hnd_queue_agents a JOIN hnd_queue_memberships m ON m.operator_id=a.operator_id JOIN oa_operators o ON o.id=a.operator_id WHERE a.operator_id=? AND a.availability='available' AND a.heartbeat_at>? AND a.wrap_until<=? AND o.status='active' AND m.queue_id=? AND m.logged_in=1`,row.agent_id,now-presenceFreshMs,now,q.id),
   guard(ctx,"SELECT count(*) FROM hnd_queue_reservations WHERE entry_id=? AND agent_id=? AND state='reserved' AND lease_until>?",row.id,row.agent_id,now),
   statement(ctx,`INSERT INTO hnd_queue_offers(id,entry_id,visit_id,queue_id,agent_id,binding_id,source_id,account_id,parent_call_sid,destination_kind,destination,route_revision,state,emitted_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'uncertain',?)`,target,row.id,row.current_visit_id,q.id,row.agent_id,source.id,source.source_id,source.account_id,parentSid,route.kind,route.destination,route.revision,now),
