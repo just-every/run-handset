@@ -39,7 +39,11 @@ operation retains uncertainty instead of losing all audit or inventing success.
 Public admission attempts remain anonymous until a verified session exists.
 No request body is read or retained by the observer. Events hold
 only server-generated opaque actor/subject IDs, fixed action/outcome vocabulary,
-a policy revision and server time. Hashes chain over the exact ordered event
+a policy revision and server time. Current events use **handset-authorization-v2**,
+which identifies the documented native self-service, exact delegation/media,
+owner, application and signed-source authorization rules. Existing
+**owner-only-v1** ledgers remain verifiable; this audit revision does not change
+the separate exact application approval policy snapshot. Hashes chain over the exact ordered event
 fields. Concurrent appends retry on the predecessor/sequence uniqueness fence.
 SQL triggers refuse updates and deletes to records, history, audit and restored
 ledgers. Normal product roles have no mutation endpoint for those ledgers.
@@ -277,6 +281,6 @@ checks, atomic budget reservation and exact assistant's independently connected
 endpoint. The delegation adds a current authority fence to every dialer write and
 immediately before its one network effect. No campaign or general manager scope
 is conveyed. Callback readback retains provider From/To, assistant and conference
-identity separately from actual controlled-receiver proof. Live credential and
-controlled-endpoint proof are unavailable in this cloud run; the permitted known
-Twilio key-family check returned not provisioned. No alternate key was sought.
+identity separately from actual controlled-receiver proof. Live qualification requires installation-authorized carrier credentials and
+controlled receiving endpoints. Protocol fixtures do not establish real receiver
+audio or externally displayed business identity.

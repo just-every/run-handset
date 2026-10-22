@@ -1,11 +1,15 @@
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
-import { digest, id, policy, ownerFence, Fault } from '../core'
+import { digest, id, ownerFence, Fault } from '../core'
 
 export interface AuditRow {
  sequence: number; id: string; actor: string; action: string; policy: string; subject: string; outcome: string;
  occurred_at: number; previous_hash: string; hash: string; principal?: string | null
 }
+// The audit revision identifies all current authorization doors, including
+// native self-service, exact delegation, scoped applications and signed sources.
+export const auditPolicy = 'handset-authorization-v2'
+export const auditPolicies = ['owner-only-v1',auditPolicy]
 export const zero = '0'.repeat(64)
 export const auditBody = (row: Omit<AuditRow, 'hash'>) => [row.sequence, row.id, row.actor, row.action, row.policy, row.subject, row.outcome, row.occurred_at, row.previous_hash, ...(row.principal ? [row.principal] : [])]
 export async function actorRef(db: D1Database, operatorId: string) {
@@ -21,7 +25,7 @@ export async function append(env: Bindings, pseudonym: string, action: string, s
  const db = env.DB
  for (let retry = 0; retry < 8; retry++) {
   const last = await db.prepare('SELECT sequence,hash FROM hnd_audit ORDER BY sequence DESC LIMIT 1').first<{sequence:number;hash:string}>()
-  const row = { sequence: (last?.sequence ?? 0) + 1, id: id(), actor: pseudonym, action, policy, subject, outcome, occurred_at: Date.now(), previous_hash: last?.hash ?? zero, principal }
+  const row = { sequence: (last?.sequence ?? 0) + 1, id: id(), actor: pseudonym, action, policy:auditPolicy, subject, outcome, occurred_at: Date.now(), previous_hash: last?.hash ?? zero, principal }
   const hash = await digest(auditBody(row))
   try {
    await db.batch([

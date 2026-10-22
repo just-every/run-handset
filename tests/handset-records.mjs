@@ -245,7 +245,8 @@ test('Every current native action family retains opaque request outcomes and pri
   assert.ok(archive.rows.some(r=>r.actor===g.grant.id&&r.action==='application.attempt'&&r.outcome==='refused'))
   for(const value of [...planted,g.token,runtime.ownerEmail,'Elliot Brooks','Elena Rivera'])assert.ok(!JSON.stringify(archive).includes(value),value)
   const onBehalf=archive.rows.find(r=>r.action==='frontdesk.pickup'&&r.principal)
-  assert.ok(onBehalf&&onBehalf.actor!==onBehalf.principal)
+  assert.ok(onBehalf&&onBehalf.actor!==onBehalf.principal);assert.equal(onBehalf.policy,'handset-authorization-v2')
+  assert.ok(archive.rows.every(r=>r.policy==='handset-authorization-v2'),'current receipts name the authorization revision that includes native self-service and exact delegation')
   const restore={archive,expectedCheckpoint:archive.checkpoint,confirm:'restore evidence only'}
   assert.equal((await post(runtime,'/api/handset/audit/restore',restore,f.headers)).status,201)
   const changed=structuredClone(restore);changed.archive.rows.find(r=>r.principal).principal=crypto.randomUUID()
