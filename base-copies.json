@@ -13,6 +13,28 @@
       }
     },
     {
+      "path": ".github/workflows/verify-nightly.yml",
+      "originPath": "export/verify-nightly.yml",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        ".github/workflows/verify-nightly.yml": "d04f294627153e6995c4b01abdb7f01d04ab494e6e1a1f3fe6d47ac67a7098c1"
+      },
+      "modes": {
+        ".github/workflows/verify-nightly.yml": "100644"
+      }
+    },
+    {
+      "path": ".github/workflows/verify.yml",
+      "originPath": "export/verify.yml",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        ".github/workflows/verify.yml": "a3f2b63686dea865174bc0c1eaec471c391bc2df96b598433bd7fe8aaf32b720"
+      },
+      "modes": {
+        ".github/workflows/verify.yml": "100644"
+      }
+    },
+    {
       "path": "LICENSE",
       "originPath": "LICENSE",
       "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
@@ -54,6 +76,17 @@
       },
       "modes": {
         "migrations/core/0003_portability.sql": "100644"
+      }
+    },
+    {
+      "path": "migrations/core/0004_first_run.sql",
+      "originPath": "default-seed/migrations/core/0006_first_run.sql",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "migrations/core/0004_first_run.sql": "aef92de36233195e5a03cce67b192c5c0c38033b695f7ebce6062fc89152c2a9"
+      },
+      "modes": {
+        "migrations/core/0004_first_run.sql": "100644"
       }
     },
     {
@@ -189,6 +222,61 @@
       }
     },
     {
+      "path": "public/brand/band.svg",
+      "originPath": "foundation/template/public/brand/band.svg",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "public/brand/band.svg": "595e6226645ca8873d4e06c4417a7f42c2e6940094ab06baa4be6fc74e8fa1e3"
+      },
+      "modes": {
+        "public/brand/band.svg": "100644"
+      }
+    },
+    {
+      "path": "public/fonts/outfit/LICENSE.txt",
+      "originPath": "default-seed/public/fonts/outfit/LICENSE.txt",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "public/fonts/outfit/LICENSE.txt": "0e5fcef5d93bfcae273c11c00f0bb453d3b5491860e1ac8b658767b7577c938f"
+      },
+      "modes": {
+        "public/fonts/outfit/LICENSE.txt": "100644"
+      }
+    },
+    {
+      "path": "public/fonts/outfit/outfit-latin-ext-wght-normal.woff2",
+      "originPath": "default-seed/public/fonts/outfit/outfit-latin-ext-wght-normal.woff2",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "public/fonts/outfit/outfit-latin-ext-wght-normal.woff2": "0f53d1c03b3918d744a843b5039001ee31695ca1e255e3914188df81beb461e9"
+      },
+      "modes": {
+        "public/fonts/outfit/outfit-latin-ext-wght-normal.woff2": "100644"
+      }
+    },
+    {
+      "path": "public/fonts/outfit/outfit-latin-wght-normal.woff2",
+      "originPath": "default-seed/public/fonts/outfit/outfit-latin-wght-normal.woff2",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "public/fonts/outfit/outfit-latin-wght-normal.woff2": "6c18d579fd87c3776be068b762cbc83fde3acb543d49eabd3ade842eb987e887"
+      },
+      "modes": {
+        "public/fonts/outfit/outfit-latin-wght-normal.woff2": "100644"
+      }
+    },
+    {
+      "path": "public/rer-theme.css",
+      "originPath": "foundation/template/public/rer-theme.css",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "public/rer-theme.css": "a959e0a17df8abb03a123c04eb773b5e9183d426ed7f43424f8622d02433ddb1"
+      },
+      "modes": {
+        "public/rer-theme.css": "100644"
+      }
+    },
+    {
       "path": "scripts/edition-authoring",
       "originPath": "edition-authoring",
       "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
@@ -213,6 +301,61 @@
         "scripts/edition-authoring/release.mjs": "100644",
         "scripts/edition-authoring/sources.mjs": "100644",
         "scripts/edition-authoring/updates.mjs": "100644"
+      }
+    },
+    {
+      "path": "scripts/installer/seed.mjs",
+      "originPath": "foundation/template/scripts/installer/seed.mjs",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "scripts/installer/seed.mjs": "7bd4e291b926f9744cf262a2bb119502fe7506a8f142a67409c0b32293c949f9"
+      },
+      "modes": {
+        "scripts/installer/seed.mjs": "100644"
+      }
+    },
+    {
+      "path": "scripts/installer/ui/background.svg",
+      "originPath": "default-seed/scripts/installer/ui/background.svg",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "scripts/installer/ui/background.svg": "b234f98362d278ad8fb176ede8a88b8bd66d016147ab758ecb81a096c7115d26"
+      },
+      "modes": {
+        "scripts/installer/ui/background.svg": "100644"
+      }
+    },
+    {
+      "path": "scripts/operations-config.mjs",
+      "originPath": "foundation/template/scripts/operations-config.mjs",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "scripts/operations-config.mjs": "decbd8619e40c741708b49639d54282bd19edc4581a782b240d96a423ad47f01"
+      },
+      "modes": {
+        "scripts/operations-config.mjs": "100644"
+      }
+    },
+    {
+      "path": "scripts/verify-app.mjs",
+      "originPath": "default-seed/scripts/verify-app.mjs",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "scripts/verify-app.mjs": "4c3a87c809e2b671a555dc36171b60675f87be96362de7d2269d9f5e1c3100b6"
+      },
+      "modes": {
+        "scripts/verify-app.mjs": "100644"
+      }
+    },
+    {
+      "path": "scripts/verify-ci.mjs",
+      "originPath": "default-seed/scripts/verify-ci.mjs",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "scripts/verify-ci.mjs": "8f248fba8173ab34bd9db3b9288e0d48205cbd61326839a16f368a4f0240a9c7"
+      },
+      "modes": {
+        "scripts/verify-ci.mjs": "100644"
       }
     },
     {
@@ -276,6 +419,50 @@
         "src/base/setup.ts": "100644",
         "src/base/static-assets.ts": "100644",
         "src/base/theme-frame.ts": "100644"
+      }
+    },
+    {
+      "path": "src/client.tsx",
+      "originPath": "foundation/template/src/client.tsx",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "src/client.tsx": "4fee14f6b63bceec0df77131ffd959fc4d02e3c501982a1f4b5b30c96c1d936a"
+      },
+      "modes": {
+        "src/client.tsx": "100644"
+      }
+    },
+    {
+      "path": "src/dev-personas.ts",
+      "originPath": "foundation/template/src/dev-personas.ts",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "src/dev-personas.ts": "7d24cb83de4302472d944adeb1b0467a54cd1f50112223fded8302c34163fdf6"
+      },
+      "modes": {
+        "src/dev-personas.ts": "100644"
+      }
+    },
+    {
+      "path": "src/mail.server.d.mts",
+      "originPath": "foundation/template/src/mail.server.d.mts",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "src/mail.server.d.mts": "2e3eaa0588f12f6f04b565b948a0b8b823c201f349cdf9dd75c42c2d2413732b"
+      },
+      "modes": {
+        "src/mail.server.d.mts": "100644"
+      }
+    },
+    {
+      "path": "src/mail.server.mjs",
+      "originPath": "foundation/template/src/mail.server.mjs",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "src/mail.server.mjs": "e9a55283ad92d2f4d5012b34d181d49e5fd0b453559bb0d98fc58595224328b9"
+      },
+      "modes": {
+        "src/mail.server.mjs": "100644"
       }
     },
     {
@@ -1172,6 +1359,39 @@
         "src/modules/owner-claim/transaction.mjs": "100644",
         "src/modules/owner-claim/verify.d.mts": "100644",
         "src/modules/owner-claim/verify.mjs": "100644"
+      }
+    },
+    {
+      "path": "src/router.tsx",
+      "originPath": "default-seed/src/router.tsx",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "src/router.tsx": "8e28d274af3e0490efcc0de2537d6808583814cc1f18298f2d9516f30cdc1af4"
+      },
+      "modes": {
+        "src/router.tsx": "100644"
+      }
+    },
+    {
+      "path": "src/server.dev.ts",
+      "originPath": "foundation/template/src/server.dev.ts",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "src/server.dev.ts": "4892545be3afaf55d1a45b99933f017baa43512d7152f56b21422010aa70b8a5"
+      },
+      "modes": {
+        "src/server.dev.ts": "100644"
+      }
+    },
+    {
+      "path": "tests/incremental-typecheck.test.mjs",
+      "originPath": "foundation/template/tests/incremental-typecheck.test.mjs",
+      "revision": "4cecd178710a18a6f3c17c8f3e56c332dfee6386",
+      "files": {
+        "tests/incremental-typecheck.test.mjs": "a11d6b89e7219137540c7052683c5f4d9ba7ddf16f66d34c1f56ae34029c0a95"
+      },
+      "modes": {
+        "tests/incremental-typecheck.test.mjs": "100644"
       }
     },
     {
