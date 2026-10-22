@@ -274,3 +274,72 @@ test('Signed keypad screening is bounded, call-scoped and one-shot while current
  const runtime=await openHandset({twilio:true})
  try{await screeningJourney(runtime)}finally{await runtime.close()}
 })
+
+test('Imported compliance results, state rules and scoped review-dated approvals govern exact lists and paid launches',async()=>{
+ const runtime=await openHandset({twilio:true})
+ try{
+  const f=await dialerFixture(runtime),l=await f.makeList({count:1,mode:'progressive'}),recipient=l.recipients[0],run=await f.session(l,'progressive')
+  await f.ready()
+  const writes=()=>runtime.sourceRequests.filter(r=>r.method==='POST').length,before=writes()
+  await f.importResults('national',{rows:[{recipient:recipient.recipient,status:'blocked'}]})
+  assert.equal((await post(runtime,f.base+'/lists',{...l.input,name:f.next()},f.headers)).status,409,'registry suppression refuses approval despite a human clear attestation')
+  await f.verify(l,0,recipient.consentId)
+  let outcome=await f.launch(run,recipient.recipient)
+  assert.equal(outcome.held,'national_blocked');assert.equal(writes(),before)
+  await f.importResults('national',{publishedAt:Date.now()-32*86400000})
+  await f.write(f.base+'/sessions/'+run.id+'/resume',{})
+  outcome=await f.launch(run,recipient.recipient)
+  assert.equal(outcome.held,'national_extract_missing_or_stale');assert.equal(writes(),before)
+  await f.importResults('national')
+  await f.importResults('reassigned',{rows:[{recipient:recipient.recipient,consentId:recipient.consentId,status:'reassigned'}]})
+  await f.write(f.base+'/sessions/'+run.id+'/resume',{})
+  outcome=await f.launch(run,recipient.recipient)
+  assert.equal(outcome.held,'reassigned_reassigned');assert.equal(writes(),before)
+  await f.importResults('reassigned')
+  // Explicit source/queue/budget grants distinguish named list approval from
+  // management's authority to approve a standing policy.
+  const manager=f.q.spanish
+  await f.write(f.base+'/approver-scopes',{operatorId:manager,sourceIds:[f.source.id],queueIds:[f.q.sales.id],budgetCents:1000,standing:1,reviewAt:Date.now()+7*86400000,confirm:'grant exact campaign approval scope'},201)
+  const managerCookie=(await signIn({...runtime,ownerEmail:manager+'@example.test'})).cookie
+  assert.equal((await post(runtime,f.base+'/lists',{...l.input,name:f.next(),budgetCents:1001},{cookie:managerCookie})).status,403)
+  assert.equal((await post(runtime,f.base+'/lists',{...l.input,name:f.next(),queueId:f.q.support.id},{cookie:managerCookie})).status,403)
+  const scoped=await post(runtime,f.base+'/lists',{...l.input,name:f.next(),expiresAt:Date.now()+5*86400000},{cookie:managerCookie})
+  assert.equal(scoped.status,201,await scoped.clone().text());assert.equal((await scoped.json()).approved_by,manager)
+  const policyResponse=await post(runtime,f.base+'/policies',{repIds:[f.q.english],purpose:f.purpose,sourceIds:[f.source.id],queueIds:[f.q.sales.id],modes:['progressive'],maxListSize:10,maxBudgetCents:1000,attemptCents:100,startsAt:Date.now()-2*86400000,expiresAt:Date.now()+5*86400000,confirm:'approve exact standing CRM list policy'},{cookie:managerCookie})
+  assert.equal(policyResponse.status,201,await policyResponse.clone().text());const policy=await policyResponse.json()
+  await runtime.sql('UPDATE hnd_dialer_policies SET created_at=created_at-? WHERE id=?',2*86400000,policy.id)
+  const governed=await f.makeList({count:1,mode:'progressive',policyId:policy.id,expiresAt:Date.now()+4*86400000})
+  assert.equal(governed.approved_by,manager)
+  assert.equal(writes(),before,'imports and approvals launch nothing')
+  const waiting=await f.ready(manager,{persist:false})
+  const ready=await post(runtime,f.base+'/ready',{agentId:manager,sourceId:f.source.id,conferenceSid:waiting.conferenceSid,conferenceName:waiting.conferenceName,agentCallSid:waiting.agentCallSid,expiresAt:Date.now()+80000,confirm:'reserve this independently connected waiting agent'},{cookie:managerCookie})
+  assert.equal(ready.status,200,await ready.clone().text())
+  assert.equal((await post(runtime,f.base+'/ready',{agentId:f.q.english,sourceId:f.source.id,confirm:'reserve this independently connected waiting agent'},{cookie:managerCookie})).status,403)
+  // Pick the independently readied member rather than the earlier owner ready.
+  await runtime.sql('UPDATE hnd_dialer_ready SET expires_at=? WHERE agent_id=?',Date.now()-1,f.q.english)
+  const governedRun=await f.session(governed,'progressive'),call=f.prepare(governed),launched=await f.launch(governedRun,governed.recipients[0].recipient)
+  assert.ok(launched.attempts[0]?.provider_sid,JSON.stringify(launched));assert.equal(launched.attempts[0].agent_id,manager)
+  await f.connect(launched.attempts[0],call);await f.finish(launched.attempts[0],call)
+  await runtime.sql('UPDATE hnd_dialer_policies SET expires_at=? WHERE id=?',Date.now()-1,policy.id)
+  const expired=await post(runtime,f.base+'/lists/'+governed.id+'/sessions',{mode:'progressive',confirm:'start exact approved list in this mode'},f.headers)
+  assert.equal(expired.status,409)
+  await f.write(f.base+'/approver-scopes/revoke',{operatorId:manager})
+  assert.equal((await post(runtime,f.base+'/lists',{...l.input,name:f.next()},{cookie:managerCookie})).status,403)
+  await f.write(f.base+'/state-rules',{jurisdiction:'US-FL',startMinute:480,endMinute:1200,maxAttempts:3,windowHours:24,writtenModes:['progressive'],evidenceId:f.evidence,reviewAt:Date.now()+30*86400000,confirm:'approve reviewed state calling rules'},201)
+  const florida={...recipient,jurisdiction:'US-FL',timezone:'Pacific/Honolulu',writtenConsentEvidenceId:f.evidence}
+  const preview=await f.write(f.base+'/state-preview',{recipient:florida.recipient,timezone:'America/New_York',jurisdiction:'US-FL',consentId:florida.consentId,writtenConsentEvidenceId:f.evidence,mode:'progressive',at:Date.parse('2026-10-22T00:30:00Z')})
+  assert.equal(preview.reason,'recipient_quiet_hours','20:30 Florida local is refused by the same state gate');assert.equal(preview.authorityGranted,false)
+  const fl=await f.makeList({count:1,mode:'progressive',recipients:[florida]})
+  // Three actual network-edge call creations to this recipient are retained
+  // across separate approved lists; a fourth cannot bypass frequency limits.
+  for(let n=0;n<3;n++){
+   const current=n?{...await f.write(f.base+'/lists',{...fl.input,name:f.next()},201),input:fl.input,recipients:fl.recipients}:fl
+   if(n)await f.verify(current,0,florida.consentId)
+   await f.ready();const session=await f.session(current,'progressive'),c=f.prepare(current),result=await f.launch(session,florida.recipient)
+   assert.ok(result.attempts[0]?.provider_sid,JSON.stringify(result));await f.connect(result.attempts[0],c);await f.finish(result.attempts[0],c)
+  }
+  const fourth={...await f.write(f.base+'/lists',{...fl.input,name:f.next()},201),input:fl.input,recipients:fl.recipients}
+  await f.verify(fourth,0,florida.consentId);await f.ready();const fourthRun=await f.session(fourth,'progressive'),count=writes(),refused=await f.launch(fourthRun,florida.recipient)
+  assert.equal(refused.held,'state_frequency_limit');assert.equal(writes(),count)
+ }finally{await runtime.close()}
+})

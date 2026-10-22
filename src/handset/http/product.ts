@@ -38,6 +38,11 @@ export async function productResponse(request: Request, original: Bindings): Pro
    if(response)return response
    throw new Fault('not_found',404)
   }
+  if(path==='/api/handset/dialer'||path.startsWith('/api/handset/dialer/')||path==='/app/dialer'||path.startsWith('/app/dialer/')){
+   const response=await dialerDoor(request,env,actor,request.method==='GET'?undefined:await input(request,2097152))
+   if(response)return response
+   throw new Fault('not_found',404)
+  }
   try { owner(actor) } catch(error) { await denied(env,actor,'product.access'); throw error }
   const people = async () => (await db.prepare("SELECT id,display_name FROM oa_operators WHERE status='active' ORDER BY display_name,id").all<PersonOption>()).results
   const renderCase = async (detail:Awaited<ReturnType<typeof getCase>>,notice='',status=200) => casePage(detail,notice,status,await people())

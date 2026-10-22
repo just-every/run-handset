@@ -51,7 +51,7 @@ async function launchOne(ctx:Context,r:Run,recipient:Recipient,eventKey:string){
  // one network write. A failed recheck is known to have made no paid request.
  try{
   await listEligibility(ctx,await list(ctx,l.id),r.mode)
-  await recipientEligibility(ctx,l,recipient,r.mode,eligible.policy)
+  await recipientEligibility(ctx,l,recipient,r.mode,eligible.policy,target)
   await capacity(ctx,l,{...eligible.policy,inboundReserve:Math.max(0,eligible.policy.inboundReserve-1)})
  }catch(error){
   if(!(error instanceof Fault))throw error

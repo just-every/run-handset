@@ -18,8 +18,8 @@ export async function capacity(ctx:Context,l:List,policy:QualificationDefinition
  const candidates=[]
  for(const agent of staff){
   if(occupied.some(r=>r.agent_id===agent.operator_id))continue
-  const ready=await sql(ctx,`SELECT r.* FROM hnd_dialer_ready r JOIN oa_operators o ON o.id=r.approved_by WHERE r.agent_id=? AND r.source_id=? AND r.expires_at>? AND o.status='active' AND o.role='owner' AND o.version=r.owner_version`,agent.operator_id,l.source_id,now).first<Ready>()
-  const route=await sql(ctx,`SELECT r.* FROM hnd_queue_agent_routes r JOIN oa_operators o ON o.id=r.approved_by WHERE r.operator_id=? AND r.source_id=? AND r.revoked_at IS NULL AND o.status='active' AND o.role='owner' AND o.version=r.owner_version`,agent.operator_id,l.source_id).first<{destination:string;revision:number}>()
+  const ready=await sql(ctx,`SELECT r.* FROM hnd_dialer_ready r JOIN oa_operators o ON o.id=r.approved_by WHERE r.agent_id=? AND r.source_id=? AND r.expires_at>? AND o.status='active' AND (o.role='owner' OR r.approved_by=r.agent_id) AND o.version=r.owner_version`,agent.operator_id,l.source_id,now).first<Ready>()
+  const route=await sql(ctx,`SELECT r.* FROM hnd_queue_agent_routes r JOIN oa_operators o ON o.id=r.approved_by WHERE r.operator_id=? AND r.source_id=? AND r.revoked_at IS NULL AND o.status='active' AND o.role='owner'`,agent.operator_id,l.source_id).first<{destination:string;revision:number}>()
   if(ready&&route)candidates.push({agent,ready,route,slot:1})
  }
  return {free,reserve,available:free-reserve,candidates,now}
@@ -34,8 +34,8 @@ export async function reserveCandidate(ctx:Context,l:List,account:string,policy:
   guard(ctx,"SELECT CASE WHEN EXISTS(SELECT 1 FROM hnd_queue_entries WHERE queue_id=? AND state IN ('waiting','reserved') AND queued_at<=?) OR (SELECT count(*) FROM hnd_queue_entries WHERE queue_id=? AND state IN ('waiting','reserved'))>=(SELECT max_waiting FROM hnd_queues WHERE id=?) THEN 0 ELSE 1 END",l.queue_id,now-policy.breachSeconds*1000,l.queue_id,l.queue_id),
   guard(ctx,"SELECT count(*) FROM hnd_queue_agents a JOIN hnd_queue_memberships m ON m.operator_id=a.operator_id JOIN oa_operators o ON o.id=a.operator_id WHERE a.operator_id=? AND a.revision=? AND a.availability='available' AND a.heartbeat_at>? AND a.wrap_until<=? AND m.queue_id=? AND m.logged_in=1 AND o.status='active'",agent.operator_id,agent.revision,now-presenceFreshMs,now,l.queue_id),
   guard(ctx,'SELECT CASE WHEN EXISTS(SELECT 1 FROM hnd_queue_reservations WHERE agent_id=?) OR EXISTS(SELECT 1 FROM hnd_dialer_reservations WHERE agent_id=?) THEN 0 ELSE 1 END',agent.operator_id,agent.operator_id),
-  guard(ctx,'SELECT count(*) FROM hnd_dialer_ready r JOIN oa_operators o ON o.id=r.approved_by WHERE r.agent_id=? AND r.conference_sid=? AND r.agent_call_sid=? AND r.expires_at>? AND o.status=\'active\' AND o.role=\'owner\' AND o.version=r.owner_version',agent.operator_id,ready.conference_sid,ready.agent_call_sid,now),
-  guard(ctx,'SELECT count(*) FROM hnd_queue_agent_routes r JOIN oa_operators o ON o.id=r.approved_by WHERE r.operator_id=? AND r.source_id=? AND r.revision=? AND r.revoked_at IS NULL AND o.status=\'active\' AND o.role=\'owner\' AND o.version=r.owner_version',agent.operator_id,l.source_id,route.revision),
+  guard(ctx,'SELECT count(*) FROM hnd_dialer_ready r JOIN oa_operators o ON o.id=r.approved_by WHERE r.agent_id=? AND r.conference_sid=? AND r.agent_call_sid=? AND r.expires_at>? AND o.status=\'active\' AND (o.role=\'owner\' OR r.approved_by=r.agent_id) AND o.version=r.owner_version',agent.operator_id,ready.conference_sid,ready.agent_call_sid,now),
+  guard(ctx,'SELECT count(*) FROM hnd_queue_agent_routes r JOIN oa_operators o ON o.id=r.approved_by WHERE r.operator_id=? AND r.source_id=? AND r.revision=? AND r.revoked_at IS NULL AND o.status=\'active\' AND o.role=\'owner\'',agent.operator_id,l.source_id,route.revision),
  ]
  return {...selected,fences}
 }

@@ -20,9 +20,23 @@ export async function dialerFixture(runtime){
  await q.write(q.base+'/agents',{operatorId:q.spanish,languages:['en','es'],skills:['service'],capacity:1,revision:current.revision,confirm:'approve native agent capabilities'},201)
  const numberSid=next();s.resource('IncomingPhoneNumbers',numberSid,{phone_number:'+15125550125',capabilities:{voice:true}})
  const evidence=await record('comment',{text:'Synthetic independent qualification evidence. Network-edge testing only; no legal or live-traffic certification.'})
- const qualificationInput={sourceId:s.source.id,numberSid,legalReviewer:next(),legalEvidenceId:evidence,providerReviewer:next(),providerEvidenceId:evidence,trafficEvidenceId:evidence,jurisdictions:['US-TX'],modes:['preview','progressive','power','parallel','predictive'],disclosure:'Synthetic service team calling about your requested appointment.',abandonMessage:'Synthetic service team. Please call +15125550125.',maxAbandonBps:300,maxConnectMs:2000,ringSeconds:15,reportWindowDays:30,minimumSamples:1,maxConcurrency:2,inboundReserve:1,breachSeconds:20,expiresAt:Date.now()+3500000,confirm:'record independently qualified policy and permitted traffic'}
+ const qualificationInput={sourceId:s.source.id,numberSid,legalReviewer:next(),legalEvidenceId:evidence,providerReviewer:next(),providerEvidenceId:evidence,trafficEvidenceId:evidence,jurisdictions:['US-TX','US-FL'],modes:['preview','progressive','power','parallel','predictive'],disclosure:'Synthetic service team calling about your requested appointment.',abandonMessage:'Synthetic service team. Please call +15125550125.',maxAbandonBps:300,maxConnectMs:2000,ringSeconds:15,reportWindowDays:30,minimumSamples:1,maxConcurrency:2,inboundReserve:1,breachSeconds:20,expiresAt:Date.now()+7*86400000,confirm:'record independently qualified policy and permitted traffic'}
  const qualified=await write(base+'/qualifications',qualificationInput,201)
  const purpose='Synthetic requested appointment callback'
+ const complianceRecipients=[]
+ async function importResults(kind,extra={}){
+  const jurisdiction=extra.jurisdiction??(kind==='state'?'US-TX':'US')
+  const candidates=complianceRecipients.filter(r=>kind!=='state'||r.jurisdiction===jurisdiction)
+  const unique=[...new Map(candidates.map(r=>[r.recipient+(kind==='reassigned'?r.consentId:''),r])).values()]
+  return write(base+'/extracts',{kind,jurisdiction,publishedAt:Date.now()-1000,expiresAt:Date.now()+30*86400000,sourceReference:'synthetic-handset-2900 licensed extract',evidenceId:evidence,rows:unique.map(r=>({recipient:r.recipient,status:'clear',...(kind==='reassigned'?{consentId:r.consentId}:{})})),confirm:'import licensed compliance results',...extra},201)
+ }
+ async function provision(recipients){
+  complianceRecipients.push(...recipients)
+  await importResults('national');await importResults('reassigned')
+  for(const jurisdiction of new Set(recipients.map(r=>r.jurisdiction)))await importResults('state',{jurisdiction})
+ }
+ await write(base+'/state-rules',{jurisdiction:'US-TX',startMinute:480,endMinute:1260,maxAttempts:100,windowHours:24,writtenModes:[],evidenceId:evidence,reviewAt:Date.now()+30*86400000,confirm:'approve reviewed state calling rules'},201)
+
  function openTimezone(){
   for(const tz of ['America/New_York','America/Chicago','America/Denver','America/Los_Angeles','Pacific/Honolulu']){const parts=new Intl.DateTimeFormat('en-US',{timeZone:tz,hour:'numeric',hourCycle:'h23'}).formatToParts(new Date()),h=Number(parts.find(p=>p.type==='hour').value);if(h>=8&&h<21)return tz}
   throw new Error('No permitted controlled US calling timezone at this UTC time')
@@ -34,9 +48,10 @@ export async function dialerFixture(runtime){
    recipients.push({caseId,personId,consentId,recipient,timezone:openTimezone(),jurisdiction:'US-TX',startMinute:480,endMinute:1260})
   }
   const input={name:next(),purpose,sourceId:s.source.id,queueId:q.sales.id,qualificationId:qualified.id,repId:q.english,budgetCents:1000,attemptCents:100,maxConcurrency:2,modes:mode?[mode]:qualificationInput.modes,recipients,expiresAt:Date.now()+1800000,...(policyId?{policyId}:{}),confirm:policyId?'snapshot list under exact standing policy':'approve exact campaign list and budget',...extra}
-  const list={...await write(base+'/lists',input,201),input,recipients}
-  if(check)for(let n=0;n<recipients.length;n++)await verify(list,n,recipients[n].consentId)
-  return {...list,input,recipients}
+  await provision(input.recipients)
+  const list={...await write(base+'/lists',input,201),input,recipients:input.recipients}
+  if(check)for(let n=0;n<input.recipients.length;n++)await verify(list,n,input.recipients[n].consentId)
+  return {...list,input,recipients:input.recipients}
  }
  async function verify(l,ordinal,evidenceId,extra={}){return write(base+'/lists/'+l.id+'/recipients/'+ordinal+'/verify',{consentEvidenceId:evidenceId,company:'clear',national:'clear',state:'clear',campaign:'clear',purpose,methods:l.input.modes,expiresAt:Date.now()+1200000,confirm:'verify exact recipient consent and current suppression checks',...extra})}
  let currentReady
@@ -101,5 +116,5 @@ export async function dialerFixture(runtime){
   await q.presence(agentId)
   return agentId
  }
- return {...s,q,media,base,purpose,evidence,qualified,qualificationInput,write,read,record,makeList,verify,ready,session,prepare,launch,callback,connect,finish,updateCall,next,addAgent}
+ return {...s,q,media,base,purpose,evidence,qualified,qualificationInput,importResults,provision,complianceRecipients,write,read,record,makeList,verify,ready,session,prepare,launch,callback,connect,finish,updateCall,next,addAgent}
 }
