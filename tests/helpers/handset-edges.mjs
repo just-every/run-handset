@@ -10,7 +10,7 @@ export function createEdges() {
   origins: edgeOrigins, secrets: edgeSecrets,
   requests: [], slots: [], bookings: new Map(), bookingKeys: new Map(), intents: new Map(), intentKeys: new Map(), refunds: new Map(), refundKeys: new Map(),
   effects: new Map(), conversations: new Map([['synthetic-handset-710', { revision: 7, messages: [] }]]),
-  drop: new Set(), decline: false, orbitRevision: 3, orbitStale: 0,
+  handoffStates: new Map(), orbitExpired: false, drop: new Set(), decline: false, orbitRevision: 3, orbitStale: 0,
   async handle(request, Response) {
    const url = new URL(request.url), host = url.origin, path = url.pathname
    if (!Object.values(edgeOrigins).includes(host)) return null
@@ -63,8 +63,12 @@ export function createEdges() {
     if (re && request.method === 'GET') return e.refunds.has(re[1]) ? json(Response, e.refunds.get(re[1])) : json(Response, { error: {} }, 404)
    }
    if (host === edgeOrigins.orbit) {
-    if (auth !== 'Bearer ' + edgeSecrets.orbit) return json(Response, { error: { code: 'DELEGATION_INVALID' } }, 401)
-    if (path === '/api/delegation/v1/check') return url.searchParams.get('target') === 'opportunities/synthetic-handset-720/handoffs/synthetic-handset-721' ? json(Response, { revision: e.orbitRevision, audienceRevision: 1 }) : json(Response, { error: { code: 'NOT_FOUND' } }, 404)
+    if (e.orbitExpired || auth !== 'Bearer ' + edgeSecrets.orbit) return json(Response, { error: { code: 'DELEGATION_INVALID' } }, 401)
+    if (path === '/api/delegation/v1/check') {
+     const target = url.searchParams.get('target')
+     if (!/^opportunities\/synthetic-handset-720\/handoffs\/synthetic-handset-[0-9]+$/.test(target ?? '')) return json(Response, { error: { code: 'NOT_FOUND' } }, 404)
+     return json(Response, { revision: e.orbitRevision, audienceRevision: 1, ...(request.headers.get('x-rer-record-state-schema') === 'crm.handoff-state/1' ? { recordState: { schema: 'crm.handoff-state/1', kind: 'crm.handoff', state: e.handoffStates.get(target) ?? 'open' } } : {}) })
+    }
     if (request.method === 'POST' && path === '/api/delegation/v1/effects') {
      const body = JSON.parse(text)
      if (e.effects.has(body.operationKey)) { lose('orbit'); return json(Response, e.effects.get(body.operationKey).receipt) }

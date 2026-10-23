@@ -201,3 +201,116 @@ test('Conflicting knowledge, out-of-policy refund and emergency become owned exc
   assert.equal((await post(bare.runtime, '/api/handset/receptionist/policy', { policy: {}, expectedVersion: 1, confirm: 'set receptionist limits' }, { authorization: 'Bearer ' + bare.issued.token })).status, 401)
  } finally { await bare.runtime.close() }
 })
+
+
+// Follow-ups use the documented Orbit handoff state observation. These are
+// independent receiver records; they do not pretend the session-only task API is delegated.
+async function promiseFixture(f, n, text = 'Send the written furnace estimate') {
+ const record = await f.create('/api/handset/records', { kind: 'promise', sourceId: `synthetic-handset-promise-${n}`, occurredAt: Date.now(), caseId: f.cases[n % f.cases.length], data: { text, dueAt: Date.now() - 1000 } })
+ const source = record.record
+ const input = { caseId: source.case_id, sourceId: source.id, obligation: text, dueAt: JSON.parse(source.data).dueAt,
+  confirmationBasis: 'Current owning Orbit handoff is completed; delivery alone is insufficient',
+  target: `opportunities/synthetic-handset-720/handoffs/synthetic-handset-${800 + n}`, draft: `Here is the estimate for Austin, Texas. ${text}` }
+ return { source, input }
+}
+const followupAction = async (f, row, op, data = {}) => {
+ const response = await post(f.runtime, `/api/handset/followups/${row.id}/${op}`, { revision: row.revision, ...data }, f.headers)
+ assert.equal(response.status, 200, await response.clone().text())
+ return (await response.json()).followup
+}
+
+test('Cited promises stay open after delivery and show two independently confirmed and one due after restart', async () => {
+ const f = await receptionistFixture()
+ try {
+  const rows = []
+  for (let n = 0; n < 3; n++) {
+   const { input } = await promiseFixture(f, n, n === 1 ? 'Enviar el presupuesto por escrito' : 'Send the written furnace estimate')
+   const made = await f.create('/api/handset/followups', input)
+   let row = made.followup
+   assert.equal((await f.create('/api/handset/followups', input, f.headers, 200)).replay, true)
+   assert.equal((await post(f.runtime, '/api/handset/followups', { ...input, obligation: 'Invent a refund promise' }, f.headers)).status, 409)
+   assert.equal((await post(f.runtime, `/api/handset/followups/${row.id}/deliver`, { revision: row.revision }, f.headers)).status, 403)
+   row = await followupAction(f, row, 'approve', { confirm: 'approve exact cited handoff' })
+   row = await followupAction(f, row, 'deliver')
+   assert.equal(row.delivery, 'received'); assert.equal(row.status, 'open', 'sent is never done')
+   const remote = f.edges.effects.get(row.operation_key)
+   assert.ok(remote.handoff.content.includes(input.sourceId) && remote.handoff.content.includes(input.caseId) && remote.handoff.content.includes(input.obligation), 'receiver has the cited source and exact obligation')
+   rows.push(row)
+  }
+  for (const row of rows.slice(0, 2)) f.edges.handoffStates.set(row.target, 'completed')
+  for (let n = 0; n < rows.length; n++) rows[n] = await followupAction(f, rows[n], 'reconcile')
+  await f.runtime.restart()
+  const response = await f.runtime.request('/api/handset/followups', { headers: f.headers })
+  const list = await response.json()
+  assert.equal(response.status, 200)
+  assert.deepEqual(list.counts, { confirmed: 2, declined: 0, due: 1, open: 1 })
+  assert.equal(f.edges.effects.size, 3)
+  assert.equal((await f.runtime.request('/api/handset/followups')).status, 401)
+  assert.equal((await post(f.runtime, '/api/handset/followups', {}, { authorization: 'Bearer ' + f.issued.token })).status, 401, 'a bearer is not a human approver')
+ } finally { await f.runtime.close() }
+})
+
+test('Human edits and source corrections fence stale promises; lost handoff responses reconcile without a second write', async () => {
+ const f = await receptionistFixture()
+ try {
+  const p = await promiseFixture(f, 3)
+  let row = (await f.create('/api/handset/followups', p.input)).followup
+  row = await followupAction(f, row, 'approve', { confirm: 'approve exact cited handoff' })
+  const stale = row
+  row = await followupAction(f, row, 'edit', { draft: 'A person corrected the estimate', dueAt: Date.now() - 1000 })
+  assert.equal(row.delivery, 'draft')
+  assert.equal((await post(f.runtime, `/api/handset/followups/${row.id}/deliver`, { revision: stale.revision }, f.headers)).status, 409)
+  assert.equal((await post(f.runtime, `/api/handset/followups/${row.id}/deliver`, { revision: row.revision }, f.headers)).status, 403)
+  row = await followupAction(f, row, 'approve', { confirm: 'approve exact cited handoff' })
+  f.edges.drop.add('orbit')
+  row = await followupAction(f, row, 'deliver')
+  assert.equal(row.delivery, 'uncertain'); assert.equal(f.edges.effects.size, 1)
+  const posts = () => f.edges.requests.filter(r => r.host === f.edges.origins.orbit && r.method === 'POST').length
+  const before = posts()
+  await f.runtime.restart()
+  f.edges.orbitExpired = true
+  row = await followupAction(f, row, 'reconcile')
+  assert.equal(row.status, 'open'); assert.match(row.reason, /oauth_refused/)
+  f.edges.orbitExpired = false
+  row = await followupAction(f, row, 'reconcile')
+  assert.equal(row.delivery, 'received'); assert.equal(row.status, 'open'); assert.equal(posts(), before)
+  f.edges.handoffStates.set(row.target, 'cancelled')
+  row = await followupAction(f, row, 'reconcile'); assert.equal(row.status, 'declined')
+  // A later correction invalidates an approved, still-unstarted promise.
+  const p2 = await promiseFixture(f, 4)
+  let second = (await f.create('/api/handset/followups', p2.input)).followup
+  second = await followupAction(f, second, 'approve', { confirm: 'approve exact cited handoff' })
+  await f.create('/api/handset/records', { kind: 'promise', sourceId: 'synthetic-handset-corrected-promise-4', occurredAt: Date.now(), caseId: p2.source.case_id, supersedesId: p2.source.id, data: { text: 'Customer no longer needs an estimate', dueAt: Date.now() } })
+  assert.equal((await post(f.runtime, `/api/handset/followups/${second.id}/deliver`, { revision: second.revision }, f.headers)).status, 409)
+  assert.equal(posts(), before)
+  second = await followupAction(f, second, 'cancel', { note: 'Promise withdrawn by customer' })
+  assert.equal(second.status, 'canceled')
+ } finally { await f.runtime.close() }
+})
+
+
+test('A signed inbound STOP cancels unstarted follow-ups without claiming remote recall', async () => {
+ const f = await receptionistFixture()
+ try {
+  const { sourceFixture } = await import('./helpers/handset-sources.mjs')
+  const edge = await sourceFixture(f.runtime)
+  const call = await edge.callback({ CallSid: 'synthetic-handset-950', CallStatus: 'completed', SequenceNumber: '0', Timestamp: new Date().toISOString() })
+  assert.equal(call.status, 200)
+  const caseId = (await call.json()).caseId
+  const promise = await f.create('/api/handset/records', { kind: 'promise', sourceId: 'synthetic-handset-stop-promise', occurredAt: Date.now(), caseId, data: { text: 'Send my written quote', dueAt: Date.now() } })
+  let row = (await f.create('/api/handset/followups', { caseId, sourceId: promise.record.id, obligation: 'Send my written quote', dueAt: Date.now(), confirmationBasis: 'Current handoff completed', target: 'opportunities/synthetic-handset-720/handoffs/synthetic-handset-950', draft: 'Your written quote' })).followup
+  row = await followupAction(f, row, 'approve', { confirm: 'approve exact cited handoff' })
+  const stop = { MessageSid: 'synthetic-handset-951', MessageStatus: 'received', Body: 'STOP', Timestamp: new Date().toISOString() }
+  assert.equal((await edge.callback(stop, { signature: false })).status, 403)
+  assert.equal((await edge.callback(stop)).status, 200)
+  const list = await (await f.runtime.request('/api/handset/followups', { headers: f.headers })).json()
+  const canceled = list.followups.find(x => x.id === row.id)
+  assert.equal(canceled.status, 'canceled'); assert.equal(canceled.delivery, 'canceled')
+  assert.match(canceled.reason, /STOP/)
+  assert.equal((await post(f.runtime, `/api/handset/followups/${row.id}/deliver`, { revision: canceled.revision }, f.headers)).status, 409)
+  assert.equal(f.edges.effects.size, 0)
+  await f.runtime.restart()
+  const after = await (await f.runtime.request('/api/handset/followups', { headers: f.headers })).json()
+  assert.equal(after.followups.find(x => x.id === row.id).status, 'canceled')
+ } finally { await f.runtime.close() }
+})
