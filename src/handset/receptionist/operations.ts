@@ -147,6 +147,8 @@ export async function crmHandoff(c: Ctx, value: ObjectValue, stored?: string) {
 export async function supportHandoff(c: Ctx, value: ObjectValue, stored?: string) {
  keys(value, ['summary', 'conversationId'])
  const conversationId = text(value.conversationId, 'conversationId', 100)
+ // The installation helpdesk credential writes only where the owner's policy maps this call's case.
+ if (!c.policy.supportConversations?.some(m => m.caseId === c.outcome.case_id && m.conversationId === conversationId)) throw new Fault('conversation_out_of_scope', 403)
  if (conn(c, ['helpdesk']).length) return heldBy(c, 'support', 'helpdesk_connector_unconfigured')
  const content = stored ?? await summary(c, value)
  const r = await runStep({ env: c.env, grant: c.grant, applied: c.applied, outcome: c.outcome, kind: 'support', request: { conversationId, content },
