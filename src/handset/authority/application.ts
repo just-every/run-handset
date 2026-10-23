@@ -19,23 +19,29 @@ export async function applicationAuth(request:Request,env:Bindings,applied:Appli
  if(grant.revoked_at||grant.expires_at<=Date.now()||!await env.DB.prepare("SELECT id FROM oa_operators WHERE id=? AND status='active' AND role='owner' AND version=?").bind(grant.created_by,grant.owner_version).first())throw new Fault('application_credential_inactive',401)
  return grant
 }
-async function applicationRead(env:Bindings,g:Grant,caseId:string){
+export async function applicationRead(env:Bindings,g:Grant,caseId:string){
  const d=JSON.parse(g.definition) as Definition
  if(!d.scopes.includes('read')||!d.tools.includes('case.read')||!d.records.includes(caseId))throw new Fault('record_out_of_scope',403)
  const detail=await getCase(env.DB,caseId)
  await append(env,g.id,'application.read',caseId,'completed',[grantFence(env,g)],null,grantPolicy(g))
  return detail
 }
-async function draft(env:Bindings,g:Grant,value:ObjectValue){
+export async function draft(env:Bindings,g:Grant,value:ObjectValue,idempotencyKey?:string){
  keys(value,['caseId','text'])
  const caseId=text(value.caseId,'caseId'),content=text(value.text,'text',4000),d=JSON.parse(g.definition) as Definition
  if(!d.scopes.includes('draft')||!d.tools.includes('comment.draft')||!d.records.includes(caseId))throw new Fault('draft_out_of_scope',403)
  await getCase(env.DB,caseId)
- const draftId=id()
+ const hash=await digest({caseId,content})
+ if(idempotencyKey){
+  const existing=await env.DB.prepare('SELECT request_hash,response FROM hnd_api_idempotency WHERE grant_id=? AND key=?').bind(g.id,idempotencyKey).first<{request_hash:string;response:string}>()
+  if(existing){if(existing.request_hash!==hash)throw new Fault('idempotency_payload_conflict',409);await append(env,g.id,'application.read',caseId,'completed',[grantFence(env,g)],null,grantPolicy(g));return {...JSON.parse(existing.response),replay:true}}
+ }
+ const draftId=id(),result={id:draftId,status:'draft',published:false}
  await append(env,g.id,'application.draft',caseId,'completed',[
   grantFence(env,g),env.DB.prepare('INSERT INTO hnd_drafts VALUES (?,?,?,?,?)').bind(draftId,g.id,caseId,content,Date.now()),
+  ...(idempotencyKey?[env.DB.prepare('INSERT INTO hnd_api_idempotency VALUES (?,?,?,?,?)').bind(g.id,idempotencyKey,hash,JSON.stringify(result),Date.now())]:[]),
  ],null,grantPolicy(g))
- return {id:draftId,status:'draft',published:false}
+ return result
 }
 async function authority(env:Bindings,g:Grant,s:State,value:ObjectValue,applied:AppliedPolicy){
  if(value.approvalId){

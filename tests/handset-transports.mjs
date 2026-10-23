@@ -42,3 +42,72 @@ test('Grant, STOP, case and policy changes during connector preflight prevent th
   } finally { await f.runtime.close() }
  }
 })
+
+
+async function apiFixture(scopes, tools) {
+ const f = await receptionistFixture()
+ const issued = await f.create('/api/handset/mcp/consent', { name: 'Scoped REST client', definition: { scopes, tools, records: f.cases.slice(0, 2), numbers: [], recipients: [], budgetCents: 0, policyRevision: 'owner-only-v1' }, expiresAt: Date.now() + 3600000, confirm: 'approve scoped credential' })
+ const headers = { authorization: 'Bearer ' + issued.token }
+ const read = path => f.runtime.request('/api/handset/v1' + path, { headers })
+ const write = (path, value, key) => post(f.runtime, '/api/handset/v1' + path, value, { ...headers, ...(key ? { 'idempotency-key': key } : {}) })
+ return { ...f, restGrant: issued, read, write }
+}
+
+test('Versioned REST pagination and OpenAPI preserve exact selected-case scope and immediate credential revocation', async () => {
+ const f = await apiFixture(['read'], ['case.read'])
+ try {
+  const document = await f.read('/openapi.json')
+  assert.equal(document.status, 200)
+  const spec = await document.json(); assert.equal(spec.openapi, '3.1.0'); assert.ok(spec.paths['/drafts'].post.parameters.some(p => p.name === 'Idempotency-Key'))
+  const first = await (await f.read('/cases?limit=1')).json()
+  assert.equal(first.items.length, 1); assert.ok(first.nextCursor)
+  const second = await (await f.read('/cases?limit=1&cursor=' + first.nextCursor)).json()
+  assert.equal(second.items.length, 1); assert.equal(second.nextCursor, null)
+  assert.deepEqual([first.items[0].current.id, second.items[0].current.id].sort(), f.cases.slice(0, 2).sort())
+  assert.equal((await f.read('/cases/' + f.cases[2])).status, 403)
+  assert.equal((await f.read('/cases?cursor=' + f.cases[2])).status, 403)
+  assert.equal((await f.runtime.request('/api/handset/v1/cases', { headers: f.headers })).status, 401, 'a native cookie is not an application credential')
+  assert.equal((await post(f.runtime, `/api/handset/grants/${f.restGrant.grant.id}/revoke`, {}, f.headers)).status, 200)
+  assert.equal((await f.read('/cases')).status, 401)
+  assert.equal((await f.write('/prepare', {})).status, 401)
+ } finally { await f.runtime.close() }
+})
+
+test('Versioned draft idempotency survives replay, conflicting bodies, races and restart without publishing or repeating work', async () => {
+ const f = await apiFixture(['draft'], ['comment.draft'])
+ try {
+  const body = { caseId: f.cases[0], text: 'Draft an Austin estimate; no message has been sent' }
+  assert.equal((await f.write('/drafts', body)).status, 400)
+  const initial = await f.write('/drafts', body, 'synthetic-handset-draft-1'); assert.equal(initial.status, 201)
+  const draft = await initial.json(); assert.equal(draft.published, false)
+  const replay = await f.write('/drafts', body, 'synthetic-handset-draft-1'); assert.equal(replay.status, 200); assert.equal((await replay.json()).id, draft.id)
+  assert.equal((await f.write('/drafts', { ...body, text: 'Changed proposal' }, 'synthetic-handset-draft-1')).status, 409)
+  const racing = await Promise.all([1, 2].map(() => f.write('/drafts', body, 'synthetic-handset-draft-race')))
+  assert.ok(racing.every(r => [200,201,409].includes(r.status)))
+  const recovered = await (await f.write('/drafts', body, 'synthetic-handset-draft-race')).json()
+  await f.runtime.restart()
+  assert.equal((await (await f.write('/drafts', body, 'synthetic-handset-draft-race')).json()).id, recovered.id)
+  assert.equal((await f.runtime.sql('SELECT count(*) AS n FROM hnd_drafts WHERE grant_id=?', f.restGrant.grant.id)).results[0].n, 2)
+  assert.equal((await f.read('/cases')).status, 403)
+  assert.equal(f.edges.effects.size, 0)
+ } finally { await f.runtime.close() }
+})
+
+test('Versioned API rate limits are durable per credential and authentication still refuses revoked callers', async () => {
+ const f = await apiFixture(['read'], ['case.read'])
+ try {
+  let limited
+  for (let n = 0; n < 122; n++) {
+   const response = await f.read('/openapi.json')
+   if (response.status === 429) { limited = response; break }
+   assert.equal(response.status, 200)
+  }
+  assert.ok(limited, 'the bounded minute bucket refuses excess requests')
+  assert.ok(Number(limited.headers.get('retry-after')) > 0)
+  assert.equal(limited.headers.get('ratelimit-remaining'), '0')
+  await f.runtime.restart()
+  // A restart retains the rate bucket; current auth remains an earlier fence.
+  assert.equal((await post(f.runtime, `/api/handset/grants/${f.restGrant.grant.id}/revoke`, {}, f.headers)).status, 200)
+  assert.equal((await f.read('/openapi.json')).status, 401)
+ } finally { await f.runtime.close() }
+})

@@ -141,3 +141,15 @@ scheduled handling retains the rule outbox and owned overdue escalation.
 See FOLLOWUPS.md, RECOVERY.md, RULES.md and DELIVERY.md for limits and held
 customer/receiving-system obligations. HND-027 inherits finer role scope;
 HND-013/018/089 retain actual capture/contact consent and caller identity.
+
+`/api/handset/operations` and `/api/handset/compliance` require native owners
+and same-origin writes. Assessments/preparation do not grant repair, filing,
+legal, address, rotation or spend authority. Fixed-origin provider GETs check
+the selected source and receipt identity; exports discard raw private fields.
+
+`/api/handset/v1/*` independently authenticates the current scoped application
+credential before the native namespace gate. Exact selected-case reads and
+unpublished drafts share existing grant checks; cookie-only access refuses.
+The v1 draft receipt is atomic and its rate bucket durable. Future resources,
+signed event/media subscription delivery and standard MCP authorization remain
+HND-030 work, with HND-013/027/048/049 authorization and custody inherited.

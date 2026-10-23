@@ -11,6 +11,7 @@ import { setupStateResponse } from './base/setup-state'
 import { authResponse, runtimeBindings, type Bindings } from './auth.server'
 import { identity } from './identity'
 import { twilioResponse } from './handset/providers/twilio'
+import { versionedResponse } from './handset/api/v1'
 import { applicationResponse } from './handset/authority/application'
 import { observeProduct } from './handset/audit/requests'
 import { observeAuth } from './handset/audit/auth'
@@ -52,6 +53,8 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     if (dialer) return dialer
     const source = await twilioResponse(request, env)
     if (source) return source
+    const versioned = await versionedResponse(request, env)
+    if (versioned) return versioned
     const application = await applicationResponse(request, env)
     if (application) return application
     const imports = await importResponse(request, env)
