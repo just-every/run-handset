@@ -1086,7 +1086,7 @@
       "executable": false
     },
     "src/handset/authority/application.ts": {
-      "sha256": "101478a7a8835ca15010b2a2902fc501a814abdf7058165429e5273af813616b",
+      "sha256": "0ee8f033368ecb28e91579ec7987fd46ae4926cb18dcb60308f5aa0070b90539",
       "executable": false
     },
     "src/handset/authority/doors.ts": {
