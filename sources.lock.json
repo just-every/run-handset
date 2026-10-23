@@ -645,8 +645,12 @@
       "sha256": "63b6419a6549eee2a8819805d6f72e3c8192242bb09bd66a2b47c5c32ce9ecaa",
       "executable": false
     },
+    "public/handset-app.css": {
+      "sha256": "2012b0e7b8ab61a34132a290b3796a67900842c836900d4b23c09f19e3d099e4",
+      "executable": false
+    },
     "public/handset-console.css": {
-      "sha256": "fb227283f1408d0ca6e6a60ff1437eb06f97449e9e02123a494fab354f06b3a0",
+      "sha256": "6e850d5c122d1baf128833ba82653e365872474d6b512537d8234a25d7320f2c",
       "executable": false
     },
     "public/rer-theme.css": {
@@ -1142,7 +1146,7 @@
       "executable": false
     },
     "src/handset/core.ts": {
-      "sha256": "d8e376bccae6f38e93fdac977fdc05ab82a5e8dafeb8b39aa0cce716fde2ce61",
+      "sha256": "7dc087abf7b808340ccbd8592e998433f3c9a10bcb4c99b53309cf32f02008f7",
       "executable": false
     },
     "src/handset/delegation/callback-authority.ts": {

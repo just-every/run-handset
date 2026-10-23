@@ -1,0 +1,5 @@
+/* Every Handset page: on narrow screens a definition list stacks each label over its value. */
+@media (max-width: 480px) {
+  .rer-themed main dl { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .rer-themed main dd { margin-bottom: 12px; }
+}
