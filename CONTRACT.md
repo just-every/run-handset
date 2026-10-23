@@ -354,7 +354,7 @@ The managed RunEditRun carrier, billing and staffed-support offer requires an ac
 
 ## Status
 
-Status describes the source and named public-door tests in this revision (23 October 2026). Provider-schema assertions do not certify live carrier or recipient outcomes.
+Judged from the code and tests at commit `2bbd6d5` (23 October 2026).
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
