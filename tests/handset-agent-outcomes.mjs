@@ -1,0 +1,203 @@
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
+import { post } from './helpers/handset-auth.mjs'
+import { mailText, mailTo, receptionistFixture } from './helpers/handset-receptionist.mjs'
+
+const slot = days => { const d = new Date(Date.now() + days * 86400000); d.setUTCMinutes(0, 0, 0); return d.toISOString() }
+const namedEmail = 'synthetic-handset-2@example.test'
+async function readyToBook(f, n, language, caseId) {
+ const call = await f.open(n, language, caseId), id = call.outcome.id
+ const base = `outcomes/${id}/`
+ const read = await f.ok(base + 'availability', { serviceId: 'furnace' })
+ assert.ok(read.slots.some(s => s.startAt === f.edges.slots[0]))
+ const booked = await f.ok(base + 'booking', { serviceId: 'furnace', startAt: f.edges.slots[0] })
+ return { call, id, base, booked, read }
+}
+async function authorize(f, base, amountCents, digit = '1', callId) {
+ const proposed = await f.ok(base + 'deposit/propose', { serviceId: 'furnace', amountCents })
+ if (digit) {
+  const prompt = await f.carrier(proposed.authorizationId, 'prompt', { CallSid: callId })
+  assert.equal(prompt.status, 200, await prompt.clone().text())
+  const answer = await f.carrier(proposed.authorizationId, 'confirm', { CallSid: callId, Digits: digit })
+  assert.equal(answer.status, 200, await answer.clone().text())
+ }
+ return proposed
+}
+
+test('After hours in English and Spanish, one call books, takes a caller-authorized deposit and records both handoffs, each independently readable', async () => {
+ const f = await receptionistFixture()
+ try {
+  f.edges.slots.push(slot(2), slot(3))
+  await f.savePolicy()
+  const done = []
+  for (const [n, language, caseId] of [[1, 'en', f.cases[0]], [2, 'es', f.cases[1]]]) {
+   const call = await f.open(n, language, caseId), id = call.outcome.id, base = `outcomes/${id}/`, callId = `synthetic-handset-call-${n}`
+   assert.equal(call.outcome.after_hours, 1, 'the call arrived outside the policy hours')
+   const facts = await f.ok(base + 'knowledge', { facts: [{ topic: 'deposit', value: '$50.00', sourceId: 'synthetic-handset-slate-1', version: 'k-12' }] })
+   assert.equal(facts.results[0].status, 'confirmed'); assert.equal(facts.say, null)
+   const read = await f.ok(base + 'availability', { serviceId: 'furnace' })
+   const booked = await f.ok(base + 'booking', { serviceId: 'furnace', startAt: read.slots[n - 1].startAt })
+   assert.equal(booked.step.state, 'confirmed')
+   assert.match(booked.say.text, language === 'es' ? /^Su cita está confirmada para (?:lunes|martes|miércoles|jueves|viernes|sábado|domingo)/ : /^Your appointment is confirmed for /)
+   // The caller hears the exact amount, payee and purpose, in their language, and must key it in herself.
+   const proposed = await f.ok(base + 'deposit/propose', { serviceId: 'furnace', amountCents: 5000 })
+   assert.match(proposed.prompt.text, language === 'es' ? /depósito de \$50\.00 para Furnace repair visit/ : /\$50\.00 deposit for Furnace repair visit/)
+   assert.match(proposed.prompt.text, /Austin Service Co\./)
+   const early = await f.agent(base + 'deposit', { authorizationId: proposed.authorizationId })
+   assert.equal(early.status, 403); assert.equal((await early.json()).error, 'caller_authorization_required')
+   const prompt = await f.carrier(proposed.authorizationId, 'prompt', { CallSid: callId })
+   assert.match(await prompt.text(), language === 'es' ? /<Gather[^>]*>.*language="es-US"/s : /<Gather[^>]*>.*language="en-US"/s)
+   assert.equal((await f.carrier(proposed.authorizationId, 'confirm', { CallSid: callId, Digits: '1' })).status, 200)
+   const paid = await f.ok(base + 'deposit', { authorizationId: proposed.authorizationId })
+   assert.equal(paid.step.state, 'confirmed'); assert.match(paid.say.text, /\$50\.00/)
+   const crm = await f.ok(base + 'handoffs/crm', { summary: 'Furnace not heating; wants Monday' })
+   const support = await f.ok(base + 'handoffs/support', { conversationId: 'synthetic-handset-710', summary: 'Furnace not heating' })
+   assert.equal(crm.step.state, 'confirmed'); assert.equal(support.step.state, 'confirmed')
+   done.push({ id, booked, paid, language })
+  }
+  // Independent readback from each receiving system, not from Handset's own claim.
+  const bookings = [...f.edges.bookings.values()], intents = [...f.edges.intents.values()]
+  assert.deepEqual(bookings.map(b => b.name), ['Jordan Lee', 'Rosa García']); assert.equal(new Set(bookings.map(b => b.startAt)).size, 2)
+  assert.deepEqual(intents.map(i => [i.amount_received, i.currency, i.status]), [[5000, 'usd', 'succeeded'], [5000, 'usd', 'succeeded']])
+  assert.deepEqual(intents.map(i => i.metadata.handset_outcome), done.map(d => d.id))
+  const handoffs = [...f.edges.effects.values()]
+  assert.equal(handoffs.length, 2)
+  handoffs.forEach((h, i) => { assert.ok(h.handoff.content.includes(`booking confirmed ${bookings[i].id}`) && h.handoff.content.includes(`deposit confirmed ${intents[i].id}`), 'the CRM handoff links the booking and the deposit'); assert.ok(h.handoff.content.includes(done[i].id)) })
+  const messages = f.edges.conversations.get('synthetic-handset-710').messages
+  assert.equal(messages.length, 2); assert.ok(messages.every((m, i) => m.content.includes(done[i].id) && m.content.includes(`case ${f.cases[i]}`)))
+  // A repeated request after confirmation touches no receiving system.
+  const before = f.edges.requests.length
+  for (const [path, data] of [['booking', { serviceId: 'furnace', startAt: bookings[0].startAt }], ['handoffs/crm', { summary: 'Furnace not heating; wants Monday' }]]) {
+   const again = await f.ok(`outcomes/${done[0].id}/${path}`, data)
+   assert.equal(again.replay, true); assert.equal(again.effectOccurred, false)
+  }
+  assert.equal(f.edges.requests.length, before)
+  assert.equal((await f.runtime.sql('SELECT reserved_cents FROM hnd_grants')).results[0].reserved_cents, 10000, 'both deposits reserved against the credential budget')
+  const page = await f.runtime.request('/app/receptionist', { headers: f.headers })
+  const html = await page.text()
+  assert.equal(page.status, 200); assert.match(html, /synthetic-handset-call-2/); assert.match(html, /Spanish/)
+  assert.ok(!html.includes('synthetic-handset-pm-'), 'the saved payment reference is never shown')
+ } finally { await f.runtime.close() }
+})
+
+test('Lost payment, booking, CRM and support responses stay uncertain until readback and never duplicate the effect', async () => {
+ const f = await receptionistFixture()
+ try {
+  f.edges.slots.push(slot(2))
+  await f.savePolicy()
+  const call = await f.open(3, 'en', f.cases[2]), id = call.outcome.id, base = `outcomes/${id}/`
+  await f.ok(base + 'availability', { serviceId: 'furnace' }); f.edges.drop.add('dial')
+  const booked = await f.ok(base + 'booking', { serviceId: 'furnace', startAt: f.edges.slots[0] })
+  assert.equal(booked.step.state, 'uncertain'); assert.equal(booked.effectOccurred, false)
+  assert.doesNotMatch(booked.say.text, /confirmed for/i, 'no appointment is promised before readback')
+  assert.equal(f.edges.bookings.size, 1, 'the booking did commit at Dial; only the answer was lost')
+  const notice = mailTo(f.runtime, namedEmail).at(-1)
+  assert.match(mailText(notice), /Failed provider action[\s\S]*"step":"booking"[\s\S]*Callback promised by/)
+  const fixed = await f.ok(base + 'reconcile', { step: 'booking' })
+  assert.equal(fixed.step.state, 'confirmed'); assert.equal(f.edges.bookings.size, 1, 'reconcile replays the same creation key, so there is one booking')
+  const afterBooking = await (await f.agentGet(`outcomes/${id}`)).json()
+  assert.equal(afterBooking.exceptions.find(x => x.kind === 'provider_failure').status, 'resolved')
+  // The payment response is lost after Stripe charged; an agent retry cannot charge twice.
+  const proposed = await authorize(f, base, 5000, '1', 'synthetic-handset-call-3')
+  f.edges.drop.add('stripe')
+  const lost = await f.ok(base + 'deposit', { authorizationId: proposed.authorizationId })
+  assert.equal(lost.step.state, 'uncertain'); assert.match(lost.say.text, /Do not pay again/); assert.equal(f.edges.intents.size, 1)
+  const retried = await f.ok(base + 'deposit', { authorizationId: proposed.authorizationId })
+  assert.equal(retried.step.state, 'confirmed'); assert.equal(f.edges.intents.size, 1, 'the same idempotency key returns the original charge')
+  assert.equal((await f.ok(base + 'deposit', { authorizationId: proposed.authorizationId })).replay, true)
+  const forged = await f.agent(base + 'deposit', { authorizationId: proposed.authorizationId, callerAuthorized: true })
+  assert.equal(forged.status, 400)
+  // Orbit: a stale revision is re-read once; a lost answer is settled by the receipt.
+  f.edges.orbitStale = 1; f.edges.drop.add('orbit')
+  const crm = await f.ok(base + 'handoffs/crm', { summary: 'Furnace call' })
+  assert.equal(crm.step.state, 'uncertain')
+  assert.equal((await f.ok(base + 'reconcile', { step: 'crm' })).step.state, 'confirmed'); assert.equal(f.edges.effects.size, 1)
+  f.edges.drop.add('helpdesk')
+  assert.equal((await f.ok(base + 'handoffs/support', { conversationId: 'synthetic-handset-710', summary: 'Furnace call' })).step.state, 'uncertain')
+  assert.equal((await f.ok(base + 'reconcile', { step: 'support' })).step.state, 'confirmed')
+  assert.equal(f.edges.conversations.get('synthetic-handset-710').messages.length, 1)
+  // Two simultaneous booking requests cannot both reach the provider: the step claim is versioned.
+  const second = await f.open(31, 'en', f.cases[2]); f.edges.slots.push(slot(4)); await f.ok(`outcomes/${second.outcome.id}/availability`, { serviceId: 'furnace' })
+  const race = await Promise.all([1, 2].map(() => f.agent(`outcomes/${second.outcome.id}/booking`, { serviceId: 'furnace', startAt: f.edges.slots[1] })))
+  assert.ok(race.every(r => [200, 409].includes(r.status)))
+  assert.equal([...f.edges.bookings.values()].filter(b => b.startAt === f.edges.slots[1]).length, 1)
+  assert.equal((await f.runtime.sql('SELECT reserved_cents FROM hnd_grants')).results[0].reserved_cents, 5000)
+ } finally { await f.runtime.close() }
+})
+
+test('Conflicting knowledge, out-of-policy refund and emergency become owned exceptions; only the named person decides and no promise precedes confirmation', async () => {
+ const f = await receptionistFixture()
+ try {
+  f.edges.slots.push(slot(2), slot(3))
+  await f.savePolicy()
+  // Conflicting and missing knowledge, in Spanish: nothing is booked or charged on a contested fact.
+  const es = await f.open(4, 'es', f.cases[3]), esBase = `outcomes/${es.outcome.id}/`
+  const conflict = await f.ok(esBase + 'knowledge', { facts: [{ topic: 'deposit', value: '$25.00', sourceId: 'synthetic-handset-slate-2', version: 'k-11' }, { topic: 'warranty', value: 'Five years', sourceId: 'synthetic-handset-chest-1', version: 'k-3' }] })
+  assert.deepEqual(conflict.results.map(r => r.status), ['conflict', 'unknown']); assert.match(conflict.say.text, /No puedo decidir eso yo misma/)
+  const sent = mailTo(f.runtime, namedEmail).length
+  const noticeText = mailText(mailTo(f.runtime, namedEmail).find(m => /Conflicting knowledge/.test(m.subject)))
+  assert.ok(noticeText.includes('$25.00') && noticeText.includes('$50.00') && noticeText.includes('k-11') && noticeText.includes('Rosa García'), 'the named person receives the exact conflict and its evidence')
+  const again = await f.ok(esBase + 'knowledge', { facts: [{ topic: 'deposit', value: '$25.00', sourceId: 'synthetic-handset-slate-2', version: 'k-11' }] })
+  assert.equal(again.escalated.length, 1); assert.equal(mailTo(f.runtime, namedEmail).length, sent, 'a repeat of the same exception sends no second notice')
+  await f.ok(esBase + 'availability', { serviceId: 'furnace' })
+  const blocked = await f.agent(esBase + 'booking', { serviceId: 'furnace', startAt: f.edges.slots[0] })
+  assert.equal(blocked.status, 409); assert.equal((await blocked.json()).error, 'blocked_by_open_exception'); assert.equal(f.edges.bookings.size, 0)
+  // An out-of-policy discount stops at an exception; the exact approved amount then proceeds.
+  const d = await readyToBook(f, 6, 'en', f.cases[4])
+  const cut = await f.ok(d.base + 'deposit/propose', { serviceId: 'furnace', amountCents: 4000 })
+  assert.equal(cut.state, 'escalated'); assert.equal(cut.effectOccurred, false)
+  assert.equal((await f.runtime.sql('SELECT count(*) AS n FROM hnd_rx_authorizations')).results[0].n, 0, 'no charge was even proposed')
+  assert.equal((await f.agent(d.base + 'deposit/propose', { serviceId: 'furnace', amountCents: 6000 })).status, 403)
+  const decision = (who, id, body = {}) => post(f.runtime, `/api/handset/receptionist/exceptions/${id}/decision`, { decision: 'approve', note: 'Approved once', confirm: 'decide exact exception', ...body }, who)
+  assert.equal((await decision({ authorization: 'Bearer ' + f.issued.token }, cut.exceptionId)).status, 401, 'the agent credential cannot reach the decision door')
+  const notNamed = await decision(f.headers, cut.exceptionId)
+  assert.equal(notNamed.status, 403); assert.equal((await notNamed.json()).error, 'named_person_required')
+  assert.equal((await decision({ cookie: f.named.cookie }, cut.exceptionId)).status, 200)
+  assert.equal((await decision({ cookie: f.named.cookie }, cut.exceptionId)).status, 409, 'a decision is made once')
+  const discounted = await f.ok(d.base + 'deposit/propose', { serviceId: 'furnace', amountCents: 4000, discountExceptionId: cut.exceptionId })
+  assert.equal(discounted.amountCents, 4000)
+  assert.equal((await f.carrier(discounted.authorizationId, 'confirm', { CallSid: 'synthetic-handset-call-6', Digits: '1' }, { sign: false })).status, 403, 'an unsigned key press cannot authorize')
+  assert.equal((await f.carrier(discounted.authorizationId, 'confirm', { CallSid: 'synthetic-handset-call-other', Digits: '1' })).status, 403, 'another call cannot authorize')
+  assert.equal((await f.agent(d.base + 'deposit', { authorizationId: discounted.authorizationId })).status, 403)
+  await f.carrier(discounted.authorizationId, 'confirm', { CallSid: 'synthetic-handset-call-6', Digits: '1' })
+  assert.equal((await f.ok(d.base + 'deposit', { authorizationId: discounted.authorizationId })).step.state, 'confirmed')
+  assert.equal([...f.edges.intents.values()][0].amount_received, 4000)
+  // Refund: outside policy until the named person approves that exact amount, then exactly one refund.
+  const ask = await f.ok(d.base + 'escalations', { kind: 'out_of_policy_refund', amountCents: 4000, detail: 'Caller wants the whole deposit back' })
+  assert.equal(ask.state, 'escalated'); assert.match(ask.say.text, /cannot decide that myself/)
+  const refundNotice = mailText(mailTo(f.runtime, namedEmail).find(m => /refund/i.test(m.subject)))
+  assert.ok(refundNotice.includes('$40.00') && refundNotice.includes('synthetic-handset-pi-1'))
+  assert.equal((await f.agent(d.base + 'refund', { exceptionId: ask.exceptionId })).status, 403)
+  assert.equal(f.edges.refunds.size, 0)
+  assert.equal((await decision({ cookie: f.named.cookie }, ask.exceptionId)).status, 200)
+  const refunded = await f.ok(d.base + 'refund', { exceptionId: ask.exceptionId })
+  assert.equal(refunded.step.state, 'confirmed'); assert.equal(f.edges.refunds.size, 1)
+  assert.equal((await f.ok(d.base + 'refund', { exceptionId: ask.exceptionId })).replay, true); assert.equal(f.edges.refunds.size, 1)
+  assert.equal((await f.agent(d.base + 'escalations', { kind: 'out_of_policy_refund', amountCents: 9000, detail: 'More than was paid' })).status, 403)
+  // Emergency: the caller gets a real next step and a person gets the request; nothing is dispatched.
+  const requests = f.edges.requests.length
+  const emergency = await f.ok(d.base + 'escalations', { kind: 'emergency_dispatch', detail: 'Gas smell, send a technician now' })
+  assert.match(emergency.say.text, /call 911 now[\s\S]*cannot dispatch/); assert.equal(emergency.effectOccurred, false)
+  assert.ok(emergency.callbackDueAt > Date.now() && emergency.callbackDueAt <= Date.now() + 45 * 60000 + 1000)
+  assert.equal(emergency.notification, 'sent')
+  assert.equal((await decision({ cookie: f.named.cookie }, emergency.exceptionId)).status, 200)
+  assert.equal(f.edges.requests.length, requests, 'approving a dispatch records the decision; no provider is called')
+  const inbox = await (await f.runtime.request('/api/handset/receptionist', { headers: { cookie: f.named.cookie } })).json()
+  assert.ok(inbox.exceptions.some(x => x.id === emergency.exceptionId && x.status === 'approved' && x.owner_id === 'synthetic-handset-2'))
+  // Revoking the credential stops the receptionist at once.
+  assert.equal((await post(f.runtime, `/api/handset/grants/${f.issued.grant.id}/revoke`, {}, f.headers)).status, 200)
+  assert.equal((await f.agent(d.base + 'availability', { serviceId: 'furnace' })).status, 401)
+ } finally { await f.runtime.close() }
+ // A receiving system that is not installed is held honestly: nothing is claimed, the owner is told.
+ const bare = await receptionistFixture({ connectors: false })
+ try {
+  await bare.savePolicy()
+  const call = await bare.open(7, 'en', bare.cases[0])
+  const held = await bare.ok(`outcomes/${call.outcome.id}/availability`, { serviceId: 'furnace' })
+  assert.equal(held.state, 'held'); assert.match(held.say.text, /not connected yet/)
+  const booking = await bare.agent(`outcomes/${call.outcome.id}/booking`, { serviceId: 'furnace', startAt: new Date(Date.now() + 172800000).toISOString() })
+  assert.equal(booking.status, 409)
+  assert.equal((await bare.agent('outcomes', { callId: 'x' })).status, 400)
+  assert.equal((await post(bare.runtime, '/api/handset/receptionist/policy', { policy: {}, expectedVersion: 1, confirm: 'set receptionist limits' }, { authorization: 'Bearer ' + bare.issued.token })).status, 401)
+ } finally { await bare.runtime.close() }
+})

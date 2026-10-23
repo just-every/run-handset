@@ -1,5 +1,5 @@
 import { object, keys, text, integer, timestamp, choice, Fault, type ObjectValue } from '../core'
-export const tools=['case.read','comment.draft','recording.read','call.paid','message.send','campaign.launch','number.port','number.release','flow.publish','commitment.make'] as const
+export const tools=['case.read','comment.draft','recording.read','call.paid','message.send','campaign.launch','number.port','number.release','flow.publish','commitment.make','outcome.work'] as const
 export type Tool=typeof tools[number]
 export function list(value:unknown,name:string,max=100){
  if(!Array.isArray(value)||value.length>max)throw new Fault(`invalid_${name}`)
@@ -11,7 +11,7 @@ export interface Definition { scopes:string[];tools:Tool[];records:string[];numb
 export function definition(value:ObjectValue):Definition{
  keys(value,['scopes','tools','records','numbers','recipients','budgetCents','policyRevision'])
  const scopes=list(value.scopes,'scopes',3).map(v=>choice(v,['read','draft','send'],'scope'))
- const permittedTools=list(value.tools,'tools',10).map(v=>choice(v,tools,'tool'))
+ const permittedTools=list(value.tools,'tools',11).map(v=>choice(v,tools,'tool'))
  if(!scopes.length||!permittedTools.length)throw new Fault('empty_grant')
  for(const tool of permittedTools)if(!scopes.includes(scopeFor(tool)))throw new Fault('tool_scope_mismatch')
  return {scopes,tools:permittedTools,records:list(value.records,'records'),numbers:list(value.numbers,'numbers'),recipients:list(value.recipients,'recipients'),budgetCents:integer(value.budgetCents,'budgetCents',0,10000000),policyRevision:text(value.policyRevision,'policyRevision',80)}

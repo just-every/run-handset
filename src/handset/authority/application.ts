@@ -5,6 +5,7 @@ import { append } from '../audit/store'
 import type { AppliedPolicy } from '../audit/policy'
 import { getCase } from '../records/store'
 import { scopeFor, state, type State, type Definition, type Bounds, type Tool } from './model'
+import { agentDoor } from '../receptionist/doors'
 import { checkState, grantFence, grantPolicy, policyMatches, type Grant, type Approval, type Standing, type Job } from './store'
 
 export { grantFence } from './store'
@@ -64,7 +65,7 @@ async function prepare(env:Bindings,g:Grant,value:ObjectValue,applied:AppliedPol
  if(value.approvalId&&value.standingId)throw new Fault('one_approval_basis_required')
  const s=state(value.state),d=await checkState(env,g,s),key=text(value.idempotencyKey,'idempotencyKey',100),hash=await digest(s)
  if(['case.read','comment.draft'].includes(s.operation))throw new Fault('use_read_or_draft_door')
- if(['number.port','recording.read','commitment.make'].includes(s.operation))throw new Fault('qualified_human_or_media_door_required',403)
+ if(['number.port','recording.read','commitment.make','outcome.work'].includes(s.operation))throw new Fault('qualified_human_or_media_door_required',403)
  const existing=await env.DB.prepare('SELECT * FROM hnd_jobs WHERE grant_id=? AND idempotency_key=?').bind(g.id,key).first<Job>()
  if(existing){jobPolicy(existing,applied);if(existing.state_hash!==hash)throw new Fault('idempotency_state_changed',409);await append(env,g.id,'application.read',existing.id,'completed',[grantFence(env,g)],null,applied);return {job:existing,replay:true,effectOccurred:false}}
  const a=await authority(env,g,s,value,applied),jobId=id(),now=Date.now()
@@ -128,6 +129,8 @@ export async function applicationResponse(request:Request,original:Bindings):Pro
   if(request.headers.has('origin')&&request.headers.get('origin')!==env.AUTH_ORIGIN||request.headers.get('sec-fetch-site')==='cross-site')throw new Fault('invalid_origin',403)
   grant=await applicationAuth(request,env,applied)
   const base='/api/handset/application',path=url.pathname
+  const receptionist=await agentDoor(request,env,grant,applied)
+  if(receptionist)return receptionist
   const read=path.match(/^\/api\/handset\/application\/cases\/([^/]+)$/)
   if(request.method==='GET'&&read)return json(await applicationRead(env,grant,read[1]))
   if(request.method!=='POST')throw new Fault('method_not_allowed',405)

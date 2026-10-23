@@ -23,6 +23,7 @@ import { queueProviderResponse } from './handset/queues/provider'
 import { tickQueues } from './handset/queues/tick'
 import { dialerProviderResponse } from './handset/dialer/provider'
 import { tickDialer } from './handset/dialer/tick'
+import { receptionistProviderResponse } from './handset/receptionist/authorization'
 
 const api = new Hono<{ Bindings: Bindings }>()
 api.get('/health', (context) => context.json({ status: 'ok', ...deploymentHealth(context.env) }))
@@ -41,6 +42,8 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     return observeProduct(request,env,async()=>{
     const protection = await protectionCarrierResponse(request, env)
     if (protection) return protection
+    const receptionist = await receptionistProviderResponse(request, env)
+    if (receptionist) return receptionist
     const queue = await queueProviderResponse(request, env)
     if (queue) return queue
     const dialer = await dialerProviderResponse(request, env)

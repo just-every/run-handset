@@ -43,6 +43,13 @@ export interface Bindings {
  MAIL_FROM?: string
  MAIL_API_KEY?: string
  HANDSET_TWILIO_AUTH_TOKEN?: string
+ HANDSET_DIAL_ORIGIN?: string
+ HANDSET_DIAL_TOKEN?: string
+ HANDSET_STRIPE_KEY?: string
+ HANDSET_ORBIT_ORIGIN?: string
+ HANDSET_ORBIT_TOKEN?: string
+ HANDSET_HELPDESK_ORIGIN?: string
+ HANDSET_HELPDESK_TOKEN?: string
  MAIL_ACCOUNT_ID?: string
 }
 
