@@ -3,6 +3,7 @@ import type { Session } from '../../modules/operator-auth/index.mjs'
 import { commit } from '../audit/store'
 import { Fault, id, keys, text, timestamp, integer, choice, object, type ObjectValue } from '../core'
 import { recordInput, type RecordRow } from './model'
+import type { CaseAuthority } from './access'
 
 export interface CaseRow { id: string; title: string; owner_id: string; due_at: number|null; promise: string; status: string; handled: number; unread: number; version: number; actor_id: string; updated_at: number; close_reason: string }
 export async function getCase(db: D1Database, caseId: string) {
@@ -23,8 +24,9 @@ export function caseFilter(value: ObjectValue) {
  for (const key of ['unread','handled']) if (query[key]) choice(query[key], ['0','1'], key)
  return query
 }
-export async function listCases(db: D1Database, query: Record<string,string>) {
+export async function listCases(db: D1Database, query: Record<string,string>, visible?:string[]) {
  const clauses: string[] = [], values: (string|number)[] = []
+ if(visible){clauses.push('id IN (SELECT value FROM json_each(?))');values.push(JSON.stringify(visible))}
  if (query.q) { clauses.push(`(instr(lower(title),lower(?))>0 OR instr(lower(promise),lower(?))>0 OR EXISTS(SELECT 1 FROM hnd_records r WHERE r.case_id=hnd_cases.id AND instr(lower(r.data),lower(?))>0))`); values.push(query.q,query.q,query.q) }
  for (const [name, column] of [['status','status'],['ownerId','owner_id'],['unread','unread'],['handled','handled']]) if (query[name]) { clauses.push(`${column}=?`); values.push(query[name]) }
  if (query.due) { clauses.push(query.due === 'overdue' ? 'due_at<?' : 'due_at>=?'); values.push(Date.now()) }
@@ -40,10 +42,10 @@ function caseValues(value: ObjectValue, actor: Session) {
  if (status === 'closed' && !closeReason) throw new Fault('close_reason_required')
  return { title: text(value.title, 'title'), ownerId: text(value.ownerId ?? actor.operator.id,'ownerId'), dueAt, promise, status, handled: integer(value.handled ?? 0,'handled',0,1), unread: integer(value.unread ?? 1,'unread',0,1), closeReason }
 }
-export async function writeCase(env: Bindings, actor: Session, value: ObjectValue, caseId?: string) {
+export async function writeCase(env: Bindings, actor: Session, value: ObjectValue, caseId?: string, authority?:CaseAuthority) {
  const db = env.DB, v = caseValues(value,actor), now = Date.now(), target = caseId ?? id()
  const activeOwner = db.prepare(`INSERT INTO hnd_guard(ok) SELECT count(*) FROM oa_operators WHERE id=? AND status='active'`).bind(v.ownerId)
- const statements = [activeOwner]
+ const statements = [...(authority?.fences??[]),activeOwner]
  if (caseId) {
   const expected = integer(value.version,'version',1)
   const { current } = await getCase(db,caseId)
@@ -53,14 +55,14 @@ export async function writeCase(env: Bindings, actor: Session, value: ObjectValu
  } else {
   statements.push(db.prepare('INSERT INTO hnd_cases VALUES (?,?,?,?,?,?,?,?,?,?,?,?)').bind(target,v.title,v.ownerId,v.dueAt,v.promise,v.status,v.handled,v.unread,1,actor.operator.id,now,v.closeReason))
  }
- try { await commit(env,actor,caseId ? 'case.correct' : 'case.create',target,'completed',statements) }
+ try { await commit(env,actor,caseId ? 'case.correct' : 'case.create',target,'completed',statements,!authority,authority?.applied) }
  catch (error) {
   if (error instanceof Fault && error.code === 'state_changed' && caseId) throw new Fault('version_conflict',409,await getCase(db,caseId))
   throw error
  }
  return getCase(db,target)
 }
-export async function addRecord(env: Bindings, actor: Session, value: ObjectValue) {
+export async function addRecord(env: Bindings, actor: Session, value: ObjectValue, authority?:CaseAuthority) {
  const db = env.DB, v = recordInput(value), recordId = id(), now = Date.now()
  const existing = await db.prepare('SELECT * FROM hnd_records WHERE kind=? AND source=? AND source_id=?').bind(v.kind,'native',v.sourceId).first<RecordRow>()
  if (existing) {
@@ -86,11 +88,12 @@ export async function addRecord(env: Bindings, actor: Session, value: ObjectValu
  const record: RecordRow = { id: recordId, kind:v.kind,source:'native',source_id:v.sourceId,occurred_at:v.occurredAt,received_at:now,case_id:v.caseId,parent_id:v.parentId,supersedes_id:v.supersedesId,data:JSON.stringify(v.data),actor_id:actor.operator.id }
  try {
   await commit(env,actor,'record.create',recordId,'completed',[
+   ...(authority?.fences??[]),
    db.prepare('INSERT INTO hnd_records VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(...Object.values(record)),
    ...v.links.map(link=>db.prepare('INSERT INTO hnd_record_links VALUES (?,?,?)').bind(recordId,link.targetId,link.relation)),
-  ])
+  ],!authority,authority?.applied)
  } catch (error) {
-  if (String(error).includes('UNIQUE constraint failed: hnd_records.kind'))return addRecord(env,actor,value)
+  if (String(error).includes('UNIQUE constraint failed: hnd_records.kind'))return addRecord(env,actor,value,authority)
   if (/UNIQUE constraint failed: hnd_records/.test(String(error))) throw new Fault('source_or_correction_conflict',409)
   throw error
  }
@@ -103,12 +106,12 @@ export async function getRecord(db: D1Database, recordId: string) {
  const related=(await db.prepare('SELECT r.*,s.source_kind AS verified_source FROM hnd_records r LEFT JOIN hnd_record_sources s ON s.record_id=r.id WHERE r.parent_id=? ORDER BY r.occurred_at,r.received_at,r.id').bind(recordId).all<RecordRow>()).results.map(sourceRow)
  return { record:sourceRow(record), links, related }
 }
-export async function saveFilter(env: Bindings, actor: Session, value: ObjectValue) {
+export async function saveFilter(env: Bindings, actor: Session, value: ObjectValue, authority?:CaseAuthority) {
  keys(value,['name','query'])
  const filterId = id(), name = text(value.name,'name',80), query = caseFilter(object(value.query))
  try { await commit(env,actor,'filter.create',filterId,'completed',[
-  env.DB.prepare('INSERT INTO hnd_filters VALUES (?,?,?,?,?)').bind(filterId,actor.operator.id,name,JSON.stringify(query),Date.now()),
- ]) } catch(error) { if (String(error).includes('UNIQUE constraint')) throw new Fault('filter_name_exists',409); throw error }
+  ...(authority?.fences??[]),env.DB.prepare('INSERT INTO hnd_filters VALUES (?,?,?,?,?)').bind(filterId,actor.operator.id,name,JSON.stringify(query),Date.now()),
+ ],!authority,authority?.applied) } catch(error) { if (String(error).includes('UNIQUE constraint')) throw new Fault('filter_name_exists',409); throw error }
  return { id:filterId,name,query }
 }
 

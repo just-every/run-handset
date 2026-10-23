@@ -463,3 +463,66 @@ test('Exact-person audit capabilities bind current native authority and independ
   const restored=await (await runtime.request(base+'/archive/'+old.checkpoint,{headers:reviewer})).json();assert.deepEqual(restored.rows,old.rows)
  }finally{await runtime.close()}
 })
+
+test('Exact-number native work scopes isolate cases and source consent, preserve linked history, and suspend on current authority changes',async()=>{
+ const {sourceFixture}=await import('./helpers/handset-sources.mjs'),runtime=await openHandset({twilio:true})
+ try{
+  const f=await sourceFixture(runtime),native=await recordsFixture(runtime,f.cookie),base='/api/handset/sources'
+  assert.equal((await post(runtime,'/auth/operator/status',{operatorId:'synthetic-handset-2',status:'active'},f.headers)).status,200)
+  let worker={cookie:(await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'})).cookie}
+  async function create(value){const r=await post(runtime,'/api/handset/records',value,f.headers);assert.equal(r.status,201,await r.clone().text());return (await r.json()).record}
+  const foreign=await (await post(runtime,'/api/handset/cases',{title:'Private second-number caller'},f.headers)).json()
+  const foreignNumber=await create({kind:'number',sourceId:'synthetic-handset-810',caseId:foreign.current.id,occurredAt:Date.now(),data:{e164:'+15125550181'}})
+  const shared=await create({kind:'company',sourceId:'synthetic-handset-811',occurredAt:Date.now(),data:{name:'Shared repair supplier'}})
+  const ownLink=await create({kind:'comment',sourceId:'synthetic-handset-812',caseId:native.caseId,parentId:shared.id,occurredAt:Date.now(),data:{text:'Selected caller follow-up'},links:[{targetId:shared.id,relation:'company'}]})
+  const privateLink=await create({kind:'comment',sourceId:'synthetic-handset-813',caseId:foreign.current.id,parentId:shared.id,occurredAt:Date.now(),data:{text:'Private unscoped caller detail'},links:[{targetId:shared.id,relation:'company'}]})
+  assert.equal((await post(runtime,'/api/handset/cases/'+native.caseId,{title:native.detail.current.title,ownerId:'synthetic-handset-2',version:1},f.headers)).status,200)
+  assert.equal((await runtime.request('/api/handset/cases/'+native.caseId,{headers:worker})).status,403)
+  const proposal=async()=>{const v=await (await runtime.request(base+'/access',{headers:f.headers})).json();return {personId:'synthetic-handset-2',personVersion:v.people.find(p=>p.id==='synthetic-handset-2').version,numberId:native.entries.number.id,expiresAt:Date.now()+1800000,confirm:'approve exact person number work and inbound source consent'}}
+  const issue=async()=>{const r=await post(runtime,base+'/access',await proposal(),f.headers);assert.equal(r.status,201,await r.clone().text());return r.json()}
+  const grant=await issue()
+  assert.equal((await post(runtime,base+'/access',await proposal(),worker)).status,403)
+  const listed=await (await runtime.request('/api/handset/cases',{headers:worker})).json();assert.deepEqual(listed.cases.map(c=>c.id),[native.caseId])
+  assert.deepEqual((await (await runtime.request('/api/handset/cases?q=Private',{headers:worker})).json()).cases,[])
+  for(const path of ['/api/handset/cases/'+foreign.current.id,'/api/handset/records/'+foreignNumber.id,'/api/handset/records/synthetic-handset-899'])assert.equal((await runtime.request(path,{headers:worker})).status,403)
+  const linked=await (await runtime.request('/api/handset/records/'+shared.id,{headers:worker})).json()
+  assert.ok(linked.related.some(r=>r.id===ownLink.id));assert.ok(!JSON.stringify(linked).includes(privateLink.id));assert.ok(!JSON.stringify(linked).includes('Private unscoped'))
+  const update={title:'Scoped caller follow-up',ownerId:'synthetic-handset-2',version:2,promise:'Confirm replacement',dueAt:Date.now()+86400000}
+  const race=await Promise.all([post(runtime,'/api/handset/cases/'+native.caseId,update,worker),post(runtime,'/api/handset/cases/'+native.caseId,{...update,title:'Owner concurrent follow-up'},f.headers)])
+  assert.deepEqual(race.map(r=>r.status).sort(),[200,409])
+  assert.equal((await post(runtime,'/api/handset/cases/'+native.caseId+'/comment',{text:'Scoped teammate callback note'},worker)).status,201)
+  assert.equal((await post(runtime,'/api/handset/records',{kind:'comment',sourceId:'synthetic-handset-813',caseId:native.caseId,occurredAt:Date.now(),data:{text:'Attempt to read foreign replay'}},worker)).status,403)
+  assert.equal((await post(runtime,'/api/handset/records',{kind:'number',sourceId:'synthetic-handset-814',caseId:native.caseId,occurredAt:Date.now(),data:{e164:'+15125550182'}},worker)).status,403)
+  assert.equal((await post(runtime,'/api/handset/filters',{name:'Scoped due work',query:{due:'scheduled'}},worker)).status,201)
+  const consent=()=>post(runtime,base,{accountId:f.account,numberId:native.entries.number.id,confirm:'authorize signed inbound records'},worker)
+  assert.equal((await post(runtime,base,{accountId:f.account,numberId:f.numberId,confirm:'authorize signed inbound records'},worker)).status,403)
+  assert.equal((await post(runtime,base+'/revoke',{sourceId:f.source.id},worker)).status,403)
+  let created=await consent();assert.equal(created.status,201,await created.clone().text());let source=await created.json()
+  const call='synthetic-handset-815',now=new Date().toUTCString()
+  f.resource('Calls',call,{from:'+15125550126',to:'+15125550142',direction:'inbound',status:'ringing',date_created:now,start_time:null,end_time:null,duration:null})
+  const received=await f.callback({CallSid:call,To:'+15125550142',CallStatus:'ringing',SequenceNumber:'0',Timestamp:now});assert.equal(received.status,200,await received.clone().text())
+  const providerCase=(await received.json()).caseId
+  assert.equal((await runtime.request('/api/handset/cases/'+providerCase,{headers:worker})).status,200)
+  const visibleSources=await (await runtime.request(base,{headers:worker})).json();assert.ok(visibleSources.sources.every(s=>s.number_id===native.entries.number.id))
+  for(const path of ['/api/handset/audit','/api/handset/dialer','/api/handset/admin/bulk'])assert.equal((await runtime.request(path,{headers:worker})).status,403)
+  assert.equal((await post(runtime,base+'/revoke',{sourceId:source.id},worker)).status,200)
+  created=await consent();assert.equal(created.status,201);source=await created.json()
+  assert.equal((await post(runtime,'/auth/operator/role',{operatorId:'synthetic-handset-2',role:'admin'},f.headers)).status,200)
+  assert.equal((await f.callback({CallSid:call,To:'+15125550142',CallStatus:'ringing',SequenceNumber:'1',Timestamp:now})).status,403)
+  worker={cookie:(await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'})).cookie}
+  assert.equal((await runtime.request('/api/handset/cases/'+native.caseId,{headers:worker})).status,403)
+  assert.equal((await consent()).status,403)
+  const renewed=await issue();created=await consent();assert.equal(created.status,201);source=await created.json()
+  const parallel=await issue()
+  assert.equal((await post(runtime,base+'/revoke-access',{accessId:renewed.id},f.headers)).status,200)
+  for(const path of ['/api/handset/cases/'+native.caseId,base])assert.equal((await runtime.request(path,{headers:worker})).status,403)
+  assert.equal((await f.callback({CallSid:call,To:'+15125550142',CallStatus:'ringing',SequenceNumber:'2',Timestamp:now})).status,403)
+  const ownerInventory=await (await runtime.request(base+'/access',{headers:f.headers})).json()
+  assert.ok([renewed.id,parallel.id].every(id=>ownerInventory.access.find(g=>g.id===id).status==='revoked'))
+  assert.equal((await (await runtime.request(base,{headers:f.headers})).json()).sources.find(s=>s.id===source.id).status,'suspended')
+  const audit=await (await runtime.request('/api/handset/audit/export',{headers:f.headers})).json()
+  assert.ok(audit.rows.some(r=>r.action==='case.correct'&&JSON.parse(r.policy).applied.scopes?.some(s=>s.id===grant.id)))
+  assert.ok(audit.rows.some(r=>r.action==='source.receive'&&JSON.parse(r.policy).applied.access?.id===grant.id))
+  assert.ok(runtime.sourceRequests.every(r=>r.method==='GET'))
+ }finally{await runtime.close()}
+})
