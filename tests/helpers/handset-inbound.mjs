@@ -26,5 +26,13 @@ export async function inboundFixture(runtime){
   assert.equal(row.branch,branch);assert.equal(row.line_id,line.id);assert.equal(row.line_revision,line.revision)
   return xml
  }
- return {...f,base,voicemail,principal,endpoint,carrier,approve,policy,expectRoute,routeInput,get currentLine(){return line},get currentGrant(){return grant},get inboundRoute(){return route},post:(path,value,headers=f.headers)=>post(runtime,path,value,headers)}
+ async function answer(xml,parentSid,fields={},options={}){
+  const noun=xml.match(/<(Sip|Client|Number) url="([^"]+)" method="POST">([^<]+)<\//)
+  assert.ok(noun,'every new dialed leg has a signed pre-bridge authority door')
+  const sid='synthetic-handset-'+serial++,to=noun[1]==='Client'?'client:'+noun[3]:noun[3],now=new Date().toUTCString()
+  f.resource('Calls',parentSid,{direction:'inbound',from:'+15125550126',to:'+15125550125',status:'in-progress',date_created:now,start_time:now,end_time:null,duration:null})
+  f.resource('Calls',sid,{direction:'outbound-dial',parent_call_sid:parentSid,from:'+15125550125',to,status:'in-progress',date_created:now,start_time:now,end_time:null,duration:null})
+  return carrier({CallSid:sid,ParentCallSid:parentSid,From:'+15125550125',To:to,Direction:'outbound-dial',CallStatus:'in-progress',...fields},{path:new URL(noun[2].replaceAll('&amp;','&')).pathname,...options})
+ }
+ return {...f,base,voicemail,principal,endpoint,carrier,approve,policy,expectRoute,answer,routeInput,get currentLine(){return line},get currentGrant(){return grant},get inboundRoute(){return route},post:(path,value,headers=f.headers)=>post(runtime,path,value,headers)}
 }

@@ -91,6 +91,10 @@ The narrowly declared signed exceptions are:
   `POST /providers/twilio/protection/challenges/:id/:round`: voice/SIP admission
   and bounded screening rounds, with approved continuation/emergency redirects,
   challenge prompts and refusal instructions.
+- `POST /providers/twilio/protection/executive/:id/answer`: called-party
+  authorization for an already emitted executive-line Dial. Exact signed
+  parent/child readback and current source, line, routing and assistant authority
+  are required before the existing leg bridges; refusal hangs up that leg.
 - `POST /providers/twilio/dialer/:id/{answer,status}`: existing-attempt callbacks
   bound to account, From/To and provider call readback. Answer instructions
   require current source, list, qualification and recipient eligibility before
@@ -121,5 +125,6 @@ human pickup, park, transfer or received callback identity without live proof.
 Executive-line inbound approvals use the existing owner-only
 `/api/handset/front-desk/routing` and `/app/front-desk/routing` doors. The signed
 protection webhook applies their exact line/route/source revisions after
-protection screening, including on a Gather completion. No new public
-namespace, provider write, recording capture or delegation right is introduced.
+protection screening, including on a Gather completion. The called-party answer
+door rechecks authority before bridging, including revocation while ringing.
+No carrier REST write, recording capture or delegation right is introduced.

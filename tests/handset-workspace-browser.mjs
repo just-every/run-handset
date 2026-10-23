@@ -171,7 +171,7 @@ for(const width of [1440,390])test(`Executive inbound routing and suspended sour
   await page.getByLabel('Exact assistant grant for DND coverage',{exact:true}).selectOption(f.currentGrant.id)
   const consent=page.getByRole('checkbox',{name:'I approve this exact inbound coverage, voicemail and forwarding, including carrier charges',exact:true})
   await consent.check();const submit=page.getByRole('button',{name:'Approve inbound routing',exact:true});await submit.focus();await submit.press('Enter');await page.waitForLoadState('load')
-  assert.ok((await f.expectRoute('dnd_assistant')).includes('<Sip>'+f.endpoint+'</Sip>'))
+  assert.ok((await f.expectRoute('dnd_assistant')).includes('>'+f.endpoint+'</Sip>'))
   await proof('executive-routing-saved')
   await f.create('front-desk/lines',{...f.lineInput,id:f.line.id,revision:f.currentLine.revision,dnd:1})
   await page.reload();assert.ok((await page.locator('main').innerText()).includes('Line changed — approve again'));await proof('executive-routing-stale')

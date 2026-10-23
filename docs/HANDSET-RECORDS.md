@@ -323,7 +323,14 @@ line/route, revoked endpoint, expired approval or ambiguous line cannot authoriz
 a new assistant dial or external forward. A durable uncertain instruction
 receipt is committed before TwiML is returned. A repeated call webhook is
 refused, even after a restart, rather than redialing after a lost response.
-Already-started calls remain alone. A one-shot Dial ends after its bounded
+Each Dial noun supplies the signed POST called-party URL
+`/providers/twilio/protection/executive/:receipt/answer`. Before allowing the
+existing leg to bridge, it reads back the exact parent and child calls and
+rechecks the source, line, approval and delegated endpoint. Revocation while
+ringing, a changed line or a foreign child yields Hangup; no second Dial or
+carrier REST write is issued. The authorization receipt retains applied
+revisions and does not assert media delivery.
+Already-bridged calls remain alone. A one-shot Dial ends after its bounded
 connection/no-answer; Handset does not claim the remote phone rang, a person
 answered, a voicemail was captured, or the receiving display distinguished the
 assistant from the executive. Those require authorized live qualification.

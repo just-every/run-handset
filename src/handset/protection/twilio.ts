@@ -7,6 +7,7 @@ import type { Route } from './model'
 import { verifyCarrierSignature, sourceFence, routeFence, type Source } from './carrier-proof'
 import { initialChallengeResponse, answerChallenge } from './challenges'
 import { xml } from './twiml'
+import { inboundAnswer } from '../delegation/inbound-answer'
 const endpoint='/providers/twilio/protection'
 function destination(value:string){
  if(!value.startsWith('sip:'))return value
@@ -21,17 +22,19 @@ function destination(value:string){
 export async function protectionCarrierResponse(request:Request,original:Bindings):Promise<Response|null>{
  const path=new URL(request.url).pathname
  const challenge=path.match(/^\/providers\/twilio\/protection\/challenges\/([0-9a-f-]{36})\/([1-3])$/)
- if(path!==endpoint&&!path.startsWith(endpoint+'/challenges/'))return null
+ const answer=path.match(/^\/providers\/twilio\/protection\/executive\/([0-9a-f-]{36})\/answer$/)
+ if(path!==endpoint&&!path.startsWith(endpoint+'/challenges/')&&!path.startsWith(endpoint+'/executive/'))return null
  const env=runtimeBindings(original),url=new URL(request.url)
  let source:Source|null=null
  try{
-  if(path!==endpoint&&!challenge)throw new Fault('not_found',404)
+  if(path!==endpoint&&!challenge&&!answer)throw new Fault('not_found',404)
   if(url.origin!==env.AUTH_ORIGIN||url.search||request.headers.has('host')&&request.headers.get('host')?.toLowerCase()!==url.host.toLowerCase())throw new Fault('invalid_source_proof',403)
   if(request.method!=='POST')throw new Fault('method_not_allowed',405)
   if(!request.headers.get('content-type')?.startsWith('application/x-www-form-urlencoded'))throw new Fault('invalid_source_content_type',415)
   if(Number(request.headers.get('content-length')??0)>16384)throw new Fault('body_too_large',413)
   const raw=await request.text();if(new TextEncoder().encode(raw).length>16384)throw new Fault('body_too_large',413)
   const p=new URLSearchParams(raw);await verifyCarrierSignature(request,env,p)
+  if(answer)return inboundAnswer(env,answer[1],p)
   const account=text(p.get('AccountSid'),'AccountSid'),callId=text(p.get('CallSid'),'CallSid'),from=text(p.get('From'),'From'),to=text(p.get('To'),'To')
   const sources=(await env.DB.prepare(`SELECT s.*,json_extract(n.data,'$.e164') AS e164 FROM hnd_sources s JOIN oa_operators o ON o.id=s.owner_id JOIN hnd_records n ON n.id=s.number_id WHERE s.account_id=? AND s.revoked_at IS NULL AND o.role='owner' AND o.status='active' AND o.version=s.owner_version AND NOT EXISTS(SELECT 1 FROM hnd_sources newer WHERE newer.account_id=s.account_id AND newer.number_id=s.number_id AND newer.revision>s.revision) AND NOT EXISTS(SELECT 1 FROM hnd_records correction WHERE correction.supersedes_id=n.id)`).bind(account).all<Source&{e164:string}>()).results
   const sipFrom=from.startsWith('sip:')||from.startsWith('client:')
