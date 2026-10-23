@@ -63,7 +63,7 @@ bearer credential; it never borrows a cookie. MCP owner consent remains behind
 the native session fence. No current handler serves recording bytes. There are
 no Start server functions. Accepted signed Twilio ingress includes
 `/providers/twilio/events`, `/providers/twilio/queues/:id` and its offer callbacks,
-`/providers/twilio/protection` and its challenge callbacks, and
+`/providers/twilio/protection` and its challenge/executive-answer callbacks, and
 `/providers/twilio/dialer/:id/{answer,status}`, inventoried below; unimplemented
 carrier paths return no data and cause no effect.
 HND-030 inherits API and generated-handler authorization; HND-013, HND-027,
@@ -111,7 +111,7 @@ tests in `tests/handset-records.mjs`, `tests/handset-queues.mjs` and
 `tests/handset-outbound.mjs`. Every other carrier
 path retains the native namespace fence and ordinary refusal.
 
-Native front-desk and consented recording doors are now inventoried in
+Native front-desk and owner-attested recording doors are now inventoried in
 `docs/HANDSET-RECORDS.md`. `/app/front-desk` and
 `/api/handset/front-desk/*` require current native sessions and exact line
 delegation; owner-only grants never imply admin, port or media authority.
