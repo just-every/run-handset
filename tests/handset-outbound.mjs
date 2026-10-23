@@ -10,7 +10,7 @@ import { screeningJourney } from './helpers/handset-screening.mjs'
 // https://www.twilio.com/docs/usage/security
 // All network-edge identities and numbers below are controlled synthetic fixtures.
 test('Owner console policies block voice and native fax, allow exceptions, preserve personal precedence and exempt designated callbacks',async()=>{
- const runtime=await openHandset({twilio:true})
+ const runtime=await openHandset({twilio:true,callingClock:true})
  try{
   const f=await protectionFixture(runtime)
   const form=new URLSearchParams({scope:'owner',numberId:f.numberId,channel:'all',matchKind:'prefix',pattern:'+1512555',effect:'block',confirm:'apply nuisance policy'})
@@ -59,7 +59,7 @@ test('Owner console policies block voice and native fax, allow exceptions, prese
 })
 
 test('Signed compromised-device burst is contained before any paid instruction while the normal customer case and direct emergency route continue',async()=>{
- const runtime=await openHandset({twilio:true})
+ const runtime=await openHandset({twilio:true,callingClock:true})
  try{
   const f=await protectionFixture(runtime)
   const incoming=await f.callback({CallSid:'synthetic-handset-620',CallStatus:'completed',Timestamp:new Date().toISOString()})
@@ -106,7 +106,7 @@ test('Signed compromised-device burst is contained before any paid instruction w
 })
 
 test('Private policy administration rejects borrowed authority, forged carrier ingress and consent overrides; SMS and registration attacks remain contained',async()=>{
- const runtime=await openHandset({twilio:true})
+ const runtime=await openHandset({twilio:true,callingClock:true})
  try{
   const f=await protectionFixture(runtime)
   assert.equal((await runtime.request('/api/handset/protection')).status,401)
@@ -140,7 +140,7 @@ test('Private policy administration rejects borrowed authority, forged carrier i
 import { dialerFixture } from './helpers/handset-dialer.mjs'
 
 test('Each outbound mode preserves staffed inbound capacity, caller checks, progress and connected calls during pauses and approval revocation',async()=>{
- const runtime=await openHandset({twilio:true})
+ const runtime=await openHandset({twilio:true,callingClock:true})
  try{
   const f=await dialerFixture(runtime)
   for(const mode of ['preview','progressive','power','parallel','predictive']){
@@ -189,7 +189,7 @@ test('Each outbound mode preserves staffed inbound capacity, caller checks, prog
 })
 
 test('Bounded parallel calls reserve distinct waiting agents; an uncertain carrier creation is never retried or released by restart',async()=>{
- const runtime=await openHandset({twilio:true})
+ const runtime=await openHandset({twilio:true,callingClock:true})
  try{
   const f=await dialerFixture(runtime),second=await f.addAgent(),l=await f.makeList({count:4,mode:'parallel'}),run=await f.session(l,'parallel')
   await f.ready();const call1=f.prepare(l,0)
@@ -227,7 +227,7 @@ test('Bounded parallel calls reserve distinct waiting agents; an uncertain carri
 })
 
 test('Dialer exact evidence, native consent and standing policy cannot be broadened through direct APIs or stale approvals',async()=>{
- const runtime=await openHandset({twilio:true})
+ const runtime=await openHandset({twilio:true,callingClock:true})
  try{
   const f=await dialerFixture(runtime)
   assert.equal((await runtime.request(f.base)).status,401)
@@ -280,12 +280,12 @@ test('Dialer exact evidence, native consent and standing policy cannot be broade
 })
 
 test('Signed keypad screening is bounded, call-scoped and one-shot while current policy and source authority govern continuation',async()=>{
- const runtime=await openHandset({twilio:true})
+ const runtime=await openHandset({twilio:true,callingClock:true})
  try{await screeningJourney(runtime)}finally{await runtime.close()}
 })
 
 test('Imported compliance results, state rules and scoped review-dated approvals govern exact lists and paid launches',async()=>{
- const runtime=await openHandset({twilio:true})
+ const runtime=await openHandset({twilio:true,callingClock:true})
  try{
   const f=await dialerFixture(runtime),l=await f.makeList({count:1,mode:'progressive'}),recipient=l.recipients[0],run=await f.session(l,'progressive')
   await f.ready()

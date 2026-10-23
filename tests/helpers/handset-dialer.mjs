@@ -40,7 +40,7 @@ export async function dialerFixture(runtime){
  // Select an open local clock for synthetic receivers at any CI execution time.
  // Explicit quiet-hour refusal assertions still use their fixed local timestamps.
  function openTimezone(endHour=21){
-  for(const tz of ['America/New_York','America/Chicago','America/Denver','America/Los_Angeles','Pacific/Honolulu','Europe/London','Asia/Tokyo']){const parts=new Intl.DateTimeFormat('en-US',{timeZone:tz,hour:'numeric',hourCycle:'h23'}).formatToParts(new Date()),h=Number(parts.find(p=>p.type==='hour').value);if(h>=8&&h<endHour)return tz}
+  for(const tz of ['America/New_York','America/Chicago','America/Denver','America/Los_Angeles','Pacific/Honolulu']){const parts=new Intl.DateTimeFormat('en-US',{timeZone:tz,hour:'numeric',hourCycle:'h23'}).formatToParts(new Date()),h=Number(parts.find(p=>p.type==='hour').value);if(h>=8&&h<endHour)return tz}
   throw new Error('No permitted synthetic calling timezone at this UTC time')
  }
  async function makeList({count=3,mode,policyId,check=true,...extra}={}){

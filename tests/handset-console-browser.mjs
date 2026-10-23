@@ -14,7 +14,7 @@ import { metricDataset,metricStart,metricConfig } from './helpers/handset-metric
 import { importDataset } from './helpers/handset-import.mjs'
 
 for(const width of [1440,390])for(const domain of ['administration','queues','queue-media','metrics','protection','dialer'])test(`${domain} console at ${width}`,async()=>{
- const runtime=await openHandset({twilio:true}),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const runtime=await openHandset({twilio:true,callingClock:domain==='dialer'}),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage()
  page.setDefaultTimeout(10000)
  const directory=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-console'

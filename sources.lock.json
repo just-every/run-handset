@@ -3422,7 +3422,7 @@
       "executable": false
     },
     "tests/handset-console-browser.mjs": {
-      "sha256": "31bc052f3d91c879b7f4d1af9df8ea32ed2a9bcd3b9ffa59b8a56e3f8a019e66",
+      "sha256": "53f4f9d9ffe0aa94c1733f2d9419311c02201ab82a35c7d3e97d86e07996c38d",
       "executable": false
     },
     "tests/handset-import.mjs": {
@@ -3430,7 +3430,7 @@
       "executable": false
     },
     "tests/handset-outbound.mjs": {
-      "sha256": "65d7a2a733a1c745c1f9a27e6bcbd49a5d56d0e7f31483bd9573a43e135e0667",
+      "sha256": "f3c509dcfb67343a1b603c83639b368fd5ace148b8474d7dc847c87e35a0a6a6",
       "executable": false
     },
     "tests/handset-queues.mjs": {
@@ -3486,7 +3486,7 @@
       "executable": false
     },
     "tests/helpers/handset-dialer.mjs": {
-      "sha256": "755e592ddac01029f0b7d9c764e8ca68331c910152235e091bc48b92a889f6c1",
+      "sha256": "c1986163da304ad523eb18afd4ed2871f1f1ddc4279a2fc1ed6be204398114fc",
       "executable": false
     },
     "tests/helpers/handset-edges.mjs": {
@@ -3538,7 +3538,7 @@
       "executable": false
     },
     "tests/helpers/handset-worker.mjs": {
-      "sha256": "d450616658c720a953bd84f01539c218af01a82569c55f4e707d38785c073a23",
+      "sha256": "7d4b9c82386007f4fb398ffcd7504090cc07b6c9bc162dad88887e86f1a6c410",
       "executable": false
     },
     "tests/incremental-typecheck.test.mjs": {

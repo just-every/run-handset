@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module'
+import { callingClock } from './handset-clock.mjs'
 import { randomBytes } from 'node:crypto'
 import { createServer } from 'node:net'
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
@@ -79,10 +80,11 @@ async function seed(db, ownerEmail) {
  * launch headless with --use-mock-keychain and --password-store=basic, real HOME.
  * mails contains raw SendGrid JSON, without transport headers or credentials.
  */
-export async function openHandset({ liveMail = false, twilio = false, edges = null } = {}) {
+export async function openHandset({ liveMail = false, twilio = false, edges = null, callingClock: useCallingClock = false } = {}) {
   if (liveMail && ['MAIL_TO', 'MAIL_FROM', 'MAIL_API_KEY'].some(name => !process.env[name])) {
     throw new Error('Live mail requires MAIL_TO, MAIL_FROM and MAIL_API_KEY')
   }
+  const clock = useCallingClock ? callingClock() : null
   const configPath = join(root, 'dist/server/wrangler.json')
   const config = JSON.parse(await readFile(configPath, 'utf8'))
   if (!config.main || !config.assets?.directory) throw new Error('Build the Worker and assets before opening the harness')
@@ -99,7 +101,7 @@ export async function openHandset({ liveMail = false, twilio = false, edges = nu
     try { await runtime?.dispose() }
     finally {
       try { await dispatcher.close() }
-      finally { await rm(directory, { recursive: true, force: true }) }
+      finally { clock?.restore(); await rm(directory, { recursive: true, force: true }) }
     }
   })()
   async function outboundService(request) {
@@ -132,6 +134,7 @@ export async function openHandset({ liveMail = false, twilio = false, edges = nu
   try {
     options = convertV4MiniflareOptions({
       name: config.name,
+      ...(clock ? { inspectorPort: 0 } : {}),
       rootPath: base,
       modules, modulesRoot: base,
       compatibilityDate: config.compatibility_date,
@@ -164,6 +167,7 @@ export async function openHandset({ liveMail = false, twilio = false, edges = nu
     })
     runtime = new Miniflare(options)
     const ready = await runtime.ready
+    if (clock) { await runtime.dispatchFetch(new URL('/health', origin)); await clock.attach(runtime) }
     if (ready.origin !== origin) throw new Error('Worker HTTPS listener did not bind the requested origin')
     db = await runtime.getD1Database('DB')
     await migrate(db)
@@ -176,6 +180,7 @@ export async function openHandset({ liveMail = false, twilio = false, edges = nu
         dispatcher = new Agent({ connect: { rejectUnauthorized: false } })
         runtime = new Miniflare(options)
         await runtime.ready
+        if (clock) { await runtime.dispatchFetch(new URL('/health', origin)); await clock.attach(runtime) }
         db = await runtime.getD1Database('DB')
       },
       async scheduled(time = Date.now()) {
