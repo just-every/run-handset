@@ -6,6 +6,7 @@ import { choice, escape as e, Fault, id, input, json, owner, ownerFence, page, s
 import { authorizeCase, caseVisibility, combineAuthority, type CaseAuthority } from './access'
 import { authorizeRecordWrite, recordVisibility, scopedRecord, teammateRecordKinds } from './access-records'
 import { authorizeCaseAssignment, scopedPeople } from './access-people'
+import { readUsage } from './usage'
 import { kinds } from './model'
 import { casePage, casesPage, recordForm, type PersonOption } from './pages'
 import { addRecord, caseFilter, getCase, getRecord, listCases, saveFilter, writeCase } from './store'
@@ -121,10 +122,15 @@ export async function recordsDoor(request:Request,env:Bindings,actor:Session):Pr
   return html?redirect('/app/cases'):json(result,201)
  }
  if(write&&path==='/api/handset/records')return json(await add(await input(request)),201)
+ const usage=path.match(/^\/(?:app|api\/handset)\/records\/([^/]+)\/usage-receipt$/)
+ if(write&&usage){
+  owner(actor);const result=await readUsage(env,actor,usage[1],await input(request))
+  return html?redirect('/app/records/'+result.record!.id):json(result,result.replay?200:201)
+ }
  const record=path.match(/^\/(?:app|api\/handset)\/records\/([^/]+)$/)
  if(read&&record){
   await recordVisibility(env,actor,record[1]);const result=await scopedRecord(env,actor,await getRecord(db,record[1]))
-  const response=html?await recordPage(result.detail):json(result.detail)
+  const response=html?await recordPage(result.detail,owned):json(result.detail)
   // Recompute the released references and their exact capability snapshots.
   const current=await scopedRecord(env,actor,result.detail)
   return release('record.read',record[1],response,combineAuthority(result,current))
@@ -132,7 +138,9 @@ export async function recordsDoor(request:Request,env:Bindings,actor:Session):Pr
  throw new Fault('not_found',404)
 }
 
-async function recordPage(result:Awaited<ReturnType<typeof getRecord>>){
+async function recordPage(result:Awaited<ReturnType<typeof getRecord>>,owned:boolean){
  const r=result.record
- return page('Source record',`<dl>${Object.entries(r).map(([key,value])=>`<dt>${e(key)}</dt><dd>${e(value)}</dd>`).join('')}</dl><h2>Related source events</h2><ul>${result.related.map(child=>`<li><a href="/app/records/${e(child.id)}">${e(child.kind)} · ${e(child.source_id)}</a></li>`).join('')}</ul><h2>Linked sources</h2><ul>${result.links.map(l=>`<li>${e(l.relation)} <a href="/app/records/${e(l.target_id)}">${e(l.target_id)}</a></li>`).join('')}</ul>${r.parent_id?`<a href="/app/records/${e(r.parent_id)}">Parent source</a>`:''}${r.case_id?`<p><a href="/app/cases/${e(r.case_id)}">Return to case</a></p>`:''}`)
+ const usage=owned&&r.source==='twilio'&&['call_session','call_leg'].includes(r.kind)?`<form method="post" action="/app/records/${e(r.id)}/usage-receipt"><input type="hidden" name="confirm" value="read exact billed usage"><button>Read carrier price / Consultar costo</button></form><p>A carrier price is not a reconciled invoice / El costo del proveedor no es una factura conciliada.</p>`:''
+ const playback=r.kind==='recording'&&r.source==='twilio'?`<p><a href="/app/recordings/${e(r.id)}">Open recording / Abrir grabación</a></p><p>Separate exact-person playback approval is required / Se requiere permiso individual para escuchar.</p>`:''
+ return page('Source record',`${usage}${playback}<dl>${Object.entries(r).map(([key,value])=>`<dt>${e(key)}</dt><dd>${e(value)}</dd>`).join('')}</dl><h2>Related source events</h2><ul>${result.related.map(child=>`<li><a href="/app/records/${e(child.id)}">${e(child.kind)} · ${e(child.source_id)}</a></li>`).join('')}</ul><h2>Linked sources</h2><ul>${result.links.map(l=>`<li>${e(l.relation)} <a href="/app/records/${e(l.target_id)}">${e(l.target_id)}</a></li>`).join('')}</ul>${r.parent_id?`<a href="/app/records/${e(r.parent_id)}">Parent source</a>`:''}${r.case_id?`<p><a href="/app/cases/${e(r.case_id)}">Return to case</a></p>`:''}`)
 }

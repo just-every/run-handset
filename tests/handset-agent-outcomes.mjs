@@ -359,7 +359,7 @@ test('Number correction cases preserve named follow-up and withhold port, emerge
   const location = await record('location', 'location', { name: 'Austin second floor', timezone: 'America/Chicago' })
   const notice = await record('comment', 'notice', { text: 'Authorized employee reported a move; carrier validation pending' })
   const reports = [
-   ['port_pin', { port_in_request_sid: 'synthetic-handset-port-1', port_in_phone_number_sid: 'synthetic-handset-port-number-1', port_in_phone_number_status: 'port_rejected', rejection_reason: 'INVALID_PIN' }],
+   ['port_pin', { port_in_request_sid: 'synthetic-handset-port-1', phone_number_sid: 'synthetic-handset-port-number-1', port_in_phone_number_status: 'port_rejected', rejection_reason: 'INVALID_PIN' }],
    ['e911_move', { endpointId: endpoint.id, locationRecordId: location.id, changeNoticeRecordId: notice.id }],
    ['brand_registration', { sid: 'synthetic-handset-brand-1', account_sid: source.account, status: 'FAILED', failure_reason: 'Business facts need representative review' }],
    ['tollfree_verification', { sid: 'synthetic-handset-tfv-1', account_sid: source.account, tollfree_phone_number: '+15125550125', status: 'TWILIO_REJECTED', rejection_reason: 'Attestation required', error_code: 30442 }],
@@ -382,16 +382,39 @@ test('Number correction cases preserve named follow-up and withhold port, emerge
   // No PIN is accepted through this preparation or receipt API.
   assert.equal((await post(f.runtime, '/api/handset/compliance', { sourceId: source.source.id, kind: 'port_pin', report: { ...reports[0][1], port_out_pin: 'synthetic-handset-private-pin' }, dueAt, confirm: 'prepare exact compliance case' }, f.headers)).status, 400)
   const port = cases[0]
-  f.runtime.twilioResources.set('https://numbers.twilio.com/v1/Porting/PortIn/synthetic-handset-port-1/PhoneNumber/synthetic-handset-port-number-1', { account_sid: source.account, phone_number: '+15125550125', port_in_phone_number_status: 'port_pending', port_date: '2026-11-02T18:00:00Z', port_out_pin: 'synthetic-handset-private-pin' })
+  f.runtime.twilioResources.set('https://numbers.twilio.com/v1/Porting/PortIn/synthetic-handset-port-1/PhoneNumber/synthetic-handset-port-number-1', { port_in_request_sid: 'synthetic-handset-port-1', phone_number_sid: 'synthetic-handset-port-number-1', account_sid: source.account, phone_number: '+15125550125', port_in_phone_number_status: 'port_pending', port_date: '2026-11-02T18:00:00Z', port_out_pin: 'synthetic-handset-private-pin' })
   const response = await post(f.runtime, `/api/handset/compliance/${port.id}/readback`, { revision: port.revision, confirm: 'read exact compliance receipt' }, f.headers)
   assert.equal(response.status, 200)
   const observed = (await response.json()).case
   assert.equal(observed.provider_state, 'port_pending'); assert.equal(observed.status, 'follow_up')
   assert.match(observed.readback, /unproved/); assert.ok(!JSON.stringify(observed).includes('synthetic-handset-private-pin'))
+  await f.runtime.sql("UPDATE oa_operators SET role='member' WHERE id='synthetic-handset-2'")
+  for(const [kind,path,receipt] of [
+   ['brand_registration','https://messaging.twilio.com/v1/a2p/BrandRegistrations',{sid:'synthetic-handset-brand-1',account_sid:source.account,status:'APPROVED',customer_profile_bundle_sid:'synthetic-handset-private-profile'}],
+   ['tollfree_verification','https://messaging.twilio.com/v1/Tollfree/Verifications',{sid:'synthetic-handset-tfv-1',account_sid:source.account,tollfree_phone_number:'+15125550125',status:'TWILIO_APPROVED',business_contact_email:'synthetic-handset-private@example.test'}],
+  ]){
+   const row=cases.find(r=>r.kind===kind),url=path+'/'+receipt.sid
+   const read=()=>post(f.runtime,`/api/handset/compliance/${row.id}/readback`,{revision:row.revision,confirm:'read exact compliance receipt'},f.headers)
+   f.runtime.twilioResources.set(url,{...receipt,sid:'synthetic-handset-foreign'});assert.equal((await read()).status,502)
+   f.runtime.twilioResources.set(url,{...receipt,account_sid:'synthetic-handset-foreign'});assert.equal((await read()).status,502)
+   f.runtime.twilioResources.set(url,receipt)
+   const r=await read();assert.equal(r.status,200,await r.clone().text());const seen=(await r.json()).case
+   assert.equal(seen.status,'follow_up');assert.ok(!JSON.stringify(seen).includes('synthetic-handset-private'))
+   const next={revision:seen.revision,ownerId:'synthetic-handset-1',dueAt:Date.now()+3600000,nextAction:'Review remaining receiving-carrier eligibility with the named representative',confirm:'assign exact continued follow-up'}
+   assert.equal((await post(f.runtime,`/api/handset/compliance/${row.id}/follow-up`,{...next,ownerId:'synthetic-handset-2'},f.headers)).status,403)
+   const followed=await post(f.runtime,`/api/handset/compliance/${row.id}/follow-up`,next,f.headers)
+   assert.equal(followed.status,200);assert.equal((await followed.json()).case.due_at,next.dueAt)
+   assert.equal((await post(f.runtime,`/api/handset/compliance/${row.id}/follow-up`,next,f.headers)).status,409)
+   const history=await (await f.runtime.request('/api/handset/compliance/'+row.id,{headers:f.headers})).json()
+   assert.equal(history.events.filter(e=>e.kind==='follow_up').length,1)
+   assert.ok(history.events.some(e=>e.kind==='reviewed'&&e.actor_id==='synthetic-handset-1'))
+   assert.equal(history.cleanCompliance,false);assert.equal(history.cleanReputation,false)
+  }
   await f.runtime.restart()
   const all = await (await f.runtime.request('/api/handset/compliance', { headers: f.headers })).json()
   assert.equal(all.cases.length, 5); assert.equal(all.cleanCompliance, false); assert.equal(all.cleanReputation, false)
-  assert.ok(all.cases.every(r => r.due_at === dueAt && r.owner_id === 'synthetic-handset-1'))
+  assert.ok(all.cases.every(r => r.due_at >= dueAt && r.owner_id === 'synthetic-handset-1'))
+  assert.equal(all.cases.filter(r=>r.due_at===dueAt).length,3);assert.equal(all.cases.filter(r=>r.due_at>dueAt).length,2)
   assert.equal(f.runtime.sourceRequests.filter(r => r.method !== 'GET').length, 0, 'no port, address, replacement number or rotation mutation')
  } finally { await f.runtime.close() }
 })

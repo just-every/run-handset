@@ -4,17 +4,18 @@ import { id, digest, Fault, text, keys, object, integer, type ObjectValue } from
 import { commit } from '../audit/store'
 import type { AppliedPolicy } from '../audit/policy'
 import { definition, expires, reviewExpires, state, bounds, type Definition, type State, type Bounds } from './model'
+import { sponsor, humanAuthority } from './sponsors'
 import { getCase } from '../records/store'
-export interface Grant {credential_expires_at:number;credential_revision:number;id:string;name:string;definition:string;revision:number;created_by:string;owner_version:number;expires_at:number;revoked_at:number|null;reserved_cents:number;created_at:number}
-export interface Approval {id:string;grant_id:string;grant_revision:number;state_hash:string;state_json:string;approved_by:string;owner_version:number;expires_at:number;consumed_by:string|null;revoked_at:number|null}
-export interface Standing {id:string;grant_id:string;revision:number;bounds:string;approved_by:string;owner_version:number;expires_at:number;revoked_at:number|null}
+export interface Grant {scope_id:string|null;credential_expires_at:number;credential_revision:number;id:string;name:string;definition:string;revision:number;created_by:string;owner_version:number;expires_at:number;revoked_at:number|null;reserved_cents:number;created_at:number}
+export interface Approval {scope_id:string|null;id:string;grant_id:string;grant_revision:number;state_hash:string;state_json:string;approved_by:string;owner_version:number;expires_at:number;consumed_by:string|null;revoked_at:number|null}
+export interface Standing {scope_id:string|null;id:string;grant_id:string;revision:number;bounds:string;approved_by:string;owner_version:number;expires_at:number;revoked_at:number|null}
 export interface Job {id:string;grant_id:string;grant_revision:number;state_hash:string;state_json:string;approval_id:string|null;standing_id:string|null;standing_revision:number|null;approved_by:string;approved_owner_version:number;status:string;amount_cents:number;created_at:number}
-export const grantPolicy=(g:Pick<Grant,'id'|'revision'|'owner_version'>):AppliedPolicy=>({grant:{id:g.id,revision:g.revision,ownerVersion:g.owner_version}})
+export const grantPolicy=(g:Pick<Grant,'id'|'revision'|'owner_version'> & {scope_id?:string|null}):AppliedPolicy=>({grant:{id:g.id,revision:g.revision,ownerVersion:g.owner_version},...(g.scope_id?{access:{id:g.scope_id,revision:1}}:{})})
 export function grantFence(env:Bindings,g:Grant){
  return env.DB.prepare(`INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_grants g JOIN oa_operators o ON o.id=g.created_by
- WHERE g.id=? AND g.revision=? AND g.revoked_at IS NULL AND g.expires_at>? AND o.status='active' AND o.role='owner' AND o.version=g.owner_version AND g.owner_version=? AND g.credential_revision=? AND g.credential_expires_at>?`).bind(g.id,g.revision,Date.now(),g.owner_version,g.credential_revision,Date.now())
+ WHERE g.id=? AND g.revision=? AND g.revoked_at IS NULL AND g.expires_at>? AND o.status='active' AND ${humanAuthority('g')} AND o.version=g.owner_version AND g.owner_version=? AND g.credential_revision=? AND g.credential_expires_at>?`).bind(g.id,g.revision,Date.now(),g.owner_version,g.credential_revision,Date.now())
 }
-export async function grantById(db:D1Database,grantId:string){const grant=await db.prepare('SELECT id,name,definition,revision,created_by,owner_version,expires_at,revoked_at,reserved_cents,created_at,credential_expires_at,credential_revision FROM hnd_grants WHERE id=?').bind(grantId).first<Grant>();if(!grant)throw new Fault('grant_not_found',404);return grant}
+export async function grantById(db:D1Database,grantId:string){const grant=await db.prepare('SELECT id,name,definition,revision,created_by,owner_version,expires_at,revoked_at,reserved_cents,created_at,credential_expires_at,credential_revision,scope_id FROM hnd_grants WHERE id=?').bind(grantId).first<Grant>();if(!grant)throw new Fault('grant_not_found',404);return grant}
 async function selectedRecords(db:D1Database,records:string[],kind?:string){
  for(const recordId of records){
   const result=await db.prepare(kind?'SELECT kind FROM hnd_records WHERE id=?':'SELECT id FROM hnd_cases WHERE id=?').bind(recordId).first<{kind?:string}>()
@@ -25,13 +26,15 @@ export async function issue(env:Bindings,actor:Session,value:ObjectValue){
  keys(value,['name','definition','expiresAt','confirm'])
  if(value.confirm!=='approve scoped credential')throw new Fault('explicit_grant_consent_required')
  const d=definition(object(value.definition)),expiresAt=reviewExpires(value.expiresAt),grantId=id()
+ const authority=await sponsor(env,actor,d,'issue',expiresAt)
  await selectedRecords(env.DB,d.records);await selectedRecords(env.DB,d.numbers,'number');await selectedRecords(env.DB,d.recipients,'person')
  const random=crypto.getRandomValues(new Uint8Array(32)),token=btoa(String.fromCharCode(...random)).replaceAll('+','-').replaceAll('/','_').replaceAll('=','')
  const tokenHash=await digest(token),name=text(value.name,'name',80),now=Date.now()
  await commit(env,actor,'grant.create',grantId,'completed',[
-  env.DB.prepare('INSERT INTO hnd_grants(id,name,token_hash,definition,revision,created_by,owner_version,expires_at,revoked_at,reserved_cents,created_at,credential_expires_at,credential_revision) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(grantId,name,tokenHash,JSON.stringify(d),1,actor.operator.id,actor.operator.version,expiresAt,null,0,now,Math.min(expiresAt,now+86400000),1),
+  ...authority.fences,
+  env.DB.prepare('INSERT INTO hnd_grants(id,name,token_hash,definition,revision,created_by,owner_version,expires_at,revoked_at,reserved_cents,created_at,credential_expires_at,credential_revision,scope_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(grantId,name,tokenHash,JSON.stringify(d),1,actor.operator.id,actor.operator.version,expiresAt,null,0,now,Math.min(expiresAt,now+86400000),1,authority.id),
   env.DB.prepare('INSERT INTO hnd_authority_history VALUES (?,?,?,?,?,?)').bind(id(),grantId,1,JSON.stringify(d),actor.operator.id,now),
- ],true,grantPolicy({id:grantId,revision:1,owner_version:actor.operator.version}))
+ ],false,grantPolicy({id:grantId,revision:1,owner_version:actor.operator.version,scope_id:authority.id}))
  return {grant:await grantById(env.DB,grantId),token}
 }
 export async function revokeGrant(env:Bindings,actor:Session,grantId:string){
@@ -63,12 +66,13 @@ export async function approve(env:Bindings,actor:Session,value:ObjectValue){
  if(grant.revoked_at||grant.expires_at<=Date.now())throw new Fault('grant_inactive',409)
  // Attestation-bearing operations remain human-only even with a paid-work grant.
  if(s.operation==='number.port')throw new Fault('human_attestation_door_unavailable',409)
+ const authority=await sponsor(env,actor,JSON.parse(grant.definition),'approve',Math.min(expiry,grant.expires_at))
  await checkState(env,grant,s)
  const approvalId=id(),stateHash=await digest(s),now=Date.now()
  await commit(env,actor,'approval.create',approvalId,'completed',[
-  grantFence(env,grant),
-  env.DB.prepare('INSERT INTO hnd_approvals VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(approvalId,grant.id,grant.revision,stateHash,JSON.stringify(s),actor.operator.id,actor.operator.version,Math.min(expiry,grant.expires_at),null,null,now),
- ],true,{...grantPolicy(grant),approval:{id:approvalId,revision:1,ownerVersion:actor.operator.version}})
+  grantFence(env,grant),...authority.fences,
+  env.DB.prepare('INSERT INTO hnd_approvals VALUES (?,?,?,?,?,?,?,?,?,?,?,?)').bind(approvalId,grant.id,grant.revision,stateHash,JSON.stringify(s),actor.operator.id,actor.operator.version,Math.min(expiry,grant.expires_at),null,null,now,authority.id),
+ ],false,{...grantPolicy(grant),...(authority.id?{scopes:[{id:authority.id,revision:1}]}:{}),approval:{id:approvalId,revision:1,ownerVersion:actor.operator.version}})
  return {id:approvalId,state:s,stateHash,approvedBy:actor.operator.id,expiresAt:Math.min(expiry,grant.expires_at)}
 }
 export async function writeStanding(env:Bindings,actor:Session,value:ObjectValue,policyId?:string){
@@ -77,17 +81,18 @@ export async function writeStanding(env:Bindings,actor:Session,value:ObjectValue
  const grant=await grantById(env.DB,text(value.grantId,'grantId')),b=bounds(value.bounds),expiry=Math.min(expires(value.expiresAt),grant.expires_at),now=Date.now(),target=policyId??id()
  const d=JSON.parse(grant.definition) as Definition
  if(grant.revoked_at||expiry<=now||!d.tools.includes('call.paid')||!d.scopes.includes('send')||!d.numbers.includes(b.numberId)||b.recipients.some(r=>!d.recipients.includes(r))||b.maxCents>d.budgetCents||b.policyRevision!==d.policyRevision)throw new Fault('standing_bounds_out_of_scope',403)
+ const authority=await sponsor(env,actor,d,'standing',expiry)
  let revision=1
- const statements:D1PreparedStatement[]=[grantFence(env,grant)]
+ const statements:D1PreparedStatement[]=[grantFence(env,grant),...authority.fences]
  if(policyId){
   const current=await env.DB.prepare('SELECT * FROM hnd_standing WHERE id=? AND grant_id=?').bind(policyId,grant.id).first<Standing>()
   if(!current||current.revoked_at||current.revision!==integer(value.revision,'revision',1))throw new Fault('standing_revision_conflict',409)
   revision=current.revision+1
   statements.push(env.DB.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_standing WHERE id=? AND revision=? AND revoked_at IS NULL').bind(policyId,current.revision))
-  statements.push(env.DB.prepare('UPDATE hnd_standing SET revision=?,bounds=?,approved_by=?,owner_version=?,expires_at=? WHERE id=?').bind(revision,JSON.stringify(b),actor.operator.id,actor.operator.version,expiry,policyId))
- }else statements.push(env.DB.prepare('INSERT INTO hnd_standing VALUES (?,?,?,?,?,?,?,?,?)').bind(target,grant.id,revision,JSON.stringify(b),actor.operator.id,actor.operator.version,expiry,null,now))
+  statements.push(env.DB.prepare('UPDATE hnd_standing SET revision=?,bounds=?,approved_by=?,owner_version=?,expires_at=?,scope_id=? WHERE id=?').bind(revision,JSON.stringify(b),actor.operator.id,actor.operator.version,expiry,authority.id,policyId))
+ }else statements.push(env.DB.prepare('INSERT INTO hnd_standing VALUES (?,?,?,?,?,?,?,?,?,?)').bind(target,grant.id,revision,JSON.stringify(b),actor.operator.id,actor.operator.version,expiry,null,now,authority.id))
  statements.push(env.DB.prepare('INSERT INTO hnd_authority_history VALUES (?,?,?,?,?,?)').bind(id(),target,revision,JSON.stringify(b),actor.operator.id,now))
- await commit(env,actor,'policy.create',target,'completed',statements,true,{...grantPolicy(grant),standing:{id:target,revision,ownerVersion:actor.operator.version}})
+ await commit(env,actor,'policy.create',target,'completed',statements,false,{...grantPolicy(grant),...(authority.id?{scopes:[{id:authority.id,revision:1}]}:{}),standing:{id:target,revision,ownerVersion:actor.operator.version}})
  return {id:target,revision,bounds:b,approvedBy:actor.operator.id}
 }
 export const policyMatches=(b:Bounds,s:State)=>s.operation==='call.paid'&&s.numberId===b.numberId&&s.recipients.length>0&&s.recipients.length<=b.maxListSize&&s.recipients.every(r=>b.recipients.includes(r))&&s.amountCents<=b.maxCents&&s.flowRevision===b.flowRevision&&s.policyRevision===b.policyRevision
@@ -116,7 +121,7 @@ export async function rotateCredential(env: Bindings, actor: Session, grantId: s
  if (grant.revoked_at || grant.expires_at <= now) throw new Fault('grant_inactive', 409)
  const token = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).replaceAll('+','-').replaceAll('/','_').replaceAll('=','')
  await commit(env, actor, 'grant.rotate', grantId, 'completed', [
-  env.DB.prepare(`INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_grants g JOIN oa_operators o ON o.id=g.created_by WHERE g.id=? AND g.revision=? AND g.credential_revision=? AND g.revoked_at IS NULL AND g.expires_at>? AND o.status='active' AND o.role='owner' AND o.version=g.owner_version`).bind(grant.id,grant.revision,grant.credential_revision,now),
+  env.DB.prepare(`INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_grants g JOIN oa_operators o ON o.id=g.created_by WHERE g.id=? AND g.revision=? AND g.credential_revision=? AND g.revoked_at IS NULL AND g.expires_at>? AND o.status='active' AND ${humanAuthority('g')} AND o.version=g.owner_version`).bind(grant.id,grant.revision,grant.credential_revision,now),
   env.DB.prepare('UPDATE hnd_grants SET token_hash=?,credential_expires_at=?,credential_revision=credential_revision+1 WHERE id=?').bind(await digest(token),Math.min(grant.expires_at,now+86400000),grantId),
  ], true, grantPolicy(grant))
  return { grant: await grantById(env.DB, grantId), token }

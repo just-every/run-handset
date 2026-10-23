@@ -3,6 +3,7 @@ import type { Session } from '../../modules/operator-auth/index.mjs'
 import { session, owner, json, input, Fault, page } from '../core'
 import { delegationDoor } from '../delegation/doors'
 import { recordingsPage } from '../recording/doors'
+import { scopeDoor } from '../authority/sponsors'
 import { authorityDoor } from '../authority/doors'
 import { auditDoor } from '../audit/doors'
 import { denied } from '../audit/store'
@@ -62,6 +63,10 @@ export async function productResponse(request: Request, original: Bindings): Pro
   }
   const records=await recordsDoor(request,env,actor)
   if(records)return records
+  if(path==='/api/handset/grant-scopes'||path.startsWith('/api/handset/grant-scopes/'))return await scopeDoor(request,env,actor,request.method==='GET'?undefined:await input(request))
+  // Delegated human authority uses native sessions at these existing API doors.
+  // Administrative listings and credential management remain owner-only.
+  if(actor.operator.role!=='owner'&&request.method==='POST'&&['/api/handset/grants','/api/handset/mcp/consent','/api/handset/grants/approve','/api/handset/grants/policy'].includes(path))return await authorityDoor(request,env,actor,await input(request))
   try { owner(actor) } catch(error) { await denied(env,actor,'product.access'); throw error }
   const read = request.method === 'GET', write = request.method === 'POST'
   for(const [root,door] of [

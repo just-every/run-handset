@@ -112,7 +112,7 @@ journeys are not certified by this implementation.
 revocation. `/app/grants/consent` is the MCP owner-consent entry point.
 `GET/POST /api/handset/mcp/consent` is the corresponding authenticated native
 owner door. POST requires `confirm:"approve scoped credential"`, a name,
-`expiresAt` no more than one day away, and `definition`:
+`expiresAt` no more than 90 days away, and `definition`:
 
 ```json
 {"scopes":["read"],"tools":["case.read"],"records":["selected-case-id"],"numbers":[],"recipients":[],"budgetCents":0,"policyRevision":"owner-only-v1"}
@@ -172,6 +172,64 @@ reservation. `POST /api/handset/grants/:id/revoke` cancels all pending jobs,
 releases reservations and preserves completed draft/read/authority evidence.
 HND-021/030 and all qualified effect producers inherit the final atomic authority
 and audit checks; the current held state does not prove those future effects.
+
+## Explicit human sponsorship
+
+The installation owner uses `POST /api/handset/grant-scopes` with
+`operatorId`, an exact grant `definition`, `permissions`, `expiresAt`, and
+`confirm: "delegate exact application authority"`. Permissions are individually
+selected from `issue`, `approve`, and `standing`. Each immutable delegation binds
+the current named person and issuing owner versions, exact cases, numbers,
+recipients, tools, policy revision and maximum budget per application grant.
+No native role grants these permissions automatically. Review is within 90 days.
+A delegated person cannot redelegate these human permissions.
+
+A current native person can issue a subset through `POST /api/handset/grants`
+or `POST /api/handset/mcp/consent`, approve an exact state through
+`POST /api/handset/grants/approve`, or create standing call bounds through
+`POST /api/handset/grants/policy`, only with the corresponding explicit permission.
+Their delegation must cover the whole application definition and the resulting
+review lifetime. Caller outcome work remains outside these delegations. The
+owner console, inventory, secret rotation and administrative revocation remain
+owner-only; delegated native forms are still pending.
+
+`POST /api/handset/grant-scopes/:id/revoke` accepts an empty object from the
+owner. It cancels only work authorized by that scope and releases each held
+reservation once. Every credential use and pending execution checks the bound
+scope and both current people again. A new scope never revives old credentials.
+Historical grants, approvals and checked lists retain their authorizing person.
+The conservative default is owner-issued exact-person permission with no new
+provider effects; ct approval of this delegated API policy remains pending.
+
+Application secret expiry is independent of the review date and is at most
+24 hours. Owner `POST /api/handset/grants/:id/rotate` returns the replacement
+secret once and preserves reviewed scopes and approval revisions. Individual
+`POST /api/handset/grants/approval/:id/revoke` and
+`POST /api/handset/grants/policy/:id/revoke` cancel only their linked pending work.
+
+## Carrier price observations and recording links
+
+On a signed carrier call record, the owner can select **Read carrier price** or
+use `POST /api/handset/records/:id/usage-receipt` with
+`confirm: "read exact billed usage"`. This reads the exact Twilio Call resource;
+it never changes the call or charges an account. Account, call, both endpoints,
+terminal state, USD unit and provider times must match before a usage record is
+appended to the same case and call. Current native owner and source consent are
+checked again after the network read.
+
+The original provider price string and exact integer USD millionths are retained.
+Positive `amountMicrousd` means a charge and negative means a credit; no fractional
+cent is rounded away. A repeated observation returns the original stable record.
+A newer provider correction appends a superseding record; a stale or conflicting
+provider time cannot replace it. Carrier price observation never proves an invoice
+was reconciled, a payment settled or a customer outcome completed. Other billed
+usage producers and full invoice reconciliation remain separate work.
+
+Case timelines and source records link to the existing recording player in
+English and Spanish. Viewing the metadata grants no playback permission: the
+player still requires separate exact-person owner attestation, provider identity
+readback and current consent checks before bytes are released. This linkage does
+not prove capture consent, retained media custody or bilingual transcription.
 
 ## Verified Twilio source records
 

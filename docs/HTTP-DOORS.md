@@ -159,3 +159,15 @@ The native owner consoles `/app/rules`, `/app/followups`, `/app/recovery` and
 Each form checks same-origin sessions before dispatch and the same current
 authority, revision and source fences inside its mutation. Operations exports
 are available from the assessment card under the same owner boundary.
+
+
+Explicit owner-managed human application scopes use
+`/api/handset/grant-scopes` and its exact revoke child. Only the existing native
+POST credential issuance, exact approval and standing-policy doors accept a
+current delegated person; owner inventory and administration remain restricted.
+Bearer applications cannot enter those native doors or delegate human authority.
+See `docs/HANDSET-RECORDS.md` for the exact selected permissions and revocation.
+The owner-only usage receipt child on a source call reads carrier price and
+rechecks current source consent before appending canonical facts. It grants no
+outbound effect or playback access. Compliance follow-up and case history use the
+same current native owner checks as the existing compliance API.

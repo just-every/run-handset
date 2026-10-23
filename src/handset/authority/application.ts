@@ -7,6 +7,7 @@ import { getCase } from '../records/store'
 import { scopeFor, state, type State, type Definition, type Bounds, type Tool } from './model'
 import { mcpTools, mcpToolResult } from '../api/mcp'
 import { agentDoor } from '../receptionist/doors'
+import { humanAuthority } from './sponsors'
 import { checkState, grantFence, grantPolicy, policyMatches, type Grant, type Approval, type Standing, type Job } from './store'
 
 export { grantFence } from './store'
@@ -17,7 +18,7 @@ export async function applicationAuth(request:Request,env:Bindings,applied:Appli
  const grant=await env.DB.prepare('SELECT * FROM hnd_grants WHERE token_hash=?').bind(hash).first<Grant>()
  if(!grant)throw new Fault('application_credential_inactive',401)
  Object.assign(applied,grantPolicy(grant))
- if(grant.revoked_at||grant.expires_at<=Date.now()||grant.credential_expires_at<=Date.now()||!await env.DB.prepare("SELECT id FROM oa_operators WHERE id=? AND status='active' AND role='owner' AND version=?").bind(grant.created_by,grant.owner_version).first())throw new Fault('application_credential_inactive',401)
+ if(grant.revoked_at||grant.expires_at<=Date.now()||grant.credential_expires_at<=Date.now()||!await env.DB.prepare(`SELECT g.id FROM hnd_grants g JOIN oa_operators o ON o.id=g.created_by WHERE g.id=? AND o.status='active' AND o.version=g.owner_version AND ${humanAuthority('g')}`).bind(grant.id).first())throw new Fault('application_credential_inactive',401)
  return grant
 }
 export async function applicationRead(env:Bindings,g:Grant,caseId:string){
@@ -49,14 +50,14 @@ async function authority(env:Bindings,g:Grant,s:State,value:ObjectValue,applied:
   const approval=await env.DB.prepare('SELECT * FROM hnd_approvals WHERE id=? AND grant_id=?').bind(text(value.approvalId,'approvalId'),g.id).first<Approval>()
   if(approval)applied.approval={id:approval.id,revision:1,ownerVersion:approval.owner_version}
   if(!approval||approval.revoked_at||approval.expires_at<=Date.now()||approval.grant_revision!==g.revision||approval.state_hash!==await digest(s)||approval.consumed_by)throw new Fault('exact_approval_required',403)
-  const fence=env.DB.prepare(`INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_approvals a JOIN oa_operators o ON o.id=a.approved_by WHERE a.id=? AND a.grant_id=? AND a.grant_revision=? AND a.state_hash=? AND a.revoked_at IS NULL AND a.expires_at>? AND a.consumed_by IS NULL AND o.status='active' AND o.role='owner' AND o.version=a.owner_version AND a.owner_version=?`).bind(approval.id,g.id,g.revision,approval.state_hash,Date.now(),approval.owner_version)
+  const fence=env.DB.prepare(`INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_approvals a JOIN oa_operators o ON o.id=a.approved_by WHERE a.id=? AND a.grant_id=? AND a.grant_revision=? AND a.state_hash=? AND a.revoked_at IS NULL AND a.expires_at>? AND a.consumed_by IS NULL AND o.status='active' AND ${humanAuthority('a')} AND o.version=a.owner_version AND a.owner_version=?`).bind(approval.id,g.id,g.revision,approval.state_hash,Date.now(),approval.owner_version)
   return {approvedBy:approval.approved_by,ownerVersion:approval.owner_version,approvalId:approval.id,standingId:null,standingRevision:null,fence}
  }
  if(value.standingId){
   const standing=await env.DB.prepare('SELECT * FROM hnd_standing WHERE id=? AND grant_id=?').bind(text(value.standingId,'standingId'),g.id).first<Standing>()
   if(standing)applied.standing={id:standing.id,revision:standing.revision,ownerVersion:standing.owner_version}
   if(!standing||standing.revoked_at||standing.expires_at<=Date.now()||!policyMatches(JSON.parse(standing.bounds) as Bounds,s))throw new Fault('standing_snapshot_out_of_bounds',403)
-  const fence=env.DB.prepare(`INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_standing p JOIN oa_operators o ON o.id=p.approved_by WHERE p.id=? AND p.revision=? AND p.owner_version=? AND p.revoked_at IS NULL AND p.expires_at>? AND o.status='active' AND o.role='owner' AND o.version=p.owner_version`).bind(standing.id,standing.revision,standing.owner_version,Date.now())
+  const fence=env.DB.prepare(`INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_standing p JOIN oa_operators o ON o.id=p.approved_by WHERE p.id=? AND p.revision=? AND p.owner_version=? AND p.revoked_at IS NULL AND p.expires_at>? AND o.status='active' AND ${humanAuthority('p')} AND o.version=p.owner_version`).bind(standing.id,standing.revision,standing.owner_version,Date.now())
   return {approvedBy:standing.approved_by,ownerVersion:standing.owner_version,approvalId:null,standingId:standing.id,standingRevision:standing.revision,fence}
  }
  throw new Fault('exact_human_approval_required',403)
@@ -98,9 +99,9 @@ async function execute(env:Bindings,g:Grant,value:ObjectValue,applied:AppliedPol
  if(job.standing_id){
   const p=await env.DB.prepare('SELECT * FROM hnd_standing WHERE id=?').bind(job.standing_id).first<Standing>()
   if(!p||p.revision!==job.standing_revision||p.owner_version!==job.approved_owner_version||!policyMatches(JSON.parse(p.bounds),s))throw new Fault('standing_policy_changed',409)
-  approvalFence=env.DB.prepare(`INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_standing p JOIN oa_operators o ON o.id=p.approved_by WHERE p.id=? AND p.revision=? AND p.owner_version=? AND p.revoked_at IS NULL AND p.expires_at>? AND o.role='owner' AND o.status='active' AND o.version=p.owner_version`).bind(p.id,p.revision,p.owner_version,Date.now())
+  approvalFence=env.DB.prepare(`INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_standing p JOIN oa_operators o ON o.id=p.approved_by WHERE p.id=? AND p.revision=? AND p.owner_version=? AND p.revoked_at IS NULL AND p.expires_at>? AND ${humanAuthority('p')} AND o.status='active' AND o.version=p.owner_version`).bind(p.id,p.revision,p.owner_version,Date.now())
  }else{
-  approvalFence=env.DB.prepare(`INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_approvals a JOIN oa_operators o ON o.id=a.approved_by WHERE a.id=? AND a.consumed_by=? AND a.grant_id=? AND a.grant_revision=? AND a.state_hash=? AND a.owner_version=? AND a.revoked_at IS NULL AND a.expires_at>? AND o.role='owner' AND o.status='active' AND o.version=a.owner_version`).bind(job.approval_id,job.id,g.id,job.grant_revision,job.state_hash,job.approved_owner_version,Date.now())
+  approvalFence=env.DB.prepare(`INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_approvals a JOIN oa_operators o ON o.id=a.approved_by WHERE a.id=? AND a.consumed_by=? AND a.grant_id=? AND a.grant_revision=? AND a.state_hash=? AND a.owner_version=? AND a.revoked_at IS NULL AND a.expires_at>? AND ${humanAuthority('a')} AND o.status='active' AND o.version=a.owner_version`).bind(job.approval_id,job.id,g.id,job.grant_revision,job.state_hash,job.approved_owner_version,Date.now())
  }
  await append(env,g.id,'application.execute',job.id,'refused',[
   grantFence(env,g),approvalFence,env.DB.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_cases WHERE id=? AND version=?').bind(s.caseId,s.caseVersion),

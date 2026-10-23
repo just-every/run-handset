@@ -343,3 +343,74 @@ test('A reviewed grant survives secret expiry and rotation without extending its
   assert.equal((await post(runtime, '/api/handset/grants', { ...f.grantInput, expiresAt: Date.now() + 91 * 86400000 }, f.headers)).status, 400)
  } finally { await runtime.close() }
 })
+
+test('Named sponsors issue only the exact delegated application scope and revoked scope never revives old credentials', async () => {
+ const runtime = await openHandset()
+ try {
+  const f = await authorityFixture(runtime)
+  await runtime.sql("UPDATE oa_operators SET status='active',role='admin' WHERE id='synthetic-handset-2'")
+  const person = await signIn({ ...runtime, ownerEmail: 'synthetic-handset-2@example.test' }), headers = { cookie: person.cookie }
+  const definition = { ...f.definition, scopes: ['read','draft'], tools: ['case.read','comment.draft'], budgetCents: 0 }
+  const input = { operatorId: 'synthetic-handset-2', definition, permissions: ['issue'], expiresAt: Date.now()+7200000, confirm: 'delegate exact application authority' }
+  assert.equal((await post(runtime, '/api/handset/grant-scopes', input, headers)).status, 403)
+  const scope = await f.create('/api/handset/grant-scopes', input)
+  const issue = extra => post(runtime, '/api/handset/mcp/consent', { ...f.grantInput, definition, ...extra }, headers)
+  for (const changed of [{ budgetCents: 1 }, { tools: ['case.read','comment.draft','message.send'], scopes: ['read','draft','send'] }, { policyRevision: 'broader' }]) assert.equal((await issue({ definition: { ...definition, ...changed } })).status, 403)
+  assert.equal((await issue({ expiresAt: Date.now()+10800000 })).status, 403)
+  const created = await issue({}); assert.equal(created.status, 201, await created.clone().text()); const g = await created.json()
+  assert.equal(g.grant.created_by, 'synthetic-handset-2'); assert.equal(g.grant.scope_id, scope.id)
+  const read = () => runtime.request('/api/handset/application/cases/'+f.caseId, { headers: { authorization: 'Bearer '+g.token } })
+  assert.equal((await read()).status, 200)
+  assert.equal((await f.app(g.token, 'drafts', { caseId: f.caseId, text: 'Please review this unpublished reply' })).status, 201)
+  const foreign = await f.create('/api/handset/cases', { title: 'Other team' })
+  assert.equal((await issue({ definition: { ...definition, records: [...definition.records, foreign.current.id] } })).status, 403)
+  assert.equal((await runtime.request('/api/handset/grants', { headers })).status, 403, 'scope issuance never exposes the owner inventory')
+  assert.equal((await post(runtime, '/api/handset/grant-scopes', input, { authorization: 'Bearer '+g.token })).status, 401)
+  await post(runtime, '/api/handset/grant-scopes/'+scope.id+'/revoke', {}, f.headers)
+  await runtime.restart(); assert.equal((await read()).status, 401)
+  await f.create('/api/handset/grant-scopes', input)
+  assert.equal((await read()).status, 401, 'replacement delegation never revives the old credential')
+  const fresh = await (await issue({})).json()
+  await runtime.sql("UPDATE oa_operators SET version=version+1 WHERE id='synthetic-handset-2'")
+  assert.equal((await runtime.request('/api/handset/application/cases/'+f.caseId, { headers: { authorization: 'Bearer '+fresh.token } })).status, 401)
+ } finally { await runtime.close() }
+})
+
+test('Scoped human approval and manager standing bounds retain attribution and cancel only their pending reservations on revocation', async () => {
+ const runtime = await openHandset()
+ try {
+  const f = await authorityFixture(runtime), g = await f.issue()
+  await runtime.sql("UPDATE oa_operators SET status='active',role='admin' WHERE id='synthetic-handset-2'")
+  const person = await signIn({ ...runtime, ownerEmail: 'synthetic-handset-2@example.test' }), headers = { cookie: person.cookie }
+  const input = { operatorId: 'synthetic-handset-2', definition: f.definition, permissions: ['approve'], expiresAt: Date.now()+7200000, confirm: 'delegate exact application authority' }
+  const exactScope = await f.create('/api/handset/grant-scopes', input)
+  const approvalInput = { grantId: g.grant.id, state: f.proposed, expiresAt: Date.now()+1800000, confirm: 'approve exact reviewed state' }
+  const policyInput = { grantId: g.grant.id, bounds: { numberId: f.number, recipients: f.recipients, maxCents: 100, maxListSize: 2, flowRevision: '1', policyRevision: 'owner-only-v1' }, expiresAt: Date.now()+1800000, confirm: 'approve standing call bounds' }
+  assert.equal((await post(runtime, '/api/handset/grants/policy', policyInput, headers)).status, 403, 'exact approval permission is not standing policy permission')
+  const exactResponse = await post(runtime, '/api/handset/grants/approve', approvalInput, headers)
+  assert.equal(exactResponse.status, 201, await exactResponse.clone().text()); const exact = await exactResponse.json()
+  const managerScope = await f.create('/api/handset/grant-scopes', { ...input, permissions: ['standing'] })
+  const policyResponse = await post(runtime, '/api/handset/grants/policy', policyInput, headers)
+  assert.equal(policyResponse.status, 201, await policyResponse.clone().text()); const policy = await policyResponse.json()
+  const jobs = []
+  for (const basis of [{ approvalId: exact.id }, { standingId: policy.id }]) {
+   const response = await f.app(g.token, 'prepare', { state: f.proposed, ...basis, idempotencyKey: 'synthetic-handset-manager-'+jobs.length })
+   assert.equal(response.status, 202, await response.clone().text()); const job = (await response.json()).job
+   assert.equal(job.approved_by, 'synthetic-handset-2'); jobs.push(job)
+  }
+  assert.equal((await f.app(g.token, 'prepare', { state: { ...f.proposed, operation: 'campaign.launch' }, standingId: policy.id, idempotencyKey: 'synthetic-handset-manager-campaign' })).status, 403)
+  assert.equal((await f.app(g.token, 'prepare', { state: { ...f.proposed, amountCents: 101 }, standingId: policy.id, idempotencyKey: 'synthetic-handset-manager-price' })).status, 403)
+  assert.equal((await f.app(g.token, 'execute', { jobId: jobs[1].id, state: f.proposed })).status, 202)
+  for (const scope of [exactScope, managerScope]) {
+   const raced = await Promise.all([1,2].map(() => post(runtime, '/api/handset/grant-scopes/'+scope.id+'/revoke', {}, f.headers)))
+   assert.ok(raced.every(r=>r.status===200))
+   const index = scope===exactScope?0:1
+   assert.equal((await f.app(g.token, 'execute', { jobId: jobs[index].id, state: f.proposed })).status, 403)
+   assert.equal((await runtime.sql('SELECT reserved_cents FROM hnd_grants WHERE id=?', g.grant.id)).results[0].reserved_cents, index===0?60:0)
+   if(index===0)assert.equal((await f.app(g.token, 'execute', { jobId: jobs[1].id, state: f.proposed })).status, 202)
+  }
+  await runtime.restart()
+  assert.equal((await f.app(g.token, 'prepare', { state: f.proposed, standingId: policy.id, idempotencyKey: 'synthetic-handset-manager-revoked' })).status, 409)
+  assert.equal((await runtime.sql('SELECT COUNT(*) AS n FROM hnd_jobs WHERE approved_by=? AND status=?', 'synthetic-handset-2','cancelled')).results[0].n, 2)
+ } finally { await runtime.close() }
+})

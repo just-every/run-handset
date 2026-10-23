@@ -526,3 +526,43 @@ test('Exact-number native work scopes isolate cases and source consent, preserve
   assert.ok(runtime.sourceRequests.every(r=>r.method==='GET'))
  }finally{await runtime.close()}
 })
+
+test('Carrier price readback preserves exact USD precision and append-only corrections without inventing invoice settlement', async () => {
+ const { sourceFixture } = await import('./helpers/handset-sources.mjs'), runtime = await openHandset({ twilio: true })
+ try {
+  const f = await sourceFixture(runtime), sid = 'synthetic-handset-usage-1', time = new Date(Date.now()-60000).toUTCString()
+  const incoming = await f.callback({ CallSid: sid, CallStatus: 'completed', SequenceNumber: '1', Timestamp: time })
+  assert.equal(incoming.status, 200); const linked = await incoming.json(), path = '/api/handset/records/'+linked.recordId+'/usage-receipt'
+  const receipt = { account_sid: f.account, sid, from: '+15125550126', to: '+15125550125', status: 'completed', end_time: time, date_updated: time, price: '-0.01350', price_unit: 'USD' }
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${f.account}/Calls/${sid}.json`
+  const read = () => post(runtime, path, { confirm: 'read exact billed usage' }, f.headers)
+  assert.equal((await post(runtime, path, { confirm: 'read exact billed usage' })).status, 401)
+  for(const invalid of [{sid:'synthetic-handset-foreign'},{account_sid:'synthetic-handset-foreign'},{from:'+15125550199'}]){
+   runtime.twilioResources.set(url,{...receipt,...invalid});assert.equal((await read()).status,502)
+  }
+  for(const invalid of [{price:null},{price_unit:'CAD'},{price:'-0.0000001'}]){
+   runtime.twilioResources.set(url,{...receipt,...invalid});assert.equal((await read()).status,503)
+  }
+  runtime.twilioResources.set(url,receipt)
+  const first=await read();assert.equal(first.status,201,await first.clone().text());const original=(await first.json()).record
+  const amount=JSON.parse(original.data);assert.equal(amount.amountMicrousd,13500);assert.equal(amount.providerPriceUsd,'-0.01350');assert.equal(amount.invoiceReconciled,false)
+  assert.equal(original.parent_id,linked.recordId);assert.equal(original.occurred_at,Date.parse(time))
+  await runtime.restart();const replay=await read();assert.equal(replay.status,200);assert.equal((await replay.json()).record.id,original.id)
+  runtime.twilioResources.set(url,{...receipt,price:'-0.02350',date_updated:new Date(Date.now()).toUTCString()})
+  const raced=await Promise.all([read(),read()]);assert.equal(raced.filter(r=>r.status===201).length,1);assert.ok(raced.every(r=>[200,201,409].includes(r.status)))
+  const corrected=(await runtime.sql("SELECT * FROM hnd_records WHERE kind='usage' AND supersedes_id=?",original.id)).results
+  assert.equal(corrected.length,1);assert.equal(JSON.parse(corrected[0].data).amountMicrousd,23500)
+  const detail=await (await runtime.request('/api/handset/cases/'+linked.caseId,{headers:f.headers})).json()
+  assert.equal(detail.records.filter(r=>r.kind==='usage'&&r.source==='twilio').length,2)
+  assert.equal(detail.records.find(r=>r.id===original.id).data,original.data)
+  runtime.twilioResources.set(url,{...receipt,price:'-0.04350'})
+  assert.equal((await read()).status,409,'a conflicting older price never replaces the current observation')
+  runtime.twilioResources.set(url,async()=>{
+   assert.equal((await post(runtime,'/api/handset/sources/revoke',{sourceId:f.source.id},f.headers)).status,200)
+   return {...receipt,price:'-0.03350',date_updated:new Date(Date.now()+1000).toUTCString()}
+  })
+  assert.equal((await read()).status,409,'source revocation during price readback prevents a new canonical fact')
+  assert.equal((await runtime.sql("SELECT COUNT(*) AS n FROM hnd_records WHERE kind='usage'")).results[0].n,2)
+  assert.ok(runtime.sourceRequests.every(r=>r.method==='GET'))
+ } finally { await runtime.close() }
+})

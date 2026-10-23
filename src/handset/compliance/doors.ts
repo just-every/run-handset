@@ -22,8 +22,9 @@ async function create(env: Bindings, actor: Session, v: ObjectValue) {
  const kind = choice(v.kind, kinds, 'kind'), report = object(v.report)
  let reference: string
  if (kind === 'port_pin') {
-  keys(report, ['port_in_request_sid','port_in_phone_number_sid','port_in_phone_number_status','rejection_reason'])
-  reference = text(report.port_in_request_sid, 'portRequestId', 100) + '/' + text(report.port_in_phone_number_sid, 'portNumberId', 100)
+  keys(report, ['port_in_request_sid','phone_number_sid','port_in_phone_number_sid','port_in_phone_number_status','rejection_reason'])
+  if(report.phone_number_sid!==undefined&&report.port_in_phone_number_sid!==undefined)throw new Fault('ambiguous_port_number_identity')
+  reference = text(report.port_in_request_sid, 'portRequestId', 100) + '/' + text(report.phone_number_sid??report.port_in_phone_number_sid, 'portNumberId', 100)
   if (report.rejection_reason !== 'INVALID_PIN' || report.port_in_phone_number_status !== 'port_rejected') throw new Fault('wrong_pin_rejection_required')
  } else if (kind === 'brand_registration' || kind === 'tollfree_verification') {
   keys(report, kind === 'brand_registration' ? ['sid','account_sid','status','failure_reason'] : ['sid','account_sid','tollfree_phone_number','status','rejection_reason','error_code'])
@@ -62,9 +63,16 @@ export async function complianceDoor(request: Request, env: Bindings, actor: Ses
  if (path !== base && !path.startsWith(base + '/')) return null
  owner(actor)
  if (path === base && request.method === 'GET') return json({ cases: (await env.DB.prepare('SELECT * FROM hnd_number_compliance ORDER BY due_at,id LIMIT 200').all()).results, limit: 200, cleanCompliance: false, cleanReputation: false })
+ const detail=path.slice(base.length).match(/^\/([0-9a-f-]{36})$/)
+ if(request.method==='GET'&&detail){
+  const row=await env.DB.prepare('SELECT * FROM hnd_number_compliance WHERE id=?').bind(detail[1]).first<Compliance>()
+  if(!row)throw new Fault('compliance_case_not_found',404)
+  await commit(env,actor,'compliance.readback',row.id,'completed')
+  return json({case:row,events:(await env.DB.prepare('SELECT * FROM hnd_number_compliance_events WHERE case_id=? ORDER BY created_at,id').bind(row.id).all()).results,cleanCompliance:false,cleanReputation:false})
+ }
  if (request.method !== 'POST' || !v) throw new Fault('method_not_allowed', 405)
  if (path === base) { const result = await create(env, actor, v); return json(result, result.replay ? 200 : 201) }
- const match = path.slice(base.length).match(/^\/([0-9a-f-]{36})\/(review|readback|submit)$/)
+ const match = path.slice(base.length).match(/^\/([0-9a-f-]{36})\/(review|readback|submit|follow-up)$/)
  if (!match) throw new Fault('not_found', 404)
  const row = await env.DB.prepare('SELECT * FROM hnd_number_compliance WHERE id=?').bind(match[1]).first<Compliance>()
  if (!row) throw new Fault('compliance_case_not_found', 404)
@@ -73,31 +81,46 @@ export async function complianceDoor(request: Request, env: Bindings, actor: Ses
  const source = await activeSourceById(env, row.source_id)
  if (!source) throw new Fault('source_inactive', 409)
  const fence = env.DB.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_number_compliance WHERE id=? AND revision=?').bind(row.id, revision)
- if (match[2] !== 'readback' && (actor.operator.id !== row.owner_id || actor.operator.version !== row.owner_version)) throw new Fault('named_compliance_owner_required', 403)
- if (match[2] === 'review') {
+ if (!['readback','follow-up'].includes(match[2]) && (actor.operator.id !== row.owner_id || actor.operator.version !== row.owner_version)) throw new Fault('named_compliance_owner_required', 403)
+ if(match[2]==='follow-up'){
+  keys(v,['revision','ownerId','dueAt','nextAction','confirm'])
+  if(v.confirm!=='assign exact continued follow-up')throw new Fault('explicit_followup_required')
+  const ownerId=text(v.ownerId,'ownerId'),dueAt=timestamp(v.dueAt,'dueAt'),nextAction=text(v.nextAction,'nextAction',2000)
+  if(dueAt<=Date.now())throw new Fault('future_followup_required')
+  const person=await env.DB.prepare("SELECT version FROM oa_operators WHERE id=? AND status='active' AND role='owner'").bind(ownerId).first<{version:number}>()
+  if(!person)throw new Fault('active_compliance_owner_required',403)
+  await commit(env,actor,'compliance.followup',row.id,'completed',[fence,sourceFence(env,source),
+   env.DB.prepare("INSERT INTO hnd_guard(ok) SELECT count(*) FROM oa_operators WHERE id=? AND status='active' AND role='owner' AND version=?").bind(ownerId,person.version),
+   env.DB.prepare("UPDATE hnd_number_compliance SET status='follow_up',owner_id=?,owner_version=?,due_at=?,revision=revision+1,updated_at=? WHERE id=?").bind(ownerId,person.version,dueAt,Date.now(),row.id),
+   event(env,actor,row.id,'follow_up',{previousOwner:row.owner_id,previousDueAt:row.due_at,ownerId,ownerVersion:person.version,dueAt,nextAction,effectAuthority:false}),
+  ])
+ } else if (match[2] === 'review') {
   keys(v, ['revision','note','confirm'])
   if (v.confirm !== 'review exact correction preparation') throw new Fault('exact_review_required')
   const note = text(v.note, 'note', 2000)
   await commit(env, actor, 'compliance.review', row.id, 'completed', [fence, sourceFence(env, source), env.DB.prepare("UPDATE hnd_number_compliance SET status='reviewed',approval_note=?,revision=revision+1,updated_at=? WHERE id=?").bind(note, Date.now(), row.id), event(env, actor, row.id, 'reviewed', { note, effectAuthority: false })])
  } else if (match[2] === 'submit') {
   keys(v, ['revision'])
-  await commit(env, actor, 'compliance.submit', row.id, 'refused', [fence, sourceFence(env, source), event(env, actor, row.id, 'held', { reason: 'No qualified filing/LOA/location/rotation/spend adapter; preparation review is not legal attestation or effect authority' })])
-  return json({ id: row.id, state: 'held', effectOccurred: false, reason: 'Qualified filing, exact signed LOA, validated location or rotation/spend authority required; no carrier mutation' }, 202)
+  await commit(env, actor, 'compliance.submit', row.id, 'refused', [fence, sourceFence(env, source), event(env, actor, row.id, 'held', { reason: 'No qualified filing, LOA, location, rotation or spend adapter; preparation review is not legal attestation or effect authority' })])
+  return json({ id: row.id, state: 'held', effectOccurred: false, reason: 'Qualified filing, exact signed LOA, validated location or rotation or spend authority required; no carrier mutation' }, 202)
  } else {
   keys(v, ['revision','confirm'])
   if (v.confirm !== 'read exact compliance receipt') throw new Fault('exact_receipt_read_required')
   let url: string
   const report = JSON.parse(row.report) as Record<string, string>
-  if (row.kind === 'port_pin') url = `https://numbers.twilio.com/v1/Porting/PortIn/${encodeURIComponent(report.port_in_request_sid)}/PhoneNumber/${encodeURIComponent(report.port_in_phone_number_sid)}`
+  if (row.kind === 'port_pin') url = `https://numbers.twilio.com/v1/Porting/PortIn/${encodeURIComponent(report.port_in_request_sid)}/PhoneNumber/${encodeURIComponent(report.phone_number_sid??report.port_in_phone_number_sid)}`
+  else if (row.kind === 'brand_registration') url = `https://messaging.twilio.com/v1/a2p/BrandRegistrations/${encodeURIComponent(report.sid)}`
   else if (row.kind === 'tollfree_verification') url = `https://messaging.twilio.com/v1/Tollfree/Verifications/${encodeURIComponent(report.sid)}`
-  else return json({ id: row.id, state: 'held', reason: 'Qualified provider/employee/network readback pending; case remains due', effectOccurred: false }, 202)
+  else return json({ id: row.id, state: 'held', reason: 'Qualified provider, employee and network readback pending; case remains due', effectOccurred: false }, 202)
   const wire = await send(url, { method: 'GET', headers: { authorization: 'Basic ' + btoa(source.account_id + ':' + env.HANDSET_TWILIO_AUTH_TOKEN) } })
   if (!wire || wire.status !== 200) throw new Fault('provider_receipt_unavailable_case_still_due', 503)
-  const phone = row.kind === 'port_pin' ? wire.body.phone_number : wire.body.tollfree_phone_number
-  if (phone !== source.e164 || wire.body.account_sid !== undefined && wire.body.account_sid !== source.account_id) throw new Fault('provider_receipt_identity_mismatch', 502)
-  const state = text(row.kind === 'port_pin' ? wire.body.port_in_phone_number_status : wire.body.status, 'providerState', 80)
-  // Never retain port_out_pin, business contacts, addresses or raw provider bodies.
-  const safe = { observedAt: Date.now(), state, portDate: row.kind === 'port_pin' && typeof wire.body.port_date === 'string' ? wire.body.port_date : null, voiceReady: 'unproved', smsReady: 'unproved', reputation: 'unknown' }
+  const port=row.kind==='port_pin',brand=row.kind==='brand_registration'
+  const identityMatches=port?wire.body.port_in_request_sid===report.port_in_request_sid&&wire.body.phone_number_sid===(report.phone_number_sid??report.port_in_phone_number_sid):wire.body.sid===report.sid
+  if(!identityMatches||wire.body.account_sid!==source.account_id||!brand&&(port?wire.body.phone_number:wire.body.tollfree_phone_number)!==source.e164)throw new Fault('provider_receipt_identity_mismatch',502)
+  const state=text(port?wire.body.port_in_phone_number_status:wire.body.status,'providerState',80)
+  const code=port?wire.body.rejection_reason_code:wire.body.error_code
+  // Retain category codes, never free-form provider business facts or private PINs.
+  const safe={observedAt:Date.now(),state,receiptId:port?wire.body.phone_number_sid:wire.body.sid,portDate:port&&typeof wire.body.port_date==='string'?wire.body.port_date:null,rejectionCode:code==null?null:integer(code,'rejectionCode',0,1000000),scope:brand?'account brand only; campaign and number eligibility unproved':'selected number',voiceReady:'unproved',smsReady:'unproved',reputation:'unknown'}
   await commit(env, actor, 'compliance.readback', row.id, 'completed', [fence, sourceFence(env, source), env.DB.prepare("UPDATE hnd_number_compliance SET status='follow_up',provider_state=?,readback=?,revision=revision+1,updated_at=? WHERE id=?").bind(state, JSON.stringify(safe), Date.now(), row.id), event(env, actor, row.id, 'readback', safe)])
  }
  return json({ case: await env.DB.prepare('SELECT * FROM hnd_number_compliance WHERE id=?').bind(row.id).first(), effectOccurred: false })

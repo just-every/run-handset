@@ -2,7 +2,7 @@ import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { json, page, escape as e, field, hidden, keys, text, object, Fault, type ObjectValue } from '../core'
 import { commit } from '../audit/store'
-import { issue, rotateCredential, revokeAuthority, revokeGrant, grantById, approve, writeStanding, type Grant } from './store'
+import { issue, grantFence, rotateCredential, revokeAuthority, revokeGrant, grantById, approve, writeStanding, type Grant } from './store'
 import { state } from './model'
 
 const parse=(value:unknown)=>{if(typeof value!=='string')return object(value);try{return object(JSON.parse(value))}catch{throw new Fault('invalid_review_json')}}
@@ -21,7 +21,7 @@ export async function authorityDoor(request:Request,env:Bindings,actor:Session,v
  const path=new URL(request.url).pathname,html=path.startsWith('/app/'),read=request.method==='GET'
  const consent=['/api/handset/mcp/consent','/app/grants/consent'].includes(path)
  if(consent&&read){await commit(env,actor,'grant.read','installation','completed');return page('MCP owner consent','<p>Only a signed-in owner can issue explicit scoped application credentials. MCP callers cannot approve themselves or reuse a human session.</p><a href="/app/grants">Review scopes and issue a credential</a>')}
- if(consent&&value){const result=await issue(env,actor,value);await commit(env,actor,'grant.consent',result.grant.id,'completed');return json(result,201)}
+ if(consent&&value){const result=await issue(env,actor,value);await commit(env,actor,'grant.consent',result.grant.id,'completed',[grantFence(env,result.grant)],false);return json(result,201)}
  if(!/^\/(api\/handset|app)\/grants(?:\/|$)/.test(path))return null
  const base=html?'/app/grants':'/api/handset/grants'
  if(read&&path===base){await commit(env,actor,'grant.read','installation','completed');return html?grantsPage(env):json({grants:(await env.DB.prepare('SELECT id,name,definition,revision,created_by,owner_version,expires_at,revoked_at,reserved_cents,created_at,credential_expires_at,credential_revision FROM hnd_grants ORDER BY created_at DESC').all()).results})}
