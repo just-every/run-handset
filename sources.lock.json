@@ -517,6 +517,10 @@
       "sha256": "9d42d6f7eae688cd913c9f686c476bf70b2f6c45da92d5d427e77b1100b62b94",
       "executable": false
     },
+    "migrations/core/0049_handset_auth_anonymous.sql": {
+      "sha256": "41f5ad3481b2f9860283ed01eb3b14729d81c788cfbb2afa50015aeee4c4017c",
+      "executable": false
+    },
     "ONBOARDING.md": {
       "sha256": "4d2223ee9e22ba7315d6a6d36b2fc3d18b0ad5cb6b30e3a5d7a8946560a8c809",
       "executable": false
@@ -1062,7 +1066,7 @@
       "executable": false
     },
     "src/handset/audit/auth.ts": {
-      "sha256": "43733b9403c3c86cf7400d6e66cccf36dbd67bb196062358778ccea050f4bda6",
+      "sha256": "41eb75d4abb0b5ab04fc38b0673afb3b12f805c1347d7fce39570b5896bc5556",
       "executable": false
     },
     "src/handset/audit/doors.ts": {
@@ -3410,7 +3414,7 @@
       "executable": false
     },
     "tests/handset-auth.mjs": {
-      "sha256": "0cba4f3a7615d51d7f075add6bedeff5584229329d1a1cb53ff0df705288dd6c",
+      "sha256": "89a9cc0bdf1733005561bbd538f32cdd4c716228e952650246ab7c357a87d264",
       "executable": false
     },
     "tests/handset-authority.mjs": {
