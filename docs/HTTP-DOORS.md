@@ -153,3 +153,9 @@ unpublished drafts share existing grant checks; cookie-only access refuses.
 The v1 draft receipt is atomic and its rate bucket durable. Future resources,
 signed event/media subscription delivery and standard MCP authorization remain
 HND-030 work, with HND-013/027/048/049 authorization and custody inherited.
+
+The native owner consoles `/app/rules`, `/app/followups`, `/app/recovery` and
+`/app/operations` reuse these same native API implementations for all forms.
+Each form checks same-origin sessions before dispatch and the same current
+authority, revision and source fences inside its mutation. Operations exports
+are available from the assessment card under the same owner boundary.

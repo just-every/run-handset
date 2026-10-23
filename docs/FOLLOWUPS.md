@@ -23,8 +23,8 @@ OAuth refusal, missing scope and unavailable readback leave the promise open
 with a repair reason. Lists expose a bounded window and disclose truncation.
 A verified inbound STOP on the correlated case cancels pending follow-up.
 
-Customer SMS/email, automatic reminders, actual owning-system task creation,
-consented transcript extraction and the review console are not implemented.
+Customer SMS and email, automatic reminders, actual owning-system task creation
+and consented transcript extraction remain unimplemented.
 Orbit's task API and Pegboard's task API currently require native sessions;
 the delegated Orbit handoff is not advertised as a task. HappyToHelp remains
 a conversation-note handoff until a documented task mechanism is available.
@@ -32,3 +32,11 @@ No external browser session is copied to make these integrations work.
 Owner-only administration and exact internal disclosure approval are the
 conservative defaults pending a contract-policy ruling. HND-027 owns wider
 role scope; HND-013/089 own capture and contact consent; HND-050 owns rules.
+
+The native owner review screen is `/app/followups`. It creates a draft from
+a quoted existing source and shows the owner, due time in UTC, confirmation
+basis, exact draft and selected internal handoff target before approval.
+Delivery is a separate action; reading current receiving state is a separate
+action again. Human edits reset approval. Cancellation and explicit decline
+require an evidence note and do not recall a started handoff. The bounded
+counts describe only the displayed window and disclose truncation.

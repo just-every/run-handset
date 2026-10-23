@@ -26,10 +26,18 @@ started notices. Delivery acceptance and promised-work status are distinct;
 work remains open after every reminder. `GET /api/handset/rules` exposes bounded
 rules and run history, current reasons and the owned next due time.
 
-No rules console, provider inbox readback, customer sending policy, monetary
-cost qualification or Crank/Zapier receiver qualification is claimed. This is
+Provider inbox readback, customer sending policy, monetary cost qualification
+and Crank and Zapier receiver qualification remain pending. This is
 an internal-reminder slice. Owner-only administration and explicitly approved
 notices to the installation owner's mailbox, with no automatic customer
 contact, are conservative defaults pending ct. HND-050 retains the full rule
 and receiving-system acceptance; HND-036 inherits delivery repair and future
 adapters, HND-011/089 consent and HND-028 provider cost accounting.
+
+Native owners open `/app/rules` to preview each trigger against a matching
+source record, inspect the exact action, message and recipient, and approve
+the single-use preview. Published rules expose revision, owner and pause;
+revisions require a fresh tested preview. Run history distinguishes delivery
+state from open work and shows the next due time and cancellation reason.
+Allowed notice times are minute offsets in the selected local timezone.
+The view discloses its 100-rule and 200-run limits.
