@@ -20,7 +20,10 @@ grant, owner, case, policy, STOP and reserved budget. The barrier runs after
 remote preflight; a change during that wait prevents the POST. Caller charge
 authorization expiry and the named refund approver's current authority are
 also rechecked. Historical outcomes with no case snapshot retain readable
-receipts but cannot initiate more effects.
+receipts but cannot initiate more effects. A support handoff writes only to an
+existing helpdesk conversation that the owner's limits policy maps to the
+call's case (`supportConversations`); any other conversation is refused before
+the installation helpdesk credential is used.
 
 Orbit and HappyToHelp first inspect the existing remote handoff/note. Their
 stable operation/local keys support the documented replay contract. Dial's
