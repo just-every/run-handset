@@ -118,7 +118,7 @@ async function reconcile(env: Bindings, actor: Session, row: Followup) {
  const observed = await send(`${o}/api/delegation/v1/check?target=${encodeURIComponent(row.target)}`, { method: 'GET', headers: { ...headers, 'X-RER-Record-State-Schema': 'crm.handoff-state/1' } })
  const state = observed?.body.recordState as {schema?: string; kind?: string; state?: string} | undefined
  if (!observed || observed.status !== 200 || state?.schema !== 'crm.handoff-state/1' || state.kind !== 'crm.handoff' || !['open','completed','cancelled'].includes(state.state ?? '')) return update(env, actor, row, { delivery: 'received', reason: 'Current completion state unavailable; promise remains open' })
- return update(env, actor, row, { delivery: 'received', status: state.state === 'completed' ? 'confirmed' : state.state === 'cancelled' ? 'declined' : 'open', reason: 'Current Orbit handoff state read back', readback: JSON.stringify({ operationKey: row.operation_key, target: row.target, observedAt: Date.now(), revision: observed.body.revision, recordState: state }) }, [ownerFence(env, row)])
+ return update(env, actor, row, { delivery: 'received', status: state.state === 'completed' ? 'confirmed' : state.state === 'cancelled' ? 'declined' : 'open', reason: 'Current Orbit handoff state read back', readback: JSON.stringify({ operationKey: row.operation_key, target: row.target, observedAt: Date.now(), revision: observed.body.revision, recordState: state }) }, [ownerFence(env, row), sourceFence(env, row)])
 }
 export async function listing(env: Bindings) {
  const rows = (await env.DB.prepare('SELECT * FROM hnd_followups ORDER BY due_at,id LIMIT 200').all<Followup>()).results

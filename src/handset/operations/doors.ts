@@ -54,6 +54,7 @@ export async function operationsDoor(request: Request, env: Bindings, actor: Ses
   return json({ schema: 'handset.continuity-evidence/1', id: row.id, state: row.state, observedAt: snapshot.observedAt, callRecordId: row.call_record_id, sourceId: row.source_id, media: snapshot.media, connector: snapshot.connector, riskKinds: snapshot.risks.map((x: {kind: string}) => x.kind), pendingCallbackCount: snapshot.pendingCallbacks.length, uncertainStepCount: snapshot.uncertainSteps.length, publication: 'Owner-controlled Lamp handoff pending', paging: 'Independent Oncall qualification pending', receiver: 'Porthole transfer/readback pending' })
  }
  if (match[2] !== 'decision' || request.method !== 'POST' || !value) throw new Fault('method_not_allowed', 405)
+ if (actor.operator.id !== row.owner_id || actor.operator.version !== row.owner_version) throw new Fault('named_assessment_owner_required', 403)
  keys(value, ['revision','decision','note','confirm'])
  if (integer(value.revision, 'revision', 1) !== row.revision || row.state !== 'proposed') throw new Fault('assessment_already_decided', 409)
  if (value.confirm !== 'record exact continuity decision') throw new Fault('explicit_decision_required')

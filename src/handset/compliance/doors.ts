@@ -73,6 +73,7 @@ export async function complianceDoor(request: Request, env: Bindings, actor: Ses
  const source = await activeSourceById(env, row.source_id)
  if (!source) throw new Fault('source_inactive', 409)
  const fence = env.DB.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_number_compliance WHERE id=? AND revision=?').bind(row.id, revision)
+ if (match[2] !== 'readback' && (actor.operator.id !== row.owner_id || actor.operator.version !== row.owner_version)) throw new Fault('named_compliance_owner_required', 403)
  if (match[2] === 'review') {
   keys(v, ['revision','note','confirm'])
   if (v.confirm !== 'review exact correction preparation') throw new Fault('exact_review_required')

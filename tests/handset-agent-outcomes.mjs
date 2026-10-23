@@ -302,6 +302,22 @@ test('Human edits and source corrections fence stale promises; lost handoff resp
   assert.equal(posts(), before)
   second = await followupAction(f, second, 'cancel', { note: 'Promise withdrawn by customer' })
   assert.equal(second.status, 'canceled')
+
+  // Current completion cannot race a human edit of the underlying case.
+  const p3 = await promiseFixture(f, 5)
+  let third = (await f.create('/api/handset/followups', p3.input)).followup
+  third = await followupAction(f, third, 'approve', { confirm: 'approve exact cited handoff' })
+  third = await followupAction(f, third, 'deliver')
+  f.edges.handoffStates.set(third.target, 'completed')
+  f.edges.orbitCheckHook = async () => {
+   const changed = await post(f.runtime, `/api/handset/cases/${third.case_id}`, { title: 'Human changed the promise while readback was in flight', version: third.case_version }, f.headers)
+   assert.equal(changed.status, 200)
+  }
+  const staleCompletion = await post(f.runtime, `/api/handset/followups/${third.id}/reconcile`, { revision: third.revision }, f.headers)
+  assert.equal(staleCompletion.status, 409)
+  const current = await (await f.runtime.request('/api/handset/followups', { headers: f.headers })).json()
+  assert.equal(current.followups.find(x => x.id === third.id).status, 'open')
+
  } finally { await f.runtime.close() }
 })
 
