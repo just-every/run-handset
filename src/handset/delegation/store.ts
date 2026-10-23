@@ -34,7 +34,7 @@ export async function configureLine(env:Bindings,actor:Session,v:ObjectValue){
   guard(env,"SELECT count(*) FROM oa_operators WHERE id=? AND status='active'",principal),
   guard(env,`SELECT count(*) FROM hnd_sources s JOIN oa_operators o ON o.id=s.owner_id JOIN hnd_records n ON n.id=s.number_id WHERE s.id=? AND s.number_id=? AND s.revoked_at IS NULL AND o.role='owner' AND o.status='active' AND o.version=s.owner_version AND n.kind='number' AND NOT EXISTS(SELECT 1 FROM hnd_records r WHERE r.supersedes_id=n.id) AND ( ? IS NULL OR json_extract(n.data,'$.e164')!=?)`,source,number,forward,forward),
   ...(previous?[guard(env,'SELECT count(*) FROM hnd_frontdesk_lines WHERE id=? AND revision=?',target,revision),sql(env,'UPDATE hnd_frontdesk_lines SET principal_id=?,number_id=?,source_id=?,timezone=?,opens=?,closes=?,weekdays=?,dnd=?,forward_to=?,revision=?,created_by=?,owner_version=? WHERE id=?',...values,target),sql(env,'UPDATE hnd_delegations SET revoked_at=COALESCE(revoked_at,?) WHERE line_id=?',Date.now(),target)]:[sql(env,'INSERT INTO hnd_frontdesk_lines VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',target,...values)]),
- ])
+ ],true,{line:{id:target,revision:revision+1,ownerVersion:actor.operator.version}})
  return line(env,target)
 }
 export async function createDelegation(env:Bindings,actor:Session,v:ObjectValue){
@@ -44,7 +44,7 @@ export async function createDelegation(env:Bindings,actor:Session,v:ObjectValue)
  if(assistant===l.principal_id)throw new Fault('distinct_assistant_required')
  const a=await sql(env,"SELECT version FROM oa_operators WHERE id=? AND status='active'",assistant).first<{version:number}>(),p=await sql(env,"SELECT version FROM oa_operators WHERE id=? AND status='active'",l.principal_id).first<{version:number}>()
  if(!a||!p)throw new Fault('active_people_required',409)
- await commit(env,actor,'delegation.create',target,'completed',[guard(env,'SELECT count(*) FROM hnd_frontdesk_lines WHERE id=? AND revision=?',l.id,l.revision),guard(env,"SELECT count(*) FROM oa_operators WHERE id=? AND version=? AND status='active'",assistant,a.version),guard(env,"SELECT count(*) FROM oa_operators WHERE id=? AND version=? AND status='active'",l.principal_id,p.version),sql(env,'INSERT INTO hnd_delegations VALUES (?,?,?,?,?,?,?,?,NULL,?)',target,l.id,assistant,a.version,p.version,actor.operator.id,actor.operator.version,expires,Date.now())])
+ await commit(env,actor,'delegation.create',target,'completed',[guard(env,'SELECT count(*) FROM hnd_frontdesk_lines WHERE id=? AND revision=?',l.id,l.revision),guard(env,"SELECT count(*) FROM oa_operators WHERE id=? AND version=? AND status='active'",assistant,a.version),guard(env,"SELECT count(*) FROM oa_operators WHERE id=? AND version=? AND status='active'",l.principal_id,p.version),sql(env,'INSERT INTO hnd_delegations VALUES (?,?,?,?,?,?,?,?,NULL,?)',target,l.id,assistant,a.version,p.version,actor.operator.id,actor.operator.version,expires,Date.now())],true,{line:{id:l.id,revision:l.revision,ownerVersion:l.owner_version},delegation:{id:target,revision:1,ownerVersion:actor.operator.version}})
  return {id:target,lineId:l.id,assistantId:assistant,expiresAt:expires,scope:'selected line call controls only; no recording, porting or administration'}
 }
 export async function revokeDelegation(env:Bindings,actor:Session,target:string){owner(actor);const selected=await sql(env,'SELECT line_id,assistant_id FROM hnd_delegations WHERE id=?',target).first<{line_id:string;assistant_id:string}>();if(!selected)throw new Fault('delegation_not_found',404);await commit(env,actor,'delegation.revoke',target,'completed',[sql(env,'UPDATE hnd_delegations SET revoked_at=COALESCE(revoked_at,?) WHERE line_id=? AND assistant_id=?',Date.now(),selected.line_id,selected.assistant_id)]);return {revoked:true,scope:'all grants for this assistant and executive line',existingCalls:'preserved'}}
@@ -61,7 +61,8 @@ export async function intent(env:Bindings,actor:Session,v:ObjectValue){
  keys(v,['delegationId','kind','callId','target','lineRevision','idempotencyKey'])
  const {d,l}=await delegated(env,actor,text(v.delegationId,'delegationId')),kind=choice(v.kind,['pickup','park','transfer','callback'],'kind'),key=text(v.idempotencyKey,'idempotencyKey',100),revision=integer(v.lineRevision,'lineRevision',1)
  const auditActor=await actorRef(env.DB,actor.operator.id),principal=await actorRef(env.DB,l.principal_id),operation=id()
- const refused=async(code:string,status=403)=>{await append(env,auditActor,'frontdesk.'+kind,operation,'refused',[],principal);throw new Fault(code,status)}
+ const applied={native:{role:actor.operator.role,version:actor.operator.version},line:{id:l.id,revision:l.revision,ownerVersion:l.owner_version},delegation:{id:d.id,revision:1,ownerVersion:d.owner_version}}
+ const refused=async(code:string,status=403)=>{await append(env,auditActor,'frontdesk.'+kind,operation,'refused',[],principal,applied);throw new Fault(code,status)}
  if(l.revision!==revision)return refused('line_version_conflict',409)
  const policy=linePolicy(l)
  if(policy.dnd||!policy.withinHours||policy.forwardTo)return refused(policy.dnd?'executive_dnd':!policy.withinHours?'executive_outside_hours':'executive_forwarding_active')
@@ -75,6 +76,6 @@ export async function intent(env:Bindings,actor:Session,v:ObjectValue){
  }
  const prior=await sql(env,'SELECT * FROM hnd_frontdesk_operations WHERE delegation_id=? AND idempotency_key=?',d.id,key).first<{id:string;kind:string;call_id:string|null;target:string|null;line_revision:number}>()
  if(prior){if(prior.kind!==kind||prior.call_id!==callId||prior.target!==target||prior.line_revision!==revision)throw new Fault('idempotency_state_changed',409);return {operation:prior,replay:true,effectOccurred:false}}
- await append(env,auditActor,'frontdesk.'+kind,operation,'uncertain',[nativeFence(env,actor),delegationFence(env,actor,d,l),sql(env,"INSERT INTO hnd_frontdesk_operations VALUES (?,?,?,?,?,?,?,?,?,'held',?)",operation,d.id,auditActor,principal,kind,callId,target,revision,key,Date.now())],principal)
+ await append(env,auditActor,'frontdesk.'+kind,operation,'uncertain',[nativeFence(env,actor),delegationFence(env,actor,d,l),sql(env,"INSERT INTO hnd_frontdesk_operations VALUES (?,?,?,?,?,?,?,?,?,'held',?)",operation,d.id,auditActor,principal,kind,callId,target,revision,key,Date.now())],principal,applied)
  return {operation:{id:operation,kind,actor:auditActor,principal,state:'held',fromNumberId:l.number_id},effectOccurred:false,reason:'qualified_media_endpoint_and_exact_spend_approval_required',replay:false}
 }

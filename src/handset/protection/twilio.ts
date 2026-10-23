@@ -14,8 +14,9 @@ function destination(value:string){
  return m[1]
 }
 /** Official Twilio voice/SIP call-control webhook, separate from status ingestion.
- * No Dial/Message verb or paid API is emitted. Only explicitly approved existing
- * inbound/emergency flows are continued. See Twilio security, TwiML and SIP docs. */
+ * Existing inbound/emergency flows continue under protection. Executive-line
+ * Dial requires separate exact owner-approved routing. No Message or REST write
+ * is emitted. See Twilio security, TwiML and SIP docs. */
 export async function protectionCarrierResponse(request:Request,original:Bindings):Promise<Response|null>{
  const path=new URL(request.url).pathname
  const challenge=path.match(/^\/providers\/twilio\/protection\/challenges\/([0-9a-f-]{36})\/([1-3])$/)
@@ -31,7 +32,11 @@ export async function protectionCarrierResponse(request:Request,original:Binding
   const raw=await request.text();if(new TextEncoder().encode(raw).length>16384)throw new Fault('body_too_large',413)
   const p=new URLSearchParams(raw);await verifyCarrierSignature(request,env,p)
   const account=text(p.get('AccountSid'),'AccountSid'),callId=text(p.get('CallSid'),'CallSid'),from=text(p.get('From'),'From'),to=text(p.get('To'),'To')
-  source=await env.DB.prepare(`SELECT s.* FROM hnd_sources s JOIN oa_operators o ON o.id=s.owner_id WHERE s.account_id=? AND s.revoked_at IS NULL AND o.role='owner' AND o.status='active' AND o.version=s.owner_version`).bind(account).first<Source>()
+  const sources=(await env.DB.prepare(`SELECT s.*,json_extract(n.data,'$.e164') AS e164 FROM hnd_sources s JOIN oa_operators o ON o.id=s.owner_id JOIN hnd_records n ON n.id=s.number_id WHERE s.account_id=? AND s.revoked_at IS NULL AND o.role='owner' AND o.status='active' AND o.version=s.owner_version AND NOT EXISTS(SELECT 1 FROM hnd_sources newer WHERE newer.account_id=s.account_id AND newer.number_id=s.number_id AND newer.revision>s.revision) AND NOT EXISTS(SELECT 1 FROM hnd_records correction WHERE correction.supersedes_id=n.id)`).bind(account).all<Source&{e164:string}>()).results
+  const sipFrom=from.startsWith('sip:')||from.startsWith('client:')
+  const matches=sipFrom?sources:sources.filter(s=>s.e164===to)
+  if(matches.length!==1)throw new Fault('invalid_source_proof',403)
+  source=matches[0]
   if(!source)throw new Fault('invalid_source_proof',403)
   if(p.has('FaxSid')||p.has('MessageSid'))throw new Fault('voice_admission_required',422)
   if(p.get('Direction')!=='inbound')throw new Fault('initial_inbound_or_sip_webhook_required',422)

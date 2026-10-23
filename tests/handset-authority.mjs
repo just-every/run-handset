@@ -172,6 +172,49 @@ test('Executive line DND hours forwarding stale policy and changed native author
  }finally{await runtime.close()}
 })
 
+test('Signed executive inbound calls apply the selected line DND coverage hours voicemail and explicit forwarding without replaying carrier instructions',async()=>{
+ const {inboundFixture}=await import('./helpers/handset-inbound.mjs'),runtime=await openHandset({twilio:true})
+ try{
+  const f=await inboundFixture(runtime)
+  assert.equal((await f.carrier({},{signature:false})).status,403)
+  assert.equal((await f.post(f.base+'/routing',f.routeInput(),f.assistantHeaders)).status,403)
+  assert.match(await f.expectRoute('principal'),new RegExp(f.principal))
+  await f.policy({dnd:1})
+  const first='synthetic-handset-790',covered=await f.expectRoute('dnd_assistant',{CallSid:first})
+  assert.ok(covered.includes('<Sip>'+f.endpoint+'</Sip>'));assert.ok(covered.includes('callerId="+15125550125"'));assert.ok(!covered.includes('<Record'))
+  const replay=await f.carrier({CallSid:first});assert.equal(replay.status,409);assert.ok(!(await replay.text()).includes('<Dial'))
+  const existing=(await runtime.sql('SELECT * FROM hnd_frontdesk_inbound WHERE call_sid=?',first)).results[0]
+  assert.equal((await f.post(f.base+'/revoke',{delegationId:f.currentGrant.id})).status,200)
+  assert.ok((await f.expectRoute('dnd_voicemail')).includes(f.voicemail),'revoked assistant never receives another incoming call')
+  assert.deepEqual((await runtime.sql('SELECT * FROM hnd_frontdesk_inbound WHERE call_sid=?',first)).results[0],existing,'revocation leaves started calls alone')
+  await f.policy({weekdays:[(new Date().getUTCDay()+1)%7],dnd:1})
+  const afterHours=await f.expectRoute('outside_hours_voicemail');assert.ok(afterHours.includes(f.voicemail));assert.ok(!afterHours.includes('<Dial'))
+  await f.policy({weekdays:[(new Date().getUTCDay()+1)%7],dnd:1,forwardTo:'+15125550182'})
+  const forward=await f.expectRoute('external_forward');assert.ok(forward.includes('<Number>+15125550182</Number>'));assert.ok(!forward.includes('<Sip'))
+  assert.equal((await f.carrier({To:'+15125550199'})).status,403)
+  assert.equal((await f.carrier({AccountSid:'synthetic-handset-799'})).status,403)
+  assert.equal((await f.carrier({Direction:'outbound-api'})).status,422)
+  // Another number on the same account never inherits this executive's policy.
+  const n=await f.create('records',{kind:'number',sourceId:'synthetic-handset-791',occurredAt:Date.now(),data:{e164:'+15125550183'}})
+  const s=await f.create('sources',{accountId:f.account,numberId:n.record.id,confirm:'authorize signed inbound records'})
+  const other='https://synthetic-handset-763.example.test/principal'
+  await f.create('protection/configure',{sourceId:s.id,continuationUrl:other,emergencyUrl:'',maxAttempts:3,windowSeconds:60,attemptCents:100,confirm:'approve existing inbound continuation'})
+  const untouched=await f.carrier({To:'+15125550183'});assert.equal(untouched.status,200);assert.ok((await untouched.text()).includes(other))
+  // Screening completion still applies the current executive-line policy.
+  await f.create('protection/rules',{scope:'owner',numberId:f.numberId,channel:'voice',matchKind:'number',pattern:'+15125550126',effect:'screen',confirm:'apply nuisance policy'})
+  const {readProtectionChallenge}=await import('./helpers/handset-protection.mjs')
+  const call='synthetic-handset-792',screen=await readProtectionChallenge(await f.carrier({CallSid:call}))
+  const passed=await f.carrier({CallSid:call,CallStatus:'in-progress',Digits:screen.digit},{path:new URL(screen.action).pathname})
+  assert.equal(passed.status,200,await passed.clone().text());assert.ok((await passed.text()).includes('<Number>+15125550182</Number>'))
+  await f.create('front-desk/lines',{...f.lineInput,id:f.line.id,revision:f.currentLine.revision,dnd:1})
+  // A stale approval cannot be used after a policy edit, even with a valid HMAC.
+  const stale=await f.carrier({From:'+15125550128'});assert.equal(stale.status,409);assert.ok(!(await stale.text()).includes('<Dial'))
+  assert.ok(runtime.sourceRequests.every(r=>r.method==='GET'),'the carrier edge emits instructions, never a live carrier REST write')
+  const audit=await (await runtime.request('/api/handset/audit/export',{headers:f.headers})).json()
+  assert.ok(audit.rows.some(r=>r.action==='frontdesk.route'&&JSON.parse(r.policy).applied.line?.revision===f.currentLine.revision))
+ }finally{await runtime.close()}
+})
+
 test('Exact reviewed shared-line pickup park and transfer move only the existing call, reconcile endpoint membership and never repeat an uncertain write',async()=>{
  const {controlFixture}=await import('./helpers/handset-delegation.mjs'),runtime=await openHandset({twilio:true})
  try{

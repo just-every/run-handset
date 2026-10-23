@@ -1,6 +1,7 @@
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { actorRef, append, commit } from '../audit/store'
+import type { AppliedPolicy } from '../audit/policy'
 import { Fault, escape as e, integer, keys, owner, text, type ObjectValue } from '../core'
 import { readCall } from '../queues/provider-api'
 import { providerGet, waitingAgent } from '../dialer/network'
@@ -10,31 +11,32 @@ import { reconcileAttempt } from '../dialer/readback'
 import { list, recipients, type Context } from '../dialer/storage'
 import type { Attempt, Ready } from '../dialer/model'
 import type { AgentRoute } from '../queues/media-policy'
-import { delegated, delegationFence, guard, linePolicy, nativeFence, sql } from './store'
+import { delegated, delegationFence, guard, linePolicy, nativeFence, sql, type Delegation, type Line } from './store'
 
 interface Operation {id:string;delegation_id:string;actor:string;principal:string;kind:'pickup'|'park'|'transfer'|'callback';call_id:string|null;target:string|null;line_revision:number;state:'held'|'uncertain'|'provider_observed'|'refused';created_at:number}
 interface Snapshot {kind:string;lineId:string;lineRevision:number;sourceId:string;account:string;parentSid?:string;parentFrom?:string;parentTo?:string;conferenceSid?:string;conferenceName?:string;agentCallSid?:string;endpointId?:string;routeRevision?:number;listId?:string;listHash?:string;maxSeconds:number}
 interface Approval {operation_id:string;snapshot:string;approved_by:string;owner_version:number;expires_at:number;session_id:string|null;observation:string}
 async function operation(env:Bindings,target:string){const r=await sql(env,'SELECT * FROM hnd_frontdesk_operations WHERE id=?',target).first<Operation>();if(!r)throw new Fault('call_request_not_found',404);return r}
 async function currentSource(env:Bindings,sourceId:string){const r=await sql(env,`SELECT s.account_id FROM hnd_sources s JOIN oa_operators o ON o.id=s.owner_id WHERE s.id=? AND s.revoked_at IS NULL AND o.role='owner' AND o.status='active' AND o.version=s.owner_version`,sourceId).first<{account_id:string}>();if(!r)throw new Fault('source_authority_changed',409);return r.account_id}
+const controlPolicy=(actor:Session,d:Delegation,l:Line,a:Pick<Approval,'operation_id'|'owner_version'>):AppliedPolicy=>({native:{role:actor.operator.role,version:actor.operator.version},delegation:{id:d.id,revision:1,ownerVersion:d.owner_version},line:{id:l.id,revision:l.revision,ownerVersion:l.owner_version},approval:{id:a.operation_id,revision:1,ownerVersion:a.owner_version}})
 async function endpoint(ctx:Context,sourceId:string,operatorId:string){
  const route=await sql(ctx.env,`SELECT r.* FROM hnd_queue_agent_routes r JOIN oa_operators o ON o.id=r.approved_by JOIN oa_operators p ON p.id=r.operator_id WHERE r.operator_id=? AND r.source_id=? AND r.revoked_at IS NULL AND o.role='owner' AND o.status='active' AND o.version=r.owner_version AND p.status='active'`,operatorId,sourceId).first<AgentRoute>()
  const ready=await sql(ctx.env,`SELECT r.* FROM hnd_dialer_ready r JOIN oa_operators o ON o.id=r.approved_by WHERE r.agent_id=? AND r.source_id=? AND r.expires_at>? AND o.status='active' AND o.version=r.owner_version AND (o.role='owner' OR r.approved_by=r.agent_id)`,operatorId,sourceId,Date.now()).first<Ready>()
  if(!route||!ready)throw new Fault('preconnected_exact_endpoint_required',409)
  return {route,ready}
 }
-function approvalFence(env:Bindings,a:Approval){return guard(env,`SELECT count(*) FROM hnd_frontdesk_controls c JOIN oa_operators o ON o.id=c.approved_by WHERE c.operation_id=? AND c.expires_at>? AND o.role='owner' AND o.status='active' AND o.version=c.owner_version`,a.operation_id,Date.now())}
+function approvalFence(env:Bindings,a:Approval){return guard(env,`SELECT count(*) FROM hnd_frontdesk_controls c JOIN oa_operators o ON o.id=c.approved_by WHERE c.operation_id=? AND c.snapshot=? AND c.owner_version=? AND c.expires_at>? AND o.role='owner' AND o.status='active' AND o.version=c.owner_version`,a.operation_id,a.snapshot,a.owner_version,Date.now())}
 function endpointFence(env:Bindings,s:Snapshot){return guard(env,`SELECT count(*) FROM hnd_dialer_ready r JOIN hnd_queue_agent_routes route ON route.operator_id=r.agent_id AND route.source_id=r.source_id JOIN oa_operators o ON o.id=route.approved_by JOIN oa_operators a ON a.id=r.approved_by JOIN oa_operators p ON p.id=r.agent_id WHERE r.agent_id=? AND r.source_id=? AND r.conference_sid=? AND r.conference_name=? AND r.agent_call_sid=? AND r.expires_at>? AND route.revision=? AND route.revoked_at IS NULL AND o.status='active' AND o.role='owner' AND o.version=route.owner_version AND a.status='active' AND a.version=r.owner_version AND (a.role='owner' OR r.approved_by=r.agent_id) AND p.status='active'`,s.endpointId!,s.sourceId,s.conferenceSid!,s.conferenceName!,s.agentCallSid!,Date.now(),s.routeRevision!)}
 export async function approveControl(env:Bindings,actor:Session,v:ObjectValue){
  owner(actor);if(!env.HANDSET_TWILIO_AUTH_TOKEN)throw new Fault('provider_credentials_unavailable',503);keys(v,['operationId','listId','maxSeconds','expiresAt','confirm'])
  if(v.confirm!=='approve this exact existing call move or single callback')throw new Fault('exact_call_control_approval_required',403)
  const op=await operation(env,text(v.operationId,'operationId'))
  if(op.state!=='held')throw new Fault('call_request_already_started',409)
- const delegation=await sql(env,'SELECT assistant_id FROM hnd_delegations WHERE id=?',op.delegation_id).first<{assistant_id:string}>()
+ const delegation=await sql(env,'SELECT * FROM hnd_delegations WHERE id=?',op.delegation_id).first<Delegation>()
  if(!delegation)throw new Fault('delegation_required',403)
  // Approval does not borrow the assistant's session; it snapshots current native
  // line state and the exact request, which execution later fences as assistant.
- const l=await sql(env,'SELECT * FROM hnd_frontdesk_lines WHERE id=(SELECT line_id FROM hnd_delegations WHERE id=?)',op.delegation_id).first<import('./store').Line>()
+ const l=await sql(env,'SELECT * FROM hnd_frontdesk_lines WHERE id=(SELECT line_id FROM hnd_delegations WHERE id=?)',op.delegation_id).first<Line>()
  if(!l||l.revision!==op.line_revision)throw new Fault('line_policy_changed',409)
  const account=await currentSource(env,l.source_id),maxSeconds=integer(v.maxSeconds,'maxSeconds',1,3600),expires=integer(v.expiresAt,'expiresAt',Date.now()+1000,Date.now()+300000),ctx={env,actor},snapshot:Snapshot={kind:op.kind,lineId:l.id,lineRevision:l.revision,sourceId:l.source_id,account,maxSeconds}
  const fences:D1PreparedStatement[]=[]
@@ -56,7 +58,7 @@ export async function approveControl(env:Bindings,actor:Session,v:ObjectValue){
    fences.push(endpointFence(env,snapshot))
   }else snapshot.conferenceName='handset-park-'+op.id
  }
- await commit(env,actor,'frontdesk.approve',op.id,'completed',[...fences,guard(env,"SELECT count(*) FROM hnd_frontdesk_operations WHERE id=? AND state='held'",op.id),guard(env,'SELECT count(*) FROM hnd_frontdesk_lines WHERE id=? AND revision=?',l.id,l.revision),sql(env,'INSERT INTO hnd_frontdesk_controls(operation_id,snapshot,approved_by,owner_version,expires_at) VALUES (?,?,?,?,?)',op.id,JSON.stringify(snapshot),actor.operator.id,actor.operator.version,expires)])
+ await commit(env,actor,'frontdesk.approve',op.id,'completed',[...fences,delegationFence(env,delegation.assistant_id,delegation,l),guard(env,"SELECT count(*) FROM hnd_frontdesk_operations WHERE id=? AND state='held'",op.id),guard(env,'SELECT count(*) FROM hnd_frontdesk_lines WHERE id=? AND revision=?',l.id,l.revision),sql(env,'INSERT INTO hnd_frontdesk_controls(operation_id,snapshot,approved_by,owner_version,expires_at) VALUES (?,?,?,?,?)',op.id,JSON.stringify(snapshot),actor.operator.id,actor.operator.version,expires)],true,controlPolicy(actor,delegation,l,{operation_id:op.id,owner_version:actor.operator.version}))
  return {operationId:op.id,snapshot,expiresAt:expires,effectOccurred:false}
 }
 export async function executeControl(env:Bindings,actor:Session,v:ObjectValue){
@@ -81,7 +83,7 @@ export async function executeControl(env:Bindings,actor:Session,v:ObjectValue){
    await waitingAgent(ctx,s.account,ready,route.destination)
   }
  }
- await append(env,op.actor,'frontdesk.'+op.kind,op.id,'uncertain',[...fences(),...(op.kind!=='park'&&op.kind!=='callback'?[endpointFence(env,s)]:[]),guard(env,"SELECT count(*) FROM hnd_frontdesk_operations WHERE id=? AND state='held'",op.id),sql(env,"UPDATE hnd_frontdesk_operations SET state='uncertain' WHERE id=?",op.id)],op.principal)
+ await append(env,op.actor,'frontdesk.'+op.kind,op.id,'uncertain',[...fences(),...(op.kind!=='park'&&op.kind!=='callback'?[endpointFence(env,s)]:[]),guard(env,"SELECT count(*) FROM hnd_frontdesk_operations WHERE id=? AND state='held'",op.id),sql(env,"UPDATE hnd_frontdesk_operations SET state='uncertain' WHERE id=?",op.id)],op.principal,controlPolicy(actor,d,l,a))
  if(op.kind==='callback'){
   const selected=await list(ctx,s.listId!)
   if(selected.snapshot_hash!==s.listHash)throw new Fault('callback_snapshot_changed',409)
@@ -124,6 +126,6 @@ export async function reconcileControl(env:Bindings,actor:Session,v:ObjectValue)
   if(rows.length!==expected.length||new Set(rows.map(r=>r.call_sid)).size!==expected.length||rows.some(p=>p.account_sid!==s.account||p.conference_sid!==conference.sid||p.status!=='connected'||p.muted!==false||p.hold!==false||p.coaching===true||!expected.includes(String(p.call_sid))))throw new Fault('conference_membership_unconfirmed',409)
   observation='provider-observed '+op.kind+' membership; human audio unconfirmed'
  }
- if(observation!=='unconfirmed')await append(env,op.actor,'frontdesk.'+op.kind,op.id,'completed',[...fences(),sql(env,"UPDATE hnd_frontdesk_operations SET state='provider_observed' WHERE id=?",op.id),sql(env,'UPDATE hnd_frontdesk_controls SET observed_at=?,observation=? WHERE operation_id=?',Date.now(),observation,op.id)],op.principal)
+ if(observation!=='unconfirmed')await append(env,op.actor,'frontdesk.'+op.kind,op.id,'completed',[...fences(),guard(env,'SELECT count(*) FROM hnd_frontdesk_controls WHERE operation_id=? AND snapshot=? AND owner_version=?',a.operation_id,a.snapshot,a.owner_version),sql(env,"UPDATE hnd_frontdesk_operations SET state='provider_observed' WHERE id=?",op.id),sql(env,'UPDATE hnd_frontdesk_controls SET observed_at=?,observation=? WHERE operation_id=?',Date.now(),observation,op.id)],op.principal,controlPolicy(actor,d,l,a))
  return {operation:await operation(env,op.id),observation,customerOutcome:'unconfirmed',receiverAudio:'unqualified'}
 }

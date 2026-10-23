@@ -133,15 +133,15 @@ for(const width of [1440,390])test(`Explicit executive delegation and consented 
   await page.goto(runtime.origin+'/app/recordings');await proof('recording-no-implicit-grant')
   assert.ok((await page.locator('main').innerText()).includes('No current recording approvals'))
   await as(f.cookie);await page.goto(runtime.origin+'/app/recordings');await proof('owner-recording-consent')
-  await page.getByLabel('Consented provider recording',{exact:true}).selectOption(media.recordingId)
+  await page.getByLabel('Provider recording',{exact:true}).selectOption(media.recordingId)
   await page.getByLabel('Exact approved person',{exact:true}).selectOption('synthetic-handset-2')
   await page.getByLabel('Recording approval expiry (UTC)',{exact:true}).fill(new Date(Date.now()+1800000).toISOString().slice(0,16))
-  await page.getByRole('checkbox',{name:'I approve this consented recording for this exact person',exact:true}).check()
+  await page.getByRole('checkbox',{name:'I attest participant consent and approve playback for this exact person',exact:true}).check()
   await page.getByRole('button',{name:'Approve recording playback',exact:true}).click()
   await page.getByRole('heading',{name:'Recording approval recorded',exact:true}).waitFor();await proof('recording-consent-receipt')
   await as(f.assistant.cookie);await page.goto(runtime.origin+'/app/recordings');await proof('approved-recording')
   await page.getByRole('link',{name:'Play approved recording '+media.recordingId,exact:true}).click()
-  await page.getByRole('heading',{name:'Approved recording playback',exact:true}).waitFor();await proof('recording-player')
+  await page.getByRole('heading',{name:'Owner-attested exact-person playback',exact:true}).waitFor();await proof('recording-player')
   assert.equal(await page.locator('audio').getAttribute('preload'),'none')
   const response=await context.request.get(runtime.origin+'/api/handset/recordings/'+media.recordingId+'/playback');assert.equal(response.status(),200);assert.deepEqual(Buffer.from(await response.body()),media.bytes)
   await as(f.cookie);await page.goto(runtime.origin+'/app/audit');await proof('audit-recording-and-principal')
@@ -154,6 +154,44 @@ for(const width of [1440,390])test(`Explicit executive delegation and consented 
   await post(runtime,'/api/handset/recordings/grants/'+g.id+'/revoke',{},f.headers)
   await page.reload();await proof('revoked-recording')
   await page.goto(runtime.origin+'/app/front-desk/lines');await page.getByRole('alert').waitFor();await proof('front-desk-invalid-door')
+ }finally{await context.close();await browser.close();await runtime.close()}
+})
+
+for(const width of [1440,390])test(`Executive inbound routing and suspended source reconsent at ${width}`,async()=>{
+ const {inboundFixture}=await import('./helpers/handset-inbound.mjs'),{mailLink}=await import('./helpers/handset-auth.mjs')
+ const runtime=await openHandset({twilio:true}),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage(),evidence=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-workspace'
+ await mkdir(evidence,{recursive:true})
+ async function as(cookie){const [name,...value]=cookie.split('=');await context.clearCookies();await context.addCookies([{name,value:value.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])}
+ async function proof(name){assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name);await page.screenshot({path:`${evidence}/${width}-${name}.png`,fullPage:true})}
+ try{
+  const f=await inboundFixture(runtime);await f.policy({dnd:1});await as(f.cookie)
+  await page.goto(runtime.origin+'/app/front-desk');await proof('executive-routing-approved')
+  await page.getByLabel('Existing consent-qualified voicemail URL',{exact:true}).fill(f.voicemail)
+  await page.getByLabel('Exact assistant grant for DND coverage',{exact:true}).selectOption(f.currentGrant.id)
+  const consent=page.getByRole('checkbox',{name:'I approve this exact inbound coverage, voicemail and forwarding, including carrier charges',exact:true})
+  await consent.check();const submit=page.getByRole('button',{name:'Approve inbound routing',exact:true});await submit.focus();await submit.press('Enter');await page.waitForLoadState('load')
+  assert.ok((await f.expectRoute('dnd_assistant')).includes('<Sip>'+f.endpoint+'</Sip>'))
+  await proof('executive-routing-saved')
+  await f.create('front-desk/lines',{...f.lineInput,id:f.line.id,revision:f.currentLine.revision,dnd:1})
+  await page.reload();assert.ok((await page.locator('main').innerText()).includes('Line changed — approve again'));await proof('executive-routing-stale')
+  assert.equal((await f.carrier()).status,409)
+  await page.goto(runtime.origin+'/app/audit');await page.getByText('frontdesk.route · uncertain',{exact:true}).waitFor();await proof('audit-applied-revisions')
+  // A second owner changes the actual consenting person's authority, then
+  // performs fresh explicit consent through the same browser source form.
+  assert.equal((await post(runtime,'/auth/invite',{email:'synthetic-handset-795@example.test',displayName:'Marisol Vega / Operations',role:'owner'},f.headers)).status,202)
+  const invite=mailLink(runtime.mails.at(-1)),joined=await post(runtime,'/auth/confirm',{token:invite.searchParams.get('token')});assert.equal(joined.status,303)
+  const reviewer=joined.headers.get('set-cookie').split(';')[0]
+  assert.equal((await post(runtime,'/auth/operator/status',{operatorId:'synthetic-handset-1',status:'inactive'},{cookie:reviewer})).status,200)
+  await as(reviewer);await page.goto(runtime.origin+'/app/sources');await proof('source-authority-suspended')
+  assert.ok((await page.locator('main').innerText()).includes('Suspended'))
+  await page.getByLabel('Twilio account SID',{exact:true}).fill(f.account)
+  await page.getByLabel('Selected native business-number record ID',{exact:true}).fill(f.numberId)
+  await page.getByRole('checkbox',{name:'I authorize signed inbound communication records for this account and number',exact:true}).check()
+  await page.getByRole('button',{name:'Authorize inbound records',exact:true}).click();await page.getByRole('heading',{name:'Source authorized',exact:true}).waitFor();await proof('source-reconsent-receipt')
+  await page.getByRole('link',{name:'Review sources',exact:true}).click();await proof('source-current-and-suspended-history')
+  const active=(await (await runtime.request('/api/handset/sources',{headers:{cookie:reviewer}})).json()).sources.find(s=>s.status==='active')
+  await page.getByRole('button',{name:'Revoke source '+active.id,exact:true}).click();await page.getByRole('heading',{name:'Source revoked',exact:true}).waitFor();await proof('source-revoked-receipt')
  }finally{await context.close();await browser.close();await runtime.close()}
 })
 

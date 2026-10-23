@@ -5,6 +5,7 @@ import { address, type Admission, type Route } from './model'
 import { sourceFence, routeFence, type Source } from './carrier-proof'
 import { challengePolicy } from './challenge-policy'
 import { xml } from './twiml'
+import { executiveContinuation } from '../delegation/inbound'
 
 export interface ChallengeContext {source:Source;route:Route;callId:string;from:string;to:string}
 interface Challenge {
@@ -48,6 +49,7 @@ async function active(env:Bindings,c:ChallengeContext,row:Challenge){
 }
 async function continueOnce(env:Bindings,c:ChallengeContext,row:Challenge,policyFence:D1PreparedStatement,reason:string,attempts=row.attempts){
  if(!c.route.continuation_url)return end(env,c,row,'cancelled','screening_continuation_unconfigured',policyFence,attempts)
+ const executive=await executiveContinuation(env,c,[...fences(env,c),policyFence,pendingFence(env,row)])
  const now=Date.now()
  await append(env,c.source.id,'protection.admit',row.id,'completed',[
   ...fences(env,c),policyFence,pendingFence(env,row),
@@ -55,7 +57,7 @@ async function continueOnce(env:Bindings,c:ChallengeContext,row:Challenge,policy
  ])
  // A keypad response is an interaction signal, never human identity, consent,
  // outbound authority, or proof that the continuation was actually received.
- return xml(`<Redirect method="POST">${escape(c.route.continuation_url)}</Redirect>`,reason)
+ return xml(executive??`<Redirect method="POST">${escape(c.route.continuation_url)}</Redirect>`,reason)
 }
 /** Start or resume one existing challenge. Called for every initial PSTN request
  * so replaying the initial URL cannot issue a fresh challenge after completion. */
@@ -76,8 +78,9 @@ export async function initialChallengeResponse(env:Bindings,c:ChallengeContext):
  }
  if(v.decision==='allow'||v.decision==='exempt'){
   if(!c.route.continuation_url)throw new Fault('inbound_continuation_unconfigured',503)
+  const executive=await executiveContinuation(env,c,[...fences(env,c),policy.fence])
   await append(env,c.source.id,'protection.admit','installation','completed',[...fences(env,c),policy.fence])
-  return xml(`<Redirect method="POST">${escape(c.route.continuation_url)}</Redirect>`,v.reason)
+  return xml(executive??`<Redirect method="POST">${escape(c.route.continuation_url)}</Redirect>`,v.reason)
  }
  if(v.decision!=='screen')throw new Fault('screening_policy_unavailable',503)
  if(!c.route.continuation_url)throw new Fault('inbound_continuation_unconfigured',503)

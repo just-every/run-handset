@@ -1,37 +1,12 @@
 import { runtimeBindings, type Bindings } from '../../auth.server'
-import type { Session } from '../../modules/operator-auth/index.mjs'
-import { append, commit } from '../audit/store'
-import { Fault, json, text, keys, id, digest, integer, page, escape as e, field, type ObjectValue } from '../core'
+import { append } from '../audit/store'
+import { sourcePolicy } from '../audit/policy'
+import { Fault, json, text, id, digest, integer } from '../core'
 
-interface Source {id:string;account_id:string;number_id:string;owner_id:string;owner_version:number;revision:number;revoked_at:number|null;created_at:number}
+import { activeSources, sourceFence, type Source } from './sources'
+export { sourceDoor } from './sources'
 const endpoint='/providers/twilio/events'
-const sourceFence=(env:Bindings,s:Source)=>env.DB.prepare(`INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_sources s JOIN oa_operators o ON o.id=s.owner_id WHERE s.id=? AND s.revision=? AND s.revoked_at IS NULL AND o.role='owner' AND o.status='active' AND o.version=s.owner_version`).bind(s.id,s.revision)
-const activeSource=async(env:Bindings,account:string)=>(await env.DB.prepare(`SELECT s.* FROM hnd_sources s JOIN oa_operators o ON o.id=s.owner_id WHERE s.account_id=? AND s.revoked_at IS NULL AND o.role='owner' AND o.status='active' AND o.version=s.owner_version`).bind(account).first<Source>())
-export async function sourceDoor(request:Request,env:Bindings,actor:Session,value?:ObjectValue):Promise<Response|null>{
- const path=new URL(request.url).pathname,html=path.startsWith('/app/'),base=html?'/app/sources':'/api/handset/sources'
- if(path!==base && path!==base+'/revoke')return null
- if(request.method==='GET'&&path===base){
-  const rows=(await env.DB.prepare('SELECT id,account_id,number_id,revision,revoked_at FROM hnd_sources').all()).results
-  const pending=(await env.DB.prepare('SELECT source_id,event_id,parent_external_id,received_at FROM hnd_source_pending ORDER BY received_at').all()).results
-  await commit(env,actor,'source.read','installation','completed')
-  return html?page('Verified communication sources',`<p>Receive signed Twilio events for one selected business number. This grants no outbound or recording-capture authority. The installation owner supplies the Twilio authentication token through its private secret binding.</p><ul>${rows.map(r=>`<li>${e(r.account_id)} · ${r.revoked_at?'Revoked':'Active'}<p>Source ${e(r.id)} · Number ${e(r.number_id)} · Revision ${e(r.revision)}</p><form method="post" action="/app/sources/revoke"><input type="hidden" name="sourceId" value="${e(r.id)}"><button>Revoke source ${e(r.id)}</button></form></li>`).join('')||'<li>No authorized sources.</li>'}</ul><form method="post">${field('Twilio account SID','accountId')}${field('Selected native business-number record ID','numberId')}<label><input type="checkbox" name="confirm" value="authorize signed inbound records" required>I authorize signed inbound communication records for this account and number</label><button>Authorize inbound records</button></form><h2>Unresolved source events</h2><ul>${pending.map(p=>`<li>${e(p.event_id)} · Waiting for parent ${e(p.parent_external_id)}</li>`).join('')||'<li>No unresolved events.</li>'}</ul>`):json({sources:rows,pending})
- }
- if(request.method!=='POST'||!value)throw new Fault('method_not_allowed',405)
- if(path===base+'/revoke'){
-  keys(value,['sourceId']);const sourceId=text(value.sourceId,'sourceId')
-  if(!await env.DB.prepare('SELECT id FROM hnd_sources WHERE id=?').bind(sourceId).first())throw new Fault('source_not_found',404)
-  await commit(env,actor,'source.revoke',sourceId,'completed',[env.DB.prepare('UPDATE hnd_sources SET revoked_at=COALESCE(revoked_at,?),revision=revision+1 WHERE id=?').bind(Date.now(),sourceId)])
-  return html?page('Source revoked','<p>Further source events are refused. Completed communication evidence is retained.</p>'):json({revoked:true})
- }
- keys(value,['accountId','numberId','confirm'])
- if(value.confirm!=='authorize signed inbound records')throw new Fault('explicit_source_consent_required')
- if(!env.HANDSET_TWILIO_AUTH_TOKEN)throw new Fault('twilio_secret_binding_required',409)
- const numberId=text(value.numberId,'numberId'),accountId=text(value.accountId,'accountId'),sourceId=id()
- if(!await env.DB.prepare("SELECT id FROM hnd_records WHERE id=? AND kind='number'").bind(numberId).first())throw new Fault('native_number_required')
- try{await commit(env,actor,'source.create',sourceId,'completed',[env.DB.prepare('INSERT INTO hnd_sources VALUES (?,?,?,?,?,?,?,?)').bind(sourceId,accountId,numberId,actor.operator.id,actor.operator.version,1,null,Date.now())])}
- catch(error){if(String(error).includes('UNIQUE constraint'))throw new Fault('source_already_registered',409);throw error}
- return html?page('Source authorized',`<p>Signed callbacks may use ${endpoint}. No call or message has been sent.</p><a href="/app/sources">Review sources</a>`):json({id:sourceId,callbackPath:endpoint},201)
-}
+
 async function verify(request:Request,env:Bindings,parameters:URLSearchParams){
  const signature=request.headers.get('x-twilio-signature')
  if(!env.HANDSET_TWILIO_AUTH_TOKEN||!signature||!/^[A-Za-z0-9+/]{27}=$/.test(signature))throw new Fault('invalid_source_proof',403)
@@ -51,7 +26,8 @@ function normalize(p:URLSearchParams){
  const account=get('AccountSid'),call=p.get('CallSid'),message=p.get('MessageSid'),recording=p.get('RecordingSid')
  const timestamp=p.get('Timestamp'),occurredAt=timestamp?Date.parse(timestamp):null
  if(timestamp&&!Number.isFinite(occurredAt))throw new Fault('invalid_source_timestamp')
- const from=get('From',Boolean(recording)),to=get('To',Boolean(recording))
+ const dependent=Boolean(recording||p.get('ParentCallSid'))
+ const from=get('From',dependent),to=get('To',dependent)
  if((from&&!/^\+[1-9]\d{7,14}$/.test(from))||(to&&!/^\+[1-9]\d{7,14}$/.test(to)))throw new Fault('unsupported_source_address')
  const sequence=p.get('SequenceNumber')
  if(sequence!==null)integer(Number(sequence),'SequenceNumber',0,1000000000)
@@ -76,6 +52,19 @@ function normalize(p:URLSearchParams){
 }
 type Event=ReturnType<typeof normalize>
 
+// Provider account IDs are shared by many selected numbers. Existing object and
+// parent identities route addressless dependent events to their original source.
+async function eventSource(env:Bindings,event:Event){
+ const [sources,objects]=await Promise.all([
+  activeSources(env,event.account),
+  env.DB.prepare('SELECT DISTINCT source_id FROM hnd_source_objects WHERE external_id IN (?,?) AND source_id IN (SELECT id FROM hnd_sources WHERE account_id=?)').bind(event.externalId,event.parent,event.account).all<{source_id:string}>(),
+ ])
+ const linked=sources.filter(s=>objects.results.some(o=>o.source_id===s.id))
+ if(linked.length)return linked.length===1?linked[0]:null
+ const matching=sources.filter(s=>s.e164===event.to)
+ return matching.length===1?matching[0]:null
+}
+
 async function sourceTimestamp(env:Bindings,event:Event){
  if(event.occurredAt!==null)return event
  const resource=event.kind==='message'?'Messages':event.kind==='recording'?'Recordings':null
@@ -94,12 +83,12 @@ async function sourceTimestamp(env:Bindings,event:Event){
 async function ingest(env:Bindings,source:Source,event:Event,bodyHash:string,parameters:string,receivedAt:number):Promise<{held?:boolean;recordId?:string;caseId?:string;replay?:boolean}>{
  const db=env.DB
  const receipt=await db.prepare('SELECT body_hash,record_id FROM hnd_source_receipts WHERE source_id=? AND event_id=?').bind(source.id,event.eventId).first<{body_hash:string;record_id:string}>()
- if(receipt){if(receipt.body_hash!==bodyHash)throw new Fault('source_event_conflict',409);await append(env,source.id,'source.replay',receipt.record_id,'completed',[sourceFence(env,source)]);return {recordId:receipt.record_id,replay:true}}
+ if(receipt){if(receipt.body_hash!==bodyHash)throw new Fault('source_event_conflict',409);await append(env,source.id,'source.replay',receipt.record_id,'completed',[sourceFence(env,source)],null,sourcePolicy(source));return {recordId:receipt.record_id,replay:true}}
  const parent=event.parent?await db.prepare('SELECT record_id,case_id FROM hnd_source_objects WHERE source_id=? AND external_id=?').bind(source.id,event.parent).first<{record_id:string;case_id:string}>():null
  if(event.parent&&!parent){
   const pending=await db.prepare('SELECT body_hash FROM hnd_source_pending WHERE source_id=? AND event_id=?').bind(source.id,event.eventId).first<{body_hash:string}>()
   if(pending){if(pending.body_hash!==bodyHash)throw new Fault('source_event_conflict',409);return {held:true,replay:true}}
-  await append(env,source.id,'source.held',source.id,'completed',[sourceFence(env,source),db.prepare('INSERT INTO hnd_source_pending VALUES (?,?,?,?,?,?)').bind(source.id,event.eventId,bodyHash,event.parent,parameters,receivedAt)])
+  await append(env,source.id,'source.held',source.id,'completed',[sourceFence(env,source),db.prepare('INSERT INTO hnd_source_pending VALUES (?,?,?,?,?,?)').bind(source.id,event.eventId,bodyHash,event.parent,parameters,receivedAt)],null,sourcePolicy(source))
   return {held:true}
  }
  const ownNumber=await db.prepare("SELECT data FROM hnd_records WHERE id=? AND kind='number'").bind(source.number_id).first<{data:string}>()
@@ -132,7 +121,7 @@ async function ingest(env:Bindings,source:Source,event:Event,bodyHash:string,par
 
  statements.push(db.prepare('INSERT INTO hnd_source_receipts VALUES (?,?,?,?,?,?)').bind(source.id,event.eventId,bodyHash,occurredAt,now,recordId))
  statements.push(db.prepare('DELETE FROM hnd_source_pending WHERE source_id=? AND event_id=?').bind(source.id,event.eventId))
- try{await append(env,source.id,'source.receive',recordId,'completed',statements)}
+ try{await append(env,source.id,'source.receive',recordId,'completed',statements,null,sourcePolicy(source))}
  catch(error){if(/UNIQUE constraint failed: hnd_(source_cases|source_objects|source_receipts)/.test(String(error)))return ingest(env,source,event,bodyHash,parameters,receivedAt);throw error}
  return {recordId,caseId,replay:false}
 }
@@ -149,8 +138,8 @@ export async function twilioResponse(request:Request,original:Bindings):Promise<
   const p=new URLSearchParams(body)
   await verify(request,env,p)
   let event=normalize(p)
-  const source=await activeSource(env,event.account)
-  knownSource=source??await env.DB.prepare('SELECT * FROM hnd_sources WHERE account_id=?').bind(event.account).first<Source>()
+  const source=await eventSource(env,event)
+  knownSource=source??await env.DB.prepare(`SELECT s.* FROM hnd_sources s JOIN hnd_records n ON n.id=s.number_id WHERE s.account_id=? AND (json_extract(n.data,'$.e164')=? OR EXISTS(SELECT 1 FROM hnd_source_objects so WHERE so.source_id=s.id AND so.external_id IN (?,?))) ORDER BY s.revision DESC LIMIT 1`).bind(event.account,event.to,event.externalId,event.parent).first<Source>()
   if(!source)throw new Fault('invalid_source_proof',403)
   const alreadyRecorded=await env.DB.prepare('SELECT event_id FROM hnd_source_receipts WHERE source_id=? AND event_id=?').bind(source.id,event.eventId).first()
   if(!alreadyRecorded)event=await sourceTimestamp(env,event)
@@ -164,7 +153,7 @@ export async function twilioResponse(request:Request,original:Bindings):Promise<
   }
   return json({...result,customerOutcome:'unconfirmed',externalEffectOccurred:false},result.held?202:200)
  }catch(error){
-  if(error instanceof Fault){if(knownSource)await append(env,knownSource.id,'source.refuse','installation','refused');return json({error:error.code},error.status)}
+  if(error instanceof Fault){if(knownSource)await append(env,knownSource.id,'source.refuse','installation','refused',[],null,sourcePolicy(knownSource));return json({error:error.code},error.status)}
   if(String(error).includes('CHECK constraint failed'))return json({error:'source_authority_changed'},409)
   console.error('Handset source event failed',error instanceof Error?error.name:'unknown')
   return json({error:'source_unavailable'},503)

@@ -39,11 +39,13 @@ operation retains uncertainty instead of losing all audit or inventing success.
 Public admission attempts remain anonymous until a verified session exists.
 No request body is read or retained by the observer. Events hold
 only server-generated opaque actor/subject IDs, fixed action/outcome vocabulary,
-a policy revision and server time. Current events use **handset-authorization-v2**,
-which identifies the documented native self-service, exact delegation/media,
-owner, application and signed-source authorization rules. Existing
-**owner-only-v1** ledgers remain verifiable; this audit revision does not change
-the separate exact application approval policy snapshot. Hashes chain over the exact ordered event
+an applied policy revision and server time. Current policy values encode the
+**handset-authorization-v3** schema and the actual native session role/version,
+source consent revision, application grant, standing policy or exact approval,
+executive line/delegation and playback grant used by the door. Only opaque IDs
+and integer revisions are retained, never a caller-supplied policy string.
+Existing **owner-only-v1** and **handset-authorization-v2** ledgers remain
+verifiable after later policy changes; earlier hashes are never rewritten. Hashes chain over the exact ordered event
 fields. Concurrent appends retry on the predecessor/sequence uniqueness fence.
 SQL triggers refuse updates and deletes to records, history, audit and restored
 ledgers. Normal product roles have no mutation endpoint for those ledgers.
@@ -161,7 +163,12 @@ HMAC-SHA1 signature over the complete URL and every sorted form parameter.
 Only then does it resolve the authorized account and number; a native cookie
 cannot substitute for that proof. Conflicting duplicate fields are refused.
 Revoked sources and changed/inactive owner authority are refused on every event
-and again in the same transaction as receipt/record/audit persistence.
+and again in the same transaction as receipt/record/audit persistence. An account
+can authorize several numbers, each with separate consent revisions. Revocation
+or a change to the consenting owner suspends admission until fresh explicit
+consent for that account and number. The source screen shows active, suspended
+and revoked revisions. Earlier sources and linked evidence remain retained;
+a new source revision does not silently reactivate old routing/endpoint grants.
 
 Supported official callback fields cover call-status legs (`CallSid`,
 `ParentCallSid`, `SequenceNumber`, `Timestamp`, `CallStatus`), message/MMS
@@ -210,7 +217,7 @@ text, URL/query/body, provider payload or credentials enter the audit observer.
 `lines` approves an exact executive, business-number record, current inbound
 source, timezone, weekdays, local hours, DND and optional explicit forwarding
 configuration. Same-day hours are supported; unsupported overnight intervals are
-refused. Saving configuration never activates forwarding. A policy edit revokes
+refused. Saving a line policy alone never configures the carrier. A policy edit revokes
 old assistant grants rather than silently enlarging them.
 
 Owner POST `delegations` requires `lineId`, `assistantId`, `expiresAt` (at most
@@ -237,7 +244,8 @@ recording, exact native `personId`, expiry at most one hour and
 attestation does not prove capture consent, jurisdiction or US custody (HND-013 /
 HND-046). No role, including owner, implies playback rights. POST
 `recordings/grants/:id/revoke` revokes immediately. Delegation never supplies a
-grant. These conservative defaults await ct approval; no automatic capture,
+grant. Exact-person approval applies to everyone and does not imply team or
+supervisor roles. These are owner-attested playback grants; no automatic capture,
 sharing, download copy or outbound work is introduced.
 
 GET `/api/handset/recordings/:id/playback` verifies an exact current-person grant,
@@ -245,7 +253,9 @@ current source/issuer/person authority and provider recording/account/parent-cal
 readback. It fetches only the constructed Twilio WAV URL with redirects refused,
 requires a bounded declared size (10 MB maximum), and rechecks revocation before
 fetch and before release. It never persists bytes or returns a provider URL or
-credential. Every attempted/permitted/refused/failed playback is attributable.
+credential. Every attempted/permitted/refused/failed playback is attributable. A refused
+playback uses installation scope, not a recording subject. Recording
+download/export/share and consent-change doors remain unbuilt.
 Network-edge tests use generated synthetic WAV data, not captured speech. Live
 capture/media/carrier qualification remains open. Future retention/erasure gates
 must bind this producer before HND-013/065/066 claim their wider lifecycle proof.
@@ -284,3 +294,33 @@ is conveyed. Callback readback retains provider From/To, assistant and conferenc
 identity separately from actual controlled-receiver proof. Live qualification requires installation-authorized carrier credentials and
 controlled receiving endpoints. Protocol fixtures do not establish real receiver
 audio or externally displayed business identity.
+
+## Executive inbound policy at the carrier edge
+
+Owner POST `/api/handset/front-desk/routing` (or the native form) separately
+approves `{lineId,lineRevision,revision?,delegationId?,voicemailUrl,maxSeconds,
+expiresAt,confirm:"approve exact inbound coverage voicemail and forwarding"}`.
+It snapshots the selected assistant's approved Client/SIP endpoint, the existing
+consent-qualified external voicemail service and the line's explicit forwarding
+destination. Approval lasts at most one day and bounds connected time to at
+most one hour. These are product defaults, not proof of carrier pricing or audio.
+Saving does not change provider configuration or place a call.
+
+The signed `/providers/twilio/protection` voice webhook identifies the selected
+account **and called number**, applies nuisance/emergency screening first, then
+applies the exact current executive line. Explicit external forwarding takes
+precedence; outside-hours calls redirect to the approved voicemail service;
+DND sends calls to the active delegated assistant's unchanged approved endpoint,
+or voicemail if that assistant/endpoint was revoked. Normal calls continue to
+the existing principal route. Screening completion repeats this policy, rather
+than bypassing it. No local capture or new recording consent is invented.
+
+A line edit invalidates its old inbound approval. Suspended source/owner, stale
+line/route, revoked endpoint, expired approval or ambiguous line cannot authorize
+a new assistant dial or external forward. A durable uncertain instruction
+receipt is committed before TwiML is returned. A repeated call webhook is
+refused, even after a restart, rather than redialing after a lost response.
+Already-started calls remain alone. A one-shot Dial ends after its bounded
+connection/no-answer; Handset does not claim the remote phone rang, a person
+answered, a voicemail was captured, or the receiving display distinguished the
+assistant from the executive. Those require authorized live qualification.

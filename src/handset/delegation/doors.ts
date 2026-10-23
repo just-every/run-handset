@@ -5,6 +5,7 @@ import { commit } from '../audit/store'
 import { Fault, escape as e, consolePage, integer, json, keys, owner, text, type ObjectValue } from '../core'
 import { configureLine, createDelegation, delegated, intent, linePolicy, presence, revokeDelegation, sql, type Line } from './store'
 import { deskPage, type Desk } from './pages'
+import { approveInbound } from './inbound-policy'
 
 export async function desk(env:Bindings,actor:Session):Promise<Desk>{
  const isOwner=actor.operator.role==='owner',now=Date.now()
@@ -24,8 +25,9 @@ export async function desk(env:Bindings,actor:Session):Promise<Desk>{
  const people=isOwner?(await sql(env,"SELECT id,display_name FROM oa_operators WHERE status='active' ORDER BY display_name").all<Desk['people'][number]>()).results:[]
  const sources=isOwner?(await sql(env,'SELECT id,number_id FROM hnd_sources WHERE revoked_at IS NULL').all<Desk['sources'][number]>()).results:[]
  const ownPresence=await sql(env,'SELECT state,revision FROM hnd_frontdesk_presence WHERE operator_id=?',actor.operator.id).first<{state:string;revision:number}>()
+ const routing=isOwner?{routes:(await sql(env,`SELECT r.*,CASE WHEN o.role='owner' AND o.status='active' AND o.version=r.owner_version THEN 0 ELSE 1 END AS suspended FROM hnd_frontdesk_routing r JOIN oa_operators o ON o.id=r.approved_by`).all<Desk['routing']['routes'][number]>()).results,grants:(await sql(env,`SELECT d.id,d.line_id,a.display_name,d.expires_at FROM hnd_delegations d JOIN oa_operators a ON a.id=d.assistant_id WHERE d.revoked_at IS NULL AND d.expires_at>? AND a.status='active'`,now).all<Desk['routing']['grants'][number]>()).results}:{routes:[],grants:[]}
  await commit(env,actor,'delegation.read','installation','completed',[],false)
- return {lines,calls,operations,people,sources,ownPresence}
+ return {lines,calls,operations,people,sources,ownPresence,routing}
 }
 export async function delegationDoor(request:Request,env:Bindings,actor:Session,value?:ObjectValue):Promise<Response|null>{
  const path=new URL(request.url).pathname,html=path.startsWith('/app/'),base=html?'/app/front-desk':'/api/handset/front-desk'
@@ -33,9 +35,10 @@ export async function delegationDoor(request:Request,env:Bindings,actor:Session,
  if(request.method==='GET'&&path===base){keys(Object.fromEntries(new URL(request.url).searchParams),[]);const result=await desk(env,actor);return html?deskPage(result,actor.operator.role==='owner'):json(result)}
  if(request.method!=='POST')throw new Fault('method_not_allowed',405)
  const v={...value}
- if(html){for(const key of ['revision','lineRevision','dnd','maxSeconds'])if(typeof v[key]==='string')v[key]=v[key]===''?undefined:Number(v[key]);if(typeof v.weekdays==='string')v.weekdays=v.weekdays.split(',').map(Number);if(typeof v.expiresAt==='string')v.expiresAt=new Date(v.expiresAt+'Z').getTime();for(const k of ['id','revision','callId','target','forwardTo','listId'])if(v[k]===''||v[k]===undefined)delete v[k]}
+ if(html){for(const key of ['revision','lineRevision','dnd','maxSeconds'])if(typeof v[key]==='string')v[key]=v[key]===''?undefined:Number(v[key]);if(typeof v.weekdays==='string')v.weekdays=v.weekdays.split(',').map(Number);if(typeof v.expiresAt==='string')v.expiresAt=new Date(v.expiresAt+'Z').getTime();for(const k of ['id','revision','callId','target','forwardTo','listId','delegationId'])if(v[k]===''||v[k]===undefined)delete v[k]}
  let result:unknown,status=200
  if(path===base+'/lines'){result=await configureLine(env,actor,v);status=201}
+ else if(path===base+'/routing'){result=await approveInbound(env,actor,v);status=201}
  else if(path===base+'/delegations'){result=await createDelegation(env,actor,v);status=201}
  else if(path===base+'/revoke'){owner(actor);keys(v,['delegationId']);result=await revokeDelegation(env,actor,text(v.delegationId,'delegationId'))}
  else if(path===base+'/presence'){if(html)v.revision=integer(Number(v.revision),'revision',0);result=await presence(env,actor,v)}

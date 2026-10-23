@@ -172,13 +172,86 @@ test('Unsigned foreign-number revoked and failed-readback carrier events cannot 
  }finally{await runtime.close()}
 })
 
-test('Exact-person supervisor playback is audited, denies inherited delegation and fails closed on revoke during provider readback',async()=>{
+test('Source consent revisions isolate account numbers and require fresh owner consent after revocation or native authority changes',async()=>{
+ const {sourceFixture}=await import('./helpers/handset-sources.mjs')
+ const {mailLink}=await import('./helpers/handset-auth.mjs')
+ const runtime=await openHandset({twilio:true})
+ try{
+  const f=await sourceFixture(runtime),timestamp=new Date().toUTCString()
+  const number=await post(runtime,'/api/handset/records',{kind:'number',sourceId:'synthetic-handset-530',occurredAt:Date.now(),data:{e164:'+15125550127'}},f.headers)
+  assert.equal(number.status,201)
+  const numberId=(await number.json()).record.id
+  const consent=(selected=f.numberId,headers=f.headers,confirm='authorize signed inbound records')=>post(runtime,'/api/handset/sources',{accountId:f.account,numberId:selected,confirm},headers)
+  const second=await consent(numberId)
+  assert.equal(second.status,201,await second.clone().text())
+  const secondSource=await second.json()
+  const call={CallSid:'synthetic-handset-531',CallStatus:'ringing',SequenceNumber:'0',Timestamp:timestamp}
+  const first=await f.callback(call);assert.equal(first.status,200)
+  const firstRecord=(await first.json()).recordId
+  const other=await f.callback({...call,CallSid:'synthetic-handset-532',To:'+15125550127'})
+  assert.equal(other.status,200)
+  const otherRecord=(await other.json()).recordId
+  assert.notEqual(firstRecord,otherRecord)
+  for(const [recordId,sourceId] of [[firstRecord,f.source.id],[otherRecord,secondSource.id]]){
+   const detail=await (await runtime.request('/api/handset/records/'+recordId,{headers:f.headers})).json()
+   assert.equal(detail.record.actor_id,sourceId,'the selected number determines the source')
+  }
+  assert.equal((await f.callback({...call,CallSid:'synthetic-handset-533',ParentCallSid:'synthetic-handset-532',From:'',To:''})).status,200,'addressless child uses its verified parent source')
+  assert.equal((await post(runtime,'/api/handset/sources/revoke',{sourceId:f.source.id},f.headers)).status,200)
+  assert.equal((await f.callback({...call,SequenceNumber:'1'})).status,403)
+  assert.equal((await f.callback({...call,CallSid:'synthetic-handset-532',To:'+15125550127',SequenceNumber:'1'})).status,200,'revoking one number preserves the other')
+  assert.equal((await consent(f.numberId,f.headers,'')).status,400)
+  const renewed=await consent();assert.equal(renewed.status,201)
+  const renewedSource=await renewed.json();assert.notEqual(renewedSource.id,f.source.id)
+  assert.equal((await consent()).status,409,'an active consent cannot be silently replaced')
+  const current={...call,CallSid:'synthetic-handset-534'}
+  assert.equal((await f.callback(current)).status,200)
+  assert.equal((await runtime.request('/api/handset/records/'+firstRecord,{headers:f.headers})).status,200,'earlier evidence survives reconsent')
+  // Native owner management changes real sessions and versions through its door.
+  assert.equal((await post(runtime,'/auth/invite',{email:'synthetic-handset-535@example.test',displayName:'Source reviewer',role:'owner'},f.headers)).status,202)
+  const invite=mailLink(runtime.mails.at(-1))
+  const joined=await post(runtime,'/auth/confirm',{token:invite.searchParams.get('token')})
+  assert.equal(joined.status,303)
+  const reviewer={cookie:joined.headers.get('set-cookie').split(';')[0]}
+  assert.equal((await post(runtime,'/auth/operator/status',{operatorId:'synthetic-handset-1',status:'inactive'},reviewer)).status,200)
+  assert.equal((await f.callback({...current,SequenceNumber:'1'})).status,403)
+  let listed=await (await runtime.request('/api/handset/sources',{headers:reviewer})).json()
+  assert.equal(listed.sources.find(s=>s.id===renewedSource.id).status,'suspended')
+  assert.equal(listed.sources.find(s=>s.id===secondSource.id).status,'suspended')
+  const suspended=await runtime.request('/app/sources',{headers:reviewer});assert.equal(suspended.status,200)
+  assert.match(await suspended.text(),/Suspended/)
+  assert.equal((await post(runtime,'/auth/operator/status',{operatorId:'synthetic-handset-1',status:'active'},reviewer)).status,200)
+  assert.equal((await f.callback({...current,SequenceNumber:'1'})).status,403,'reactivation does not resurrect consent')
+  const rejoined=await signIn(runtime),ownerHeaders={cookie:rejoined.cookie}
+  assert.equal((await consent(f.numberId,ownerHeaders,'')).status,400)
+  const afterStatus=await consent(f.numberId,ownerHeaders);assert.equal(afterStatus.status,201)
+  const afterStatusSource=await afterStatus.json()
+  const resumed={...call,CallSid:'synthetic-handset-536'}
+  assert.equal((await f.callback(resumed)).status,200)
+  assert.equal((await post(runtime,'/auth/operator/role',{operatorId:'synthetic-handset-1',role:'member'},reviewer)).status,200)
+  const member=await signIn(runtime)
+  assert.equal((await consent(f.numberId,{cookie:member.cookie})).status,403,'only a current native owner can consent')
+  assert.equal((await f.callback({...resumed,SequenceNumber:'1'})).status,403)
+  assert.equal((await post(runtime,'/auth/operator/role',{operatorId:'synthetic-handset-1',role:'owner'},reviewer)).status,200)
+  assert.equal((await f.callback({...resumed,SequenceNumber:'1'})).status,403,'restored owner role still requires fresh consent')
+  assert.equal((await consent(f.numberId,reviewer)).status,201)
+  assert.equal((await f.callback({...call,CallSid:'synthetic-handset-537'})).status,200)
+  listed=await (await runtime.request('/api/handset/sources',{headers:reviewer})).json()
+  assert.equal(listed.sources.find(s=>s.id===f.source.id).status,'revoked')
+  assert.equal(listed.sources.find(s=>s.id===afterStatusSource.id).status,'suspended')
+  assert.equal(listed.sources.filter(s=>s.number_id===f.numberId&&s.status==='active').length,1)
+  assert.ok(runtime.sourceRequests.every(r=>r.method==='GET'),'source lifecycle grants no outbound provider writes or capture')
+ }finally{await runtime.close()}
+})
+
+test('Owner-attested exact-person playback preserves applied grants and fails closed on revoke during provider readback',async()=>{
  const {delegationFixture,recordingFixture}=await import('./helpers/handset-delegation.mjs')
  const runtime=await openHandset({twilio:true})
  try{
   const f=await delegationFixture(runtime),media=await recordingFixture(runtime,f),path='/api/handset/recordings/'+media.recordingId+'/playback'
+  const source=(await (await runtime.request('/api/handset/sources',{headers:f.headers})).json()).sources.find(s=>s.id===f.source.id)
   assert.equal((await runtime.request(path,{headers:f.assistantHeaders})).status,403)
-  assert.equal((await runtime.request(path,{headers:f.headers})).status,403,'owner still needs exact-person consent')
+  assert.equal((await runtime.request(path,{headers:f.headers})).status,403,'owner still needs exact-person attestation')
   assert.equal((await post(runtime,'/api/handset/recordings/grants',media.grantInput,f.assistantHeaders)).status,403)
   const grant=await f.create('recordings/grants',media.grantInput)
   const played=await runtime.request(path,{headers:f.assistantHeaders})
@@ -211,6 +284,19 @@ test('Exact-person supervisor playback is audited, denies inherited delegation a
   assert.ok(archive.rows.some(r=>r.actor===actor&&r.action==='recording.playback'&&r.subject===media.recordingId&&r.outcome==='completed'))
   assert.ok(archive.rows.some(r=>r.actor===actor&&r.action==='recording.playback'&&r.outcome==='refused'))
   assert.ok(archive.rows.some(r=>r.actor===actor&&r.action==='recording.playback'&&r.outcome==='failed'))
+  const playback=archive.rows.filter(r=>r.actor===actor&&r.action==='recording.playback'&&r.subject===media.recordingId)
+  for(const g of [grant,second,third]){
+   const events=playback.filter(r=>JSON.parse(r.policy).applied.recording?.id===g.id)
+   assert.ok(events.some(r=>r.outcome==='uncertain'))
+   assert.ok(events.some(r=>r.outcome==='failed'))
+   for(const event of events){
+    const applied=JSON.parse(event.policy).applied
+    assert.deepEqual(applied.recording,{id:g.id,revision:1,ownerVersion:source.owner_version})
+    assert.deepEqual(applied.source,{id:source.id,revision:source.revision,ownerVersion:source.owner_version})
+    assert.equal(applied.native.role,'member')
+   }
+  }
+  assert.equal(JSON.parse(playback.find(r=>r.outcome==='completed').policy).applied.recording.id,grant.id,'later grants never relabel earlier playback')
  }finally{await runtime.close()}
 })
 
@@ -228,6 +314,25 @@ test('Every current native action family retains opaque request outcomes and pri
   }
   const application=await authorityFixture(runtime),g=await application.issue()
   assert.equal((await application.app(g.token,'prepare',{state:application.proposed,idempotencyKey:'synthetic-handset-721',callerInstructions:planted.join(' ')})).status,403)
+  const approval=await application.approve(g.grant.id)
+  const exact=await application.app(g.token,'prepare',{state:application.proposed,approvalId:approval.id,idempotencyKey:'synthetic-handset-722'})
+  assert.equal(exact.status,202,await exact.clone().text())
+  const exactJob=(await exact.json()).job
+  assert.equal((await application.app(g.token,'execute',{jobId:exactJob.id,state:application.proposed})).status,202)
+  const bounds={numberId:application.number,recipients:application.recipients,maxCents:100,maxListSize:2,flowRevision:'1',policyRevision:application.proposed.policyRevision}
+  const standingInput={grantId:g.grant.id,bounds,expiresAt:Date.now()+1800000,confirm:'approve standing call bounds'}
+  const standing=await application.create('/api/handset/grants/policy',standingInput)
+  const prepareStanding=async(key)=>{
+   const response=await application.app(g.token,'prepare',{state:application.proposed,standingId:standing.id,idempotencyKey:key})
+   assert.equal(response.status,202,await response.clone().text());return (await response.json()).job
+  }
+  const firstJob=await prepareStanding('synthetic-handset-723')
+  const older=await (await runtime.request('/api/handset/audit/export',{headers:f.headers})).json()
+  const revise=await post(runtime,'/api/handset/grants/policy/'+standing.id+'/revise',{...standingInput,revision:standing.revision,bounds:{...bounds,maxCents:80}},f.headers)
+  assert.equal(revise.status,201,await revise.clone().text())
+  const revised=await revise.json()
+  assert.equal((await application.app(g.token,'execute',{jobId:firstJob.id,state:application.proposed})).status,409)
+  const secondJob=await prepareStanding('synthetic-handset-724')
   for(const role of ['admin','member']){
    await runtime.sql('UPDATE oa_operators SET role=? WHERE id=?',role,'synthetic-handset-2')
    const actor=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'})
@@ -242,11 +347,38 @@ test('Every current native action family retains opaque request outcomes and pri
    assert.ok(attempts.length,family)
    assert.ok(attempts.some(a=>archive.rows.some(r=>r.action===a.action&&r.subject===a.subject&&r.sequence>a.sequence&&['completed','refused','failed'].includes(r.outcome))),family+' correlated response')
   }
-  assert.ok(archive.rows.some(r=>r.actor===g.grant.id&&r.action==='application.attempt'&&r.outcome==='refused'))
+  const applicationEvents=archive.rows.filter(r=>r.actor===g.grant.id),grantRevision={id:g.grant.id,revision:g.grant.revision,ownerVersion:g.grant.owner_version}
+  assert.ok(applicationEvents.some(r=>r.action==='application.attempt'&&r.outcome==='refused'))
+  for(const event of applicationEvents)assert.deepEqual(JSON.parse(event.policy).applied.grant,grantRevision)
+  for(const event of applicationEvents.filter(r=>r.subject===exactJob.id))assert.deepEqual(JSON.parse(event.policy).applied.approval,{id:approval.id,revision:1,ownerVersion:g.grant.owner_version})
+  for(const [job,revision] of [[firstJob,standing.revision],[secondJob,revised.revision]]){
+   const event=applicationEvents.find(r=>r.subject===job.id&&r.action==='application.attempt')
+   assert.deepEqual(JSON.parse(event.policy).applied.standing,{id:standing.id,revision,ownerVersion:g.grant.owner_version})
+  }
+  const refusal=applicationEvents.findLast(r=>r.action==='application.attempt'&&r.outcome==='refused')
+  assert.deepEqual(JSON.parse(refusal.policy).applied.standing,{id:standing.id,revision:standing.revision,ownerVersion:g.grant.owner_version},'refused execution retains the reviewed job revision')
   for(const value of [...planted,g.token,runtime.ownerEmail,'Elliot Brooks','Elena Rivera'])assert.ok(!JSON.stringify(archive).includes(value),value)
   const onBehalf=archive.rows.find(r=>r.action==='frontdesk.pickup'&&r.principal)
-  assert.ok(onBehalf&&onBehalf.actor!==onBehalf.principal);assert.equal(onBehalf.policy,'handset-authorization-v2')
-  assert.ok(archive.rows.every(r=>r.policy==='handset-authorization-v2'),'current receipts name the authorization revision that includes native self-service and exact delegation')
+  assert.ok(onBehalf&&onBehalf.actor!==onBehalf.principal)
+  assert.deepEqual(JSON.parse(onBehalf.policy).applied.line,{id:f.line.id,revision:f.line.revision,ownerVersion:f.line.owner_version})
+  assert.deepEqual(JSON.parse(onBehalf.policy).applied.delegation,{id:f.grant.id,revision:1,ownerVersion:f.line.owner_version})
+  assert.deepEqual(archive.rows.slice(0,older.rows.length),older.rows,'policy revision never rewrites earlier ledger rows')
+  const olderRestore={archive:older,expectedCheckpoint:older.checkpoint,confirm:'restore evidence only'}
+  assert.equal((await post(runtime,'/api/handset/audit/restore',olderRestore,f.headers)).status,201)
+  const olderRead=await (await runtime.request('/api/handset/audit/archive/'+older.checkpoint,{headers:f.headers})).json()
+  assert.deepEqual(olderRead.rows,older.rows,'a ledger exported before the revision restores after it')
+  // Historical policy vocabularies retain their original hash bodies.
+  const {createHash}=await import('node:crypto'),legacy=structuredClone(older)
+  legacy.rows=legacy.rows.slice(0,2)
+  let previous='0'.repeat(64)
+  for(const [index,row] of legacy.rows.entries()){
+   row.policy=['owner-only-v1','handset-authorization-v2'][index];row.previous_hash=previous
+   const body=[row.sequence,row.id,row.actor,row.action,row.policy,row.subject,row.outcome,row.occurred_at,row.previous_hash,...(row.principal?[row.principal]:[])]
+   row.hash=createHash('sha256').update(JSON.stringify(body)).digest('hex');previous=row.hash
+  }
+  legacy.checkpoint=previous
+  assert.equal((await post(runtime,'/api/handset/audit/restore',{archive:legacy,expectedCheckpoint:legacy.checkpoint,confirm:'restore evidence only'},f.headers)).status,201)
+  assert.deepEqual((await (await runtime.request('/api/handset/audit/archive/'+legacy.checkpoint,{headers:f.headers})).json()).rows,legacy.rows)
   const restore={archive,expectedCheckpoint:archive.checkpoint,confirm:'restore evidence only'}
   assert.equal((await post(runtime,'/api/handset/audit/restore',restore,f.headers)).status,201)
   const changed=structuredClone(restore);changed.archive.rows.find(r=>r.principal).principal=crypto.randomUUID()

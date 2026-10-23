@@ -117,3 +117,9 @@ No recording bytes are static or public. Current requests are audited by fixed
 action family without retaining request content. Held call requests cause no provider call. Separately approved one-shot call
 controls and their provider readback are documented above; they certify no
 human pickup, park, transfer or received callback identity without live proof.
+
+Executive-line inbound approvals use the existing owner-only
+`/api/handset/front-desk/routing` and `/app/front-desk/routing` doors. The signed
+protection webhook applies their exact line/route/source revisions after
+protection screening, including on a Gather completion. No new public
+namespace, provider write, recording capture or delegation right is introduced.
