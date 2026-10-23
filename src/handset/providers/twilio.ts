@@ -123,6 +123,7 @@ async function ingest(env:Bindings,source:Source,event:Event,bodyHash:string,par
  // Started remote work stays visibly started: this is not a claim of remote deletion.
  if (event.kind === 'message' && ['received','receiving'].includes(event.state) && 'text' in event.data && /^(stop|stopall|unsubscribe|cancel|end|quit)$/i.test(String(event.data.text).trim())) {
   statements.push(db.prepare(`UPDATE hnd_followups SET status='canceled',delivery=CASE WHEN delivery IN ('draft','approved','held') THEN 'canceled' ELSE delivery END,reason='Signed inbound STOP; obsolete follow-up canceled',revision=revision+1,updated_at=? WHERE case_id=? AND status='open'`).bind(now,caseId))
+  statements.push(db.prepare(`INSERT INTO hnd_followup_history SELECT id,revision,json_object('status',status,'delivery',delivery,'reason',reason),?,? FROM hnd_followups WHERE case_id=? AND updated_at=? AND reason='Signed inbound STOP; obsolete follow-up canceled'`).bind(source.id,now,caseId,now))
  }
  statements.push(db.prepare('INSERT INTO hnd_source_receipts VALUES (?,?,?,?,?,?)').bind(source.id,event.eventId,bodyHash,occurredAt,now,recordId))
  statements.push(db.prepare('DELETE FROM hnd_source_pending WHERE source_id=? AND event_id=?').bind(source.id,event.eventId))
