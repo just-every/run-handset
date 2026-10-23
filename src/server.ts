@@ -23,6 +23,7 @@ import { queueProviderResponse } from './handset/queues/provider'
 import { tickQueues } from './handset/queues/tick'
 import { dialerProviderResponse } from './handset/dialer/provider'
 import { tickDialer } from './handset/dialer/tick'
+import { tickRules } from './handset/integrations/delivery/outbox'
 import { tickRecovery } from './handset/recovery/doors'
 import { receptionistProviderResponse } from './handset/receptionist/authorization'
 
@@ -77,5 +78,6 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     await runDueReports(runtimeBindings(env), event.scheduledTime)
     await tickDialer(runtimeBindings(env))
     await tickRecovery(runtimeBindings(env), event.scheduledTime)
+    await tickRules(runtimeBindings(env), event.scheduledTime)
   },
 } satisfies ExportedHandler<Bindings>, { seed: seedDemo })
