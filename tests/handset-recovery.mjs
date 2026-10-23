@@ -79,3 +79,38 @@ test('Recovery closes only on a same-case confirmed booking or explicit decline 
   assert.equal((await f.runtime.sql("SELECT count(*) AS n FROM hnd_recovery_events WHERE recovery_id=? AND kind='overdue'", unreachable.id)).results[0].n, 1)
  } finally { await f.runtime.close() }
 })
+
+
+test('Continuity assessment separates media from API health, cites connector and USD risks, and never applies an unqualified fix', async () => {
+ const f = await setup()
+ try {
+  await f.savePolicy()
+  const missed = await f.missed(30)
+  await f.open(missed, { dueAt: Date.now() - 1000 })
+  f.runtime.twilioResources.set('https://insights.twilio.com/v1/Voice/synthetic-handset-missed-30/Summary', { account_sid: f.source.account, call_sid: 'synthetic-handset-missed-30', call_type: 'sip', call_state: 'completed', processing_state: 'complete', tags: ['high_jitter','high_packet_loss'] })
+  f.edges.orbitExpired = true
+  // Reserve a real scoped budget through the native approval and application doors.
+  const person = await f.create('/api/handset/records', { kind: 'person', sourceId: 'synthetic-handset-ops-person', occurredAt: Date.now(), data: { name: 'Jordan Lee' } })
+  const issued = await f.create('/api/handset/mcp/consent', { name: 'Approved callback budget', definition: { scopes: ['send'], tools: ['call.paid'], records: [missed.caseId], numbers: [f.source.numberId], recipients: [person.record.id], budgetCents: 10000, policyRevision: 'owner-only-v1' }, expiresAt: Date.now() + 3600000, confirm: 'approve scoped credential' })
+  const state = { operation: 'call.paid', caseId: missed.caseId, caseVersion: 1, numberId: f.source.numberId, recipients: [person.record.id], amountCents: 9000, flowRevision: '', policyRevision: 'owner-only-v1', content: 'Reviewed callback reservation' }
+  const approval = await f.create('/api/handset/approvals', { grantId: issued.grant.id, state, expiresAt: Date.now() + 3600000, confirm: 'approve exact reviewed state' })
+  const reserved = await post(f.runtime, '/api/handset/application/prepare', { state, approvalId: approval.id, idempotencyKey: 'synthetic-handset-ops-reservation' }, { authorization: 'Bearer ' + issued.token })
+  assert.equal(reserved.status, 202, await reserved.clone().text())
+  const assessed = await f.create('/api/handset/operations/assess', { callRecordId: missed.recordId })
+  assert.match(assessed.snapshot.api, /media health is independently observed/)
+  assert.deepEqual(assessed.snapshot.risks.map(r => r.kind), ['media','connector','usd_cap','callbacks'])
+  assert.equal(assessed.snapshot.connector, 'scope_or_oauth_refused')
+  assert.equal(assessed.snapshot.nearCaps[0].reserved_cents, 9000)
+  assert.equal(assessed.snapshot.proposalTest, 'not_run')
+  const decision = await post(f.runtime, `/api/handset/operations/${assessed.id}/decision`, { revision: assessed.revision, decision: 'approved', note: 'Review media route and reconnect CRM; retain callback owner', confirm: 'record exact continuity decision' }, f.headers)
+  assert.equal(decision.status, 200); assert.equal((await decision.json()).applied, false)
+  await f.runtime.restart()
+  const exported = await (await f.runtime.request(`/api/handset/operations/${assessed.id}/export`, { headers: f.headers })).json()
+  assert.equal(exported.pendingCallbackCount, 1); assert.match(exported.receiver, /pending/)
+  assert.ok(!JSON.stringify(exported).includes('+1512') && !JSON.stringify(exported).includes('synthetic-handset-500'))
+  assert.equal(f.runtime.sourceRequests.filter(r => r.method !== 'GET').length, 0)
+  // A provider response for another account cannot become evidence for this leg.
+  f.runtime.twilioResources.set('https://insights.twilio.com/v1/Voice/synthetic-handset-missed-30/Summary', { account_sid: 'synthetic-handset-foreign', call_sid: 'synthetic-handset-missed-30', tags: [] })
+  assert.equal((await post(f.runtime, '/api/handset/operations/assess', { callRecordId: missed.recordId }, f.headers)).status, 502)
+ } finally { await f.runtime.close() }
+})

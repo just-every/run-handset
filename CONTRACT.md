@@ -359,8 +359,8 @@ Judged from the code and tests at commit `fe585db` (23 October 2026).
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 0 | 0 | 0 | 0 |
-| Target and push further | 3 | 12 | 84 | 99 |
-| All | 3 | 12 | 84 | 99 |
+| Target and push further | 3 | 13 | 83 | 99 |
+| All | 3 | 13 | 83 | 99 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -440,7 +440,7 @@ Judged from the code and tests at commit `fe585db` (23 October 2026).
 | `HND-074` | Build and test the phone system from intent | push-further | missing |  | No implementation: build and test the phone system from intent and the complete acceptance journey are missing. |
 | `HND-075` | Maintain number compliance and reputation | push-further | missing |  | No implementation: maintain number compliance and reputation and the complete acceptance journey are missing. |
 | `HND-076` | Coach on every eligible call with evidence | push-further | missing |  | No implementation: coach on every eligible call with evidence and the complete acceptance journey are missing. |
-| `HND-077` | Keep continuity risks and customer work visible | push-further | missing |  | No implementation: keep continuity risks and customer work visible and the complete acceptance journey are missing. |
+| `HND-077` | Keep continuity risks and customer work visible | push-further | partial | `tests/handset-recovery.mjs` — “Continuity assessment separates media from API health, cites connector and USD risks, and never applies an unqualified fix”. | Native owner assessment reads a verified call/source through official-schema Voice Insights Summary, rejects foreign account/call answers, and correlates bounded quality tags, current Orbit access refusal, near-cap reserved USD budgets, pending owned recoveries and uncertain outcome steps. API success does not imply media health. Named exact decisions grant no repair/spend/route/promise effect; bounded redacted export leaves Porthole receipt, independent Oncall paging and Lamp publication explicitly pending. Remaining: qualified numeric per-leg MOS/loss/jitter and endpoint/carrier observations, tested continuity proposals, actual approved fixes and bidirectional calls plus pending callback/CRM readback, real Porthole/Oncall/Lamp qualification and own console at 1440/390. Owner-only review with no autonomous repair or external publication default ADOPTED pending ct. HND-029/031/057/067 retain qualified continuity/provider/sibling foundations. See docs/OPERATIONS.md. |
 | `HND-078` | Personal answering rules and forwarding | target | missing |  | No implementation: personal answering rules and forwarding and its full acceptance journey are missing. |
 | `HND-079` | Allowed From identities across calls texts and fax | target | missing |  | No implementation: allowed from identities across calls texts and fax and its full acceptance journey are missing. |
 | `HND-080` | Intercom page groups and overhead speakers | target | missing |  | No implementation: intercom page groups and overhead speakers and its full acceptance journey are missing. |
