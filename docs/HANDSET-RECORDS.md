@@ -65,6 +65,11 @@ mutations append a durable uncertain attempt before entering the shared native
 handler, then append a correlated terminal response receipt. An interrupted
 operation retains uncertainty instead of losing all audit or inventing success.
 Public admission attempts remain anonymous until a verified session exists.
+Unsigned attempts share one installation-wide budget across the current and
+previous hour. Within it they keep both receipts; beyond it they are counted
+per hour, without address, path or payload, instead of each being appended,
+so anonymous traffic cannot crowd the append-only ledger. Signed-in and newly
+admitted actors are always receipted.
 No request body is read or retained by the observer. Events hold
 only server-generated opaque actor/subject IDs, fixed action/outcome vocabulary,
 an applied policy revision and server time. Current policy values encode the

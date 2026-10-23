@@ -11,6 +11,8 @@ export interface Policy {
  businessName: string; timezone: string; hours: { day: number; start: string; end: string }[]; services: Service[]
  maxDepositCents: number; maxDiscountCents: number; maxRefundCents: number; callbackMinutes: number
  exceptionOwnerId: string; knowledge: { topic: string; value: string; version: string }[]; orbitTarget: string
+ /** The owner's existing helpdesk conversation for each case; versions saved before this field map none. */
+ supportConversations?: { caseId: string; conversationId: string }[]
 }
 export interface PolicyRow { version: number; body: string; owner_id: string; owner_version: number; created_at: number }
 export interface Outcome {
@@ -33,7 +35,7 @@ export interface ExceptionRow {
 const clock = /^([01]\d|2[0-3]):[0-5]\d$/
 export function policy(value: unknown): Policy {
  const v = object(value)
- keys(v, ['businessName', 'timezone', 'hours', 'services', 'maxDepositCents', 'maxDiscountCents', 'maxRefundCents', 'callbackMinutes', 'exceptionOwnerId', 'knowledge', 'orbitTarget'])
+ keys(v, ['businessName', 'timezone', 'hours', 'services', 'maxDepositCents', 'maxDiscountCents', 'maxRefundCents', 'callbackMinutes', 'exceptionOwnerId', 'knowledge', 'orbitTarget', 'supportConversations'])
  const timezone = text(v.timezone, 'timezone', 80)
  try { new Intl.DateTimeFormat('en-US', { timeZone: timezone }) } catch { throw new Fault('invalid_timezone') }
  if (!Array.isArray(v.hours) || v.hours.length > 21 || !Array.isArray(v.services) || !v.services.length || v.services.length > 50 || !Array.isArray(v.knowledge) || v.knowledge.length > 100) throw new Fault('invalid_policy')
@@ -41,9 +43,12 @@ export function policy(value: unknown): Policy {
  const services = v.services.map(raw => { const s = object(raw); keys(s, ['id', 'name', 'eventTypeId', 'bookingPage', 'minutes', 'depositCents']); const bookingPage = text(s.bookingPage, 'bookingPage', 160); if (!/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/.test(bookingPage)) throw new Fault('invalid_bookingPage'); return { id: text(s.id, 'serviceId', 60), name: text(s.name, 'serviceName', 120), eventTypeId: text(s.eventTypeId, 'eventTypeId', 80), bookingPage, minutes: integer(s.minutes, 'minutes', 5, 480), depositCents: integer(s.depositCents, 'depositCents', 0, 1000000) } })
  if (new Set(services.map(s => s.id)).size !== services.length) throw new Fault('duplicate_service')
  const knowledge = v.knowledge.map(raw => { const k = object(raw); keys(k, ['topic', 'value', 'version']); return { topic: text(k.topic, 'topic', 80), value: text(k.value, 'value', 500), version: text(k.version, 'version', 80) } })
+ const mapped = v.supportConversations ?? []
+ if (!Array.isArray(mapped) || mapped.length > 200) throw new Fault('invalid_supportConversations')
+ const supportConversations = mapped.map(raw => { const m = object(raw); keys(m, ['caseId', 'conversationId']); return { caseId: text(m.caseId, 'caseId'), conversationId: text(m.conversationId, 'conversationId', 100) } })
  const maxDepositCents = integer(v.maxDepositCents, 'maxDepositCents', 0, 1000000)
  if (services.some(s => s.depositCents > maxDepositCents)) throw new Fault('service_deposit_exceeds_limit')
- return { businessName: text(v.businessName, 'businessName', 120), timezone, hours, services, maxDepositCents, maxDiscountCents: integer(v.maxDiscountCents, 'maxDiscountCents', 0, 1000000), maxRefundCents: integer(v.maxRefundCents, 'maxRefundCents', 0, 1000000), callbackMinutes: integer(v.callbackMinutes, 'callbackMinutes', 1, 10080), exceptionOwnerId: text(v.exceptionOwnerId, 'exceptionOwnerId', 80), knowledge, orbitTarget: text(v.orbitTarget, 'orbitTarget', 200, true) }
+ return { businessName: text(v.businessName, 'businessName', 120), timezone, hours, services, maxDepositCents, maxDiscountCents: integer(v.maxDiscountCents, 'maxDiscountCents', 0, 1000000), maxRefundCents: integer(v.maxRefundCents, 'maxRefundCents', 0, 1000000), callbackMinutes: integer(v.callbackMinutes, 'callbackMinutes', 1, 10080), exceptionOwnerId: text(v.exceptionOwnerId, 'exceptionOwnerId', 80), knowledge, orbitTarget: text(v.orbitTarget, 'orbitTarget', 200, true), supportConversations }
 }
 /** Staffed hours are the policy windows in the business timezone; anything else is after hours. */
 export function afterHours(p: Policy, at: number) {

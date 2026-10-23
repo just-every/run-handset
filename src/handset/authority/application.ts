@@ -167,6 +167,7 @@ export async function applicationResponse(request:Request,original:Bindings):Pro
   if(error instanceof Fault){await append(env,grant?.id??applied.grant?.id??'anonymous','application.attempt','installation','refused',[],null,applied);return json({error:error.code},error.status)}
   if(String(error).includes('CHECK constraint failed'))return json({error:'authority_or_budget_changed'},409)
   if(String(error).includes('UNIQUE constraint failed: hnd_jobs'))return json({error:'job_conflict_retry'},409)
+  if(String(error).includes('UNIQUE constraint failed: hnd_rx_steps'))return json({error:'step_conflict_retry'},409)
   console.error('Handset application request failed',error instanceof Error?error.name:'unknown')
   return json({error:'store_unavailable'},503)
  }

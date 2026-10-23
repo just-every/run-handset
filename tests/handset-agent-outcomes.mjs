@@ -219,6 +219,28 @@ test('Conflicting knowledge, out-of-policy refund and emergency become owned exc
  } finally { await bare.runtime.close() }
 })
 
+test('A case-scoped receptionist hands off support only to the conversation the owner mapped to its case', async () => {
+ const f = await receptionistFixture()
+ try {
+  await f.savePolicy()
+  // Another customer's existing support conversation at the same helpdesk.
+  f.edges.conversations.set('synthetic-handset-711', { revision: 2, messages: [] })
+  const definition = { scopes: ['send'], tools: ['outcome.work'], records: [f.cases[0]], numbers: [], recipients: [], budgetCents: 30000, policyRevision: 'owner-only-v1' }
+  const scoped = await f.create('/api/handset/mcp/consent', { name: 'One-case receptionist', definition, expiresAt: Date.now() + 3600000, confirm: 'approve scoped credential' })
+  const agent = (path, data) => post(f.runtime, '/api/handset/application/receptionist/' + path, data, { authorization: 'Bearer ' + scoped.token })
+  const opened = await agent('outcomes', { callId: 'synthetic-handset-call-41', caseId: f.cases[0], language: 'en', callerName: 'Jordan Lee', callerEmail: 'synthetic-handset-caller-41@example.test', identityBasis: 'callback_to_number_on_file', identityVerified: true })
+  assert.equal(opened.status, 201, await opened.clone().text())
+  const support = `outcomes/${(await opened.json()).outcome.id}/handoffs/support`, requests = f.edges.requests.length
+  const foreign = await agent(support, { conversationId: 'synthetic-handset-711', summary: 'Furnace not heating' })
+  assert.equal(foreign.status, 403, await foreign.clone().text())
+  assert.equal(f.edges.conversations.get('synthetic-handset-711').messages.length, 0)
+  assert.equal(f.edges.requests.length, requests, 'the installation helpdesk credential is never used for an unmapped conversation')
+  const mapped = await agent(support, { conversationId: 'synthetic-handset-710', summary: 'Furnace not heating' })
+  assert.equal(mapped.status, 200, await mapped.clone().text()); assert.equal((await mapped.json()).step.state, 'confirmed')
+  assert.ok(f.edges.conversations.get('synthetic-handset-710').messages.at(-1).content.includes(`case ${f.cases[0]}`))
+ } finally { await f.runtime.close() }
+})
+
 
 // Follow-ups use the documented Orbit handoff state observation. These are
 // independent receiver records; they do not pretend the session-only task API is delegated.

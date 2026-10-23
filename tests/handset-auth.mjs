@@ -91,3 +91,20 @@ test('Public doors stay bounded and cross-origin or forged callbacks cause no ef
     assert.equal(runtime.mails.length, 1, 'throttled or unknown requests sent no mail')
   } finally { await runtime.close() }
 })
+
+test('Anonymous auth traffic is bounded before the audit ledger and owner sign-in and export keep working', async () => {
+  const runtime = await openHandset()
+  try {
+    const ledger = async () => (await runtime.db.prepare('SELECT COUNT(*) AS n FROM hnd_audit').first()).n
+    const unsigned = async count => { for (let attempt = 0; attempt < count; attempt++) assert.equal((await post(runtime, '/auth/not-a-route', {})).status, 404) }
+    await unsigned(300)
+    const crowded = await ledger()
+    await unsigned(20)
+    assert.equal(await ledger(), crowded, 'further anonymous requests append nothing once the anonymous budget is spent')
+    const { cookie } = await signIn(runtime)
+    const exported = await runtime.request('/api/handset/audit/export', { headers: { cookie } })
+    assert.equal(exported.status, 200)
+    const { rows } = await exported.json()
+    assert.ok(rows.some(row => row.action === 'auth.signin' && row.outcome === 'completed' && row.actor !== 'anonymous'), 'the owner sign-in keeps its attributed receipt')
+  } finally { await runtime.close() }
+})
