@@ -249,7 +249,7 @@ test('Exact reviewed shared-line pickup park and transfer move only the existing
 })
 
 test('An executive callback reuses exact recipient consent and budget, selects the assistant endpoint and retains approved business identity without automatic redial',async()=>{
- const {controlFixture}=await import('./helpers/handset-delegation.mjs'),runtime=await openHandset({twilio:true})
+ const {controlFixture}=await import('./helpers/handset-delegation.mjs'),runtime=await openHandset({twilio:true,callingClock:true})
  try{
   const f=await controlFixture(runtime),l=await f.makeList({count:1,mode:'preview',repId:f.q.spanish}),op=await f.request('callback',l.recipients[0].recipient)
   await f.ready(f.q.spanish);const provider=f.prepare(l)

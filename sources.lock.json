@@ -3414,7 +3414,7 @@
       "executable": false
     },
     "tests/handset-authority.mjs": {
-      "sha256": "567e7b202eb979bb1935956587555e1f4b183bace7f9f3db978d95525faf1a5c",
+      "sha256": "b149bdb2609772da8381b970885dd253953f152cb9212b712e05a22ba02ae01f",
       "executable": false
     },
     "tests/handset-automation.mjs": {
@@ -3458,7 +3458,7 @@
       "executable": false
     },
     "tests/handset-workspace-browser.mjs": {
-      "sha256": "07b911f51e504cb4773b53f0f5117143b5df62e449fdf49ec6e44c52c5731857",
+      "sha256": "ce4c3f6752f2d54f10f14e02109f6dca45987a0d91c0b6f0e4a2a6dcb2de632e",
       "executable": false
     },
     "tests/helpers/handset-admin.mjs": {

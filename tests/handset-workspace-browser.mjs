@@ -211,7 +211,7 @@ for(const width of [1440,390])test(`Executive inbound routing and suspended sour
 
 for(const width of [1440,390])test(`Reviewed front desk call execution and provider observations at ${width}`,async()=>{
  const {controlFixture}=await import('./helpers/handset-delegation.mjs')
- const runtime=await openHandset({twilio:true}),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const runtime=await openHandset({twilio:true,callingClock:true}),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage(),evidence=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-workspace'
  await mkdir(evidence,{recursive:true})
  async function as(cookie){const [name,...value]=cookie.split('=');await context.clearCookies();await context.addCookies([{name,value:value.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])}
