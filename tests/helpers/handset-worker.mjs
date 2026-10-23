@@ -104,7 +104,7 @@ export async function openHandset({ liveMail = false, twilio = false, edges = nu
   })()
   async function outboundService(request) {
     if (edges) { const answer = await edges.handle(request, WorkerResponse); if (answer) return answer }
-    if(twilio && (request.url.startsWith('https://api.twilio.com/2010-04-01/Accounts/') || request.url.startsWith('https://insights.twilio.com/v1/Voice/'))) {
+    if(twilio && (request.url.startsWith('https://api.twilio.com/2010-04-01/Accounts/') || request.url.startsWith('https://insights.twilio.com/v1/Voice/') || request.url.startsWith('https://numbers.twilio.com/v1/Porting/') || request.url.startsWith('https://messaging.twilio.com/v1/Tollfree/Verifications/'))) {
       sourceRequests.push({url:request.url,method:request.method})
       const mapped=twilioResources.get(request.url)
       const response=Array.isArray(mapped?.__responses)?mapped.__responses.shift():mapped

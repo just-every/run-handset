@@ -331,3 +331,51 @@ test('A signed inbound STOP cancels unstarted follow-ups without claiming remote
   assert.equal(after.followups.find(x => x.id === row.id).status, 'canceled')
  } finally { await f.runtime.close() }
 })
+
+
+test('Number correction cases preserve named follow-up and withhold port, emergency and rotation effects without qualified authority', async () => {
+ const f = await receptionistFixture()
+ try {
+  const { sourceFixture } = await import('./helpers/handset-sources.mjs')
+  const source = await sourceFixture(f.runtime), dueAt = Date.now() - 1000
+  const record = async (kind, name, data) => (await f.create('/api/handset/records', { kind, sourceId: `synthetic-handset-compliance-${name}`, occurredAt: Date.now(), data })).record
+  const endpoint = await record('endpoint', 'endpoint', { name: 'Rosa office phone', platform: 'desktop' })
+  const location = await record('location', 'location', { name: 'Austin second floor', timezone: 'America/Chicago' })
+  const notice = await record('comment', 'notice', { text: 'Authorized employee reported a move; carrier validation pending' })
+  const reports = [
+   ['port_pin', { port_in_request_sid: 'synthetic-handset-port-1', port_in_phone_number_sid: 'synthetic-handset-port-number-1', port_in_phone_number_status: 'port_rejected', rejection_reason: 'INVALID_PIN' }],
+   ['e911_move', { endpointId: endpoint.id, locationRecordId: location.id, changeNoticeRecordId: notice.id }],
+   ['brand_registration', { sid: 'synthetic-handset-brand-1', account_sid: source.account, status: 'FAILED', failure_reason: 'Business facts need representative review' }],
+   ['tollfree_verification', { sid: 'synthetic-handset-tfv-1', account_sid: source.account, tollfree_phone_number: '+15125550125', status: 'TWILIO_REJECTED', rejection_reason: 'Attestation required', error_code: 30442 }],
+   ['reputation', { network: 'Controlled receiving network A', observedAt: Date.now(), label: 'spam', evidenceRecordId: notice.id }],
+  ]
+  const cases = []
+  for (const [kind, report] of reports) {
+   const input = { sourceId: source.source.id, kind, report, dueAt, confirm: 'prepare exact compliance case' }
+   let row = (await f.create('/api/handset/compliance', input)).case
+   assert.equal((await f.create('/api/handset/compliance', input, f.headers, 200)).replay, true)
+   assert.equal(row.owner_id, 'synthetic-handset-1'); assert.equal(row.provider_state, 'unknown')
+   assert.ok(row.plan.length > 50)
+   const review = await post(f.runtime, `/api/handset/compliance/${row.id}/review`, { revision: row.revision, note: 'Prepare only; legal facts and live provider approval remain unproved', confirm: 'review exact correction preparation' }, f.headers)
+   assert.equal(review.status, 200); row = (await review.json()).case
+   const held = await post(f.runtime, `/api/handset/compliance/${row.id}/submit`, { revision: row.revision }, f.headers)
+   assert.equal(held.status, 202); assert.equal((await held.json()).effectOccurred, false)
+   cases.push(row)
+  }
+  assert.match(cases.find(r => r.kind === 'reputation').plan, /direct business-representative/)
+  // No PIN is accepted through this preparation or receipt API.
+  assert.equal((await post(f.runtime, '/api/handset/compliance', { sourceId: source.source.id, kind: 'port_pin', report: { ...reports[0][1], port_out_pin: 'synthetic-handset-private-pin' }, dueAt, confirm: 'prepare exact compliance case' }, f.headers)).status, 400)
+  const port = cases[0]
+  f.runtime.twilioResources.set('https://numbers.twilio.com/v1/Porting/PortIn/synthetic-handset-port-1/PhoneNumber/synthetic-handset-port-number-1', { account_sid: source.account, phone_number: '+15125550125', port_in_phone_number_status: 'port_pending', port_date: '2026-11-02T18:00:00Z', port_out_pin: 'synthetic-handset-private-pin' })
+  const response = await post(f.runtime, `/api/handset/compliance/${port.id}/readback`, { revision: port.revision, confirm: 'read exact compliance receipt' }, f.headers)
+  assert.equal(response.status, 200)
+  const observed = (await response.json()).case
+  assert.equal(observed.provider_state, 'port_pending'); assert.equal(observed.status, 'follow_up')
+  assert.match(observed.readback, /unproved/); assert.ok(!JSON.stringify(observed).includes('synthetic-handset-private-pin'))
+  await f.runtime.restart()
+  const all = await (await f.runtime.request('/api/handset/compliance', { headers: f.headers })).json()
+  assert.equal(all.cases.length, 5); assert.equal(all.cleanCompliance, false); assert.equal(all.cleanReputation, false)
+  assert.ok(all.cases.every(r => r.due_at === dueAt && r.owner_id === 'synthetic-handset-1'))
+  assert.equal(f.runtime.sourceRequests.filter(r => r.method !== 'GET').length, 0, 'no port, address, replacement number or rotation mutation')
+ } finally { await f.runtime.close() }
+})
