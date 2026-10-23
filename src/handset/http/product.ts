@@ -13,6 +13,7 @@ import { metricsDoor } from '../metrics/doors'
 import { protectionDoor } from '../protection/doors'
 import { dialerDoor } from '../dialer/doors'
 import { recordsDoor } from '../records/doors'
+import { recoveryDoor } from '../recovery/doors'
 import { followupDoor } from '../followups/doors'
 import { ownerDoor as receptionistDoor } from '../receptionist/doors'
 
@@ -59,7 +60,7 @@ export async function productResponse(request: Request, original: Bindings): Pro
   try { owner(actor) } catch(error) { await denied(env,actor,'product.access'); throw error }
   const read = request.method === 'GET', write = request.method === 'POST'
   for(const [root,door] of [
-   ['queues',queueDoor],['metrics',metricsDoor],['protection',protectionDoor],['dialer',dialerDoor],['receptionist',receptionistDoor],['followups',followupDoor],
+   ['queues',queueDoor],['metrics',metricsDoor],['protection',protectionDoor],['dialer',dialerDoor],['receptionist',receptionistDoor],['followups',followupDoor],['recovery',recoveryDoor],
   ] as const){
    const appRoot=root==='metrics'?'/app/reports/queues':'/app/'+root
    if(path==='/api/handset/'+root||path.startsWith('/api/handset/'+root+'/')||path===appRoot||path.startsWith(appRoot+'/')){

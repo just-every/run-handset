@@ -23,6 +23,7 @@ import { queueProviderResponse } from './handset/queues/provider'
 import { tickQueues } from './handset/queues/tick'
 import { dialerProviderResponse } from './handset/dialer/provider'
 import { tickDialer } from './handset/dialer/tick'
+import { tickRecovery } from './handset/recovery/doors'
 import { receptionistProviderResponse } from './handset/receptionist/authorization'
 
 const api = new Hono<{ Bindings: Bindings }>()
@@ -75,5 +76,6 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     await tickQueues(runtimeBindings(env))
     await runDueReports(runtimeBindings(env), event.scheduledTime)
     await tickDialer(runtimeBindings(env))
+    await tickRecovery(runtimeBindings(env), event.scheduledTime)
   },
 } satisfies ExportedHandler<Bindings>, { seed: seedDemo })
