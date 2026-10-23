@@ -3282,7 +3282,7 @@
       "executable": false
     },
     "tests/handset-workspace-browser.mjs": {
-      "sha256": "25f2b2264931474bf50a5d2476f02deb3b9eb42ded768ed2773b5dabd777d63f",
+      "sha256": "07b911f51e504cb4773b53f0f5117143b5df62e449fdf49ec6e44c52c5731857",
       "executable": false
     },
     "tests/helpers/handset-admin.mjs": {

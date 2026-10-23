@@ -163,7 +163,11 @@ for(const width of [1440,390])test(`Executive inbound routing and suspended sour
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage(),evidence=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-workspace'
  await mkdir(evidence,{recursive:true})
  async function as(cookie){const [name,...value]=cookie.split('=');await context.clearCookies();await context.addCookies([{name,value:value.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])}
- async function proof(name){assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name);await page.screenshot({path:`${evidence}/${width}-${name}.png`,fullPage:true})}
+ async function proof(name){
+  const overflow=await page.evaluate(()=>[...document.querySelectorAll('main *')].map(el=>({tag:el.tagName,classes:el.className,left:el.getBoundingClientRect().left,right:el.getBoundingClientRect().right,width:el.getBoundingClientRect().width,display:getComputedStyle(el).display})).filter(el=>el.right>innerWidth+1||el.left<0))
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${name}: ${JSON.stringify(overflow)}`)
+  await page.screenshot({path:`${evidence}/${width}-${name}.png`,fullPage:true})
+ }
  try{
   const f=await inboundFixture(runtime);await f.policy({dnd:1});await as(f.cookie)
   await page.goto(runtime.origin+'/app/front-desk');await proof('executive-routing-approved')
