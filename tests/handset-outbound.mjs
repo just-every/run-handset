@@ -336,7 +336,7 @@ test('Imported compliance results, state rules and scoped review-dated approvals
   assert.equal((await post(runtime,f.base+'/lists',{...l.input,name:f.next()},{cookie:managerCookie})).status,403)
   await f.write(f.base+'/state-rules',{jurisdiction:'US-FL',startMinute:480,endMinute:1200,maxAttempts:3,windowHours:24,writtenModes:['progressive'],evidenceId:f.evidence,reviewAt:Date.now()+30*86400000,confirm:'approve reviewed state calling rules'},201)
   assert.equal((await post(runtime,f.base+'/lists',{...l.input,name:f.next(),expiresAt:Date.now()+91*86400000},f.headers)).status,400,'review date cannot exceed 90 days')
-  const florida={...recipient,jurisdiction:'US-FL',timezone:'Pacific/Honolulu',writtenConsentEvidenceId:f.evidence}
+  const florida={...recipient,jurisdiction:'US-FL',timezone:f.openTimezone(20),writtenConsentEvidenceId:f.evidence}
   const preview=await f.write(f.base+'/state-preview',{recipient:florida.recipient,timezone:'America/New_York',jurisdiction:'US-FL',consentId:florida.consentId,writtenConsentEvidenceId:f.evidence,mode:'progressive',at:Date.parse('2026-10-22T00:30:00Z')})
   assert.equal(preview.reason,'recipient_quiet_hours','20:30 Florida local is refused by the same state gate');assert.equal(preview.authorityGranted,false)
   const fl=await f.makeList({count:1,mode:'progressive',recipients:[florida]})

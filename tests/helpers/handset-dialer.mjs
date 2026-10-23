@@ -37,9 +37,11 @@ export async function dialerFixture(runtime){
  }
  await write(base+'/state-rules',{jurisdiction:'US-TX',startMinute:480,endMinute:1260,maxAttempts:100,windowHours:24,writtenModes:[],evidenceId:evidence,reviewAt:Date.now()+30*86400000,confirm:'approve reviewed state calling rules'},201)
 
- function openTimezone(){
-  for(const tz of ['America/New_York','America/Chicago','America/Denver','America/Los_Angeles','Pacific/Honolulu']){const parts=new Intl.DateTimeFormat('en-US',{timeZone:tz,hour:'numeric',hourCycle:'h23'}).formatToParts(new Date()),h=Number(parts.find(p=>p.type==='hour').value);if(h>=8&&h<21)return tz}
-  throw new Error('No permitted controlled US calling timezone at this UTC time')
+ // Select an open local clock for synthetic receivers at any CI execution time.
+ // Explicit quiet-hour refusal assertions still use their fixed local timestamps.
+ function openTimezone(endHour=21){
+  for(const tz of ['America/New_York','America/Chicago','America/Denver','America/Los_Angeles','Pacific/Honolulu','Europe/London','Asia/Tokyo']){const parts=new Intl.DateTimeFormat('en-US',{timeZone:tz,hour:'numeric',hourCycle:'h23'}).formatToParts(new Date()),h=Number(parts.find(p=>p.type==='hour').value);if(h>=8&&h<endHour)return tz}
+  throw new Error('No permitted synthetic calling timezone at this UTC time')
  }
  async function makeList({count=3,mode,policyId,check=true,...extra}={}){
   const recipients=[]
@@ -116,5 +118,5 @@ export async function dialerFixture(runtime){
   await q.presence(agentId)
   return agentId
  }
- return {...s,q,media,base,purpose,evidence,qualified,qualificationInput,importResults,provision,complianceRecipients,write,read,record,makeList,verify,ready,session,prepare,launch,callback,connect,finish,updateCall,next,addAgent}
+ return {...s,q,media,base,purpose,evidence,qualified,qualificationInput,importResults,provision,complianceRecipients,write,read,record,makeList,verify,ready,session,prepare,launch,callback,connect,finish,updateCall,next,addAgent,openTimezone}
 }
