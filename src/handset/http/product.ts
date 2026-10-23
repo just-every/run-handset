@@ -1,6 +1,7 @@
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { session, owner, json, input, Fault, page } from '../core'
+import { transcriptDoor } from '../transcripts/doors'
 import { delegationDoor } from '../delegation/doors'
 import { recordingsPage } from '../recording/doors'
 import { authorityDoor } from '../authority/doors'
@@ -58,6 +59,9 @@ export async function productResponse(request: Request, original: Bindings): Pro
    const response=await sourceDoor(request,env,actor,request.method==='GET'?undefined:await input(request))
    if(response)return response
    throw new Fault('not_found',404)
+  }
+  if(path==='/api/handset/transcripts'||path.startsWith('/api/handset/transcripts/')){
+   return await transcriptDoor(request,env,actor,request.method==='GET'?undefined:await input(request,1048576))
   }
   const records=await recordsDoor(request,env,actor)
   if(records)return records

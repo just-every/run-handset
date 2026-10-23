@@ -22,6 +22,7 @@ test('Emitted Worker serves health and public Lobby with honest missing routes',
 await import('./handset-auth.mjs')
 await import('./handset-auth-browser.mjs')
 await import('./handset-records.mjs')
+await import('./handset-media-privacy.mjs')
 await import('./handset-workspace-browser.mjs')
 await import('./handset-authority.mjs')
 await import('./handset-admin.mjs')

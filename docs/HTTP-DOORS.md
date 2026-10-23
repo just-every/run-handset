@@ -153,3 +153,11 @@ unpublished drafts share existing grant checks; cookie-only access refuses.
 The v1 draft receipt is atomic and its rate bucket durable. Future resources,
 signed event/media subscription delivery and standard MCP authorization remain
 HND-030 work, with HND-013/027/048/049 authorization and custody inherited.
+
+The native `/api/handset/transcripts` namespace is documented in
+`docs/HANDSET-TRANSCRIPTS.md`. Every operation requires a native session. Owner
+writes and independent exact-person transcript-text grants are checked inside
+the handler; a recording playback grant does not authorize text retrieval.
+Current source and number revisions fence detail, search and changes. The API
+is a supplied-text foundation with no new screen, speech processor or model
+transport. HND-020, HND-043 and HND-051 inherit these text and source checks.
