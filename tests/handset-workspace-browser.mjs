@@ -285,3 +285,53 @@ for(const width of [1440,390])test(`Exact-person audit read and export approvals
   assert.equal((await context.request.get(runtime.origin+'/api/handset/audit/export')).status(),403)
  }finally{await context.close();await browser.close();await runtime.close()}
 })
+
+for(const width of [1440,390])test(`Assigned number-scoped teammate case work and source reconsent at ${width}`,async()=>{
+ const runtime=await openHandset({twilio:true}),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage(),evidence=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-workspace'
+ await mkdir(evidence,{recursive:true})
+ async function as(cookie){const [name,...value]=cookie.split('=');await context.clearCookies();await context.addCookies([{name,value:value.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])}
+ async function proof(name){assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name);await page.screenshot({path:`${evidence}/${width}-${name}.png`,fullPage:true})}
+ try{
+  const f=await sourceFixture(runtime),native=await recordsFixture(runtime,f.cookie)
+  assert.equal((await post(runtime,'/auth/operator/status',{operatorId:'synthetic-handset-2',status:'active'},f.headers)).status,200)
+  const worker=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'})
+  assert.equal((await post(runtime,'/api/handset/cases/'+native.caseId,{title:native.detail.current.title,ownerId:'synthetic-handset-2',version:1,promise:native.detail.current.promise,dueAt:native.detail.current.due_at},f.headers)).status,200)
+  await as(worker.cookie);await page.goto(runtime.origin+'/app/cases/'+native.caseId);await page.getByRole('alert').waitFor();await proof('number-work-before-grant')
+  await as(f.cookie);await page.goto(runtime.origin+'/app/sources')
+  const inventory=await (await runtime.request('/api/handset/sources/access',{headers:f.headers})).json(),person=inventory.people.find(p=>p.id==='synthetic-handset-2')
+  await page.getByLabel('Exact number worker',{exact:true}).selectOption(person.id+':'+person.version)
+  await page.getByLabel('Selected native number record ID',{exact:true}).selectOption(native.entries.number.id)
+  await page.getByLabel('Number access expiry (UTC, within one day)',{exact:true}).fill(new Date(Date.now()+1800000).toISOString().slice(0,16))
+  await page.getByRole('checkbox',{name:'I approve case work and inbound source consent for this exact person and number',exact:true}).check();await proof('number-work-approval')
+  await page.getByRole('button',{name:'Grant number work',exact:true}).click();await page.getByRole('heading',{name:'Number work granted',exact:true}).waitFor();await proof('number-work-granted')
+  const access=(await (await runtime.request('/api/handset/sources/access',{headers:f.headers})).json()).access.find(g=>g.person_id===person.id&&g.number_id===native.entries.number.id)
+  await as(worker.cookie);await page.goto(runtime.origin+'/app/cases')
+  assert.equal(await page.getByRole('button',{name:'Save case / Guardar caso',exact:true}).count(),0)
+  await page.getByRole('link',{name:native.detail.current.title,exact:true}).click();await proof('number-work-assigned-case')
+  await page.getByLabel('Case title / Asunto',{exact:true}).fill('Scoped replacement callback / Seguimiento')
+  await page.getByRole('button',{name:'Save case / Guardar caso',exact:true}).click();await page.getByRole('heading',{name:'Scoped replacement callback / Seguimiento',exact:true}).waitFor()
+  await page.getByLabel('Comment',{exact:true}).fill('Confirmar la cita; delivery remains uncertain')
+  await page.getByRole('button',{name:'Add comment',exact:true}).click();await page.waitForLoadState('load');await proof('number-work-comment')
+  const current=await (await runtime.request('/api/handset/cases/'+native.caseId,{headers:f.headers})).json()
+  assert.equal((await post(runtime,'/api/handset/cases/'+native.caseId,{title:'Owner reviewed the callback',ownerId:'synthetic-handset-2',version:current.current.version,promise:current.current.promise,dueAt:current.current.due_at},f.headers)).status,200)
+  await page.getByLabel('Case title / Asunto',{exact:true}).fill('Stale teammate edit')
+  await page.getByRole('button',{name:'Save case / Guardar caso',exact:true}).click();await page.getByRole('alert').filter({hasText:'Another teammate'}).waitFor();await proof('number-work-conflict')
+  async function consent(){
+   await page.getByLabel('Twilio account SID',{exact:true}).fill(f.account)
+   await page.getByLabel('Selected native business-number record ID',{exact:true}).fill(native.entries.number.id)
+   await page.getByRole('checkbox',{name:'I authorize signed inbound communication records for this account and number',exact:true}).check()
+   await page.getByRole('button',{name:'Authorize inbound records',exact:true}).click();await page.getByRole('heading',{name:'Source authorized',exact:true}).waitFor()
+   await page.getByRole('link',{name:'Review sources',exact:true}).click()
+  }
+  await page.goto(runtime.origin+'/app/sources');await consent();await proof('number-work-source-consent')
+  const source=(await (await runtime.request('/api/handset/sources',{headers:{cookie:worker.cookie}})).json()).sources.find(s=>s.status==='active')
+  await page.getByRole('button',{name:'Revoke source '+source.id,exact:true}).click();await page.getByRole('heading',{name:'Source revoked',exact:true}).waitFor()
+  await page.getByRole('link',{name:'Review sources',exact:true}).click();await consent();await proof('number-work-source-reconsent')
+  await as(f.cookie);await page.goto(runtime.origin+'/app/sources')
+  await page.getByRole('button',{name:'Revoke number work '+access.id,exact:true}).click();await page.getByRole('heading',{name:'Number work revoked',exact:true}).waitFor();await proof('number-work-revoked')
+  await page.getByRole('link',{name:'Review sources',exact:true}).click();assert.ok((await page.locator('main').innerText()).includes('Suspended'));await proof('number-work-suspended-source')
+  await as(worker.cookie);await page.goto(runtime.origin+'/app/cases/'+native.caseId);await page.getByRole('alert').waitFor();await proof('number-work-revoked-person')
+  assert.equal((await context.request.get(runtime.origin+'/api/handset/sources')).status(),403)
+ }finally{await context.close();await browser.close();await runtime.close()}
+})
