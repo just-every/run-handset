@@ -222,7 +222,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "79fdad8dc887eee5e1a32cfcc3c4bfdec56d32bec3654cc874e91324f33dfb53",
+      "sha256": "ecfd5bf32e45cea009b6a51da67185e8cc66b42805da5c4d46b8a1170e9fec36",
       "executable": false
     },
     "AGENTS.md": {
@@ -238,7 +238,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "51e639cea9d7b717bda461efa35743a31dd0c11e08ed859e36996abb82d221c0",
+      "sha256": "6e292bd0afe0f126333be00df80c662ab1885d07904a73da30f0f24f6eb6b3cc",
       "executable": false
     },
     "deploy-demo.json": {
@@ -254,7 +254,7 @@
       "executable": false
     },
     "docs/API.md": {
-      "sha256": "624b37214d0ab89898e395c2ecd7f627138eb9685c0d3cc9eaacec1d9146877a",
+      "sha256": "84ed6f836130911fee3b3b5695f23e6c5f46dd673f32dfd851bc2bd8d6fb22b0",
       "executable": false
     },
     "docs/backup.md": {
@@ -262,7 +262,7 @@
       "executable": false
     },
     "docs/DELIVERY.md": {
-      "sha256": "ce9e0396d8274119ffce40b72b14c4eed5017a8f02ff39cc145b616872d8b65a",
+      "sha256": "199372afe607b14c05f1674a485dd238a6bee783ee2b8803fba4c53882d794d0",
       "executable": false
     },
     "docs/FOLLOWUPS.md": {
@@ -515,6 +515,14 @@
     },
     "migrations/core/0048_handset_api_v1.sql": {
       "sha256": "9d42d6f7eae688cd913c9f686c476bf70b2f6c45da92d5d427e77b1100b62b94",
+      "executable": false
+    },
+    "migrations/core/0049_handset_delivery_reason.sql": {
+      "sha256": "435641050410e7cd83a6163c62e057d464675608e42b42966c60a1fcc1bdac79",
+      "executable": false
+    },
+    "migrations/core/0050_handset_grant_credentials.sql": {
+      "sha256": "ac08c8b42e8799fd6ff776efe12b4973c005e8c6667db969eff1412f36925137",
       "executable": false
     },
     "ONBOARDING.md": {
@@ -1053,6 +1061,10 @@
       "sha256": "455074254c6e4eac82369608aac5a9c6433e24883f3ce9002352ff43782de681",
       "executable": false
     },
+    "src/handset/api/mcp.ts": {
+      "sha256": "6cb8099d0b33afae69c771b6908c4cb473dc96c6117c6602eb912f9031af5b95",
+      "executable": false
+    },
     "src/handset/api/v1.ts": {
       "sha256": "f1c668fd524ef43a2bb6cb1d09d87109e590dcfdfa6495bdde09c07b44378de7",
       "executable": false
@@ -1078,23 +1090,23 @@
       "executable": false
     },
     "src/handset/audit/store.ts": {
-      "sha256": "bf2228044f74a813165fe011c5f935f9e91000391d32b9fdedfcf797bdf76780",
+      "sha256": "3f6c1587e6b4d7365b2c598577b1225f9bfef717726970d1a35fbc0c74a769bd",
       "executable": false
     },
     "src/handset/authority/application.ts": {
-      "sha256": "101478a7a8835ca15010b2a2902fc501a814abdf7058165429e5273af813616b",
+      "sha256": "6f91b309638d9084b07583ce616616b1c2134a4baefedee1ad8b47b8baa0583d",
       "executable": false
     },
     "src/handset/authority/doors.ts": {
-      "sha256": "8ad3a82d0d3b0998ba4ed9b2ea68621038b3393c08950c8830db8ecb318c2e09",
+      "sha256": "b2c6bebc1966fc4a3fd553b9d4fa5502d7d7106916d018b63471e43e4f4a86b5",
       "executable": false
     },
     "src/handset/authority/model.ts": {
-      "sha256": "b11bacca84902f09cf6a43de478de5a734be9c3ad1555c50b511d67157317106",
+      "sha256": "635815d0559a2e9dfaf2005b609709933e94cf748319471832f89e1360ef6944",
       "executable": false
     },
     "src/handset/authority/store.ts": {
-      "sha256": "09bf487768ab07e4b866bf91992da0fd5811ea51a0a7058d38dd6e14d16dac4d",
+      "sha256": "773c169c5561b6805a1561229290a9739692355fa349f58e53ffe608616a4532",
       "executable": false
     },
     "src/handset/automation/console.ts": {
@@ -1286,7 +1298,7 @@
       "executable": false
     },
     "src/handset/integrations/delivery/doors.ts": {
-      "sha256": "9ff821a5f15e50691c62e64d61ce3cdc1cc9c0f1e7ae3acc20d9cb6aa327e42e",
+      "sha256": "af3a0ddf15fec996d625b8a4f01ed2d98ef3245e530ba388ed48aec27d0d50ce",
       "executable": false
     },
     "src/handset/integrations/delivery/outbox.ts": {
@@ -1478,7 +1490,7 @@
       "executable": false
     },
     "src/handset/receptionist/doors.ts": {
-      "sha256": "4e21d248dc6eb829b90ee6afc1319c57f5586b53b4818f9c25edb75d72f09b90",
+      "sha256": "67f9d5810f65e8936b185931f9082e0b0522b92a7f904418538950238f1733e1",
       "executable": false
     },
     "src/handset/receptionist/edge.ts": {
@@ -1490,15 +1502,15 @@
       "executable": false
     },
     "src/handset/receptionist/helpdesk.ts": {
-      "sha256": "5f50a8d1e339c6af488d051c1c0c3e1da73aba4eb4b56eeab92739faa1c7b060",
+      "sha256": "e5231905525592d92d3dcd82a814106b4a80e398bb347f510eb6c20579c5c990",
       "executable": false
     },
     "src/handset/receptionist/model.ts": {
-      "sha256": "3cea1d9a371c89e6cc159bfc4c6ee7cdc34b67cc56d8652ddfe288c7c3170928",
+      "sha256": "95e5f2552ddeae011efac6626e09bb4ed0365449a25ddc56ff891d5ce3370a4e",
       "executable": false
     },
     "src/handset/receptionist/operations.ts": {
-      "sha256": "38de67c413a7191292c90d3e9e15bb8ec1e05ad5b7aa665f9b17ce44eb3c5342",
+      "sha256": "08001a3b626aeb25aaa06673291fbca986614d33f789474acd15bd9e6f83807b",
       "executable": false
     },
     "src/handset/receptionist/orbit.ts": {
@@ -1514,7 +1526,7 @@
       "executable": false
     },
     "src/handset/receptionist/steps.ts": {
-      "sha256": "ad5504524b210308bbbed0c853e19050c5a6f33c32a873a3fd8087dd1eb809a6",
+      "sha256": "44b15a970fa24d9dff71b938ceeda8fcf5541e5f306560069f1b21c5283b0599",
       "executable": false
     },
     "src/handset/receptionist/store.ts": {
@@ -3422,7 +3434,7 @@
       "executable": false
     },
     "tests/handset-agent-outcomes.mjs": {
-      "sha256": "38f8d40052087e97b3db7d9e46df4de2f8cb8a3f57c7352498cd0a18278306d3",
+      "sha256": "754e39aa5022a8c4c6a6af3522a9a6455235fae49646b5379bed41b7a4e0dbcb",
       "executable": false
     },
     "tests/handset-auth-browser.mjs": {
@@ -3434,7 +3446,7 @@
       "executable": false
     },
     "tests/handset-authority.mjs": {
-      "sha256": "b149bdb2609772da8381b970885dd253953f152cb9212b712e05a22ba02ae01f",
+      "sha256": "c2170317002c88dd81b8a4037ee2628492864a2a887a56ce5255d9e2166dbdb0",
       "executable": false
     },
     "tests/handset-automation.mjs": {
@@ -3458,7 +3470,7 @@
       "executable": false
     },
     "tests/handset-receptionist-browser.mjs": {
-      "sha256": "fcc8fcd9448c1f8e45e8fede337e99be21003e0aef06fb19fc4a8fbd492e8141",
+      "sha256": "7b25457982a7db4f018d223f6aa0e4dd66e3f92324b9ed50005708c37f8d3a52",
       "executable": false
     },
     "tests/handset-records.mjs": {
@@ -3474,11 +3486,11 @@
       "executable": false
     },
     "tests/handset-transports.mjs": {
-      "sha256": "48d0c9d8f5c3854ec9697ecc551f37d20ea2916f348e9396ff4411851532f504",
+      "sha256": "9ba809bae0838914841c2446184357bb6489f752214cc44c5d6bcfc83377592d",
       "executable": false
     },
     "tests/handset-workspace-browser.mjs": {
-      "sha256": "ce4c3f6752f2d54f10f14e02109f6dca45987a0d91c0b6f0e4a2a6dcb2de632e",
+      "sha256": "a0b563f02cf93c8e73a1fbf981bd6d0375fce28a7336227ae87b5192defc6a91",
       "executable": false
     },
     "tests/helpers/handset-admin.mjs": {
@@ -3514,7 +3526,7 @@
       "executable": false
     },
     "tests/helpers/handset-edges.mjs": {
-      "sha256": "1e712e45944e9f7911435b55c99a32f9fe4d6d2cdea88afe14b725f97935211c",
+      "sha256": "19f8ab56475a061b6b4f8e3368cf4c6b90f42ff68e805f2447db7bffd441db3a",
       "executable": false
     },
     "tests/helpers/handset-import.mjs": {
