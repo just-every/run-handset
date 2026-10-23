@@ -84,7 +84,6 @@ export async function openHandset({ liveMail = false, twilio = false, edges = nu
   if (liveMail && ['MAIL_TO', 'MAIL_FROM', 'MAIL_API_KEY'].some(name => !process.env[name])) {
     throw new Error('Live mail requires MAIL_TO, MAIL_FROM and MAIL_API_KEY')
   }
-  const clock = useCallingClock ? callingClock() : null
   const configPath = join(root, 'dist/server/wrangler.json')
   const config = JSON.parse(await readFile(configPath, 'utf8'))
   if (!config.main || !config.assets?.directory) throw new Error('Build the Worker and assets before opening the harness')
@@ -93,6 +92,7 @@ export async function openHandset({ liveMail = false, twilio = false, edges = nu
   const origin = `https://127.0.0.1:${await freePort()}`
   const ownerEmail = liveMail ? process.env.MAIL_TO : 'synthetic-handset-1@example.test'
   const directory = await mkdtemp(join(tmpdir(), 'synthetic-handset-'))
+  const clock = useCallingClock ? callingClock() : null
   // TLS trust is scoped to this client's loopback requests, never process-wide.
   let dispatcher = new Agent({ connect: { rejectUnauthorized: false } })
   const mails = [], twilioResources = new Map(), sourceRequests = []

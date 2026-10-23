@@ -3430,7 +3430,7 @@
       "executable": false
     },
     "tests/handset-outbound.mjs": {
-      "sha256": "f3c509dcfb67343a1b603c83639b368fd5ace148b8474d7dc847c87e35a0a6a6",
+      "sha256": "5542c8a6a63ea50e5f96d93021d3169d5086982a145a6cc04f7989c915b4a598",
       "executable": false
     },
     "tests/handset-queues.mjs": {
@@ -3475,6 +3475,10 @@
     },
     "tests/helpers/handset-browser-time.mjs": {
       "sha256": "ca2e79c90185ed76626f41f9feefcc6c3dc500e9859691e68d24447e0cfa890f",
+      "executable": false
+    },
+    "tests/helpers/handset-clock.mjs": {
+      "sha256": "77ccc901a72548b98b1efc96daeb2e4dad280b22b34ac2ed42ce5616b8a6c5fd",
       "executable": false
     },
     "tests/helpers/handset-delegation.mjs": {
@@ -3538,7 +3542,7 @@
       "executable": false
     },
     "tests/helpers/handset-worker.mjs": {
-      "sha256": "7d4b9c82386007f4fb398ffcd7504090cc07b6c9bc162dad88887e86f1a6c410",
+      "sha256": "edf6e4b929d02e52d00e2878e0ac64374b08b7a5e981cec35aba7361cd8e0ff5",
       "executable": false
     },
     "tests/incremental-typecheck.test.mjs": {
