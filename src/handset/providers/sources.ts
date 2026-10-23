@@ -3,7 +3,7 @@ import type { Session } from '../../modules/operator-auth/index.mjs'
 import { commit } from '../audit/store'
 import { sourcePolicy } from '../audit/policy'
 import { allowedNumbers, authorizeNumber, createNumberAccess, listNumberAccess, numberAccessForm, revokeNumberAccess, sourceConsentClause } from '../access/numbers'
-import { Fault, json, text, keys, id, page, escape as e, field, session, type ObjectValue } from '../core'
+import { Fault, json, text, keys, id, consolePage as page, escape as e, field, session, type ObjectValue } from '../core'
 
 // Historical owner_* columns retain the exact consenting native person/version.
 export interface Source {id:string;account_id:string;number_id:string;owner_id:string;owner_version:number;revision:number;revoked_at:number|null;created_at:number;consent_access_id?:string|null}

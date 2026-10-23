@@ -55,12 +55,12 @@ authorization in a handler. Unknown signed-in routes still return 404.
 
 Agents use `/app/queues/self` and `/api/handset/queues/self` for only their own existing queue memberships, availability and wrap-up. Mutations repeat current native session checks in the write transaction; agents cannot add memberships or change another person, capabilities, priorities or routing policy.
 
-Handset now has owner-only native record, audit and grant handlers described in
+Handset has native record, audit, source and application-grant handlers described in
 `docs/HANDSET-RECORDS.md`. Each repeats native authorization at its own door and
-inside write transactions. The exact `/api/handset/application/*` transport is
+inside authorizing transactions. Exact-number native work capabilities permit scoped canonical cases and inbound source consent; exact-person audit capabilities permit read and separately approved export. Capability administration, audit restore/anonymization and canonical object creation stay owner-only. No work or audit capability implies recording access. The exact `/api/handset/application/*` transport is
 dispatched before the native fence and independently requires a current scoped
 bearer credential; it never borrows a cookie. MCP owner consent remains behind
-the native session fence. No current handler serves recording bytes. There are
+the native session fence. Recording bytes require the independent exact-person playback grant described below. There are
 no Start server functions. Accepted signed Twilio ingress includes
 `/providers/twilio/events`, `/providers/twilio/queues/:id` and its offer callbacks,
 `/providers/twilio/protection` and its challenge/executive-answer callbacks, and

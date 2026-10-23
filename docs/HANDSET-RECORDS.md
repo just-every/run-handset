@@ -1,12 +1,10 @@
 # Native case records and audit
 
-`/app/cases` is the native owner workspace. Plain forms use the existing edition
+`/app/cases` is the native owner and exact-number teammate workspace. Plain forms use the existing edition
 frame, fonts and theme. No marketing or logo is changed. JSON clients use the
 same current-session checks under `/api/handset`. Writes require the configured
 origin; every transaction repeats current native session, version, role and
-expiry checks. The temporary conservative policy is **owner-only-v1**. It grants
-no member, administrator, supervisor or external application implicit access.
-HND-027 must replace this default with its independently proven finer scopes.
+expiry checks. Native roles grant no implicit teammate or external-application access. Owners can explicitly grant exact-number canonical work and inbound source consent, or separate exact-person installation audit read/export. These capabilities expire within 24 hours and bind target and issuing-owner native versions. HND-027 retains finer company/location/team and custom-role scopes; the 24-hour capability ceilings are conservative defaults pending ct.
 
 ## Records and shared work
 
@@ -30,6 +28,36 @@ HND-027 must replace this default with its independently proven finer scopes.
   native records on a case. The API returns at most 201 cases with `limited`
   set when more than 200 match; no completeness claim is made for larger lists.
 
+## Exact-number teammate authority
+
+The owner grants `{personId,personVersion,numberId,expiresAt,
+confirm:"approve exact person number work and inbound source consent"}` through
+`POST /api/handset/sources/access` or the form on `/app/sources`. The native
+person and number record are exact selections; the person version is checked
+again inside the write. `GET .../access` is owner-only inventory and
+`POST .../revoke-access` with `{accessId}` revokes all parallel grants for that
+person and number. Historical number records remain valid retained-case scopes;
+source consent still requires the current number revision.
+
+Teammates can list/read/edit cases only while every associated number is covered.
+The query applies scope before filtering and pagination. The write transaction
+rechecks the exact set of case numbers, native authority and every capability;
+assignment requires a currently scoped assignee. Linked record views omit foreign
+case references, children and reverse links. Record-source replay/conflict paths
+cannot expose another case. Case creation and new canonical administrative
+objects remain owner-only. Teammates may append comments, dispositions, promises
+and uncertain/unknown message observations. These are observations, never sends,
+recording capture or provider completion.
+
+The source consent records the native consenting person/version and exact
+capability used; historical `owner_id`/`owner_version` columns retain those
+values for compatibility. Source revocation preserves evidence. Role/status,
+issuing-owner or capability changes suspend later ingestion; restoring a role
+requires a new explicit capability and consent. These metadata capabilities do
+not imply independently owner-approved queue/media, playback, dialer, audit,
+port or administrative authority. One-day work/audit capability maxima and the
+owner-only creation restrictions are adopted conservative defaults pending ct.
+
 ## Audit controls and limits
 
 Every current product write and its audit entry commit together. Native auth
@@ -50,8 +78,7 @@ fields. Concurrent appends retry on the predecessor/sequence uniqueness fence.
 SQL triggers refuse updates and deletes to records, history, audit and restored
 ledgers. Normal product roles have no mutation endpoint for those ledgers.
 
-`GET /api/handset/audit` pages by sequence (`after`); `/app/audit` is its owner
-screen. `GET /api/handset/audit/export` verifies the complete current chain and
+`GET /api/handset/audit` pages by sequence (`after`); `/app/audit` is its native screen. Owner approval through `POST /api/handset/audit/access` grants one exact person installation-wide read, with a separate `allowExport` flag. The request names `{personId,personVersion,expiresAt,allowExport,confirm:"approve exact person installation audit access"}`. `GET .../access` is owner-only inventory; `POST .../revoke` with `{grantId}` revokes every parallel audit capability for that person. Current native session, target/issuer versions, role, expiry and revocation are repeated before response release. Archived full ledgers require export authority too. Restore, anonymization and grant administration remain owner-only; these grants convey no recording access. `GET /api/handset/audit/export` verifies the complete current chain and
 returns its terminal checkpoint. Exports over 10,000 events fail explicitly;
 there is no silently truncated export. An owner must keep the checkpoint in
 independent storage they control. A database administrator can drop triggers or
@@ -148,7 +175,7 @@ and audit checks; the current held state does not prove those future effects.
 
 ## Verified Twilio source records
 
-Owners explicitly authorize a selected native business-number record and account
+Owners or native people holding exact-number work capability explicitly authorize a selected native business-number record and account
 at `/app/sources` or `POST /api/handset/sources` with
 `{accountId,numberId,confirm:"authorize signed inbound records"}`. The account
 is an identifier, never an authentication credential. The installation supplies
@@ -162,10 +189,10 @@ its exact configured URL and Host, form content type, body bound and Twilio's
 HMAC-SHA1 signature over the complete URL and every sorted form parameter.
 Only then does it resolve the authorized account and number; a native cookie
 cannot substitute for that proof. Conflicting duplicate fields are refused.
-Revoked sources and changed/inactive owner authority are refused on every event
+Revoked sources and changed/inactive consenting-person or scope authority are refused on every event
 and again in the same transaction as receipt/record/audit persistence. An account
 can authorize several numbers, each with separate consent revisions. Revocation
-or a change to the consenting owner suspends admission until fresh explicit
+or a change to the consenting person or number capability suspends admission until fresh explicit
 consent for that account and number. The source screen shows active, suspended
 and revoked revisions. A native number correction suspends its old source;
 fresh consent must name the current immutable number record. Queue, protection,
