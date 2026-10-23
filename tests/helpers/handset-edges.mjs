@@ -65,6 +65,7 @@ export function createEdges() {
    if (host === edgeOrigins.orbit) {
     if (e.orbitExpired || auth !== 'Bearer ' + edgeSecrets.orbit) return json(Response, { error: { code: 'DELEGATION_INVALID' } }, 401)
     if (path === '/api/delegation/v1/check') {
+     const hook = e.orbitCheckHook; e.orbitCheckHook = null; if (hook) await hook()
      const target = url.searchParams.get('target')
      if (!/^opportunities\/synthetic-handset-720\/handoffs\/synthetic-handset-[0-9]+$/.test(target ?? '')) return json(Response, { error: { code: 'NOT_FOUND' } }, 404)
      return json(Response, { revision: e.orbitRevision, audienceRevision: 1, ...(request.headers.get('x-rer-record-state-schema') === 'crm.handoff-state/1' ? { recordState: { schema: 'crm.handoff-state/1', kind: 'crm.handoff', state: e.handoffStates.get(target) ?? 'open' } } : {}) })

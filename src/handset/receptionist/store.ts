@@ -47,7 +47,8 @@ export async function openOutcome(env: Bindings, g: Grant, value: ObjectValue, a
  const v = openInput(value), current = await currentPolicy(env.DB)
  if (!current) throw new Fault('receptionist_policy_required', 409)
  scoped(g, v.caseId)
- if (!await env.DB.prepare('SELECT id FROM hnd_cases WHERE id=?').bind(v.caseId).first()) throw new Fault('case_not_found', 404)
+ const currentCase = await env.DB.prepare('SELECT version FROM hnd_cases WHERE id=?').bind(v.caseId).first<{version: number}>()
+ if (!currentCase) throw new Fault('case_not_found', 404)
  const existing = await env.DB.prepare('SELECT * FROM hnd_rx_outcomes WHERE grant_id=? AND call_id=?').bind(g.id, v.callId).first<Outcome>()
  if (existing) {
   if (existing.case_id !== v.caseId || existing.language !== v.language || existing.caller_email !== v.callerEmail) throw new Fault('call_already_open_with_other_facts', 409)
@@ -56,8 +57,8 @@ export async function openOutcome(env: Bindings, g: Grant, value: ObjectValue, a
  const outcomeId = id(), now = Date.now()
  await append(env, g.id, 'outcome.open', outcomeId, 'completed', [
   grantFence(env, g),
-  env.DB.prepare('INSERT INTO hnd_rx_outcomes(id,grant_id,case_id,call_id,language,after_hours,policy_version,caller_name,caller_email,identity_basis,identity_reported,payment_method_ref,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
-   .bind(outcomeId, g.id, v.caseId, v.callId, v.language, afterHours(current.policy, now), current.version, v.callerName, v.callerEmail, v.identityBasis, v.identityVerified ? 1 : 0, v.paymentMethodRef, now),
+  env.DB.prepare('INSERT INTO hnd_rx_outcomes(id,grant_id,case_id,call_id,language,after_hours,policy_version,caller_name,caller_email,identity_basis,identity_reported,payment_method_ref,created_at,case_version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+   .bind(outcomeId, g.id, v.caseId, v.callId, v.language, afterHours(current.policy, now), current.version, v.callerName, v.callerEmail, v.identityBasis, v.identityVerified ? 1 : 0, v.paymentMethodRef, now, currentCase.version),
  ], null, applied)
  return { outcome: (await env.DB.prepare('SELECT * FROM hnd_rx_outcomes WHERE id=?').bind(outcomeId).first<Outcome>())!, replay: false }
 }

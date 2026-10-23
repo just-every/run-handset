@@ -17,8 +17,9 @@ async function paymentReadback(env: Bindings, id: string, d: Deposit): Promise<E
  if (p.amount_received !== d.amountCents || p.currency !== 'usd' || meta.handset_outcome !== d.outcomeId) return uncertain('stripe_readback_mismatch')
  return { state: 'confirmed', externalId: id, readback: { id, status: 'succeeded', amountReceived: d.amountCents, currency: 'usd' }, reason: 'readback_matched' }
 }
-export async function charge(env: Bindings, d: Deposit): Promise<EdgeResult> {
+export async function charge(env: Bindings, d: Deposit, beforeEffect: () => Promise<void> = async () => {}): Promise<EdgeResult> {
  if (!env.HANDSET_STRIPE_KEY) return held('stripe_connector_unconfigured')
+ await beforeEffect()
  const wire = await send(`${api}/payment_intents`, { method: 'POST', headers: headers(env, d.key), body: form({ amount: String(d.amountCents), currency: 'usd', payment_method: d.paymentMethod, confirm: 'true', off_session: 'true', description: d.description, 'metadata[handset_outcome]': d.outcomeId }) })
  if (!wire) return uncertain('stripe_response_lost')
  if (wire.status === 200 && typeof wire.body.id === 'string') return paymentReadback(env, wire.body.id, d)
@@ -28,8 +29,9 @@ export async function charge(env: Bindings, d: Deposit): Promise<EdgeResult> {
 }
 export async function readPayment(env: Bindings, id: string, d: Deposit) { return paymentReadback(env, id, d) }
 export interface Refund { outcomeId: string; paymentIntent: string; amountCents: number; key: string }
-export async function refund(env: Bindings, r: Refund): Promise<EdgeResult> {
+export async function refund(env: Bindings, r: Refund, beforeEffect: () => Promise<void> = async () => {}): Promise<EdgeResult> {
  if (!env.HANDSET_STRIPE_KEY) return held('stripe_connector_unconfigured')
+ await beforeEffect()
  const wire = await send(`${api}/refunds`, { method: 'POST', headers: headers(env, r.key), body: form({ payment_intent: r.paymentIntent, amount: String(r.amountCents), 'metadata[handset_outcome]': r.outcomeId }) })
  if (!wire) return uncertain('stripe_response_lost')
  if (wire.status === 400 || wire.status === 402) return rejected('stripe_refund_refused')

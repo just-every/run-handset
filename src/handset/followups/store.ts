@@ -100,7 +100,7 @@ export async function action(env: Bindings, actor: Session, row: Followup, op: s
   if (row.delivery !== 'approved' || row.approved_revision !== row.revision || row.approved_by !== actor.operator.id || row.approved_owner_version !== actor.operator.version) throw new Fault('exact_handoff_approval_required', 403)
   const claimed = await update(env, actor, row, { delivery: 'sending', reason: 'Started: reconcile before any further write' }, [sourceFence(env, row), ownerFence(env, row)])
   // Orbit's documented operationKey is replay safe. We still never blindly resend a started write.
-  const result = await orbitHandoff(env, claimed.target, claimed.operation_key, content(claimed))
+  const result = await orbitHandoff(env, claimed.target, claimed.operation_key, content(claimed), async () => { await commit(env, actor, 'followup.change', claimed.id, 'completed', [versionFence(env, claimed), sourceFence(env, claimed), ownerFence(env, claimed)]) })
   return update(env, actor, claimed, { delivery: result.state === 'confirmed' ? 'received' : result.state === 'held' || result.state === 'rejected' ? 'held' : 'uncertain', reason: result.reason, readback: result.readback ? JSON.stringify(result.readback) : null })
  }
  if (op === 'reconcile') { await fresh(env, row); return reconcile(env, actor, row) }

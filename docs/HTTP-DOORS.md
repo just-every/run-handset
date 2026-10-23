@@ -128,3 +128,16 @@ protection webhook applies their exact line/route/source revisions after
 protection screening, including on a Gather completion. The called-party answer
 door rechecks authority before bridging, including revocation while ringing.
 No carrier REST write, recording capture or delegation right is introduced.
+
+## Follow-up, recovery and rule APIs
+
+`/api/handset/followups`, `/api/handset/recovery`, `/api/handset/rules` and
+`/api/handset/delivery` require a current native owner session and same-origin
+writes at the product boundary. Bearer credentials cannot approve or publish
+these operations. Delivery is a read-only inventory. No new provider ingress
+namespace or media access was added. Signed existing missed-call and STOP
+ingress only queues native work or suppresses obsolete contact. Worker
+scheduled handling retains the rule outbox and owned overdue escalation.
+See FOLLOWUPS.md, RECOVERY.md, RULES.md and DELIVERY.md for limits and held
+customer/receiving-system obligations. HND-027 inherits finer role scope;
+HND-013/018/089 retain actual capture/contact consent and caller identity.

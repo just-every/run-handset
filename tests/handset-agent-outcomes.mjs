@@ -111,6 +111,9 @@ test('Lost payment, booking, CRM and support responses stay uncertain until read
   f.edges.orbitStale = 1; f.edges.drop.add('orbit')
   const crm = await f.ok(base + 'handoffs/crm', { summary: 'Furnace call' })
   assert.equal(crm.step.state, 'uncertain')
+  const inventory = await (await f.runtime.request('/api/handset/delivery', { headers: f.headers })).json()
+  assert.ok(inventory.steps.some(s => s.id === crm.step.id && s.state === 'uncertain' && s.outcome_id === id))
+  assert.match(inventory.scopes.orbit, /handoff/)
   assert.equal((await f.ok(base + 'reconcile', { step: 'crm' })).step.state, 'confirmed'); assert.equal(f.edges.effects.size, 1)
   f.edges.drop.add('helpdesk')
   assert.equal((await f.ok(base + 'handoffs/support', { conversationId: 'synthetic-handset-710', summary: 'Furnace call' })).step.state, 'uncertain')
@@ -122,6 +125,20 @@ test('Lost payment, booking, CRM and support responses stay uncertain until read
   assert.ok(race.every(r => [200, 409].includes(r.status)))
   assert.equal([...f.edges.bookings.values()].filter(b => b.startAt === f.edges.slots[1]).length, 1)
   assert.equal((await f.runtime.sql('SELECT reserved_cents FROM hnd_grants')).results[0].reserved_cents, 5000)
+  // A provider may prune an old key. A possibly committed charge outside
+  // Stripe's retention contract stays uncertain instead of making a new POST.
+  f.edges.slots.unshift(slot(6))
+  const aged = await readyToBook(f, 32, 'en', f.cases[2])
+  const agedAuth = await authorize(f, aged.base, 5000, '1', 'synthetic-handset-call-32')
+  f.edges.drop.add('stripe')
+  const agedLost = await f.ok(aged.base + 'deposit', { authorizationId: agedAuth.authorizationId })
+  assert.equal(agedLost.step.state, 'uncertain')
+  await f.runtime.sql('UPDATE hnd_rx_steps SET created_at=? WHERE id=?', Date.now() - 24 * 3600000, agedLost.step.id)
+  const stripePosts = () => f.edges.requests.filter(r => r.host === f.edges.origins.stripe && r.method === 'POST').length
+  const beforeAgedRetry = stripePosts()
+  assert.equal((await f.ok(aged.base + 'deposit', { authorizationId: agedAuth.authorizationId })).step.state, 'uncertain')
+  assert.equal(stripePosts(), beforeAgedRetry, 'expired deduplication retention forbids a blind charge replay')
+
  } finally { await f.runtime.close() }
 })
 

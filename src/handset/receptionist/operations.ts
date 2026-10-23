@@ -74,7 +74,7 @@ export async function booking(c: Ctx, value: ObjectValue) {
  if (!snapshot || snapshot.serviceId !== s.id || Date.now() - snapshot.fetchedAt > freshMs || !snapshot.slots.includes(start)) throw new Fault('fresh_availability_read_required', 409)
  if (conn(c, ['dial']).length) return heldBy(c, 'booking', 'dial_connector_unconfigured')
  const r = await runStep({ env: c.env, grant: c.grant, applied: c.applied, outcome: c.outcome, kind: 'booking', request: { serviceId: s.id, startAt: start },
-  execute: async (key, known) => dialBook(c.env, { idempotencyKey: uuidFrom(await digest(key)), eventTypeId: s.eventTypeId, startAt: start, inviteeTimezone: c.policy.timezone, name: c.outcome.caller_name, email: c.outcome.caller_email, answers: { handsetCall: c.outcome.call_id }, durationMinutes: s.minutes }, known) })
+  execute: async (key, known, beforeEffect) => dialBook(c.env, { idempotencyKey: uuidFrom(await digest(key)), eventTypeId: s.eventTypeId, startAt: start, inviteeTimezone: c.policy.timezone, name: c.outcome.caller_name, email: c.outcome.caller_email, answers: { handsetCall: c.outcome.call_id }, durationMinutes: s.minutes }, known, beforeEffect) })
  const exception = await failure(c, r, 'booking'); if (r.step.state === 'confirmed') await resolveFailures(c, 'booking')
  return reply(r, r.step.state === 'confirmed' ? 'booking_confirmed' : r.step.state === 'rejected' ? 'booking_rejected' : 'booking_pending', { when: localTime(c.policy, c.outcome.language, start) }, c, { exceptionId: exception?.exception.id ?? null })
 }
@@ -114,6 +114,7 @@ export async function deposit(c: Ctx, value: ObjectValue) {
  if (conn(c, ['stripe']).length) return heldBy(c, 'deposit', 'stripe_connector_unconfigured')
  const d = JSON.parse(c.grant.definition) as { budgetCents: number }, methodRef = c.outcome.payment_method_ref
  const r = await runStep({ env: c.env, grant: c.grant, applied: c.applied, outcome: c.outcome, kind: 'deposit', request: { authorizationId: a.id, amountCents: a.amount_cents }, amountCents: a.amount_cents,
+  effect: stepId => [c.env.DB.prepare("INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_rx_authorizations WHERE id=? AND state='authorized' AND consumed_by=? AND expires_at>?").bind(a.id, stepId, Date.now())],
   claim: stepId => [
    c.env.DB.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_grants WHERE id=? AND revision=? AND reserved_cents+?<=?').bind(c.grant.id, c.grant.revision, a.amount_cents, d.budgetCents),
    c.env.DB.prepare('UPDATE hnd_grants SET reserved_cents=reserved_cents+? WHERE id=?').bind(a.amount_cents, c.grant.id),
@@ -121,9 +122,9 @@ export async function deposit(c: Ctx, value: ObjectValue) {
    c.env.DB.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_rx_authorizations WHERE id=? AND consumed_by=?').bind(a.id, stepId),
   ],
   release: [c.env.DB.prepare('UPDATE hnd_grants SET reserved_cents=MAX(reserved_cents-?,0) WHERE id=?').bind(a.amount_cents, c.grant.id)],
-  execute: (key, known) => {
+  execute: (key, known, beforeEffect) => {
    const input = { outcomeId: c.outcome.id, amountCents: a.amount_cents, paymentMethod: methodRef, description: `${a.payee}: ${a.purpose}`, key }
-   return known ? readPayment(c.env, known, input) : charge(c.env, input)
+   return known ? readPayment(c.env, known, input) : charge(c.env, input, beforeEffect)
   } })
  const exception = await failure(c, r, 'deposit'); if (r.step.state === 'confirmed') await resolveFailures(c, 'deposit')
  return reply(r, r.step.state === 'confirmed' ? 'deposit_confirmed' : r.step.state === 'rejected' ? 'deposit_failed' : 'deposit_pending', { amount: a.amount_cents }, c, { exceptionId: exception?.exception.id ?? null })
@@ -139,7 +140,7 @@ export async function crmHandoff(c: Ctx, value: ObjectValue, stored?: string) {
  if (conn(c, ['orbit']).length) return heldBy(c, 'crm', 'orbit_connector_unconfigured')
  const content = stored ?? await summary(c, value)
  const r = await runStep({ env: c.env, grant: c.grant, applied: c.applied, outcome: c.outcome, kind: 'crm', request: { target: c.policy.orbitTarget, content },
-  execute: () => orbitHandoff(c.env, c.policy.orbitTarget, `handset-${c.outcome.id}-crm`, content) })
+  execute: (_key, _known, beforeEffect) => orbitHandoff(c.env, c.policy.orbitTarget, `handset-${c.outcome.id}-crm`, content, beforeEffect) })
  const exception = await failure(c, r, 'crm'); if (r.step.state === 'confirmed') await resolveFailures(c, 'crm')
  return reply(r, r.step.state === 'confirmed' ? 'handoff_done' : 'handoff_pending', { item: itemNames[c.outcome.language].crm }, c, { exceptionId: exception?.exception.id ?? null })
 }
@@ -149,7 +150,7 @@ export async function supportHandoff(c: Ctx, value: ObjectValue, stored?: string
  if (conn(c, ['helpdesk']).length) return heldBy(c, 'support', 'helpdesk_connector_unconfigured')
  const content = stored ?? await summary(c, value)
  const r = await runStep({ env: c.env, grant: c.grant, applied: c.applied, outcome: c.outcome, kind: 'support', request: { conversationId, content },
-  execute: () => helpdeskNote(c.env, conversationId, `handset-${c.outcome.id}-support`, content) })
+  execute: (_key, _known, beforeEffect) => helpdeskNote(c.env, conversationId, `handset-${c.outcome.id}-support`, content, beforeEffect) })
  const exception = await failure(c, r, 'support'); if (r.step.state === 'confirmed') await resolveFailures(c, 'support')
  return reply(r, r.step.state === 'confirmed' ? 'handoff_done' : 'handoff_pending', { item: itemNames[c.outcome.language].support }, c, { exceptionId: exception?.exception.id ?? null })
 }
@@ -180,7 +181,8 @@ export async function refundDeposit(c: Ctx, value: ObjectValue) {
  if (conn(c, ['stripe']).length) return heldBy(c, 'refund', 'stripe_connector_unconfigured')
  const r = await runStep({ env: c.env, grant: c.grant, applied: c.applied, outcome: c.outcome, kind: 'refund', request: { exceptionId: e.id, amountCents: requested.amountCents, paymentIntent: requested.paymentIntent }, amountCents: requested.amountCents,
   claim: stepId => [c.env.DB.prepare("UPDATE hnd_rx_exceptions SET consumed_by=? WHERE id=? AND status='approved' AND (consumed_by IS NULL OR consumed_by=?)").bind(stepId, e.id, stepId), c.env.DB.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_rx_exceptions WHERE id=? AND consumed_by=?').bind(e.id, stepId)],
-  execute: key => refund(c.env, { outcomeId: c.outcome.id, paymentIntent: requested.paymentIntent, amountCents: requested.amountCents, key }) })
+  effect: () => [c.env.DB.prepare("INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_rx_exceptions e JOIN oa_operators o ON o.id=e.decided_by WHERE e.id=? AND e.status='approved' AND o.status='active' AND o.role='owner' AND o.version=e.decided_owner_version").bind(e.id)],
+  execute: (key, _known, beforeEffect) => refund(c.env, { outcomeId: c.outcome.id, paymentIntent: requested.paymentIntent, amountCents: requested.amountCents, key }, beforeEffect) })
  const exception = await failure(c, r, 'refund'); if (r.step.state === 'confirmed') await resolveFailures(c, 'refund')
  return reply(r, r.step.state === 'confirmed' ? 'refund_confirmed' : 'deposit_pending', { amount: requested.amountCents }, c, { exceptionId: exception?.exception.id ?? null })
 }

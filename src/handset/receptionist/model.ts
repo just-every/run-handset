@@ -14,7 +14,7 @@ export interface Policy {
 }
 export interface PolicyRow { version: number; body: string; owner_id: string; owner_version: number; created_at: number }
 export interface Outcome {
- id: string; grant_id: string; case_id: string; call_id: string; language: Language; after_hours: number; policy_version: number
+ id: string; grant_id: string; case_id: string; case_version: number; call_id: string; language: Language; after_hours: number; policy_version: number
  caller_name: string; caller_email: string; identity_basis: string; identity_reported: number; payment_method_ref: string | null; created_at: number
 }
 export interface Step {

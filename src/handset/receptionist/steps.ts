@@ -16,11 +16,19 @@ export interface Run {
  /** Statements that must commit with a rejected final answer (budget release). */
  release?: D1PreparedStatement[]
  /** `key` is stable for this exact request; `known` is a receiving-system identifier already learned. */
- execute: (key: string, known: string | null) => Promise<EdgeResult>
+ execute: (key: string, known: string | null, beforeEffect: () => Promise<void>) => Promise<EdgeResult>
+ effect?: (stepId: string) => D1PreparedStatement[]
 }
 export interface RunResult { step: Step; replay: boolean; reason: string }
 /** One durable step per receiving system. The step is marked `sent` before any network effect, the same
  * idempotency key is reused on every retry and the caller is only told what a readback confirmed. */
+export function outcomeEffectFences(env: Bindings, outcome: Outcome): D1PreparedStatement[] {
+ return [env.DB.prepare(`INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_rx_outcomes o JOIN hnd_cases c ON c.id=o.case_id
+ WHERE o.id=? AND o.case_version=c.version AND o.case_version>0 AND o.policy_version=(SELECT max(version) FROM hnd_rx_policy)`)
+ .bind(outcome.id), env.DB.prepare(`INSERT INTO hnd_guard(ok) SELECT CASE WHEN EXISTS(
+ SELECT 1 FROM hnd_protection_stops s JOIN hnd_records r ON r.case_id=?
+ WHERE s.recipient IN (json_extract(r.data,'$.from'),json_extract(r.data,'$.to'))) THEN 0 ELSE 1 END`).bind(outcome.case_id)]
+}
 export async function runStep(r: Run): Promise<RunResult> {
  const { env, grant, outcome, kind } = r, db = env.DB, hash = await digest(r.request), now = Date.now()
  let step = await stepRow(db, outcome.id, kind)
@@ -35,21 +43,28 @@ export async function runStep(r: Run): Promise<RunResult> {
  if (!step) {
   const stepId = id()
   await append(env, grant.id, 'outcome.step', stepId, 'uncertain', [
-   grantFence(env, grant), ...(r.claim?.(stepId) ?? []),
+   grantFence(env, grant), ...outcomeEffectFences(env, outcome), ...(r.claim?.(stepId) ?? []),
    db.prepare("INSERT INTO hnd_rx_steps(id,outcome_id,kind,state,request,request_hash,external_id,readback,attempts,amount_cents,version,created_at,updated_at) VALUES (?,?,?,'sent',?,?,NULL,NULL,1,?,1,?,?)").bind(stepId, outcome.id, kind, JSON.stringify(r.request), hash, r.amountCents ?? 0, now, now),
   ], null, r.applied)
   step = (await stepRow(db, outcome.id, kind))!
  } else {
   // Claim the retry: a concurrent caller loses the version check instead of sending a second effect.
   await append(env, grant.id, 'outcome.step', step.id, 'uncertain', [
-   grantFence(env, grant), db.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_rx_steps WHERE id=? AND version=?').bind(step.id, step.version),
+   grantFence(env, grant), ...outcomeEffectFences(env, outcome), db.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_rx_steps WHERE id=? AND version=?').bind(step.id, step.version),
    db.prepare("UPDATE hnd_rx_steps SET state='sent',request=?,request_hash=?,attempts=attempts+1,version=version+1,updated_at=? WHERE id=? AND version=?").bind(JSON.stringify(r.request), hash, now, step.id, step.version),
    ...(step.state === 'rejected' ? (r.claim?.(step.id) ?? []) : []),
   ], null, r.applied)
   step = (await stepRow(db, outcome.id, kind))!
  }
  let result: EdgeResult
- try { result = await r.execute(key, step.external_id) } catch { result = { state: 'uncertain', reason: 'edge_failed_after_send' } }
+ const beforeEffect = async () => {
+  // Stripe may prune idempotency keys after 24 hours. Keep a one-hour safety margin.
+  if (['deposit','refund'].includes(kind) && step!.attempts > 1 && Date.now() - step!.created_at >= 23 * 3600000) throw new Fault('provider_deduplication_window_expired_readback_required', 409)
+  await append(env, grant.id, 'outcome.authorize', step!.id, 'completed', [grantFence(env, grant), ...outcomeEffectFences(env, outcome),
+   db.prepare("INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_grants WHERE id=? AND reserved_cents<=json_extract(definition,'$.budgetCents')").bind(grant.id), ...(r.effect?.(step!.id) ?? []),
+  ], null, r.applied)
+ }
+ try { result = await r.execute(key, step.external_id, beforeEffect) } catch { result = { state: 'uncertain', reason: 'edge_failed_after_send' } }
  const release = result.state === 'rejected' ? (r.release ?? []) : []
  await append(env, grant.id, 'outcome.step', step.id, auditOutcome(result.state), [
   grantFence(env, grant), db.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_rx_steps WHERE id=? AND version=?').bind(step.id, step.version),

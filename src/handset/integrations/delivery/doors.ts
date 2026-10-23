@@ -1,0 +1,29 @@
+import type { Bindings } from '../../../auth.server'
+import type { Session } from '../../../modules/operator-auth/index.mjs'
+import { Fault, json, owner } from '../../core'
+/** Read-only native-owner repair inventory. Credentials and provider payloads are never returned. */
+export async function deliveryDoor(request: Request, env: Bindings, actor: Session): Promise<Response | null> {
+ if (new URL(request.url).pathname !== '/api/handset/delivery') return null
+ owner(actor)
+ if (request.method !== 'GET') throw new Fault('method_not_allowed', 405)
+ const [sources, steps, followups, rules] = await Promise.all([
+  env.DB.prepare(`SELECT s.id,s.revision,s.revoked_at,MAX(r.received_at) AS last_receipt_at,MAX(r.occurred_at) AS last_source_at,MAX(r.received_at-r.occurred_at) AS largest_observed_lag_ms,
+  (SELECT count(*) FROM hnd_source_pending p WHERE p.source_id=s.id) AS pending_parents
+  FROM hnd_sources s LEFT JOIN hnd_source_receipts r ON r.source_id=s.id GROUP BY s.id ORDER BY s.created_at DESC LIMIT 100`).all(),
+  env.DB.prepare(`SELECT s.id,s.outcome_id,s.kind,s.state,s.external_id,s.attempts,s.updated_at,o.case_id FROM hnd_rx_steps s JOIN hnd_rx_outcomes o ON o.id=s.outcome_id ORDER BY s.updated_at DESC LIMIT 200`).all(),
+  env.DB.prepare('SELECT id,case_id,status,delivery,reason,next_due_at,updated_at FROM hnd_followups ORDER BY updated_at DESC LIMIT 200').all(),
+  env.DB.prepare('SELECT id,rule_id,record_id,case_id,state,work_status,reason,next_due_at,updated_at FROM hnd_rule_runs ORDER BY updated_at DESC LIMIT 200').all(),
+ ])
+ return json({ observedAt: Date.now(), scopes: {
+  twilio: 'Signed metadata for explicitly selected numbers; no outbound authority',
+  dial: 'Availability and booking; delegated booking qualification pending',
+  stripe: 'Exact caller-authorized saved-method deposit and named-person refund',
+  orbit: 'Selected delegated opportunity handoff and optional current handoff state',
+  helpdesk: 'Selected existing conversation note; no ticket-create authority',
+  rules: 'Owned internal work and explicitly published installation-owner notices; customer contact held',
+ }, mappedFields: ['source event/call identity','case/outcome/step correlation','exact approved request','provider receipt','current completion separately from delivery'], sources: sources.results, steps: steps.results,
+ followups: followups.results, ruleRuns: rules.results, limits: { sources: 100, steps: 200, followups: 200, ruleRuns: 200 },
+ repair: { startedEffect: 'Read back the existing idempotency key or obtain an explicit human resolution; never create a new key',
+ followup: '/api/handset/followups/{id}/reconcile', outcome: '/api/handset/application/receptionist/outcomes/{id}/reconcile',
+ mail: 'Provider acceptance is not inbox delivery. Uncertain owner notices are never automatically resent.' } })
+}
