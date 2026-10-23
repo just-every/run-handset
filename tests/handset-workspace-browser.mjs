@@ -245,3 +245,43 @@ for(const width of [1440,390])test(`Reviewed front desk call execution and provi
   }
  }finally{await context.close();await browser.close();await runtime.close()}
 })
+
+for(const width of [1440,390])test(`Exact-person audit read and export approvals and immediate revocation at ${width}`,async()=>{
+ const runtime=await openHandset(),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage(),evidence=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-workspace'
+ await mkdir(evidence,{recursive:true})
+ async function as(cookie){const [name,...value]=cookie.split('=');await context.clearCookies();await context.addCookies([{name,value:value.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])}
+ async function proof(name){assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name);await page.screenshot({path:`${evidence}/${width}-${name}.png`,fullPage:true})}
+ try{
+  const owner=await signIn(runtime),headers={cookie:owner.cookie}
+  assert.equal((await post(runtime,'/auth/operator/status',{operatorId:'synthetic-handset-2',status:'active'},headers)).status,200)
+  const reader=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'})
+  assert.equal((await post(runtime,'/api/handset/cases',{title:'Austin service follow-up',promise:'Call after the replacement arrives',dueAt:Date.now()+86400000},headers)).status,201)
+  async function grant(exporting){
+   await as(owner.cookie);await page.goto(runtime.origin+'/app/audit')
+   const inventory=await (await runtime.request('/api/handset/audit/access',{headers})).json(),person=inventory.people.find(p=>p.id==='synthetic-handset-2')
+   await page.getByLabel('Exact audit reader',{exact:true}).selectOption(person.id+':'+person.version)
+   await page.getByLabel('Audit access expiry (UTC, within one day)',{exact:true}).fill(new Date(Date.now()+1800000).toISOString().slice(0,16))
+   if(exporting)await page.getByRole('checkbox',{name:'Allow audit export',exact:true}).check()
+   await page.getByRole('checkbox',{name:'I approve installation audit access for this exact person',exact:true}).check()
+   await proof(exporting?'audit-export-approval':'audit-read-approval')
+   await page.getByRole('button',{name:'Grant audit access',exact:true}).click();await page.getByRole('heading',{name:'Audit access granted',exact:true}).waitFor()
+   await proof(exporting?'audit-export-granted':'audit-read-granted')
+   const current=await (await runtime.request('/api/handset/audit/access',{headers})).json()
+   return current.access.find(g=>g.person_id===person.id&&Boolean(g.allow_export)===exporting)
+  }
+  const readOnly=await grant(false)
+  await as(reader.cookie);await page.goto(runtime.origin+'/app/audit');await page.getByRole('heading',{name:'Accountable audit',exact:true}).waitFor()
+  assert.equal(await page.getByRole('button',{name:'Grant audit access',exact:true}).count(),0)
+  assert.equal(await page.getByRole('button',{name:'Anonymize audit identity',exact:true}).count(),0)
+  assert.equal((await context.request.get(runtime.origin+'/api/handset/audit/export')).status(),403)
+  await proof('audit-read-only-person')
+  await grant(true)
+  await as(reader.cookie);await page.goto(runtime.origin+'/app/audit');await page.getByRole('heading',{name:'Accountable audit',exact:true}).waitFor()
+  assert.equal((await context.request.get(runtime.origin+'/api/handset/audit/export')).status(),200);await proof('audit-export-person')
+  await as(owner.cookie);await page.goto(runtime.origin+'/app/audit')
+  await page.getByRole('button',{name:'Revoke audit access '+readOnly.id,exact:true}).click();await page.getByRole('heading',{name:'Audit access revoked',exact:true}).waitFor();await proof('audit-access-revoked')
+  await as(reader.cookie);await page.goto(runtime.origin+'/app/audit');await page.getByRole('alert').waitFor();await proof('audit-revoked-person')
+  assert.equal((await context.request.get(runtime.origin+'/api/handset/audit/export')).status(),403)
+ }finally{await context.close();await browser.close();await runtime.close()}
+})

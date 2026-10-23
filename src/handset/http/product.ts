@@ -51,6 +51,11 @@ export async function productResponse(request: Request, original: Bindings): Pro
   if(path==='/app/recordings'||path.startsWith('/app/recordings/')||path.startsWith('/api/handset/recordings/')){
    return await recordingsPage(request,env,actor,request.method==='GET'?undefined:await input(request))
   }
+  if (path.startsWith('/api/handset/audit') || path.startsWith('/app/audit')) {
+   const response = await auditDoor(request,env,actor,request.method==='GET' ? undefined : await input(request,2097152))
+   if(response)return response
+   throw new Fault('not_found',404)
+  }
   try { owner(actor) } catch(error) { await denied(env,actor,'product.access'); throw error }
   const people = async () => (await db.prepare("SELECT id,display_name FROM oa_operators WHERE status='active' ORDER BY display_name,id").all<PersonOption>()).results
   const renderCase = async (detail:Awaited<ReturnType<typeof getCase>>,notice='',status=200) => casePage(detail,notice,status,await people())
@@ -68,10 +73,6 @@ export async function productResponse(request: Request, original: Bindings): Pro
   if (path.startsWith('/api/handset/grants') || path.startsWith('/app/grants') || path === '/api/handset/mcp/consent') {
    if(!read && !write)throw new Fault('method_not_allowed',405)
    const response=await authorityDoor(request,env,actor,read?undefined:await input(request))
-   if(response)return response
-  }
-  if (path.startsWith('/api/handset/audit') || path.startsWith('/app/audit')) {
-   const response = await auditDoor(request,env,actor,read ? undefined : await input(request,2097152))
    if(response)return response
   }
   if (!read && !write) throw new Fault('method_not_allowed',405)

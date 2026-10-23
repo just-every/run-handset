@@ -404,3 +404,62 @@ test('Every current native action family retains opaque request outcomes and pri
   await assert.rejects(runtime.sql("UPDATE hnd_audit SET principal=? WHERE id=?",crypto.randomUUID(),onBehalf.id),/append_only/)
  }finally{await runtime.close()}
 })
+
+test('Exact-person audit capabilities bind current native authority and independently revoke read and export without granting mutation or playback',async()=>{
+ const {delegationFixture,recordingFixture}=await import('./helpers/handset-delegation.mjs'),{mailLink}=await import('./helpers/handset-auth.mjs')
+ const runtime=await openHandset({twilio:true})
+ try{
+  const f=await delegationFixture(runtime),media=await recordingFixture(runtime,f),base='/api/handset/audit'
+  let reader=f.assistantHeaders
+  const people=async()=>{const r=await runtime.request(base+'/access',{headers:f.headers});assert.equal(r.status,200);return (await r.json()).people}
+  const proposal=async(exporting=false)=>({personId:'synthetic-handset-2',personVersion:(await people()).find(p=>p.id==='synthetic-handset-2').version,expiresAt:Date.now()+1800000,allowExport:exporting,confirm:'approve exact person installation audit access'})
+  const issue=async(input)=>{const r=await post(runtime,base+'/access',input,f.headers);assert.equal(r.status,201,await r.clone().text());return r.json()}
+  for(const path of [base,base+'/export',base+'/access'])assert.equal((await runtime.request(path,{headers:reader})).status,403)
+  const input=await proposal()
+  assert.equal((await runtime.request(base+'/access')).status,401)
+  assert.equal((await post(runtime,base+'/access',input)).status,401)
+  assert.equal((await post(runtime,base+'/access',input,{...f.headers,origin:'https://synthetic-handset-797.example.test'})).status,403)
+  assert.equal((await post(runtime,base+'/access',input,reader)).status,403)
+  assert.equal((await post(runtime,base+'/access',{...input,confirm:''},f.headers)).status,400)
+  const readOnly=await issue(input)
+  assert.equal((await runtime.request(base,{headers:reader})).status,200)
+  assert.equal((await runtime.request(base+'/export',{headers:reader})).status,403)
+  const old=await (await runtime.request(base+'/export',{headers:f.headers})).json()
+  assert.equal((await post(runtime,base+'/restore',{archive:old,expectedCheckpoint:old.checkpoint,confirm:'restore evidence only'},f.headers)).status,201)
+  assert.equal((await runtime.request(base+'/archive/'+old.checkpoint,{headers:reader})).status,403,'bulk archived ledgers require export permission too')
+  // A role change invalidates both the native cookie and its exact-person capability.
+  assert.equal((await post(runtime,'/auth/operator/role',{operatorId:input.personId,role:'admin'},f.headers)).status,200)
+  assert.equal((await runtime.request(base,{headers:reader})).status,401)
+  reader={cookie:(await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'})).cookie}
+  assert.equal((await runtime.request(base,{headers:reader})).status,403,'admin alone implies no audit rights')
+  assert.equal((await post(runtime,base+'/access',input,f.headers)).status,409,'a stale owner form cannot bless the changed native person')
+  const exporting=await issue(await proposal(true))
+  assert.equal((await runtime.request(base,{headers:reader})).status,200)
+  assert.equal((await runtime.request(base+'/archive/'+old.checkpoint,{headers:reader})).status,200)
+  const exported=await runtime.request(base+'/export',{headers:reader});assert.equal(exported.status,200)
+  assert.match(exported.headers.get('cache-control'),/no-store/)
+  assert.equal((await runtime.request('/api/handset/recordings/'+media.recordingId+'/playback',{headers:reader})).status,403,'audit capability conveys no recording access')
+  for(const path of ['restore','anonymize','modify','access','revoke'])assert.equal((await post(runtime,base+'/'+path,{...input,grantId:exporting.id},reader)).status,403)
+  const raced=await Promise.all([runtime.request(base+'/export',{headers:reader}),post(runtime,base+'/revoke',{grantId:readOnly.id},f.headers)])
+  assert.ok([200,403,409].includes(raced[0].status));assert.equal(raced[1].status,200)
+  for(const path of [base,base+'/export',base+'/archive/'+old.checkpoint])assert.equal((await runtime.request(path,{headers:reader})).status,403,'revoking any capability stops every parallel audit grant')
+  const after=await (await runtime.request(base+'/export',{headers:f.headers})).json()
+  const events=after.rows.filter(r=>r.action==='audit.export'&&JSON.parse(r.policy).applied.access?.id===exporting.id)
+  assert.ok(events.length)
+  for(const event of events){assert.equal(JSON.parse(event.policy).applied.native.role,'admin');assert.ok(event.sequence<after.rows.findLast(r=>r.action==='audit.revoke').sequence)}
+  assert.ok(after.rows.some(r=>r.action==='audit.read'&&JSON.parse(r.policy).applied.access?.id===readOnly.id))
+  const renewed=await issue(await proposal(true))
+  // Changing the issuer's authority suspends the grant even after that role is restored.
+  assert.equal((await post(runtime,'/auth/invite',{email:'synthetic-handset-796@example.test',displayName:'Independent audit owner',role:'owner'},f.headers)).status,202)
+  const invitation=mailLink(runtime.mails.at(-1)),joined=await post(runtime,'/auth/confirm',{token:invitation.searchParams.get('token')})
+  assert.equal(joined.status,303);const reviewer={cookie:joined.headers.get('set-cookie').split(';')[0]}
+  for(const role of ['admin','owner']){
+   assert.equal((await post(runtime,'/auth/operator/role',{operatorId:'synthetic-handset-1',role},reviewer)).status,200)
+   assert.equal((await runtime.request(base+'/export',{headers:reader})).status,403,'restored issuing role cannot resurrect old audit authority')
+  }
+  const ledger=await (await runtime.request(base+'/export',{headers:reviewer})).json()
+  assert.ok(ledger.rows.some(r=>r.action==='audit.grant'&&JSON.parse(r.policy).applied.access?.id===renewed.id))
+  assert.equal((await post(runtime,base+'/restore',{archive:old,expectedCheckpoint:old.checkpoint,confirm:'restore evidence only'},reviewer)).status,201)
+  const restored=await (await runtime.request(base+'/archive/'+old.checkpoint,{headers:reviewer})).json();assert.deepEqual(restored.rows,old.rows)
+ }finally{await runtime.close()}
+})

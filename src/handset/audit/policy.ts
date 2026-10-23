@@ -5,7 +5,7 @@ export interface AppliedPolicy {
  native?:{role:'owner'|'admin'|'member';version:number};
  source?:Revision; line?:Revision; grant?:Revision; standing?:Revision;
  delegation?:Revision; approval?:Revision; recording?:Revision; route?:Revision;
- qualification?:Revision; rule?:Revision; list?:Revision;
+ qualification?:Revision; rule?:Revision; list?:Revision; access?:Revision;
 }
 const legacy = ['owner-only-v1','handset-authorization-v2']
 const reference = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
@@ -19,7 +19,7 @@ export function validPolicy(value:string){
    if(!v||typeof v!=='object'||Array.isArray(v))return false
    if(key==='native'){
     if(Object.keys(v).some(k=>!['role','version'].includes(k))||!['owner','admin','member'].includes(String(v.role))||!positive(v.version))return false
-   }else if(!['source','line','grant','standing','delegation','approval','recording','route','qualification','rule','list'].includes(key)||Object.keys(v).some(k=>!['id','revision','ownerVersion'].includes(k))||!reference.test(String(v.id))||!positive(v.revision)||v.ownerVersion!==undefined&&!positive(v.ownerVersion))return false
+   }else if(!['source','line','grant','standing','delegation','approval','recording','route','qualification','rule','list','access'].includes(key)||Object.keys(v).some(k=>!['id','revision','ownerVersion'].includes(k))||!reference.test(String(v.id))||!positive(v.revision)||v.ownerVersion!==undefined&&!positive(v.ownerVersion))return false
   }
   return true
  }catch{return false}

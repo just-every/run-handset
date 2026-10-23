@@ -2,7 +2,8 @@ import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { commit, denied, zero, auditBody, actions, type AuditRow } from './store'
 import { validPolicy, describePolicy } from './policy'
-import { digest, json, Fault, object, keys, text, integer, consolePage as page, escape as e, field, hidden, type ObjectValue } from '../core'
+import { authorizeAudit, auditAccessForm, createAuditAccess, listAuditAccess, revokeAuditAccess } from './access'
+import { digest, json, Fault, object, keys, text, integer, owner, session, consolePage as page, escape as e, field, hidden, type ObjectValue } from '../core'
 
 export async function auditExport(env: Bindings) {
  const rows=(await env.DB.prepare('SELECT * FROM hnd_audit ORDER BY sequence LIMIT 10001').all<AuditRow>()).results
@@ -54,25 +55,52 @@ export async function anonymizeActor(env:Bindings,actor:Session,value:ObjectValu
 export async function auditDoor(request:Request,env:Bindings,actor:Session,value?:ObjectValue):Promise<Response|null>{
  const url=new URL(request.url),path=url.pathname,html=path.startsWith('/app/'),read=request.method==='GET'
  if(!/^\/(api\/handset|app)\/audit(?:\/|$)/.test(path))return null
+ const checked=await session(request,env)
+ if(checked.session.id!==actor.id)throw new Fault('session_mismatch',403)
+ actor=checked.session;env=checked.env
  const base=html?'/app/audit':'/api/handset/audit'
+ const owned=actor.operator.role==='owner'
+ const receipt=async(action:'audit.read'|'audit.export')=>{
+  const authority=await authorizeAudit(env,actor,action==='audit.export'?'export':'read')
+  await commit(env,actor,action,'installation','completed',authority.fences,false,authority.applied)
+ }
+ if(path===base+'/access'&&read){owner(actor);return json(await listAuditAccess(env,actor))}
+ if(!read){
+  try{owner(actor)}catch(error){await denied(env,actor,'audit.modify');throw error}
+  if([base+'/access',base+'/revoke'].includes(path)&&request.method!=='POST')throw new Fault('method_not_allowed',405)
+  if(path===base+'/access'&&value){
+   const v={...value}
+   if(html){
+    const choice=text(v.personChoice,'personChoice').split(':')
+    if(choice.length!==2)throw new Fault('invalid_personChoice')
+    delete v.personChoice;v.personId=choice[0];v.personVersion=Number(choice[1]);v.expiresAt=Date.parse(String(v.expiresAt)+'Z')
+   }
+   const access=await createAuditAccess(env,actor,v)
+   return html?page('Audit access granted',`<p>Exact-person installation audit ${access.allow_export?'read and export':'read-only'} access approved. Capability ${e(access.id)}. No audit mutation or recording access was granted.</p><a href="/app/audit">Return to audit</a>`):json(access,201)
+  }
+  if(path===base+'/revoke'&&value){const result=await revokeAuditAccess(env,actor,value);return html?page('Audit access revoked','<p>Every parallel audit capability for this person is revoked. Audit history is retained.</p><a href="/app/audit">Return to audit</a>'):json(result)}
+ }
+ if(read)await authorizeAudit(env,actor,path===base+'/export'||path.startsWith('/api/handset/audit/archive/')?'export':'read')
  if(read && path===base){
   const after=integer(Number(url.searchParams.get('after')??0),'after'), rows=(await env.DB.prepare('SELECT * FROM hnd_audit WHERE sequence>? ORDER BY sequence LIMIT 101').bind(after).all<AuditRow>()).results
-  await commit(env,actor,'audit.read','installation','completed')
-  if(!html)return json({rows:rows.slice(0,100),next:rows.length>100?rows[99].sequence:null})
+  if(!html){const response=json({rows:rows.slice(0,100),next:rows.length>100?rows[99].sequence:null});await receipt('audit.read');return response}
   const archives=(await env.DB.prepare('SELECT checkpoint,imported_at FROM hnd_audit_archives ORDER BY imported_at').all<{checkpoint:string;imported_at:number}>()).results
-  return page('Accountable audit',`<p>Owner-only access. Append-only history with opaque references. Export a checkpoint and keep it in independent owner storage to detect infrastructure changes.</p><p>Each event retains the authorization schema and the native, source, grant or policy revision applied by that door. Older policy revisions remain verifiable. Exports stop at 10,000 rows; scale beyond that bound is unqualified. Refused playback uses installation scope.</p><p><a href="/api/handset/audit/export">Export checked ledger</a></p><ol>${rows.slice(0,100).map(row=>`<li><strong>${e(row.action)} · ${e(row.outcome)}</strong><p>${e(new Date(row.occurred_at).toISOString())} · Actor ${e(row.actor)}${row.principal?` · Principal ${e(row.principal)}`:''} · Subject ${e(row.subject)} · Policy ${e(describePolicy(row.policy))}</p><p>${e(row.hash)}</p></li>`).join('')||'<li>No audit events.</li>'}</ol>${rows.length>100?`<a href="/app/audit?after=${rows[99].sequence}">Next audit page</a>`:''}<h2>Restored ledgers</h2><ul>${archives.map(a=>`<li><a href="/api/handset/audit/archive/${e(a.checkpoint)}">${e(a.checkpoint)}</a></li>`).join('')||'<li>No restored ledgers.</li>'}</ul><h2>Anonymize inactive actor</h2><p>This removes the audit identity mapping only. Other product records are not erased.</p><form method="post" action="/app/audit/anonymize">${field('Inactive non-owner operator ID','operatorId')}<label><input type="checkbox" name="confirm" value="anonymize audit identity" required>I approve anonymizing audit identity</label><button>Anonymize audit identity</button></form>`)
+  const administration=owned?await auditAccessForm(env,actor):''
+  const anonymize=owned?`<h2>Anonymize inactive actor</h2><p>This removes the audit identity mapping only. Other product records are not erased.</p><form method="post" action="/app/audit/anonymize">${field('Inactive non-owner operator ID','operatorId')}<label><input type="checkbox" name="confirm" value="anonymize audit identity" required>I approve anonymizing audit identity</label><button>Anonymize audit identity</button></form>`:''
+  const response=await page('Accountable audit',`<p>${owned?'Owner access.':'Exact-person installation audit read access. Export requires a separate current approval.'} Append-only history with opaque references. Export a checkpoint and keep it in independent owner storage to detect infrastructure changes.</p><p>Each event retains the authorization schema and the native, source, grant or policy revision applied by that door. Older policy revisions remain verifiable. Exports stop at 10,000 rows; scale beyond that bound is unqualified. Refused playback uses installation scope.</p><p><a href="/api/handset/audit/export">Export checked ledger</a></p>${administration}<ol>${rows.slice(0,100).map(row=>`<li><strong>${e(row.action)} · ${e(row.outcome)}</strong><p>${e(new Date(row.occurred_at).toISOString())} · Actor ${e(row.actor)}${row.principal?` · Principal ${e(row.principal)}`:''} · Subject ${e(row.subject)} · Policy ${e(describePolicy(row.policy))}</p><p>${e(row.hash)}</p></li>`).join('')||'<li>No audit events.</li>'}</ol>${rows.length>100?`<a href="/app/audit?after=${rows[99].sequence}">Next audit page</a>`:''}<h2>Restored ledgers</h2><ul>${archives.map(a=>`<li><a href="/api/handset/audit/archive/${e(a.checkpoint)}">${e(a.checkpoint)}</a></li>`).join('')||'<li>No restored ledgers.</li>'}</ul>${anonymize}`)
+  await receipt('audit.read');return response
  }
  if(read && path===base+'/export'){
   const archive=await auditExport(env)
-  await commit(env,actor,'audit.export','installation','completed')
-  return new Response(JSON.stringify(archive),{headers:{'content-type':'application/json','content-disposition':'attachment; filename="handset-audit.json"','cache-control':'no-store','x-content-type-options':'nosniff'}})
+  const response=new Response(JSON.stringify(archive),{headers:{'content-type':'application/json','content-disposition':'attachment; filename="handset-audit.json"','cache-control':'no-store','x-content-type-options':'nosniff'}})
+  await receipt('audit.export');return response
  }
  const archive=path.match(/^\/api\/handset\/audit\/archive\/([a-f0-9]{64})$/)
  if(read && archive){
   const stored=await env.DB.prepare('SELECT rows_json FROM hnd_audit_archives WHERE checkpoint=?').bind(archive[1]).first<{rows_json:string}>()
   if(!stored)throw new Fault('archive_not_found',404)
-  await commit(env,actor,'audit.read','installation','completed')
-  return json({checkpoint:archive[1],rows:JSON.parse(stored.rows_json)})
+  const response=json({checkpoint:archive[1],rows:JSON.parse(stored.rows_json)})
+  await receipt('audit.export');return response
  }
  if(!read && path===base+'/restore' && value)return json(await restoreAudit(env,actor,value),201)
  if(!read && path===base+'/anonymize' && value){const result=await anonymizeActor(env,actor,value);return html?page('Audit identity anonymized','<p>Audit attribution mapping removed. Operational evidence survives.</p>'):json(result)}
