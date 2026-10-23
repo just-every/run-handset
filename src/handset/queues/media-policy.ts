@@ -1,5 +1,6 @@
 import { choice, Fault, integer, keys, text, type ObjectValue } from '../core'
 import { agent, event, guard, queue, statement, write, type Context, type OwnerContext } from './storage'
+import { activeSourceById, sourceFence } from '../providers/sources'
 
 export interface AgentRoute {operator_id:string;source_id:string;kind:'client'|'sip';destination:string;revision:number;approved_by:string;owner_version:number;approved_at:number;revoked_at:number|null;suspended?:number}
 export interface OverflowRoute {queue_id:string;kind:'voicemail'|'receptionist';url:string;revision:number;approved_by:string;owner_version:number;approved_at:number;revoked_at:number|null;suspended?:number}
@@ -29,10 +30,11 @@ export async function writeAgentRoute(ctx:OwnerContext,operatorId:string,value:O
  if(value.confirm!=='approve exact queue agent route')throw new Fault('agent_route_consent_required',403)
  await agent(ctx,operatorId)
  const sourceId=text(value.sourceId,'sourceId')
+ const source=await activeSourceById(ctx.env,sourceId);if(!source)throw new Fault('active_source_required',409)
  const kind=choice(value.kind,['client','sip'],'kind'),target=destination(kind,value.destination),current=await statement(ctx,'SELECT * FROM hnd_queue_agent_routes WHERE operator_id=?',operatorId).first<AgentRoute>()
  const revision=current?integer(value.revision,'revision',1):0
  if(current&&current.revision!==revision)throw new Fault('agent_route_revision_conflict',409)
- const fences=[guard(ctx,"SELECT count(*) FROM oa_operators WHERE id=? AND status='active'",operatorId),guard(ctx,`SELECT count(*) FROM hnd_sources s JOIN oa_operators o ON o.id=s.owner_id WHERE s.id=? AND s.revoked_at IS NULL AND o.status='active' AND o.role='owner'`,sourceId)]
+ const fences=[guard(ctx,"SELECT count(*) FROM oa_operators WHERE id=? AND status='active'",operatorId),sourceFence(ctx.env,source)]
  if(current)fences.push(guard(ctx,'SELECT count(*) FROM hnd_queue_agent_routes WHERE operator_id=? AND revision=?',operatorId,revision))
  await write(ctx,'installation',[...fences,statement(ctx,`INSERT INTO hnd_queue_agent_routes VALUES (?,?,?,?,?,?,?,?,NULL) ON CONFLICT(operator_id) DO UPDATE SET source_id=excluded.source_id,kind=excluded.kind,destination=excluded.destination,revision=excluded.revision,approved_by=excluded.approved_by,owner_version=excluded.owner_version,approved_at=excluded.approved_at,revoked_at=NULL`,operatorId,sourceId,kind,target,revision+1,ctx.actor.operator.id,ctx.actor.operator.version,Date.now()),event(ctx,'agent.route_approved',null,null,operatorId,{routeRevision:revision+1,kind})])
  return statement(ctx,'SELECT * FROM hnd_queue_agent_routes WHERE operator_id=?',operatorId).first<AgentRoute>()

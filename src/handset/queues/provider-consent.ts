@@ -2,6 +2,7 @@ import { Fault, id, keys, text, type ObjectValue } from '../core'
 import { language } from './model'
 import { routeReady } from './media-policy'
 import { event, guard, queue, statement, write, type OwnerContext } from './storage'
+import { activeSourceById, sourceFence } from '../providers/sources'
 
 export interface QueueBinding {id:string;source_id:string;queue_id:string;language:string;spanish_digit:string;owner_id:string;owner_version:number;created_at:number;revoked_at:number|null}
 export async function bindSource(ctx:OwnerContext,value:ObjectValue){
@@ -9,10 +10,11 @@ export async function bindSource(ctx:OwnerContext,value:ObjectValue){
  if(value.confirm!=='authorize signed inbound queue routing')throw new Fault('queue_source_consent_required',403)
  if(!ctx.env.HANDSET_TWILIO_AUTH_TOKEN)throw new Fault('twilio_secret_binding_required',409)
  const sourceId=text(value.sourceId,'sourceId'),q=await queue(ctx,text(value.queueId,'queueId')),lang=language(value.language??'en'),digit=text(value.spanishDigit??'2','spanishDigit',1)
+ const source=await activeSourceById(ctx.env,sourceId);if(!source)throw new Fault('active_source_required',409)
  if(!/^[0-9]$/.test(digit))throw new Fault('invalid_spanish_digit')
  await routeReady(ctx,q.id)
  const target=id()
- await write(ctx,target,[guard(ctx,`SELECT count(*) FROM hnd_sources s JOIN oa_operators o ON o.id=s.owner_id WHERE s.id=? AND s.revoked_at IS NULL AND o.status='active' AND o.role='owner' AND o.version=s.owner_version`,sourceId),
+ await write({...ctx,applied:{source:{id:source.id,revision:source.revision,ownerVersion:source.owner_version},approval:{id:target,revision:1,ownerVersion:ctx.actor.operator.version}}},target,[sourceFence(ctx.env,source),
   statement(ctx,'INSERT INTO hnd_queue_bindings VALUES (?,?,?,?,?,?,?,?,NULL)',target,sourceId,q.id,lang,digit,ctx.actor.operator.id,ctx.actor.operator.version,Date.now()),
   event(ctx,'source.authorized',q.id,null,null,{bindingId:target}),
  ])

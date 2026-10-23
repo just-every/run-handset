@@ -4,9 +4,10 @@ import { digest, Fault, id, integer, keys, object, text, type ObjectValue } from
 import { expiry, listOf, modeList, qualificationInput, recipientInput, type ListDefinition, type QualificationDefinition, type Ready, type Recipient, type RecipientCheck } from './model'
 import { currentOwner, event, evidence, guard, list, ownerGuard, qualification, sql, write, type Context } from './storage'
 import { ownedFrom, waitingAgent } from './network'
+import { activeSourceById, sourceFence } from '../providers/sources'
 export interface Source {id:string;account_id:string;number_id:string;owner_id:string;owner_version:number;revision:number;data:string}
-export async function source(ctx:Context,id:string){const row=await sql(ctx,`SELECT s.*,n.data FROM hnd_sources s JOIN hnd_records n ON n.id=s.number_id JOIN oa_operators o ON o.id=s.owner_id WHERE s.id=? AND s.revoked_at IS NULL AND o.status='active' AND o.role='owner' AND o.version=s.owner_version`,id).first<Source>();if(!row)throw new Fault('dialer_source_unqualified',409);return row}
-export const sourceGuard=(ctx:Context,s:Source)=>guard(ctx,`SELECT count(*) FROM hnd_sources s JOIN oa_operators o ON o.id=s.owner_id WHERE s.id=? AND s.revision=? AND s.revoked_at IS NULL AND o.status='active' AND o.role='owner' AND o.version=s.owner_version`,s.id,s.revision)
+export async function source(ctx:Context,id:string){const row=await activeSourceById(ctx.env,id);if(!row)throw new Fault('dialer_source_unqualified',409);const record=await sql(ctx,'SELECT data FROM hnd_records WHERE id=?',row.number_id).first<{data:string}>();return {...row,data:record!.data} as Source}
+export const sourceGuard=(ctx:Context,s:Source)=>sourceFence(ctx.env,s)
 export async function qualify(ctx:Context,v:ObjectValue){
  const definition=qualificationInput(v),s=await source(ctx,text(v.sourceId,'sourceId')),numberSid=text(v.numberSid,'numberSid'),expiresAt=expiry(v.expiresAt),target=id()
  if(definition.jurisdictions.some(j=>!/^US-[A-Z]{2}$/.test(j)))throw new Fault('unqualified_jurisdiction')

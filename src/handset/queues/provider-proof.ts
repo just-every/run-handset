@@ -1,10 +1,11 @@
 import { digest, Fault, id, text } from '../core'
 import { statement, write, type Context } from './storage'
 import type { QueueBinding } from './provider-consent'
+import { sourceFence } from '../providers/sources'
 
 export interface BoundSource extends QueueBinding {account_id:string;number_id:string;source_owner_id:string;source_owner_version:number;source_revision:number;number_data:string}
 export async function boundSource(env:Context['env'],bindingId:string){
- return env.DB.prepare(`SELECT b.*,s.account_id,s.number_id,s.owner_id AS source_owner_id,s.owner_version AS source_owner_version,s.revision AS source_revision,n.data AS number_data FROM hnd_queue_bindings b JOIN hnd_sources s ON s.id=b.source_id JOIN hnd_records n ON n.id=s.number_id JOIN oa_operators bo ON bo.id=b.owner_id JOIN oa_operators so ON so.id=s.owner_id WHERE b.id=? AND b.revoked_at IS NULL AND s.revoked_at IS NULL AND bo.status='active' AND bo.role='owner' AND so.status='active' AND so.role='owner'`).bind(bindingId).first<BoundSource>()
+ return env.DB.prepare(`SELECT b.*,s.account_id,s.number_id,s.owner_id AS source_owner_id,s.owner_version AS source_owner_version,s.revision AS source_revision,n.data AS number_data FROM hnd_queue_bindings b JOIN hnd_sources s ON s.id=b.source_id JOIN hnd_records n ON n.id=s.number_id JOIN oa_operators bo ON bo.id=b.owner_id JOIN oa_operators so ON so.id=s.owner_id WHERE b.id=? AND b.revoked_at IS NULL AND s.revoked_at IS NULL AND bo.status='active' AND bo.role='owner' AND bo.version=b.owner_version AND so.status='active' AND so.role='owner' AND so.version=s.owner_version AND n.kind='number' AND NOT EXISTS(SELECT 1 FROM hnd_records correction WHERE correction.supersedes_id=n.id) AND NOT EXISTS(SELECT 1 FROM hnd_sources newer WHERE newer.account_id=s.account_id AND newer.number_id=s.number_id AND newer.revision>s.revision)`).bind(bindingId).first<BoundSource>()
 }
 export async function verifyQueueRequest(request:Request,env:Context['env'],p:URLSearchParams){
  const signature=request.headers.get('x-twilio-signature')
@@ -17,8 +18,9 @@ export async function verifyQueueRequest(request:Request,env:Context['env'],p:UR
  if(!await crypto.subtle.verify('HMAC',key,bytes,new TextEncoder().encode(signed)))throw new Fault('invalid_queue_source_proof',403)
 }
 export function sourceContext(env:Context['env'],source:BoundSource):Context {
- return {env,auditActor:source.source_id,observation:'signed provider call status',fences:()=>[
-  env.DB.prepare(`INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_queue_bindings b JOIN oa_operators bo ON bo.id=b.owner_id JOIN hnd_sources s ON s.id=b.source_id JOIN oa_operators so ON so.id=s.owner_id WHERE b.id=? AND b.revoked_at IS NULL AND bo.status='active' AND bo.role='owner' AND s.revoked_at IS NULL AND s.revision=? AND so.status='active' AND so.role='owner'`).bind(source.id,source.source_revision),
+ return {env,auditActor:source.source_id,observation:'signed provider call status',applied:{source:{id:source.source_id,revision:source.source_revision,ownerVersion:source.source_owner_version},approval:{id:source.id,revision:1,ownerVersion:source.owner_version}},fences:()=>[
+  sourceFence(env,{id:source.source_id,revision:source.source_revision}),
+  env.DB.prepare(`INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_queue_bindings b JOIN oa_operators bo ON bo.id=b.owner_id WHERE b.id=? AND b.owner_version=? AND b.revoked_at IS NULL AND bo.version=b.owner_version AND bo.status='active' AND bo.role='owner'`).bind(source.id,source.owner_version),
  ]}
 }
 export async function sourceCall(ctx:Context,source:BoundSource,p:URLSearchParams){

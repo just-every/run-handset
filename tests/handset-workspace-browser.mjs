@@ -97,7 +97,7 @@ for(const width of [1440,390])test(`Native case work, conflict and source drill-
  }finally{await context.close();await browser.close();await runtime.close()}
 })
 
-for(const width of [1440,390])test(`Explicit executive delegation and consented playback forms retain truthful end states at ${width}`,async()=>{
+for(const width of [1440,390])test(`Explicit executive delegation and owner-attested playback forms retain truthful end states at ${width}`,async()=>{
  const {delegationFixture,recordingFixture}=await import('./helpers/handset-delegation.mjs')
  const runtime=await openHandset({twilio:true}),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage(),evidence=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-workspace'
@@ -120,7 +120,7 @@ for(const width of [1440,390])test(`Explicit executive delegation and consented 
   assert.ok((await page.locator('main').innerText()).includes('busy'));await proof('assistant-busy-lamp')
   for(const kind of ['pickup','park','transfer','callback']){
    const action=page.getByLabel('Call action / Acción',{exact:true});await action.focus()
-   await action.press('Home');for(let i=0;i<['pickup','park','transfer','callback'].indexOf(kind);i++)await action.press('ArrowDown')
+   await action.press('Space');await action.press('Home');for(let i=0;i<['pickup','park','transfer','callback'].indexOf(kind);i++)await action.press('ArrowDown');await action.press('Enter')
    assert.equal(await action.inputValue(),kind)
    await page.getByLabel('Line call',{exact:true}).selectOption(f.callId)
    if(['transfer','callback'].includes(kind))await page.getByLabel('Transfer operator ID or callback phone / Destino',{exact:true}).fill(kind==='transfer'?'synthetic-handset-700':'+15125550180')

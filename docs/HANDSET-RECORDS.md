@@ -167,7 +167,10 @@ and again in the same transaction as receipt/record/audit persistence. An accoun
 can authorize several numbers, each with separate consent revisions. Revocation
 or a change to the consenting owner suspends admission until fresh explicit
 consent for that account and number. The source screen shows active, suspended
-and revoked revisions. Earlier sources and linked evidence remain retained;
+and revoked revisions. A native number correction suspends its old source;
+fresh consent must name the current immutable number record. Queue, protection,
+dialer and delegated-effect fences share the current-source check, and restoring
+a role never reactivates an old signed queue binding. Earlier sources and linked evidence remain retained;
 a new source revision does not silently reactivate old routing/endpoint grants.
 
 Supported official callback fields cover call-status legs (`CallSid`,
