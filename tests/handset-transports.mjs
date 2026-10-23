@@ -66,10 +66,14 @@ test('Versioned REST pagination and OpenAPI preserve exact selected-case scope a
   assert.deepEqual([first.items[0].current.id, second.items[0].current.id].sort(), f.cases.slice(0, 2).sort())
   assert.equal((await f.read('/cases/' + f.cases[2])).status, 403)
   assert.equal((await f.read('/cases?cursor=' + f.cases[2])).status, 403)
+  const audit = await (await f.runtime.request('/api/handset/audit/export', { headers: f.headers })).json()
+  assert.ok(audit.rows.some(row => row.actor === f.restGrant.grant.id && row.action === 'application.attempt' && row.outcome === 'refused' && row.subject === 'installation'), 'scoped refusals retain opaque audit attribution')
   assert.equal((await f.runtime.request('/api/handset/v1/cases', { headers: f.headers })).status, 401, 'a native cookie is not an application credential')
   assert.equal((await post(f.runtime, `/api/handset/grants/${f.restGrant.grant.id}/revoke`, {}, f.headers)).status, 200)
   assert.equal((await f.read('/cases')).status, 401)
   assert.equal((await f.write('/prepare', {})).status, 401)
+  const revokedAudit = await (await f.runtime.request('/api/handset/audit/export', { headers: f.headers })).json()
+  assert.ok(revokedAudit.rows.filter(row => row.actor === f.restGrant.grant.id && row.action === 'application.attempt' && row.outcome === 'refused').length >= 4, 'known revoked credentials retain refusal attribution too')
  } finally { await f.runtime.close() }
 })
 

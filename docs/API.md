@@ -25,7 +25,8 @@ There are 60 requests per credential per fixed UTC minute. `RateLimit-Limit`,
 `RateLimit-Remaining`, `RateLimit-Reset` and 429 `Retry-After` describe the
 bucket. Buckets survive restart and remain bounded in storage. Errors use
 `{error: code}`; changed payload or concurrent idempotency claims use 409.
-Retry a concurrent claim with the same unchanged key. Credential revocation
+Scoped refusals retain opaque credential attribution without the requested foreign
+record, payload or token. Retry a concurrent claim with the same unchanged key. Credential revocation
 is checked before rate limiting.
 
 This slice does not provide qualified same-number Glove/Placemat SMS/replies,

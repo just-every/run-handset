@@ -1,5 +1,6 @@
 import { runtimeBindings, type Bindings } from '../../auth.server'
 import { append } from '../audit/store'
+import type { AppliedPolicy } from '../audit/policy'
 import { applicationAuth, applicationRead, applicationResponse, draft } from '../authority/application'
 import { grantFence, grantPolicy, type Grant } from '../authority/store'
 import type { Definition } from '../authority/model'
@@ -24,12 +25,12 @@ const spec = {
 export async function versionedResponse(request: Request, original: Bindings): Promise<Response | null> {
  const url = new URL(request.url)
  if (url.pathname !== root && !url.pathname.startsWith(root + '/')) return null
- const env = runtimeBindings(original)
+ const env = runtimeBindings(original), applied: AppliedPolicy = {}
  let grant: Grant | undefined, remaining = 0, reset = Math.floor(Date.now() / 60000) * 60 + 60
  const finish = (response: Response) => { const headers = new Headers(response.headers); headers.set('RateLimit-Limit', '60'); headers.set('RateLimit-Remaining', String(remaining)); headers.set('RateLimit-Reset', String(reset)); return new Response(response.body, { status: response.status, headers }) }
  try {
   if (url.origin !== env.AUTH_ORIGIN || request.headers.has('host') && request.headers.get('host')?.toLowerCase() !== url.host.toLowerCase() || request.headers.has('origin') && request.headers.get('origin') !== env.AUTH_ORIGIN || request.headers.get('sec-fetch-site') === 'cross-site') throw new Fault('invalid_origin', 403)
-  grant = await applicationAuth(request, env)
+  grant = await applicationAuth(request, env, applied)
   const window = Math.floor(Date.now() / 60000)
   const usage = await env.DB.prepare('INSERT INTO hnd_api_rate VALUES (?,?,1) ON CONFLICT(grant_id,window) DO UPDATE SET calls=calls+1 RETURNING calls').bind(grant.id, window).first<{calls: number}>()
   remaining = Math.max(0, 60 - usage!.calls); reset = window * 60 + 60
@@ -66,6 +67,11 @@ export async function versionedResponse(request: Request, original: Bindings): P
   }
   throw new Fault('not_found', 404)
  } catch (error) {
+  // Retain opaque attribution for scoped refusals without recording the requested
+  // foreign ID, payload, token or recipient. A revoked credential can still be
+  // attributed; this receipt itself grants no access or external authority.
+  const rejectedGrant = grant?.id ?? applied.grant?.id
+  if (rejectedGrant) await append(env, rejectedGrant, 'application.attempt', 'installation', 'refused', [], null, grant ? grantPolicy(grant) : applied)
   if (error instanceof Fault) return finish(json({ error: error.code }, error.status))
   if (String(error).includes('UNIQUE constraint failed: hnd_api_idempotency')) return finish(json({ error: 'idempotency_claim_conflict_retry_same_key' }, 409))
   if (String(error).includes('CHECK constraint failed')) return finish(json({ error: 'current_authority_changed' }, 409))
