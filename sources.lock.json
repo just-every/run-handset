@@ -3490,7 +3490,7 @@
       "executable": false
     },
     "tests/handset-records.mjs": {
-      "sha256": "78420095edf6a2765fcfa26b344c800634b241875d0c5caa8cd3a94e6d52f82a",
+      "sha256": "626b351ea6ad6468d9b9b0314c08f478fa42e819795958613a5e74e5ef0f754d",
       "executable": false
     },
     "tests/handset-recovery.mjs": {

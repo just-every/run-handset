@@ -490,6 +490,10 @@ test('Exact-number native work scopes isolate cases and source consent, preserve
   const update={title:'Scoped caller follow-up',ownerId:'synthetic-handset-2',version:2,promise:'Confirm replacement',dueAt:Date.now()+86400000}
   const race=await Promise.all([post(runtime,'/api/handset/cases/'+native.caseId,update,worker),post(runtime,'/api/handset/cases/'+native.caseId,{...update,title:'Owner concurrent follow-up'},f.headers)])
   assert.deepEqual(race.map(r=>r.status).sort(),[200,409])
+  // Either client may win. Reapply through the scoped public door against the
+  // returned current version before requiring that person's successful audit.
+  const current=await (await runtime.request('/api/handset/cases/'+native.caseId,{headers:worker})).json()
+  assert.equal((await post(runtime,'/api/handset/cases/'+native.caseId,{...update,version:current.current.version},worker)).status,200)
   assert.equal((await post(runtime,'/api/handset/cases/'+native.caseId+'/comment',{text:'Scoped teammate callback note'},worker)).status,201)
   assert.equal((await post(runtime,'/api/handset/records',{kind:'comment',sourceId:'synthetic-handset-813',caseId:native.caseId,occurredAt:Date.now(),data:{text:'Attempt to read foreign replay'}},worker)).status,403)
   assert.equal((await post(runtime,'/api/handset/records',{kind:'number',sourceId:'synthetic-handset-814',caseId:native.caseId,occurredAt:Date.now(),data:{e164:'+15125550182'}},worker)).status,403)
