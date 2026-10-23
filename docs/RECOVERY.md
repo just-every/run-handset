@@ -20,8 +20,15 @@ a need. The historical booking receipt is explicit evidence, not a new claim
 that an appointment remains current forever.
 
 This slice does not implement text-back, actual callback attempts, first-caller
-consent capture, reply routing, dynamic need splitting or the recovery console.
+consent capture, reply routing or dynamic need splitting.
 Actual contact must use HND-011/017/031/089 and the existing dialer approval,
 licensed-registry, local-time and budget controls; no source permission supplies
 outbound authority. Native-owner-only management, no autonomous contact and
 explicit human decline evidence are conservative defaults pending ct.
+
+The native owner screen `/app/recovery` exposes these actions, the named
+owner, due time in UTC, suppression reason, attempt bound and preserved queue
+evidence. Human takeover removes callback proposal controls. Same-case booking
+resolution requires independently confirmed outcome evidence; a person can
+record customer decline with a note. Stale forms refuse rather than changing
+a newer revision. The screen discloses its 200-case window.

@@ -191,3 +191,31 @@ for(const width of [1440,390])for(const domain of ['administration','queues','qu
   }
  }finally{await context.close();await browser.close();await runtime.close()}
 })
+
+// These journeys exercise the four customer-work screens through native owner forms.
+for (const width of [1440, 390]) for (const domain of ['rules', 'followups', 'recovery', 'operations']) test(`${domain} owner workflow at ${width}`, async () => {
+ const { receptionistFixture } = await import('./helpers/handset-receptionist.mjs')
+ const { workJourney } = await import('./helpers/handset-workflows-browser.mjs')
+ const f = await receptionistFixture(), browser = await chromium.launch({ headless: true, args: ['--use-mock-keychain', '--password-store=basic'] })
+ const context = await browser.newContext({ viewport: { width, height: 960 }, ignoreHTTPSErrors: true }), page = await context.newPage()
+ const directory = process.env.HANDSET_EVIDENCE_DIR ?? '.cache/handset-console'
+ await mkdir(directory, { recursive: true }); page.setDefaultTimeout(10000)
+ const authenticate = async cookie => { const [name, ...value] = cookie.split('='); await context.clearCookies(); await context.addCookies([{ name, value: value.join('='), url: f.runtime.origin, secure: true, httpOnly: true, sameSite: 'Lax' }]) }
+ const proof = async name => {
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, name + ' fits viewport')
+  assert.equal(await page.locator('h1').count(), 1)
+  assert.equal(await page.locator('button, a, summary').evaluateAll(controls => controls.every(c => c.textContent.trim().length > 2)), true, 'Every control has a visible label; no icon-only control needs a tooltip')
+  assert.match(await page.locator('main').ariaSnapshot(), /heading/)
+  await page.screenshot({ path: `${directory}/${width}-${name}.png`, fullPage: true })
+ }
+ try {
+  await authenticate(f.headers.cookie)
+  await workJourney({ f, page, proof, domain })
+  await f.runtime.sql("UPDATE oa_operators SET role='member' WHERE id='synthetic-handset-2'")
+  const member = await signIn({ ...f.runtime, ownerEmail: 'synthetic-handset-2@example.test' }); await authenticate(member.cookie)
+  const denied = await page.goto(f.runtime.origin + '/app/' + domain); assert.equal(denied.status(), 403)
+  await page.getByRole('alert').waitFor(); await proof(domain + '-permission-denied')
+  await context.clearCookies()
+  await page.goto(f.runtime.origin + '/app/' + domain); assert.match(new URL(page.url()).pathname, /signin/)
+ } finally { await context.close(); await browser.close(); await f.runtime.close() }
+})

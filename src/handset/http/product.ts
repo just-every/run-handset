@@ -14,6 +14,7 @@ import { protectionDoor } from '../protection/doors'
 import { dialerDoor } from '../dialer/doors'
 import { recordsDoor } from '../records/doors'
 import { complianceDoor } from '../compliance/doors'
+import { workConsole } from '../automation/console'
 import { operationsDoor } from '../operations/doors'
 import { deliveryDoor } from '../integrations/delivery/doors'
 import { rulesDoor } from '../automation/doors'
@@ -23,7 +24,7 @@ import { ownerDoor as receptionistDoor } from '../receptionist/doors'
 
 export async function productResponse(request: Request, original: Bindings): Promise<Response|null> {
  const url = new URL(request.url), path = url.pathname, html = path.startsWith('/app/')
- if (!/^\/(api\/handset|app\/(cases|records|audit|grants|sources|admin|queues|reports\/queues|protection|dialer|front-desk|recordings|receptionist))(\/|$)/.test(path)) return null
+ if (!/^\/(api\/handset|app\/(cases|records|audit|grants|sources|admin|queues|reports\/queues|protection|dialer|front-desk|recordings|receptionist|rules|followups|recovery|operations))(\/|$)/.test(path)) return null
  let auth: {env:Bindings;session:Session}|undefined
  try {
   auth = await session(request,original)
@@ -68,7 +69,10 @@ export async function productResponse(request: Request, original: Bindings): Pro
   ] as const){
    const appRoot=root==='metrics'?'/app/reports/queues':'/app/'+root
    if(path==='/api/handset/'+root||path.startsWith('/api/handset/'+root+'/')||path===appRoot||path.startsWith(appRoot+'/')){
-    const response=await door(request,env,actor,read?undefined:await input(request,2097152))
+    const value=read?undefined:await input(request,2097152)
+    const console=await workConsole(request,env,actor,root,door,value)
+    if(console)return console
+    const response=await door(request,env,actor,value)
     if(response)return response
    }
   }

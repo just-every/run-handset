@@ -24,3 +24,11 @@ HND-077 obligations. The schema source is Twilio's current public OpenAPI
 unknown; a source permission is not an outbound or repair grant. Owner-only
 review, no autonomous repair and no external publication are conservative
 defaults pending ct.
+
+The native owner screen `/app/operations` assesses a selected verified call
+and displays up to 100 recent cited assessments. It keeps media observations,
+API success, connector state, reserved USD risk and open customer work distinct.
+An untested proposal and unconfirmed customer outcome stay explicitly visible.
+The named owner records an exact review decision with a note and acknowledgment
+that it applies no fix. The evidence export is bounded and redacted; downloading
+it does not establish external publication or receiving-system delivery.
