@@ -33,7 +33,7 @@ export async function sourceDoor(request:Request,env:Bindings,actor:Session,valu
   const source=await env.DB.prepare('SELECT * FROM hnd_sources WHERE id=?').bind(sourceId).first<Source>()
   if(!source)throw new Fault('source_not_found',404)
   await commit(env,actor,'source.revoke',sourceId,'completed',[env.DB.prepare('UPDATE hnd_sources SET revoked_at=COALESCE(revoked_at,?) WHERE id=?').bind(Date.now(),sourceId)],true,sourcePolicy(source))
-  return html?page('Source revoked','<p>Further source events are refused. Completed communication evidence is retained.</p>'):json({revoked:true})
+  return html?page('Source revoked','<p>Further source events are refused. Completed communication evidence is retained.</p><a href="/app/sources">Review sources</a>'):json({revoked:true})
  }
  keys(value,['accountId','numberId','confirm'])
  if(value.confirm!=='authorize signed inbound records')throw new Fault('explicit_source_consent_required')

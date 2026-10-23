@@ -192,6 +192,16 @@ for(const width of [1440,390])test(`Executive inbound routing and suspended sour
   await page.getByRole('link',{name:'Review sources',exact:true}).click();await proof('source-current-and-suspended-history')
   const active=(await (await runtime.request('/api/handset/sources',{headers:{cookie:reviewer}})).json()).sources.find(s=>s.status==='active')
   await page.getByRole('button',{name:'Revoke source '+active.id,exact:true}).click();await page.getByRole('heading',{name:'Source revoked',exact:true}).waitFor();await proof('source-revoked-receipt')
+  await page.getByRole('link',{name:'Review sources',exact:true}).click()
+  await page.getByLabel('Twilio account SID',{exact:true}).fill(f.account)
+  await page.getByLabel('Selected native business-number record ID',{exact:true}).fill(f.numberId)
+  await page.getByRole('checkbox',{name:'I authorize signed inbound communication records for this account and number',exact:true}).check()
+  await page.getByRole('button',{name:'Authorize inbound records',exact:true}).click()
+  await page.getByRole('heading',{name:'Source authorized',exact:true}).waitFor()
+  await page.getByRole('link',{name:'Review sources',exact:true}).click();await proof('source-reconsent-after-revocation')
+  const renewed=(await (await runtime.request('/api/handset/sources',{headers:{cookie:reviewer}})).json()).sources
+  assert.equal(renewed.find(s=>s.id===active.id).status,'revoked')
+  assert.ok(renewed.some(s=>s.status==='active'&&s.number_id===f.numberId&&s.revision>active.revision))
  }finally{await context.close();await browser.close();await runtime.close()}
 })
 
