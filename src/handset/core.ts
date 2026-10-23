@@ -8,7 +8,6 @@ export type ObjectValue = Record<string, unknown>
 export class Fault extends Error {
  constructor(public code: string, public status = 400, public detail?: unknown) { super(code) }
 }
-export const policy = 'owner-only-v1'
 export const id = () => crypto.randomUUID()
 export const headers = { 'cache-control': 'no-store', 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff', 'x-robots-tag': 'noindex, nofollow' }
 export const json = (value: unknown, status = 200) => Response.json(value, { status, headers })
