@@ -2,12 +2,11 @@ import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { Fault, ownerFence, type ObjectValue } from '../core'
 import { recordInput, type RecordRow } from './model'
-import type { getRecord } from './store'
+import type { getRecord, RecordLink } from './store'
 import { authorizeCase, caseVisibility, combineAuthority, type CaseAuthority } from './access'
 
 const refused=()=>new Fault('record_access_required',403)
 interface Reference { id:string; case_id:string|null }
-interface RecordLink {record_id:string;target_id:string;relation:string}
 interface RecordDetail {record:RecordRow;links:RecordLink[];related:RecordRow[]}
 
 /** Canonical metadata only: this never authorizes media fetches or playback. */

@@ -6,6 +6,7 @@ import { recordInput, type RecordRow } from './model'
 import type { CaseAuthority } from './access'
 
 export interface CaseRow { id: string; title: string; owner_id: string; due_at: number|null; promise: string; status: string; handled: number; unread: number; version: number; actor_id: string; updated_at: number; close_reason: string }
+export interface RecordLink {record_id:string;target_id:string;relation:string}
 export async function getCase(db: D1Database, caseId: string) {
  const current = await db.prepare('SELECT * FROM hnd_cases WHERE id=?').bind(caseId).first<CaseRow>()
  if (!current) throw new Fault('case_not_found', 404)
@@ -102,7 +103,7 @@ export async function addRecord(env: Bindings, actor: Session, value: ObjectValu
 export async function getRecord(db: D1Database, recordId: string) {
  const record = await db.prepare('SELECT r.*,s.source_kind AS verified_source FROM hnd_records r LEFT JOIN hnd_record_sources s ON s.record_id=r.id WHERE r.id=?').bind(recordId).first<RecordRow>()
  if (!record) throw new Fault('record_not_found',404)
- const links = (await db.prepare('SELECT * FROM hnd_record_links WHERE record_id=? OR target_id=?').bind(recordId,recordId).all()).results
+ const links = (await db.prepare('SELECT * FROM hnd_record_links WHERE record_id=? OR target_id=?').bind(recordId,recordId).all<RecordLink>()).results
  const related=(await db.prepare('SELECT r.*,s.source_kind AS verified_source FROM hnd_records r LEFT JOIN hnd_record_sources s ON s.record_id=r.id WHERE r.parent_id=? ORDER BY r.occurred_at,r.received_at,r.id').bind(recordId).all<RecordRow>()).results.map(sourceRow)
  return { record:sourceRow(record), links, related }
 }
