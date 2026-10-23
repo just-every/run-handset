@@ -51,6 +51,10 @@ test('Owner console policies block voice and native fax, allow exceptions, prese
   const history=await runtime.request('/api/handset/audit/export',{headers:f.headers}),rows=(await history.json()).rows
   assert.ok(rows.some(r=>r.action==='protection.rule'&&r.subject===block.id))
   assert.ok(rows.some(r=>r.action==='protection.revoke'&&r.subject===block.id))
+  const policies=rows.filter(r=>r.action==='protection.admit').map(r=>JSON.parse(r.policy).applied)
+  assert.ok(policies.some(p=>p.source?.id===f.source.id&&p.source.revision===f.source.revision&&p.rule?.id===block.id),'carrier admission retains its actual source revision and selected immutable rule')
+  const native=(await runtime.sql('SELECT version FROM oa_operators WHERE id=?','synthetic-handset-1')).results[0]
+  assert.ok(policies.some(p=>p.native?.role==='owner'&&p.native.version===native.version),'native policy checks retain the acting owner authority version')
  }finally{await runtime.close()}
 })
 
@@ -216,6 +220,9 @@ test('Bounded parallel calls reserve distinct waiting agents; an uncertain carri
   const receipt=await f.callback(a,lost);assert.equal(receipt.status,200,await receipt.clone().text())
   current=await f.read();assert.equal(current.attempts.find(x=>x.id===a.id).provider_sid,lost.sid)
   assert.equal((await f.callback(a,lost,'answer',{signature:false})).status,403)
+  const audit=await (await runtime.request('/api/handset/audit/export',{headers:f.headers})).json()
+  const observed=audit.rows.filter(r=>r.subject===a.id&&r.actor===f.source.id).map(r=>JSON.parse(r.policy).applied)
+  assert.ok(observed.some(p=>p.source?.id===f.source.id&&p.source.revision===f.source.revision&&p.list?.id===uncertain.id&&p.qualification?.id===f.qualified.id),'reconciled provider attempts retain the exact original source, reviewed list and qualification')
  }finally{await runtime.close()}
 })
 

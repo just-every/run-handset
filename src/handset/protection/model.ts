@@ -1,10 +1,11 @@
 import { choice, Fault, text, type ObjectValue, keys } from '../core'
+import type { AppliedPolicy } from '../audit/policy'
 export type Channel='voice'|'fax'|'sms'|'sip'
 export type Decision='allow'|'block'|'screen'|'exempt'|'held'
 export interface Rule {id:string;scope:'owner'|'personal';personal_id:string|null;number_id:string|null;channel:'voice'|'fax'|'all';match_kind:'number'|'prefix'|'anonymous';pattern:string;effect:'allow'|'block'|'screen';created_by:string;created_at:number;revoked_at:number|null}
 export interface Route {source_id:string;number_id:string;personal_id:string|null;continuation_url:string;emergency_url:string;max_attempts:number;window_seconds:number;attempt_cents:number;revision:number}
 /** Only authenticated adapters supply authority/consent. Caller instructions never do. */
-export interface Admission {principal:string;eventKey:string;numberId:string;deviceId:string;channel:Channel;direction:'inbound'|'outbound'|'registration';address:string;personalId?:string;sourceId?:string;authorized?:boolean;consent?:boolean;attemptedCents?:number;fences?:D1PreparedStatement[]}
+export interface Admission {principal:string;eventKey:string;numberId:string;deviceId:string;channel:Channel;direction:'inbound'|'outbound'|'registration';address:string;personalId?:string;sourceId?:string;authorized?:boolean;consent?:boolean;attemptedCents?:number;fences?:D1PreparedStatement[];applied?:AppliedPolicy}
 export interface Verdict {decision:Decision;reason:string;ruleId?:string;emergency?:boolean}
 export const e164=(value:unknown,name='address')=>{const v=text(value,name,16);if(!/^\+[1-9]\d{7,14}$/.test(v))throw new Fault('invalid_'+name);return v}
 export const address=(value:unknown)=>{const v=text(value,'address',200);if(v==='911'||['anonymous','unknown','restricted','unavailable'].includes(v.toLowerCase()))return v.toLowerCase();return e164(v)}

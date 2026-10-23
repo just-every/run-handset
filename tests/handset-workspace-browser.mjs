@@ -120,7 +120,7 @@ for(const width of [1440,390])test(`Explicit executive delegation and owner-atte
   assert.ok((await page.locator('main').innerText()).includes('busy'));await proof('assistant-busy-lamp')
   for(const kind of ['pickup','park','transfer','callback']){
    const action=page.getByLabel('Call action / Acción',{exact:true});await action.focus()
-   await action.press('Space');await action.press('Home');for(let i=0;i<['pickup','park','transfer','callback'].indexOf(kind);i++)await action.press('ArrowDown');await action.press('Enter')
+   await action.press('Home');for(let i=0;i<['pickup','park','transfer','callback'].indexOf(kind);i++)await action.press('ArrowDown')
    assert.equal(await action.inputValue(),kind)
    await page.getByLabel('Line call',{exact:true}).selectOption(f.callId)
    if(['transfer','callback'].includes(kind))await page.getByLabel('Transfer operator ID or callback phone / Destino',{exact:true}).fill(kind==='transfer'?'synthetic-handset-700':'+15125550180')

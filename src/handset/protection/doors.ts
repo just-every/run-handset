@@ -45,7 +45,7 @@ export async function protectionDoor(request:Request,env:Bindings,actor:Session,
  else if(path===base+'/release')result=await alertAction(env,actor,v,true)
  else if(path===base+'/check'){
   keys(v,['numberId','deviceId','eventKey','channel','direction','address','personalId'])
-  result=await admitProtection(env,{principal:await actorRef(env.DB,actor.operator.id),numberId:text(v.numberId,'numberId'),deviceId:text(v.deviceId,'deviceId'),eventKey:text(v.eventKey,'eventKey'),channel:choice(v.channel,['voice','fax','sms','sip'],'channel'),direction:choice(v.direction,['inbound','outbound','registration'],'direction'),address:text(v.address,'address'),...(v.personalId?{personalId:text(v.personalId,'personalId')}:{}),authorized:false,consent:false,fences:[ownerFence(env.DB,actor)]})
+  result=await admitProtection(env,{principal:await actorRef(env.DB,actor.operator.id),numberId:text(v.numberId,'numberId'),deviceId:text(v.deviceId,'deviceId'),eventKey:text(v.eventKey,'eventKey'),channel:choice(v.channel,['voice','fax','sms','sip'],'channel'),direction:choice(v.direction,['inbound','outbound','registration'],'direction'),address:text(v.address,'address'),...(v.personalId?{personalId:text(v.personalId,'personalId')}:{}),authorized:false,consent:false,applied:{native:{role:actor.operator.role,version:actor.operator.version}},fences:[ownerFence(env.DB,actor)]})
  }else throw new Fault('not_found',404)
  return html?protectionPage(await overview(env),'Saved. '+(result&&typeof result==='object'&&'decision' in result?String(result.decision)+' · '+String('reason' in result?result.reason:''):'Review the current policy and evidence below.')):json(result,status)
 }

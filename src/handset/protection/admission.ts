@@ -41,8 +41,9 @@ export async function admitProtection(env:Bindings,input:Admission){
   const rules=(await db.prepare('SELECT * FROM hnd_protection_rules WHERE revoked_at IS NULL').all<Rule>()).results
   verdict=evaluateRules(rules,a)
  }
+ const applied={...a.applied,...(route?{route:{id:route.source_id,revision:route.revision}}:{}),...(verdict.ruleId?{rule:{id:verdict.ruleId,revision:1}}:{})}
  if(prior){
-  await append(env,a.principal,'protection.admit',prior.id,['block','screen','held'].includes(verdict.decision)?'refused':'completed',a.fences??[])
+  await append(env,a.principal,'protection.admit',prior.id,['block','screen','held'].includes(verdict.decision)?'refused':'completed',a.fences??[],null,applied)
   return {id:prior.id,...verdict,attemptedCents:prior.attempted_cents,originalDecision:prior.decision,replay:true,effectOccurred:false}
  }
  const statements=[...(a.fences??[]),db.prepare(`INSERT INTO hnd_protection_attempts
@@ -55,6 +56,6 @@ export async function admitProtection(env:Bindings,input:Admission){
  }
  if(contain)statements.push(db.prepare(`INSERT INTO hnd_protection_alerts
  (id,number_id,device_id,channel,reason,containment,attempt_id,created_at) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(number_id,device_id,channel,reason) DO NOTHING`).bind(id(),a.numberId,a.deviceId,a.channel,verdict.reason,'device_outbound_blocked',attemptId,now))
- await append(env,a.principal,contain?'protection.contain':'protection.admit',attemptId,['block','screen','held'].includes(verdict.decision)?'refused':'completed',statements)
+ await append(env,a.principal,contain?'protection.contain':'protection.admit',attemptId,['block','screen','held'].includes(verdict.decision)?'refused':'completed',statements,null,applied)
  return {id:attemptId,...verdict,attemptedCents:cost,costBasis:'configured upper bound; not a carrier charge',replay:false,effectOccurred:false}
 }

@@ -1,5 +1,6 @@
 import { runtimeBindings, type Bindings } from '../../auth.server'
 import { append } from '../audit/store'
+import { sourcePolicy } from '../audit/policy'
 import { escape, Fault, json, text } from '../core'
 import { admitProtection, nativeNumber } from './admission'
 import type { Route } from './model'
@@ -54,7 +55,7 @@ export async function protectionCarrierResponse(request:Request,original:Binding
    return await answerChallenge(env,context,challenge[1],Number(challenge[2]),p.get('Digits'))
   }
   const fences=[sourceFence(env,source),routeFence(env,route)]
-  const verdict=await admitProtection(env,{principal:source.id,sourceId:source.id,eventKey:'voice:'+callId,numberId:source.number_id,deviceId:device,channel:'voice',direction:sip?'outbound':'inbound',address:sip?destination(to):from.toLowerCase()==='anonymous'?'anonymous':from,personalId:route.personal_id??undefined,authorized:false,consent:false,attemptedCents:sip?route.attempt_cents:0,fences})
+  const verdict=await admitProtection(env,{principal:source.id,sourceId:source.id,eventKey:'voice:'+callId,numberId:source.number_id,deviceId:device,channel:'voice',direction:sip?'outbound':'inbound',address:sip?destination(to):from.toLowerCase()==='anonymous'?'anonymous':from,personalId:route.personal_id??undefined,applied:sourcePolicy(source),authorized:false,consent:false,attemptedCents:sip?route.attempt_cents:0,fences})
   if(!sip){const screening=await initialChallengeResponse(env,context);if(screening)return screening}
   if(verdict.decision==='block')return xml('<Reject reason="rejected"/>')
   const next=verdict.reason==='direct_emergency_call'?route.emergency_url:route.continuation_url
@@ -62,7 +63,7 @@ export async function protectionCarrierResponse(request:Request,original:Binding
 
   return xml(`<Redirect method="POST">${escape(next)}</Redirect>`)
  }catch(error){
-  if(error instanceof Fault){if(source)await append(env,source.id,'protection.admit','installation','refused');return json({error:error.code,effectOccurred:false},error.status)}
+  if(error instanceof Fault){if(source)await append(env,source.id,'protection.admit','installation','refused',[],null,sourcePolicy(source));return json({error:error.code,effectOccurred:false},error.status)}
   if(/CHECK constraint failed|challenge_already_terminal|UNIQUE constraint failed: hnd_protection_challenges/.test(String(error)))return json({error:'screening_state_changed',effectOccurred:false},409)
   console.error('Handset protection admission failed',error instanceof Error?error.name:'unknown')
   return json({error:'protection_unavailable',effectOccurred:false},503)

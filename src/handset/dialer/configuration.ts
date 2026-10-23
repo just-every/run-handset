@@ -13,7 +13,7 @@ export async function qualify(ctx:Context,v:ObjectValue){
  if(definition.jurisdictions.some(j=>!/^US-[A-Z]{2}$/.test(j)))throw new Fault('unqualified_jurisdiction')
  const fences=await Promise.all([definition.legalEvidenceId,definition.providerEvidenceId,definition.trafficEvidenceId].map(r=>evidence(ctx,r)))
  await ownedFrom(ctx,s.account_id,numberSid,JSON.parse(s.data).e164)
- await write(ctx,target,[sourceGuard(ctx,s),...fences,sql(ctx,'INSERT INTO hnd_dialer_qualifications VALUES (?,?,?,?,?,?,?,?,NULL)',target,s.id,numberSid,JSON.stringify(definition),ctx.actor!.operator.id,ctx.actor!.operator.version,Date.now(),expiresAt),event(ctx,'qualification.evidence_recorded',null,null,null,{qualificationId:target,definition,certification:'external evidence recorded; no independent legal certification claimed'})])
+ await write({...ctx,applied:{source:{id:s.id,revision:s.revision,ownerVersion:s.owner_version},qualification:{id:target,revision:1,ownerVersion:ctx.actor!.operator.version}}},target,[sourceGuard(ctx,s),...fences,sql(ctx,'INSERT INTO hnd_dialer_qualifications VALUES (?,?,?,?,?,?,?,?,NULL)',target,s.id,numberSid,JSON.stringify(definition),ctx.actor!.operator.id,ctx.actor!.operator.version,Date.now(),expiresAt),event(ctx,'qualification.evidence_recorded',null,null,null,{qualificationId:target,definition,certification:'external evidence recorded; no independent legal certification claimed'})])
  return qualification(ctx,target)
 }
 export interface StandingDefinition {repIds:string[];purpose:string;sourceIds:string[];modes:string[];maxListSize:number;maxBudgetCents:number;attemptCents:number;ownership:'rep_owned';consent:'verified';dnc:'company_campaign_national_state';startsAt:number}
@@ -26,7 +26,7 @@ export async function standingPolicy(ctx:Context,v:ObjectValue){
  for(const s of definition.sourceIds)for(const q of queueIds)approvalFences.push(await mayApprove(ctx,ctx.actor!.operator.id,ctx.actor!.operator.version,s,q,definition.maxBudgetCents,true))
  const fences=definition.repIds.map(r=>guard(ctx,"SELECT count(*) FROM oa_operators WHERE id=? AND status='active'",r))
  for(const r of definition.sourceIds)fences.push(sourceGuard(ctx,await source(ctx,r)))
- await write(ctx,target,[...fences,...approvalFences,sql(ctx,'INSERT INTO hnd_dialer_policies VALUES (?,?,?,?,1,?,?,NULL)',target,JSON.stringify({...definition,queueIds}),ctx.actor!.operator.id,ctx.actor!.operator.version,now,expiresAt),event(ctx,'policy.approved',null,null,null,{policyId:target,revision:1,definition})]);return {id:target,revision:1,definition}
+ await write({...ctx,applied:{standing:{id:target,revision:1,ownerVersion:ctx.actor!.operator.version}}},target,[...fences,...approvalFences,sql(ctx,'INSERT INTO hnd_dialer_policies VALUES (?,?,?,?,1,?,?,NULL)',target,JSON.stringify({...definition,queueIds}),ctx.actor!.operator.id,ctx.actor!.operator.version,now,expiresAt),event(ctx,'policy.approved',null,null,null,{policyId:target,revision:1,definition})]);return {id:target,revision:1,definition}
 }
 export async function approveList(ctx:Context,v:ObjectValue){
  keys(v,['name','purpose','sourceId','queueId','qualificationId','repId','budgetCents','attemptCents','maxConcurrency','modes','recipients','policyId','expiresAt','confirm'])
@@ -62,7 +62,7 @@ export async function approveList(ctx:Context,v:ObjectValue){
   if(!consent||JSON.parse(consent.data).purpose!==purpose)throw new Fault('recipient_consent_record_required',409)
  }
  const target=id(),snapshotHash=await digest({purpose,sourceId:s.id,queueId,qualificationId:q.id,definition,recipients:rows,policyId,policyRevision,expiresAt})
- await write(ctx,target,[...fences,sql(ctx,'INSERT INTO hnd_dialer_lists VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL,0)',target,text(v.name,'name',120),purpose,s.id,queueId,q.id,JSON.stringify(definition),snapshotHash,approver,ownerVersion,policyId,policyRevision,now,expiresAt),...rows.map((r,n)=>sql(ctx,'INSERT INTO hnd_dialer_recipients VALUES (?,?,?,?,?,?)',target,n,r.caseId,r.personId,r.recipient,JSON.stringify(r.definition))),event(ctx,policyId?'list.policy_approved':'list.person_approved',target,null,null,{snapshotHash,approver,policyId,policyRevision,size:rows.length,definition})])
+ await write({...ctx,applied:{source:{id:s.id,revision:s.revision,ownerVersion:s.owner_version},list:{id:target,revision:1,ownerVersion},qualification:{id:q.id,revision:1,ownerVersion:q.owner_version},...(policyId?{standing:{id:policyId,revision:policyRevision!,ownerVersion}}:{})}},target,[...fences,sql(ctx,'INSERT INTO hnd_dialer_lists VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL,0)',target,text(v.name,'name',120),purpose,s.id,queueId,q.id,JSON.stringify(definition),snapshotHash,approver,ownerVersion,policyId,policyRevision,now,expiresAt),...rows.map((r,n)=>sql(ctx,'INSERT INTO hnd_dialer_recipients VALUES (?,?,?,?,?,?)',target,n,r.caseId,r.personId,r.recipient,JSON.stringify(r.definition))),event(ctx,policyId?'list.policy_approved':'list.person_approved',target,null,null,{snapshotHash,approver,policyId,policyRevision,size:rows.length,definition})])
  return list(ctx,target)
 }
 export async function recipientCheck(ctx:Context,listId:string,ordinal:number,v:ObjectValue){

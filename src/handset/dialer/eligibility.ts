@@ -2,9 +2,10 @@ import { mayApprove } from './authority'
 import { registryChecks, stateChecks } from './compliance'
 import { Fault } from '../core'
 import { source, sourceGuard } from './configuration'
-import { currentOwner, evidence, guard, ownerGuard, qualification, sql, type Context } from './storage'
+import { currentOwner, evidence, guard, listPolicy, ownerGuard, qualification, sql, type Context } from './storage'
 import type { List, ListDefinition, Mode, QualificationDefinition, Recipient, RecipientCheck, RecipientDefinition } from './model'
 export async function listEligibility(ctx:Context,l:List,mode:Mode){
+ await listPolicy(ctx,l)
  const now=Date.now(),d=JSON.parse(l.definition) as ListDefinition,q=await qualification(ctx,l.qualification_id),policy=JSON.parse(q.definition) as QualificationDefinition
  if(l.revoked_at||l.expires_at<=now)throw new Fault('list_approval_revoked',409)
  if(q.revoked_at||q.expires_at<=now||!await currentOwner(ctx,q.approved_by,q.owner_version))throw new Fault('qualification_not_current',409)

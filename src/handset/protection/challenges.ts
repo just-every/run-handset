@@ -1,5 +1,6 @@
 import type { Bindings } from '../../auth.server'
 import { append } from '../audit/store'
+import { sourcePolicy } from '../audit/policy'
 import { escape, Fault, id } from '../core'
 import { address, type Admission, type Route } from './model'
 import { sourceFence, routeFence, type Source } from './carrier-proof'
@@ -14,6 +15,7 @@ interface Challenge {
  digit:string;attempts:number;round:number;status:'pending'|'passed'|'failed'|'expired'|'cancelled';expires_at:number;last_outcome:string
 }
 const base='/providers/twilio/protection/challenges'
+const applied=(c:ChallengeContext,ruleId?:string)=>({...sourcePolicy(c.source),route:{id:c.route.source_id,revision:c.route.revision},...(ruleId?{rule:{id:ruleId,revision:1}}:{})})
 const digit=()=>String(crypto.getRandomValues(new Uint8Array(1))[0]%9+1)
 const admission=(c:ChallengeContext):Admission=>({principal:c.source.id,sourceId:c.source.id,eventKey:'voice:'+c.callId,numberId:c.source.number_id,deviceId:c.source.id+':inbound',channel:'voice',direction:'inbound',address:address(c.from),personalId:c.route.personal_id??undefined})
 const fences=(env:Bindings,c:ChallengeContext)=>[sourceFence(env,c.source),routeFence(env,c.route)]
@@ -38,7 +40,7 @@ async function end(env:Bindings,c:ChallengeContext,row:Challenge,status:'failed'
  await append(env,c.source.id,'protection.admit',row.id,'refused',[
   ...fences(env,c),...(policyFence?[policyFence]:[]),pendingFence(env,row,false),
   env.DB.prepare('UPDATE hnd_protection_challenges SET status=?,last_outcome=?,attempts=?,updated_at=? WHERE id=?').bind(status,reason,attempts,Date.now(),row.id),
- ])
+ ],null,applied(c,row.rule_id))
  return failed(reason)
 }
 async function active(env:Bindings,c:ChallengeContext,row:Challenge){
@@ -47,14 +49,14 @@ async function active(env:Bindings,c:ChallengeContext,row:Challenge){
  if(row.expires_at<=Date.now())return end(env,c,row,'expired','screening_expired')
  return null
 }
-async function continueOnce(env:Bindings,c:ChallengeContext,row:Challenge,policyFence:D1PreparedStatement,reason:string,attempts=row.attempts){
+async function continueOnce(env:Bindings,c:ChallengeContext,row:Challenge,policyFence:D1PreparedStatement,reason:string,ruleId?:string,attempts=row.attempts){
  if(!c.route.continuation_url)return end(env,c,row,'cancelled','screening_continuation_unconfigured',policyFence,attempts)
  const executive=await executiveContinuation(env,c,[...fences(env,c),policyFence,pendingFence(env,row)])
  const now=Date.now()
  await append(env,c.source.id,'protection.admit',row.id,'completed',[
   ...fences(env,c),policyFence,pendingFence(env,row),
   env.DB.prepare(`UPDATE hnd_protection_challenges SET status='passed',last_outcome=?,attempts=?,updated_at=?,continued_at=?,continuation_url=?,continued_route_revision=? WHERE id=?`).bind(reason,attempts,now,now,c.route.continuation_url,c.route.revision,row.id),
- ])
+ ],null,applied(c,ruleId))
  // A keypad response is an interaction signal, never human identity, consent,
  // outbound authority, or proof that the continuation was actually received.
  return xml(executive??`<Redirect method="POST">${escape(c.route.continuation_url)}</Redirect>`,reason)
@@ -66,20 +68,20 @@ export async function initialChallengeResponse(env:Bindings,c:ChallengeContext):
  const policy=await challengePolicy(env,admission(c)),v=policy.verdict
  if(row){
   const terminal=await active(env,c,row);if(terminal)return terminal
-  if(v.decision==='exempt'||v.reason==='allow_exception')return continueOnce(env,c,row,policy.fence,v.reason)
+  if(v.decision==='exempt'||v.reason==='allow_exception')return continueOnce(env,c,row,policy.fence,v.reason,v.ruleId)
   if(v.decision!=='screen'||v.ruleId!==row.rule_id)return end(env,c,row,'cancelled','screening_policy_changed',policy.fence)
   // Repeated initial requests return the same round and do not reset attempts.
-  await append(env,c.source.id,'protection.admit',row.id,'completed',[...fences(env,c),policy.fence,pendingFence(env,row)])
+  await append(env,c.source.id,'protection.admit',row.id,'completed',[...fences(env,c),policy.fence,pendingFence(env,row)],null,applied(c,v.ruleId))
   return gather(env,row)
  }
  if(v.decision==='block'){
-  await append(env,c.source.id,'protection.admit','installation','refused',[...fences(env,c),policy.fence])
+  await append(env,c.source.id,'protection.admit','installation','refused',[...fences(env,c),policy.fence],null,applied(c,v.ruleId))
   return xml('<Reject reason="rejected"/>',v.reason)
  }
  if(v.decision==='allow'||v.decision==='exempt'){
   if(!c.route.continuation_url)throw new Fault('inbound_continuation_unconfigured',503)
   const executive=await executiveContinuation(env,c,[...fences(env,c),policy.fence])
-  await append(env,c.source.id,'protection.admit','installation','completed',[...fences(env,c),policy.fence])
+  await append(env,c.source.id,'protection.admit','installation','completed',[...fences(env,c),policy.fence],null,applied(c,v.ruleId))
   return xml(executive??`<Redirect method="POST">${escape(c.route.continuation_url)}</Redirect>`,v.reason)
  }
  if(v.decision!=='screen')throw new Fault('screening_policy_unavailable',503)
@@ -91,7 +93,7 @@ export async function initialChallengeResponse(env:Bindings,c:ChallengeContext):
   env.DB.prepare(`INSERT INTO hnd_protection_challenges
    (id,source_id,source_revision,owner_id,owner_version,account_id,number_id,caller,called_number,call_sid,rule_id,route_revision,digit,attempts,round,status,last_outcome,created_at,expires_at,updated_at)
    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,0,1,'pending','screening_started',?,?,?)`).bind(challengeId,c.source.id,c.source.revision,c.source.owner_id,c.source.owner_version,c.source.account_id,c.source.number_id,c.from,c.to,c.callId,v.ruleId,c.route.revision,challengeDigit,now,now+120000,now),
- ])
+ ],null,applied(c,v.ruleId))
  row=(await byCall(env,c))!
  return gather(env,row)
 }
@@ -103,16 +105,16 @@ export async function answerChallenge(env:Bindings,c:ChallengeContext,challengeI
  const policy=await challengePolicy(env,admission(c)),v=policy.verdict
  // Fresh emergency designation and explicit allow exceptions take precedence.
  // Removing a screen rule alone does not turn an old challenge into authority.
- if(v.decision==='exempt'||v.reason==='allow_exception')return continueOnce(env,c,row,policy.fence,v.reason)
+ if(v.decision==='exempt'||v.reason==='allow_exception')return continueOnce(env,c,row,policy.fence,v.reason,v.ruleId)
  if(v.decision!=='screen'||v.ruleId!==row.rule_id)return end(env,c,row,'cancelled','screening_policy_changed',policy.fence)
  const attempts=row.attempts+1
- if(digits===row.digit)return continueOnce(env,c,row,policy.fence,'screening_digit_received',attempts)
+ if(digits===row.digit)return continueOnce(env,c,row,policy.fence,'screening_digit_received',v.ruleId,attempts)
  const reason=digits===null||digits===''?'screening_no_digit':'screening_wrong_digit'
  if(attempts>=3)return end(env,c,row,'failed',reason+'_limit',policy.fence,attempts)
  const nextDigit=digit(),nextRound=row.round+1
  await append(env,c.source.id,'protection.admit',row.id,'refused',[
   ...fences(env,c),policy.fence,pendingFence(env,row),
   env.DB.prepare('UPDATE hnd_protection_challenges SET attempts=?,round=?,digit=?,last_outcome=?,updated_at=? WHERE id=?').bind(attempts,nextRound,nextDigit,reason,Date.now(),row.id),
- ])
+ ],null,applied(c,row.rule_id))
  return gather(env,{...row,attempts,round:nextRound,digit:nextDigit,last_outcome:reason})
 }

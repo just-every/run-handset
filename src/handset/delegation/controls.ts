@@ -73,7 +73,7 @@ export async function executeControl(env:Bindings,actor:Session,v:ObjectValue){
  const s=JSON.parse(a.snapshot) as Snapshot
  if(s.lineId!==l.id||s.lineRevision!==l.revision||op.line_revision!==l.revision||s.sourceId!==l.source_id||s.account!==await currentSource(env,l.source_id))throw new Fault('reviewed_line_changed',409)
  const fences=()=>{const current=linePolicy(l);if(current.dnd||!current.withinHours||current.forwardTo)throw new Fault('executive_line_policy_refused',403);return [nativeFence(env,actor),delegationFence(env,actor,d,l),approvalFence(env,a)]}
- const ctx:Context={env,actor,requiredAgentId:actor.operator.id,maxCallSeconds:s.maxSeconds,fences}
+ const ctx:Context={env,actor,requiredAgentId:actor.operator.id,maxCallSeconds:s.maxSeconds,fences,applied:controlPolicy(actor,d,l,a)}
  if(op.kind!=='callback'){
   const parent=await readCall(ctx,s.account,s.parentSid!)
   if(parent.direction!=='inbound'||parent.from!==s.parentFrom||parent.to!==s.parentTo||!['ringing','in-progress'].includes(parent.status))throw new Fault('reviewed_call_changed',409)

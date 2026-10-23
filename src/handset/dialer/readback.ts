@@ -1,7 +1,7 @@
 import { choice, Fault, id, keys, text, type ObjectValue } from '../core'
 import { readCall, callTerminal } from '../queues/provider-api'
 import { providerGet, verifyRecipientCall } from './network'
-import { attempt, event, guard, list, qualification, sql, write, type Context } from './storage'
+import { attempt, event, guard, list, listPolicy, qualification, sql, write, type Context } from './storage'
 import type { Attempt, QualificationDefinition } from './model'
 export async function reconcileAttempt(ctx:Context,original:Attempt,signedSid?:string){
  let row=await attempt(ctx,original.id)
@@ -9,6 +9,7 @@ export async function reconcileAttempt(ctx:Context,original:Attempt,signedSid?:s
  if(!sid)return {attempt:row,held:'awaiting_signed_callback_after_uncertain_create'}
  if(row.provider_sid&&signedSid&&row.provider_sid!==signedSid)throw new Fault('dialer_provider_sid_conflict',409)
  const l=await list(ctx,row.list_id),q=await qualification(ctx,l.qualification_id),p=JSON.parse(q.definition) as QualificationDefinition
+ await listPolicy(ctx,l)
  const call=await readCall(ctx,row.account_id,sid);verifyRecipientCall(call,row.account_id,row.from_number,row.recipient,row.created_at)
  const now=Date.now(),ended=callTerminal(call.status),start=call.start_time?Date.parse(call.start_time):null,end=call.end_time?Date.parse(call.end_time):null
  if(start!==null&&!Number.isFinite(start)||end!==null&&!Number.isFinite(end))throw new Fault('dialer_call_timing_unavailable',503)
