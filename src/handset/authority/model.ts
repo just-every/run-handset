@@ -23,6 +23,7 @@ export function state(value:unknown):State{
  return {operation:choice(v.operation,tools,'operation'),caseId:text(v.caseId,'caseId'),caseVersion:integer(v.caseVersion,'caseVersion',1),numberId:text(v.numberId??'','numberId',200,true),recipients:list(v.recipients??[],'recipients'),amountCents:integer(v.amountCents??0,'amountCents',0,10000000),flowRevision:text(v.flowRevision??'','flowRevision',100,true),policyRevision:text(v.policyRevision,'policyRevision',80),content:text(v.content??'','content',4000,true)}
 }
 export function expires(value:unknown){const expiry=timestamp(value,'expiresAt');if(expiry<=Date.now()||expiry>Date.now()+86400000)throw new Fault('expiry_must_be_within_one_day');return expiry}
+export function reviewExpires(value:unknown){const expiry=timestamp(value,'expiresAt');if(expiry<=Date.now()||expiry>Date.now()+90*86400000)throw new Fault('review_must_be_within_ninety_days');return expiry}
 export interface Bounds { numberId:string;recipients:string[];maxCents:number;maxListSize:number;flowRevision:string;policyRevision:string }
 export function bounds(value:unknown):Bounds{
  const v=object(value);keys(v,['numberId','recipients','maxCents','maxListSize','flowRevision','policyRevision'])

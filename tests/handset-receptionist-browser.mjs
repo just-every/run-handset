@@ -42,3 +42,39 @@ for (const width of [1440, 390]) test(`Named person reviews and decides exact ca
   await stale.goto(f.runtime.origin + '/app/receptionist'); await proof(stale, 'after-decision')
  } finally { await browser.close(); await f.runtime.close() }
 })
+
+
+for (const width of [1440, 390]) test(`Connector repair keeps lost effects uncertain when access expires at ${width}`, async () => {
+ const f = await receptionistFixture(), browser = await chromium.launch({ headless: true, args: ['--use-mock-keychain', '--password-store=basic'] })
+ const directory = process.env.HANDSET_EVIDENCE_DIR ?? '.cache/handset-receptionist'
+ await mkdir(directory, { recursive: true })
+ const context = await browser.newContext({ viewport: { width, height: 960 }, ignoreHTTPSErrors: true }), page = await context.newPage()
+ const [name, ...value] = f.headers.cookie.split('=')
+ await context.addCookies([{ name, value: value.join('='), url: f.runtime.origin, secure: true, httpOnly: true, sameSite: 'Lax' }])
+ async function proof(label) {
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
+  assert.equal(await page.getByRole('button').evaluateAll(buttons => buttons.every(button => button.textContent.trim().length > 2)), true)
+  await page.screenshot({ path: `${directory}/${width}-repair-${label}.png`, fullPage: true })
+ }
+ try {
+  await f.savePolicy()
+  const opened = await f.open(91, 'en', f.cases[0]), base = `outcomes/${opened.outcome.id}/`
+  f.edges.drop.add('orbit')
+  const lost = await f.ok(base + 'handoffs\/crm', { summary: 'A callback estimate needs receiver confirmation' })
+  assert.equal(lost.step.state, 'uncertain'); assert.equal(f.edges.effects.size, 1)
+  await page.goto(f.runtime.origin + '/app/receptionist')
+  await page.getByText(/crm uncertain — orbit response lost/).waitFor(); await proof('lost')
+  f.edges.orbitExpired = true
+  await f.runtime.restart()
+  await f.ok(base + 'reconcile', { step: 'crm' })
+  await page.reload()
+  await page.getByText(/crm uncertain — orbit credential refused/).waitFor(); await proof('access-refused')
+  f.edges.orbitExpired = false
+  await f.ok(base + 'reconcile', { step: 'crm' })
+  await page.reload()
+  await page.getByText(/crm confirmed — readback matched/).waitFor(); await proof('readback')
+  assert.equal(f.edges.effects.size, 1)
+  const headers = { authorization: 'Bearer ' + f.issued.token }
+  assert.equal((await f.runtime.request('/api/handset/delivery', { headers })).status, 401)
+ } finally { await context.close(); await browser.close(); await f.runtime.close() }
+})

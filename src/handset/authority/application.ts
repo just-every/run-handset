@@ -5,6 +5,7 @@ import { append } from '../audit/store'
 import type { AppliedPolicy } from '../audit/policy'
 import { getCase } from '../records/store'
 import { scopeFor, state, type State, type Definition, type Bounds, type Tool } from './model'
+import { mcpTools, mcpToolResult } from '../api/mcp'
 import { agentDoor } from '../receptionist/doors'
 import { checkState, grantFence, grantPolicy, policyMatches, type Grant, type Approval, type Standing, type Job } from './store'
 
@@ -16,7 +17,7 @@ export async function applicationAuth(request:Request,env:Bindings,applied:Appli
  const grant=await env.DB.prepare('SELECT * FROM hnd_grants WHERE token_hash=?').bind(hash).first<Grant>()
  if(!grant)throw new Fault('application_credential_inactive',401)
  Object.assign(applied,grantPolicy(grant))
- if(grant.revoked_at||grant.expires_at<=Date.now()||!await env.DB.prepare("SELECT id FROM oa_operators WHERE id=? AND status='active' AND role='owner' AND version=?").bind(grant.created_by,grant.owner_version).first())throw new Fault('application_credential_inactive',401)
+ if(grant.revoked_at||grant.expires_at<=Date.now()||grant.credential_expires_at<=Date.now()||!await env.DB.prepare("SELECT id FROM oa_operators WHERE id=? AND status='active' AND role='owner' AND version=?").bind(grant.created_by,grant.owner_version).first())throw new Fault('application_credential_inactive',401)
  return grant
 }
 export async function applicationRead(env:Bindings,g:Grant,caseId:string){
@@ -107,22 +108,26 @@ async function execute(env:Bindings,g:Grant,value:ObjectValue,applied:AppliedPol
  // No qualified provider exists yet. This is never a successful paid effect.
  return {status:'held_adapter_unqualified',effectOccurred:false,jobId:job.id}
 }
-async function mcp(env:Bindings,g:Grant,value:ObjectValue,applied:AppliedPolicy){
+async function mcp(env:Bindings,g:Grant,value:ObjectValue,applied:AppliedPolicy,idempotencyKey?:string){
  keys(value,['jsonrpc','id','method','params'])
  if(value.jsonrpc!=='2.0'||!['string','number'].includes(typeof value.id))throw new Fault('invalid_mcp_request')
  const method=text(value.method,'method'),params=value.params===undefined?{}:object(value.params)
  if(method==='initialize')return {protocolVersion:'2025-06-18',capabilities:{tools:{}},serverInfo:{name:'handset-scoped-work',version:'1'}}
  const d=JSON.parse(g.definition) as Definition
- if(method==='tools/list')return {tools:d.tools.map(name=>({name,description:name==='case.read'?'Read a selected native case':name==='comment.draft'?'Create an unpublished draft':'Prepare reviewed work; qualified adapter required',inputSchema:{type:'object'}}))}
- if(method!=='tools/call')throw new Fault('unsupported_mcp_method',404)
+ if(method==='tools\/list')return {tools:mcpTools(d)}
+ if(method==='ping')return {}
+ if(method!=='tools\/call')throw new Fault('unsupported_mcp_method',404)
  keys(params,['name','arguments'])
  const name=text(params.name,'name') as Tool,args=object(params.arguments)
  if(!d.tools.includes(name)||!d.scopes.includes(scopeFor(name)))throw new Fault('tool_out_of_scope',403)
- if(name==='case.read'){keys(args,['caseId']);return applicationRead(env,g,text(args.caseId,'caseId'))}
- if(name==='comment.draft')return draft(env,g,args)
+ if(name==='case.read'){keys(args,['caseId']);return mcpToolResult(await applicationRead(env,g,text(args.caseId,'caseId')))}
+ if(name==='comment.draft'){
+  if(!idempotencyKey)throw new Fault('idempotency_key_required')
+  return mcpToolResult(await draft(env,g,args,idempotencyKey))
+ }
  const proposed=state(args.state)
  if(proposed.operation!==name)throw new Fault('tool_operation_mismatch',403)
- return prepare(env,g,args,applied)
+ return mcpToolResult(await prepare(env,g,args,applied))
 }
 export async function applicationResponse(request:Request,original:Bindings):Promise<Response|null>{
  const url=new URL(request.url)
@@ -144,7 +149,18 @@ export async function applicationResponse(request:Request,original:Bindings):Pro
   if(path===base+'/drafts')return json(await draft(env,grant,data),201)
   if(path===base+'/prepare')return json(await prepare(env,grant,data,applied),202)
   if(path===base+'/execute')return json(await execute(env,grant,data,applied),202)
-  if(path===base+'/mcp'){const result=await mcp(env,grant,data,applied);await append(env,grant.id,'application.read','installation','completed',[grantFence(env,grant)],null,applied);return json({jsonrpc:'2.0',id:data.id,result})}
+  if(path===base+'/mcp'){
+   if(data.jsonrpc==='2.0'&&data.method==='notifications\/initialized'&&data.id===undefined){
+    keys(data,['jsonrpc','method','params'])
+    await append(env,grant.id,'application.read','installation','completed',[grantFence(env,grant)],null,applied)
+    return new Response(null,{status:202,headers:{'cache-control':'no-store'}})
+   }
+   const key=request.headers.get('idempotency-key')??undefined
+   if(key&&(!/^[A-Za-z0-9._:-]+$/.test(key)||key.length>100))throw new Fault('invalid_idempotencyKey')
+   const result=await mcp(env,grant,data,applied,key)
+   await append(env,grant.id,'application.read','installation','completed',[grantFence(env,grant)],null,applied)
+   return json({jsonrpc:'2.0',id:data.id,result})
+  }
   throw new Fault('not_found',404)
  }catch(error){
   if(error instanceof Fault){await append(env,grant?.id??applied.grant?.id??'anonymous','application.attempt','installation','refused',[],null,applied);return json({error:error.code},error.status)}

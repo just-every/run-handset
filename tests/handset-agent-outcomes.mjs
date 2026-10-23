@@ -122,7 +122,7 @@ test('Lost payment, booking, CRM and support responses stay uncertain until read
   // Two simultaneous booking requests cannot both reach the provider: the step claim is versioned.
   const second = await f.open(31, 'en', f.cases[2]); f.edges.slots.push(slot(4)); await f.ok(`outcomes/${second.outcome.id}/availability`, { serviceId: 'furnace' })
   const race = await Promise.all([1, 2].map(() => f.agent(`outcomes/${second.outcome.id}/booking`, { serviceId: 'furnace', startAt: f.edges.slots[1] })))
-  assert.ok(race.every(r => [200, 409].includes(r.status)))
+  assert.ok(race.every(r => [200, 409].includes(r.status)), JSON.stringify(await Promise.all(race.map(async r => ({ status: r.status, body: await r.clone().text() })))))
   assert.equal([...f.edges.bookings.values()].filter(b => b.startAt === f.edges.slots[1]).length, 1)
   assert.equal((await f.runtime.sql('SELECT reserved_cents FROM hnd_grants')).results[0].reserved_cents, 5000)
   // A provider may prune an old key. A possibly committed charge outside

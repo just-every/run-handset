@@ -41,7 +41,7 @@ export async function ownerDoor(request: Request, env: Bindings, actor: Session,
  if (request.method === 'GET' && !action) {
   const current = await currentPolicy(db)
   const exceptions = (await db.prepare('SELECT * FROM hnd_rx_exceptions ORDER BY (status=\'open\') DESC, created_at DESC LIMIT 100').all<ExceptionRow>()).results
-  const outcomes = (await db.prepare("SELECT o.*,COALESCE((SELECT group_concat(kind||' '||state,'; ') FROM hnd_rx_steps s WHERE s.outcome_id=o.id),'') AS states FROM hnd_rx_outcomes o ORDER BY created_at DESC LIMIT 50").all<Outcome & { states: string }>()).results
+  const outcomes = (await db.prepare("SELECT o.*,COALESCE((SELECT group_concat(kind||' '||state||' — '||replace(reason,'_',' '),'; ') FROM hnd_rx_steps s WHERE s.outcome_id=o.id),'') AS states FROM hnd_rx_outcomes o ORDER BY created_at DESC LIMIT 50").all<Outcome & { states: string }>()).results
   if (html) return receptionistPage(current, exceptions, outcomes, actor.operator.id)
   return json({ policy: current ? { version: current.version, ...current.policy } : null, history: (await policyHistory(db)).map(h => ({ version: h.version, ownerId: h.owner_id, createdAt: h.created_at })), exceptions: exceptions.map(x => ({ ...x, requested: JSON.parse(x.requested), evidence: JSON.parse(x.evidence) })), outcomes })
  }

@@ -21,6 +21,7 @@ export async function helpdeskNote(env: Bindings, conversationId: string, localI
  for (let attempt = 0; attempt < 2; attempt++) {
   const conversation = await send(path, { method: 'GET', headers })
   if (!conversation) return uncertain('helpdesk_conversation_unreadable')
+  if (conversation.status === 401) return rejected('helpdesk_credential_refused')
   if (conversation.status === 404 || conversation.status === 403) return rejected('helpdesk_conversation_out_of_scope')
   if (conversation.status !== 200) return uncertain('helpdesk_answer_unrecognised')
   await beforeEffect()

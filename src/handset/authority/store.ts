@@ -3,18 +3,18 @@ import type { Session } from '../../modules/operator-auth/index.mjs'
 import { id, digest, Fault, text, keys, object, integer, type ObjectValue } from '../core'
 import { commit } from '../audit/store'
 import type { AppliedPolicy } from '../audit/policy'
-import { definition, expires, state, bounds, type Definition, type State, type Bounds } from './model'
+import { definition, expires, reviewExpires, state, bounds, type Definition, type State, type Bounds } from './model'
 import { getCase } from '../records/store'
-export interface Grant {id:string;name:string;definition:string;revision:number;created_by:string;owner_version:number;expires_at:number;revoked_at:number|null;reserved_cents:number;created_at:number}
+export interface Grant {credential_expires_at:number;credential_revision:number;id:string;name:string;definition:string;revision:number;created_by:string;owner_version:number;expires_at:number;revoked_at:number|null;reserved_cents:number;created_at:number}
 export interface Approval {id:string;grant_id:string;grant_revision:number;state_hash:string;state_json:string;approved_by:string;owner_version:number;expires_at:number;consumed_by:string|null;revoked_at:number|null}
 export interface Standing {id:string;grant_id:string;revision:number;bounds:string;approved_by:string;owner_version:number;expires_at:number;revoked_at:number|null}
 export interface Job {id:string;grant_id:string;grant_revision:number;state_hash:string;state_json:string;approval_id:string|null;standing_id:string|null;standing_revision:number|null;approved_by:string;approved_owner_version:number;status:string;amount_cents:number;created_at:number}
 export const grantPolicy=(g:Pick<Grant,'id'|'revision'|'owner_version'>):AppliedPolicy=>({grant:{id:g.id,revision:g.revision,ownerVersion:g.owner_version}})
 export function grantFence(env:Bindings,g:Grant){
  return env.DB.prepare(`INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_grants g JOIN oa_operators o ON o.id=g.created_by
- WHERE g.id=? AND g.revision=? AND g.revoked_at IS NULL AND g.expires_at>? AND o.status='active' AND o.role='owner' AND o.version=g.owner_version AND g.owner_version=?`).bind(g.id,g.revision,Date.now(),g.owner_version)
+ WHERE g.id=? AND g.revision=? AND g.revoked_at IS NULL AND g.expires_at>? AND o.status='active' AND o.role='owner' AND o.version=g.owner_version AND g.owner_version=? AND g.credential_revision=? AND g.credential_expires_at>?`).bind(g.id,g.revision,Date.now(),g.owner_version,g.credential_revision,Date.now())
 }
-export async function grantById(db:D1Database,grantId:string){const grant=await db.prepare('SELECT id,name,definition,revision,created_by,owner_version,expires_at,revoked_at,reserved_cents,created_at FROM hnd_grants WHERE id=?').bind(grantId).first<Grant>();if(!grant)throw new Fault('grant_not_found',404);return grant}
+export async function grantById(db:D1Database,grantId:string){const grant=await db.prepare('SELECT id,name,definition,revision,created_by,owner_version,expires_at,revoked_at,reserved_cents,created_at,credential_expires_at,credential_revision FROM hnd_grants WHERE id=?').bind(grantId).first<Grant>();if(!grant)throw new Fault('grant_not_found',404);return grant}
 async function selectedRecords(db:D1Database,records:string[],kind?:string){
  for(const recordId of records){
   const result=await db.prepare(kind?'SELECT kind FROM hnd_records WHERE id=?':'SELECT id FROM hnd_cases WHERE id=?').bind(recordId).first<{kind?:string}>()
@@ -24,12 +24,12 @@ async function selectedRecords(db:D1Database,records:string[],kind?:string){
 export async function issue(env:Bindings,actor:Session,value:ObjectValue){
  keys(value,['name','definition','expiresAt','confirm'])
  if(value.confirm!=='approve scoped credential')throw new Fault('explicit_grant_consent_required')
- const d=definition(object(value.definition)),expiresAt=expires(value.expiresAt),grantId=id()
+ const d=definition(object(value.definition)),expiresAt=reviewExpires(value.expiresAt),grantId=id()
  await selectedRecords(env.DB,d.records);await selectedRecords(env.DB,d.numbers,'number');await selectedRecords(env.DB,d.recipients,'person')
  const random=crypto.getRandomValues(new Uint8Array(32)),token=btoa(String.fromCharCode(...random)).replaceAll('+','-').replaceAll('/','_').replaceAll('=','')
  const tokenHash=await digest(token),name=text(value.name,'name',80),now=Date.now()
  await commit(env,actor,'grant.create',grantId,'completed',[
-  env.DB.prepare('INSERT INTO hnd_grants VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(grantId,name,tokenHash,JSON.stringify(d),1,actor.operator.id,actor.operator.version,expiresAt,null,0,now),
+  env.DB.prepare('INSERT INTO hnd_grants(id,name,token_hash,definition,revision,created_by,owner_version,expires_at,revoked_at,reserved_cents,created_at,credential_expires_at,credential_revision) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(grantId,name,tokenHash,JSON.stringify(d),1,actor.operator.id,actor.operator.version,expiresAt,null,0,now,Math.min(expiresAt,now+86400000),1),
   env.DB.prepare('INSERT INTO hnd_authority_history VALUES (?,?,?,?,?,?)').bind(id(),grantId,1,JSON.stringify(d),actor.operator.id,now),
  ],true,grantPolicy({id:grantId,revision:1,owner_version:actor.operator.version}))
  return {grant:await grantById(env.DB,grantId),token}
@@ -91,3 +91,33 @@ export async function writeStanding(env:Bindings,actor:Session,value:ObjectValue
  return {id:target,revision,bounds:b,approvedBy:actor.operator.id}
 }
 export const policyMatches=(b:Bounds,s:State)=>s.operation==='call.paid'&&s.numberId===b.numberId&&s.recipients.length>0&&s.recipients.length<=b.maxListSize&&s.recipients.every(r=>b.recipients.includes(r))&&s.amountCents<=b.maxCents&&s.flowRevision===b.flowRevision&&s.policyRevision===b.policyRevision
+
+
+/** Revoke one reviewed authority without revoking the application's unrelated grants. */
+export async function revokeAuthority(env: Bindings, actor: Session, kind: 'approval' | 'policy', authorityId: string) {
+ const table = kind === 'approval' ? 'hnd_approvals' : 'hnd_standing'
+ const column = kind === 'approval' ? 'approval_id' : 'standing_id'
+ const authority = await env.DB.prepare(`SELECT * FROM ${table} WHERE id=?`).bind(authorityId).first<Approval & Standing>()
+ if (!authority) throw new Fault('authority_not_found', 404)
+ const grant = await grantById(env.DB, authority.grant_id)
+ await commit(env, actor, kind === 'approval' ? 'approval.revoke' : 'policy.revoke', authorityId, 'completed', [
+  env.DB.prepare(`UPDATE ${table} SET revoked_at=COALESCE(revoked_at,?) WHERE id=?`).bind(Date.now(), authorityId),
+  // The release and cancellation share one transaction. Racing revocations cannot release twice.
+  env.DB.prepare(`UPDATE hnd_grants SET reserved_cents=reserved_cents-COALESCE((SELECT SUM(amount_cents) FROM hnd_jobs WHERE ${column}=? AND status='held_adapter_unqualified'),0) WHERE id=?`).bind(authorityId, grant.id),
+  env.DB.prepare(`UPDATE hnd_jobs SET status='cancelled' WHERE ${column}=? AND status='held_adapter_unqualified'`).bind(authorityId),
+ ], true, { ...grantPolicy(grant), ...(kind === 'approval' ? { approval: { id: authorityId, revision: 1, ownerVersion: authority.owner_version } } : { standing: { id: authorityId, revision: authority.revision, ownerVersion: authority.owner_version } }) })
+ return { revoked: true }
+}
+
+
+/** Rotate only the secret. Reviewed scopes, approvals and historical work keep their revisions. */
+export async function rotateCredential(env: Bindings, actor: Session, grantId: string) {
+ const grant = await grantById(env.DB, grantId), now = Date.now()
+ if (grant.revoked_at || grant.expires_at <= now) throw new Fault('grant_inactive', 409)
+ const token = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).replaceAll('+','-').replaceAll('/','_').replaceAll('=','')
+ await commit(env, actor, 'grant.rotate', grantId, 'completed', [
+  env.DB.prepare(`INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_grants g JOIN oa_operators o ON o.id=g.created_by WHERE g.id=? AND g.revision=? AND g.credential_revision=? AND g.revoked_at IS NULL AND g.expires_at>? AND o.status='active' AND o.role='owner' AND o.version=g.owner_version`).bind(grant.id,grant.revision,grant.credential_revision,now),
+  env.DB.prepare('UPDATE hnd_grants SET token_hash=?,credential_expires_at=?,credential_revision=credential_revision+1 WHERE id=?').bind(await digest(token),Math.min(grant.expires_at,now+86400000),grantId),
+ ], true, grantPolicy(grant))
+ return { grant: await grantById(env.DB, grantId), token }
+}

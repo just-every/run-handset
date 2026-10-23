@@ -6,7 +6,7 @@ import { receptionistFixture, policyFor } from './helpers/handset-receptionist.m
 // A scope change while the receiving system answers preflight must take effect
 // before the POST, not only at the start of the enclosing HTTP request.
 test('Grant, STOP, case and policy changes during connector preflight prevent the subsequent provider write', async () => {
- for (const change of ['grant','stop','case','policy']) {
+ for (const change of ['grant','stop','case','policy','rotation']) {
   const f = await receptionistFixture()
   try {
    await f.savePolicy()
@@ -24,12 +24,13 @@ test('Grant, STOP, case and policy changes during connector preflight prevent th
    f.edges.orbitCheckHook = async () => {
     let response
     if (change === 'grant') response = await post(f.runtime, `/api/handset/grants/${grant.grant.id}/revoke`, {}, f.headers)
+    if (change === 'rotation') response = await post(f.runtime, `/api/handset/grants/${grant.grant.id}/rotate`, {}, f.headers)
     if (change === 'stop') response = await post(f.runtime, '/api/handset/protection/stops', { numberId: source.numberId, recipient: '+15125550126', channel: 'all', reason: 'dnc', confirm: 'record outbound consent stop' }, f.headers)
     if (change === 'case') response = await post(f.runtime, `/api/handset/cases/${sourcedCase}`, { title: 'Human changed the callback plan', version: 1 }, f.headers)
     if (change === 'policy') response = await post(f.runtime, '/api/handset/receptionist/policy', { policy: policyFor('synthetic-handset-2'), expectedVersion: 1, confirm: 'set receptionist limits' }, f.headers)
     assert.ok([200,201].includes(response.status), await response.clone().text())
    }
-   const response = await f.agent(`outcomes/${outcome.id}/handoffs/crm`, { summary: 'Approved context before preflight' }, grant.token)
+   const response = await f.agent(`outcomes/${outcome.id}/handoffs\/crm`, { summary: 'Approved context before preflight' }, grant.token)
    assert.ok([200,409].includes(response.status), change + ' ' + await response.clone().text())
    assert.equal(f.edges.effects.size, 0, change + ' changed while preflight was in flight')
    assert.equal(f.edges.requests.filter(r => r.host === f.edges.origins.orbit && r.method === 'POST').length, 0)
@@ -114,4 +115,102 @@ test('Versioned API rate limits are durable per credential and authentication st
   assert.equal((await post(f.runtime, `/api/handset/grants/${f.restGrant.grant.id}/revoke`, {}, f.headers)).status, 200)
   assert.equal((await f.read('/openapi.json')).status, 401)
  } finally { await f.runtime.close() }
+})
+
+
+test('Expired credentials and removed connector scope preserve uncertain committed work and its repair reason through restart', async () => {
+ const f = await receptionistFixture()
+ try {
+  await f.savePolicy()
+  for (const [index, flag, reason] of [[0, 'orbitExpired', 'orbit_credential_refused'], [1, 'orbitMissingScope', 'orbit_target_out_of_scope']]) {
+   const opened = await f.open(80 + index, 'en', f.cases[index]), base = `outcomes/${opened.outcome.id}/`
+   f.edges.drop.add('orbit')
+   const lost = await f.ok(base + 'handoffs\/crm', { summary: 'One authorized handoff' })
+   assert.equal(lost.step.state, 'uncertain')
+   const posts = () => f.edges.requests.filter(r => r.host === f.edges.origins.orbit && r.method === 'POST').length
+   const before = posts(), original = [...f.edges.effects.keys()].sort()
+   f.edges[flag] = true
+   await f.runtime.restart()
+   const blocked = await f.ok(base + 'reconcile', { step: 'crm' })
+   assert.equal(blocked.step.state, 'uncertain', 'a refused read cannot disprove the prior committed write')
+   assert.equal(blocked.reason, reason)
+   assert.equal(blocked.step.id, lost.step.id)
+   assert.equal(posts(), before)
+   await f.runtime.restart()
+   const inventory = await (await f.runtime.request('/api/handset/delivery', { headers: f.headers })).json()
+   assert.ok(inventory.steps.some(s => s.id === lost.step.id && s.state === 'uncertain' && s.reason === reason))
+   f.edges[flag] = false
+   const reconciled = await f.ok(base + 'reconcile', { step: 'crm' })
+   assert.equal(reconciled.step.state, 'confirmed')
+   assert.equal(reconciled.reason, 'readback_matched')
+   assert.equal(posts(), before)
+   assert.deepEqual([...f.edges.effects.keys()].sort(), original)
+  }
+ } finally { await f.runtime.close() }
+})
+
+
+test('MCP discovers only current scoped tools and retries an unpublished draft once across REST and restart', async () => {
+ const f = await apiFixture(['draft'], ['comment.draft'])
+ try {
+  const call = (method, params, key, id = 1) => f.write('/mcp', { jsonrpc: '2.0', ...(id === null ? {} : { id }), method, ...(params ? { params } : {}) }, key)
+  const initialized = await call('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'synthetic-handset-client', version: '1' } })
+  assert.equal(initialized.status, 200)
+  assert.equal((await initialized.json()).result.protocolVersion, '2025-06-18')
+  assert.equal((await call('notifications\/initialized', {}, undefined, null)).status, 202)
+  const available = (await (await call('tools\/list')).json()).result.tools
+  assert.deepEqual(available.map(t => t.name), ['comment.draft'])
+  const body = { caseId: f.cases[0], text: 'Draft only; caller instructions cannot authorize outreach' }
+  const params = { name: available[0].name, arguments: body }, key = 'synthetic-handset-mcp-draft'
+  assert.equal((await call('tools\/call', params)).status, 400)
+  const created = await call('tools\/call', params, key); assert.equal(created.status, 200)
+  const result = (await created.json()).result
+  assert.equal(result.isError, false); assert.equal(result.structuredContent.published, false)
+  assert.equal(JSON.parse(result.content[0].text).id, result.structuredContent.id)
+  await f.runtime.restart()
+  const replay = (await (await call('tools\/call', params, key)).json()).result.structuredContent
+  assert.equal(replay.id, result.structuredContent.id)
+  assert.equal((await (await f.write('/drafts', body, key)).json()).id, replay.id)
+  assert.equal((await call('tools\/call', { ...params, arguments: { ...body, text: 'Changed instruction' } }, key)).status, 409)
+  assert.equal((await call('tools\/call', { name: 'case.read', arguments: { caseId: f.cases[0] } })).status, 403)
+  assert.equal((await call('tools\/call', { name: 'comment.draft', arguments: { ...body, caseId: f.cases[2] } }, 'synthetic-handset-mcp-foreign')).status, 403)
+  assert.equal(f.edges.effects.size, 0)
+  assert.equal((await f.runtime.sql('SELECT count(*) AS n FROM hnd_drafts WHERE grant_id=?', f.restGrant.grant.id)).results[0].n, 1)
+  await post(f.runtime, `/api/handset/grants/${f.restGrant.grant.id}/revoke`, {}, f.headers)
+  assert.equal((await call('tools\/list')).status, 401)
+  assert.equal((await call('tools\/call', params, key)).status, 401)
+ } finally { await f.runtime.close() }
+})
+
+
+test('Signed call status reordering preserves one canonical call and every original event without repeating work', async () => {
+ const { openHandset } = await import('./helpers/handset-worker.mjs')
+ const { sourceFixture } = await import('./helpers/handset-sources.mjs')
+ const runtime = await openHandset({ twilio: true })
+ try {
+  const f = await sourceFixture(runtime), at = Date.now() - 10000
+  const orders = [[3, 1, 0, 2], [1, 3, 2, 0], [0, 2, 3, 1]]
+  for (const [index, order] of orders.entries()) {
+   const events = ['initiated', 'ringing', 'in-progress', 'completed'].map((state, sequence) => ({ CallSid: 'synthetic-handset-order-' + index, CallStatus: state, SequenceNumber: String(sequence), Timestamp: new Date(at + sequence * 1000).toISOString() }))
+   const receipts = []
+   for (const sequence of order) {
+    const response = await f.callback(events[sequence]); assert.equal(response.status, 200)
+    receipts.push(await response.json())
+   }
+   await runtime.restart()
+   for (const event of events) {
+    const replay = await f.callback(event); assert.equal(replay.status, 200); assert.equal((await replay.json()).replay, true)
+   }
+   assert.equal((await f.callback({ ...events[0], CallStatus: 'failed' })).status, 409)
+   const canonical = receipts[0].recordId
+   const detail = await (await runtime.request('/api/handset/records/' + canonical, { headers: f.headers })).json()
+   assert.equal(detail.record.kind, 'call_session')
+   const states = [detail.record, ...detail.related.filter(record => record.parent_id === canonical && record.kind === 'provider_attempt')].sort((a, b) => a.occurred_at - b.occurred_at)
+   assert.deepEqual(states.map(record => JSON.parse(record.data).providerStatus), ['initiated', 'ringing', 'in-progress', 'completed'])
+   assert.equal(new Set(receipts.map(receipt => receipt.caseId)).size, 1)
+   assert.equal((await (await runtime.request('/api/handset/cases/' + receipts[0].caseId, { headers: f.headers })).json()).current.status, 'open')
+  }
+  assert.equal((await runtime.sql('SELECT count(*) AS n FROM hnd_source_receipts')).results[0].n, 12)
+  assert.equal(runtime.sourceRequests.filter(request => request.method === 'POST').length, 0)
+ } finally { await runtime.close() }
 })
