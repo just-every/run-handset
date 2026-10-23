@@ -112,6 +112,42 @@ test('Standing call policies retain the exact checked list and human revision an
 })
 
 
+test('Individual approval and standing-policy revocation cancel only their pending work and preserve unrelated authority', async () => {
+ const runtime = await openHandset()
+ try {
+  const f = await authorityFixture(runtime), g = await f.issue()
+  const bounds = { numberId: f.number, recipients: f.recipients, maxCents: 100, maxListSize: 2, flowRevision: '1', policyRevision: 'owner-only-v1' }
+  for (const kind of ['approval', 'policy']) {
+   const approval = await f.approve(g.grant.id)
+   const policy = await f.create('/api/handset/grants/policy', { grantId: g.grant.id, bounds, expiresAt: Date.now() + 1800000, confirm: 'approve standing call bounds' })
+   const target = kind === 'approval' ? approval : policy, basis = kind === 'approval' ? { approvalId: target.id } : { standingId: target.id }
+   const otherBasis = kind === 'approval' ? { standingId: policy.id } : { approvalId: approval.id }
+   const prepared = await f.app(g.token, 'prepare', { state: f.proposed, ...basis, idempotencyKey: 'synthetic-handset-revoke-' + kind })
+   assert.equal(prepared.status, 202); const job = (await prepared.json()).job
+   const unrelated = await f.app(g.token, 'prepare', { state: f.proposed, ...otherBasis, idempotencyKey: 'synthetic-handset-retain-' + kind })
+   assert.equal(unrelated.status, 202); const other = (await unrelated.json()).job
+   const path = `/api/handset/grants/${kind}/${target.id}/revoke`
+   assert.equal((await post(runtime, path, {}, { authorization: 'Bearer ' + g.token })).status, 401)
+   await runtime.sql("UPDATE oa_operators SET status='active',role='admin' WHERE id='synthetic-handset-2'")
+   const admin = await signIn({ ...runtime, ownerEmail: 'synthetic-handset-2@example.test' })
+   assert.equal((await post(runtime, path, {}, { cookie: admin.cookie })).status, 403)
+   const raced = await Promise.all([post(runtime, path, {}, f.headers), post(runtime, path, {}, f.headers)])
+   assert.ok(raced.every(r => r.status === 200))
+   await runtime.restart()
+   const row = (await runtime.sql('SELECT * FROM hnd_jobs WHERE id=?', job.id)).results[0]
+   assert.equal(row.status, 'cancelled'); assert.equal(row.state_json, job.state_json); assert.equal(row.approved_by, job.approved_by)
+   assert.equal((await f.app(g.token, 'execute', { jobId: job.id, state: f.proposed })).status, 403)
+   assert.equal((await f.app(g.token, 'prepare', { state: f.proposed, ...basis, idempotencyKey: 'synthetic-handset-refused-' + kind })).status, 403)
+   assert.equal((await f.app(g.token, 'execute', { jobId: other.id, state: f.proposed })).status, 202)
+   assert.equal((await runtime.sql('SELECT reserved_cents FROM hnd_grants WHERE id=?', g.grant.id)).results[0].reserved_cents, 60)
+   assert.equal((await post(runtime, `/api/handset/grants/jobs/${other.id}/cancel`, {}, f.headers)).status, 200)
+   assert.equal((await runtime.sql('SELECT reserved_cents FROM hnd_grants WHERE id=?', g.grant.id)).results[0].reserved_cents, 0)
+  }
+  const audit = await (await runtime.request('/api/handset/audit/export', { headers: f.headers })).json()
+  for (const action of ['approval.revoke', 'policy.revoke']) assert.ok(audit.rows.some(r => r.action === action && r.outcome === 'completed'))
+ } finally { await runtime.close() }
+})
+
 test('Executive delegation scopes presence and held call controls, preserves actor and principal, and revokes all direct access immediately',async()=>{
  const {delegationFixture,recordingFixture}=await import('./helpers/handset-delegation.mjs')
  const runtime=await openHandset({twilio:true})
@@ -272,4 +308,38 @@ test('An executive callback reuses exact recipient consent and budget, selects t
   const answered=await f.callback(admitted.dialer.attempts[0],second,'answer');assert.equal(answered.status,200)
   const instructions=await answered.text();assert.ok(instructions.includes('<Hangup/>')&&!instructions.includes('<Conference'),'revoked delegation cannot bridge a pending callback through the signed provider door')
  }finally{await runtime.close()}
+})
+
+
+test('A reviewed grant survives secret expiry and rotation without extending its scope or reviving revoked authority', async () => {
+ const runtime = await openHandset()
+ try {
+  const f = await authorityFixture(runtime)
+  const review = Date.now() + 89 * 86400000, g = await f.issue({ expiresAt: review })
+  assert.equal(g.grant.expires_at, review)
+  assert.ok(g.grant.credential_expires_at <= Date.now() + 86400000)
+  const approval = await f.approve(g.grant.id)
+  const prepared = await f.app(g.token, 'prepare', { state: f.proposed, approvalId: approval.id, idempotencyKey: 'synthetic-handset-rotation' })
+  assert.equal(prepared.status, 202); const job = (await prepared.json()).job
+  await runtime.sql('UPDATE hnd_grants SET credential_expires_at=? WHERE id=?', Date.now() - 1, g.grant.id)
+  assert.equal((await f.app(g.token, 'execute', { jobId: job.id, state: f.proposed })).status, 401)
+  const path = `/api/handset/grants/${g.grant.id}/rotate`
+  assert.equal((await post(runtime, path, {}, { authorization: 'Bearer ' + g.token })).status, 401)
+  const rotated = await f.create(path, {})
+  assert.notEqual(rotated.token, g.token)
+  assert.equal(rotated.grant.revision, g.grant.revision)
+  assert.equal(rotated.grant.credential_revision, 2)
+  assert.equal(rotated.grant.expires_at, review)
+  assert.equal(rotated.grant.definition, g.grant.definition)
+  assert.equal(rotated.grant.reserved_cents, 60)
+  await runtime.restart()
+  assert.equal((await f.app(g.token, 'execute', { jobId: job.id, state: f.proposed })).status, 401)
+  assert.equal((await f.app(rotated.token, 'execute', { jobId: job.id, state: f.proposed })).status, 202)
+  const inventory = await (await runtime.request('/api/handset/grants', { headers: f.headers })).text()
+  assert.ok(!inventory.includes(rotated.token) && !inventory.includes('token_hash'))
+  await post(runtime, `/api/handset/grants/${g.grant.id}/revoke`, {}, f.headers)
+  assert.equal((await post(runtime, path, {}, f.headers)).status, 409)
+  assert.equal((await f.app(rotated.token, 'execute', { jobId: job.id, state: f.proposed })).status, 401)
+  assert.equal((await post(runtime, '/api/handset/grants', { ...f.grantInput, expiresAt: Date.now() + 91 * 86400000 }, f.headers)).status, 400)
+ } finally { await runtime.close() }
 })

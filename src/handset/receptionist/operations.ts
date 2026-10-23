@@ -43,8 +43,8 @@ export async function availability(c: Ctx, value: ObjectValue) {
  const existing = await stepRow(c.env.DB, c.outcome.id, 'availability')
  const body = JSON.stringify({ serviceId: s.id, slots: read.slots, fetchedAt })
  await append(c.env, c.grant.id, 'outcome.step', existing?.id ?? crypto.randomUUID(), 'completed', [grantFence(c.env, c.grant),
-  existing ? c.env.DB.prepare("UPDATE hnd_rx_steps SET state='confirmed',request=?,request_hash=?,readback=?,version=version+1,updated_at=? WHERE id=?").bind(JSON.stringify(request), hash, body, fetchedAt, existing.id)
-   : c.env.DB.prepare("INSERT INTO hnd_rx_steps(id,outcome_id,kind,state,request,request_hash,readback,attempts,version,created_at,updated_at) VALUES (?,?,'availability','confirmed',?,?,?,1,1,?,?)").bind(crypto.randomUUID(), c.outcome.id, JSON.stringify(request), hash, body, fetchedAt, fetchedAt)], null, c.applied)
+  existing ? c.env.DB.prepare("UPDATE hnd_rx_steps SET state='confirmed',reason='availability_read',request=?,request_hash=?,readback=?,version=version+1,updated_at=? WHERE id=?").bind(JSON.stringify(request), hash, body, fetchedAt, existing.id)
+   : c.env.DB.prepare("INSERT INTO hnd_rx_steps(id,outcome_id,kind,state,request,request_hash,readback,attempts,version,created_at,updated_at,reason) VALUES (?,?,'availability','confirmed',?,?,?,1,1,?,?,'availability_read')").bind(crypto.randomUUID(), c.outcome.id, JSON.stringify(request), hash, body, fetchedAt, fetchedAt)], null, c.applied)
  return { state: 'ok', serviceId: s.id, slots: read.slots.slice(0, 20).map(startAt => ({ startAt, spoken: localTime(c.policy, c.outcome.language, startAt) })), fetchedAt }
 }
 export async function knowledge(c: Ctx, value: ObjectValue) {
