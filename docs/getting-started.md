@@ -2,21 +2,20 @@ Handset runs on your own computer: you own the copy, the data and the code. Star
 
 ## Start Handset
 
-With Node 22 or later installed, run:
+Open a terminal and run:
+
+```sh
+curl -fsSL https://runeditrun.com/install.sh | sh -s -- dev just-every/run-handset
+```
+
+Git is required; rer brings Node and pnpm. Already have Node 22 or later? This does the same:
 
 ```sh
 npx -y @runeditrun/rer dev just-every/run-handset
 ```
 
-Without Node, install `rer` first; the installer brings its own Node and edits none of your shell files:
-
-```sh
-curl -fsSL https://runeditrun.com/install.sh | sh
-rer dev just-every/run-handset
-```
-
-If the installer ends with a line to run, run it before the second line: it puts `rer` on your PATH for this
-terminal and for new ones. Handset runs on macOS, Linux, or Windows with WSL2, with git installed; `rer` brings pnpm.
+The installer edits none of your shell files. If it ends with a line to run, run it too: it puts `rer` on your PATH
+for this terminal and for new ones. Handset runs on macOS, Linux, or Windows with WSL2.
 
 ## What the line does
 
@@ -44,7 +43,7 @@ about your installation beyond that.
 
 ## Start it again, and stop it
 
-To start Handset again later, from the folder you started it in:
+To start Handset again later, run the same line from the folder you started it in, or:
 
 ```sh
 cd run-handset && rer dev
