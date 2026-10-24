@@ -359,8 +359,8 @@ Judged from the code and tests at commit `fe585db` (23 October 2026).
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 0 | 0 | 0 | 0 |
-| Target and push further | 3 | 15 | 81 | 99 |
-| All | 3 | 15 | 81 | 99 |
+| Target and push further | 3 | 16 | 80 | 99 |
+| All | 3 | 16 | 80 | 99 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -383,7 +383,7 @@ Judged from the code and tests at commit `fe585db` (23 October 2026).
 | `HND-017` | Callbacks and missed-call recovery | target | missing |  | No implementation: callbacks and missed-call recovery and the complete acceptance journey are missing. |
 | `HND-018` | Agent workspace and complete context | target | missing |  | No implementation: agent workspace and complete context and the complete acceptance journey are missing. |
 | `HND-019` | Supervisor tools and live wallboards | target | missing |  | No implementation: supervisor tools and live wallboards and the complete acceptance journey are missing. |
-| `HND-020` | Quality review and coaching | target | missing |  | No implementation: quality review and coaching and the complete acceptance journey are missing. |
+| `HND-020` | Quality review and coaching | target | partial | `tests/handset-records.mjs` — Human quality corrections preserve cited originals and independently scope coaching employee notes and agent self-review; Quality reads exports and mutations require current team and separate recording authority including parallel revocation; Quality intake rejects ungrounded moments unavailable recordings stale rubrics and unapproved cross-origin writes. API subpoints only; no whole acceptance point is complete. | Preparatory native API implements immutable team rubric revisions, owner-supplied text tied to an exact canonical call and completed provider recording metadata, cited human scores and corrections, coaching and agent self-review, separately permitted employee notes, and current team plus independent recording checks on reads and separately approved exports. This is human review only, not AI scoring or verified speech. Remaining: complete representative-week accounting and all consent-eligible available support calls scored by an AI against the team rubric; qualified capture consent and transcription with source moments and failure accounting; held-out human agreement and person-approved recalibration; complete UI workflow and populated, successful, missing, failed, denied, stale and revoked browser states at 1440 and 390. Conservative default ADOPTED pending ct: owners alone administer teams, exact-person team capabilities and text intake; supervisors and agents require explicit team capabilities lasting at most 24 hours; agents read only their own assigned reviews; employee notes and export need separate permissions; every content door also requires an independent current exact-recording grant. No model traffic, customer contact or personnel action. HND-013 and HND-014 retain capture and transcript qualification; HND-027 inherits broader scoped role administration and HND-076 retains measured coaching outcomes. See docs/QUALITY.md. |
 | `HND-021` | Outbound dialer and lawful calling | target | missing |  | No implementation: outbound dialer and lawful calling and the complete acceptance journey are missing. |
 | `HND-022` | Explainable analytics and scheduled reporting | target | missing |  | No implementation: explainable analytics and scheduled reporting and the complete acceptance journey are missing. |
 | `HND-023` | Call tracking and advertising attribution | target | missing |  | No implementation: call tracking and advertising attribution and the complete acceptance journey are missing. |

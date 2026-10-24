@@ -22,6 +22,15 @@ const playbackPolicy=(actor:Session,g?:Pick<Grant,'id'|'owner_version'>,r?:Recor
 async function currentGrant(env:Bindings,actor:Session,recordingId:string){
  return await sql(env,`SELECT g.* FROM hnd_recording_grants g JOIN oa_operators o ON o.id=g.created_by JOIN oa_operators p ON p.id=g.person_id WHERE g.recording_id=? AND g.person_id=? AND g.revoked_at IS NULL AND g.expires_at>? AND o.role='owner' AND o.status='active' AND o.version=g.owner_version AND p.status='active' AND p.version=g.person_version ORDER BY g.created_at DESC LIMIT 1`,recordingId,actor.operator.id,Date.now()).first<Grant>()
 }
+// Shared content authorization never mints a playback grant or fetches media.
+export async function recordingAccess(env:Bindings,actor:Session,target:string){
+ const grant=await currentGrant(env,actor,target)
+ if(!grant)throw new Fault('exact_person_recording_grant_required',403)
+ const r=await recording(env,target)
+ const fences=()=>[nativeFence(env,actor),grantFence(env,actor,grant),sourceFence(env,r),recordingFence(env,r)]
+ await env.DB.batch([...fences(),sql(env,'DELETE FROM hnd_guard')])
+ return {fences,applied:playbackPolicy(actor,grant,r)}
+}
 export async function recordingDoor(request:Request,env:Bindings,actor:Session,value?:ObjectValue):Promise<Response|null>{
  const url=new URL(request.url),path=url.pathname,base='/api/handset/recordings'
  if(!path.startsWith(base+'/'))return null

@@ -1,6 +1,7 @@
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { session, owner, json, input, Fault, page } from '../core'
+import { qualityDoor } from '../quality/doors'
 import { delegationDoor } from '../delegation/doors'
 import { recordingsPage } from '../recording/doors'
 import { scopeDoor } from '../authority/sponsors'
@@ -30,6 +31,9 @@ export async function productResponse(request: Request, original: Bindings): Pro
  try {
   auth = await session(request,original)
   const {env,session:actor} = auth, db=env.DB
+  if(path==='/api/handset/quality'||path.startsWith('/api/handset/quality/')){
+   return await qualityDoor(request,env,actor,request.method==='GET'?undefined:await input(request))
+  }
   if(path==='/api/handset/admin'||path.startsWith('/api/handset/admin/')||path.startsWith('/app/admin/')){
    const response=await adminDoor(request,env,actor,request.method==='GET'?undefined:await input(request,2097152))
    if(response)return response

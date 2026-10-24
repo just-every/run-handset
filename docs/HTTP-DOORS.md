@@ -171,3 +171,13 @@ The owner-only usage receipt child on a source call reads carrier price and
 rechecks current source consent before appending canonical facts. It grants no
 outbound effect or playback access. Compliance follow-up and case history use the
 same current native owner checks as the existing compliance API.
+
+
+The preparatory `/api/handset/quality` human-review API uses native sessions and
+same-origin mutations. Owners administer exact team capabilities and supplied
+text intake. Explicit supervisors correct scores and coach; agents comment only
+on their own assigned reviews. All content reads and writes also require an
+independent current exact-recording approval. Export and employee-note scopes
+are separate explicit permissions. Source, person and capability revocation are
+fenced before releasing content. This adds no recording, transcript, model or
+customer-contact authority. See `docs/QUALITY.md` for the remaining HND-020 work.

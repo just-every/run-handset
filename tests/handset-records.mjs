@@ -646,3 +646,91 @@ test('Carrier price readback preserves exact USD precision and append-only corre
   assert.ok(runtime.sourceRequests.every(r=>r.method==='GET'))
  } finally { await runtime.close() }
 })
+
+test('Human quality corrections preserve cited originals and independently scope coaching employee notes and agent self-review',async()=>{
+ const {qualityFixture}=await import('./helpers/handset-quality.mjs'),runtime=await openHandset({twilio:true})
+ try{
+  const f=await qualityFixture(runtime),path='/reviews/'+f.review.id,read=async(headers=f.headers,suffix='')=>runtime.request(f.base+path+suffix,{headers})
+  const corrected=await f.write(path+'/override',{scoreId:f.review.scoreId,grades:[{...f.grades[0],score:4,explanation:'A supervisor corrected this exact cited observation.'}]})
+  assert.equal((await post(runtime,f.base+path+'/override',{scoreId:f.review.scoreId,grades:f.grades},f.headers)).status,409,'a stale override cannot branch history')
+  await f.write(path+'/comments',{scoreId:corrected.id,segmentId:'moment',kind:'coaching',body:'Ask the consent question explicitly.'})
+  await f.write(path+'/comments',{scoreId:corrected.id,segmentId:'moment',kind:'employee_note',body:'Synthetic private employee note.'})
+  const original=await(await read()).json()
+  assert.deepEqual(original.scores.map(s=>s.grades[0].score).sort(),[2,4]);assert.equal(original.scores.find(s=>s.id===corrected.id).supersedes_id,f.review.scoreId)
+  assert.equal(original.rubric.revision,1);assert.equal(original.personnelAction,'none');assert.equal(original.aiScored,false);assert.equal(original.speechVerified,false)
+  await f.playback('synthetic-handset-600')
+  await f.write(path+'/comments',{scoreId:corrected.id,segmentId:'moment',kind:'self_review',body:'I will ask this question clearly.'},{cookie:f.agent.cookie})
+  const agentRead=await(await read({cookie:f.agent.cookie})).json()
+  assert.deepEqual(agentRead.comments.map(c=>c.kind).sort(),['coaching','self_review'])
+  assert.ok(!JSON.stringify(agentRead).includes('Synthetic private employee note.'))
+  assert.equal((await read({cookie:f.agent.cookie},'/export')).status,403,'export requires separate exact approval')
+  await f.playback('synthetic-handset-602')
+  const supervisorRead=await read({cookie:f.supervisor.cookie},'/export')
+  assert.equal(supervisorRead.status,200);assert.ok(!(await supervisorRead.text()).includes('Synthetic private employee note.'))
+  assert.equal((await post(runtime,f.base+path+'/comments',{scoreId:corrected.id,segmentId:'moment',kind:'employee_note',body:'Forbidden note'},{cookie:f.supervisor.cookie})).status,403)
+  assert.equal((await post(runtime,f.base+path+'/override',{scoreId:corrected.id,grades:f.grades},{cookie:f.agent.cookie})).status,403)
+  for(const table of ['hnd_quality_reviews','hnd_quality_scores','hnd_quality_comments','hnd_quality_rubrics']){
+   await assert.rejects(runtime.sql('DELETE FROM '+table),/append_only/)
+  }
+  const competing=await Promise.all([3,5].map(score=>post(runtime,f.base+path+'/override',{scoreId:corrected.id,grades:[{...f.grades[0],score}]},f.headers)))
+  assert.deepEqual(competing.map(r=>r.status).sort(),[201,409],'competing supervisors cannot fork the score chain')
+  await runtime.restart()
+  const after=await(await read()).json();assert.equal(after.scores.length,3);assert.equal(after.comments.length,3)
+ }finally{await runtime.close()}
+})
+
+test('Quality reads exports and mutations require current team and separate recording authority including parallel revocation',async()=>{
+ const {qualityFixture}=await import('./helpers/handset-quality.mjs'),runtime=await openHandset({twilio:true})
+ try{
+  const f=await qualityFixture(runtime),path=f.base+'/reviews/'+f.review.id
+  for(const suffix of ['', '/export']){
+   assert.equal((await runtime.request(path+suffix)).status,401)
+   const foreign=await runtime.request(path+suffix,{headers:{cookie:f.foreign.cookie}})
+   assert.equal(foreign.status,403);assert.ok(!(await foreign.text()).includes(f.reviewInput.segments[0].text))
+   assert.equal((await runtime.request(path+suffix,{headers:{cookie:f.agent.cookie}})).status,403,'team membership alone never grants recording content')
+  }
+  await f.grant(f.team.id,'synthetic-handset-601','agent')
+  await f.playback('synthetic-handset-601')
+  assert.equal((await runtime.request(path,{headers:{cookie:f.foreign.cookie}})).status,404,'another agent in the same team still cannot inspect this assigned review')
+  await f.playback('synthetic-handset-600')
+  assert.equal((await runtime.request(path,{headers:{cookie:f.agent.cookie}})).status,200)
+  await f.grant(f.team.id,'synthetic-handset-600','agent')
+  assert.equal((await post(runtime,f.base+'/grants/'+f.agentGrant.id+'/revoke',{},f.headers)).status,200)
+  assert.equal((await runtime.request(path+'/export',{headers:{cookie:f.agent.cookie}})).status,403,'revocation closes every parallel team grant')
+  const current=await f.grant(f.team.id,'synthetic-handset-600','agent')
+  await runtime.sql('UPDATE hnd_quality_grants SET expires_at=? WHERE id=?',Date.now()-1,current.id)
+  assert.equal((await runtime.request(path,{headers:{cookie:f.agent.cookie}})).status,403)
+  assert.equal((await post(runtime,'/api/handset/recordings/grants/'+f.recordingGrant.id+'/revoke',{},f.headers)).status,200)
+  for(const suffix of ['', '/export'])assert.equal((await runtime.request(path+suffix,{headers:f.headers})).status,403)
+  assert.equal((await post(runtime,path+'/override',{scoreId:f.review.scoreId,grades:f.grades},f.headers)).status,403)
+  await f.playback('synthetic-handset-1')
+  assert.equal((await runtime.request(path,{headers:f.headers})).status,200)
+  assert.equal((await post(runtime,'/api/handset/sources/revoke',{sourceId:f.source.id},f.headers)).status,200)
+  assert.equal((await runtime.request(path+'/export',{headers:f.headers})).status,404,'source revocation also closes stored text and coaching')
+  assert.ok(runtime.sourceRequests.every(r=>!r.url.endsWith('.wav')),'human review never fetches audio or invokes a model')
+ }finally{await runtime.close()}
+})
+
+test('Quality intake rejects ungrounded moments unavailable recordings stale rubrics and unapproved cross-origin writes',async()=>{
+ const {qualityFixture}=await import('./helpers/handset-quality.mjs'),runtime=await openHandset({twilio:true})
+ try{
+  const f=await qualityFixture(runtime),create=body=>post(runtime,f.base+'/reviews',{...f.reviewInput,...body},f.headers)
+  assert.equal((await create({segments:[{id:'moment',startMs:0,endMs:61000,text:'Outside recording'}]})).status,400)
+  assert.equal((await create({grades:[{...f.grades[0],segmentId:'absent'}]})).status,400)
+  assert.equal((await create({grades:[{...f.grades[0],score:6}]})).status,400)
+  assert.equal((await create({grades:[f.grades[0],f.grades[0]]})).status,400)
+  assert.equal((await create({})).status,409,'duplicate intake retains the original')
+  assert.equal((await create({recordingId:'synthetic-handset-absent'})).status,403)
+  assert.equal((await create({callId:'synthetic-handset-absent'})).status,409)
+  assert.equal((await create({confirm:'assume consent'})).status,403)
+  assert.equal((await post(runtime,f.base+'/teams',{name:'Forbidden'},{...f.headers,origin:'https://foreign.example'})).status,403)
+  assert.equal((await post(runtime,f.base+'/rubrics',{teamId:f.team.id,expectedRevision:0,criteria:[{id:'verify',label:'Consent',maxScore:5}]},f.headers)).status,409)
+  const next=await f.write('/rubrics',{teamId:f.team.id,expectedRevision:1,criteria:[{id:'verify',label:'Consent revised',maxScore:10}]})
+  assert.equal(next.revision,2);assert.equal((await create({})).status,409,'a new intake cannot use a superseded rubric')
+  const old=await(await runtime.request(f.base+'/reviews/'+f.review.id,{headers:f.headers})).json()
+  assert.equal(old.rubric.revision,1);assert.equal(old.scores[0].grades[0].score,2)
+  const audit=await(await runtime.request('/api/handset/audit/export',{headers:f.headers})).json()
+  assert.ok(audit.rows.some(r=>r.action==='quality.review'));assert.ok(audit.rows.some(r=>r.action==='quality.request'&&r.outcome==='refused'))
+  assert.ok(!JSON.stringify(audit).includes(f.reviewInput.segments[0].text))
+ }finally{await runtime.close()}
+})
