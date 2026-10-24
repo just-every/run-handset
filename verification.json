@@ -27,6 +27,42 @@
         "pnpm run test:runtime",
         "pnpm run test:site"
       ]
+    },
+    {
+      "name": "handset-auth",
+      "browser": false,
+      "hosted": false,
+      "commands": [
+        "pnpm run build",
+        "node --test --test-concurrency=1 tests/handset-auth.mjs tests/handset-authority.mjs tests/handset-records.mjs"
+      ]
+    },
+    {
+      "name": "handset-administration",
+      "browser": false,
+      "hosted": false,
+      "commands": [
+        "pnpm run build",
+        "node --test --test-concurrency=1 tests/handset-reporting.mjs tests/handset-import.mjs tests/handset-admin.mjs"
+      ]
+    },
+    {
+      "name": "handset-auth-browser",
+      "browser": true,
+      "hosted": false,
+      "commands": [
+        "pnpm run build",
+        "node --test --test-concurrency=1 tests/handset-auth-browser.mjs"
+      ]
+    },
+    {
+      "name": "handset-console-browser",
+      "browser": true,
+      "hosted": false,
+      "commands": [
+        "pnpm run build",
+        "node --test --test-concurrency=1 tests/handset-console-browser.mjs"
+      ]
     }
   ],
   "nightly": []
