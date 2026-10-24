@@ -9,14 +9,7 @@
     "record": "No domain record selected"
   },
   "description": "TanStack Start and Hono Worker with real owner authentication, D1 and silent development mail suppression.",
-  "capabilities": [
-    {
-      "id": "http-dispatch",
-      "clauses": [
-        "HTTP-001"
-      ]
-    }
-  ],
+  "capabilities": [],
   "nonGoals": [
     "Finished product functionality",
     "Speculative domain data"
@@ -81,5 +74,6 @@
       "operator-auth",
       "owner-claim"
     ]
-  }
+  },
+  "replaces": []
 }

@@ -50,3 +50,5 @@ workflow deploys `run-handset.com` through the `run-site` environment when
 `RUN_SITE_DEPLOY=true`. Its `/run` page explains local installation.
 
 MIT licensed. Source: [just-every/run-handset](https://github.com/just-every/run-handset).
+
+Run Handset: https://run-handset.com/run

@@ -32,7 +32,9 @@
     "check": "rer check",
     "deps": "rer install",
     "rer": "rer",
-    "source:lock": "node scripts/edition-authoring/cli.mjs lock"
+    "source:lock": "node scripts/edition-authoring/cli.mjs lock",
+    "delivery:spec": "node scripts/build-deployment-spec.mjs",
+    "check:deployment-spec": "node scripts/build-deployment-spec.mjs --check"
   },
   "dependencies": {
     "@tanstack/react-router": "1.170.41",

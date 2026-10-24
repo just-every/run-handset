@@ -157,6 +157,54 @@
           "path": "modules/d1-transport"
         }
       }
+    },
+    {
+      "id": "just-every/handset-mail",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/mail.server.mjs"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "4280971d7c0295b8a88c3e1179048efcbbe14f30",
+          "path": "foundation/template",
+          "paths": [
+            "src/mail.server.mjs"
+          ]
+        },
+        "mappings": [
+          {
+            "path": "src/mail.server.mjs",
+            "originPath": "src/mail.server.mjs"
+          }
+        ]
+      }
+    },
+    {
+      "id": "just-every/handset-delivery-setup",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "scripts/delivery/base/setup-manifest.mjs"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "4280971d7c0295b8a88c3e1179048efcbbe14f30",
+          "path": "modules/delivery-producer",
+          "paths": [
+            "setup-manifest.mjs"
+          ]
+        },
+        "mappings": [
+          {
+            "path": "scripts/delivery/base/setup-manifest.mjs",
+            "originPath": "setup-manifest.mjs"
+          }
+        ]
+      }
     }
   ]
 }

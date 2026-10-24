@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "projectId": "just-every/handset",
+  "name": "Handset",
+  "sourceRepository": "https://github.com/just-every/run-handset",
+  "license": "MIT",
+  "deployment": {
+    "target": "cloudflare-workers",
+    "artifactFile": "rer-worker-artifact.json"
+  },
+  "operations": {
+    "setup": "pnpm install --frozen-lockfile",
+    "build": "pnpm run build",
+    "verify": "pnpm run verify && pnpm check:deployment-spec",
+    "artifact": "node scripts/delivery/base/cli.mjs artifact --config packaging.json",
+    "recovery": "Follow docs/backup.md and RUN-LOCALLY.md. Retain exact source, private settings and a database export before changes. Restore into fresh empty resources, preserve applied migration names and bytes, establish the owner, re-export and compare supported records before routing traffic."
+  },
+  "verification": {
+    "migrationDirectories": [
+      "migrations/core"
+    ]
+  },
+  "setup": {
+    "path": "rer-setup.json",
+    "sha256": "105965d61f6a0af44ba118b4eea416dfc3fde873bc4ae9d19100d3d076b3ef80"
+  }
+}
