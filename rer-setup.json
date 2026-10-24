@@ -80,8 +80,12 @@
       "label": "Mail provider",
       "kind": "select",
       "required": true,
-      "default": "rer",
+      "default": "development",
       "options": [
+        {
+          "value": "development",
+          "label": "Local development (no email delivery)"
+        },
         {
           "value": "rer",
           "label": "RER managed mail"
@@ -98,7 +102,8 @@
           "value": "cloudflare",
           "label": "Cloudflare Email Sending"
         }
-      ]
+      ],
+      "help": "Use local development only for a local review. Hosted installations require one of the real delivery providers and its sender credentials."
     },
     {
       "name": "MAIL_FROM",
