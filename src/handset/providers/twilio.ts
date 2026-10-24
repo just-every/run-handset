@@ -50,23 +50,23 @@ function normalize(p:URLSearchParams){
  const state=get('CallStatus');if(!['queued','initiated','ringing','in-progress','completed','busy','failed','no-answer','canceled'].includes(state))throw new Fault('invalid_call_status')
  return {account,externalId:get('CallSid'),parent:get('ParentCallSid',true),eventId:`call:${get('CallSid')}:${sequence??state}`,occurredAt,from,to,kind:'call',state,data:{providerStatus:state,from,to,...(p.get('CallDuration')?{durationSeconds:integer(Number(p.get('CallDuration')),'CallDuration',0,86400)}:{})}}
 }
-type Event=ReturnType<typeof normalize>
+type Event=Omit<ReturnType<typeof normalize>,'data'> & {data:Record<string,unknown> & {media?:{providerUrl:string;mime:string}[]}}
 
 // Provider account IDs are shared by many selected numbers. Existing object and
 // parent identities route addressless dependent events to their original source.
 async function eventSource(env:Bindings,event:Event){
  const [sources,objects]=await Promise.all([
   activeSources(env,event.account),
-  env.DB.prepare('SELECT DISTINCT source_id FROM hnd_source_objects WHERE external_id IN (?,?) AND source_id IN (SELECT id FROM hnd_sources WHERE account_id=?)').bind(event.externalId,event.parent,event.account).all<{source_id:string}>(),
+  env.DB.prepare('SELECT DISTINCT s.number_id FROM hnd_source_objects o JOIN hnd_sources s ON s.id=o.source_id WHERE o.external_id IN (?,?) AND s.account_id=?').bind(event.externalId,event.parent,event.account).all<{number_id:string}>(),
  ])
- const linked=sources.filter(s=>objects.results.some(o=>o.source_id===s.id))
+ const linked=sources.filter(s=>objects.results.some(o=>o.number_id===s.number_id))
  if(linked.length)return linked.length===1?linked[0]:null
  const matching=sources.filter(s=>s.e164===event.to)
  return matching.length===1?matching[0]:null
 }
 
-async function sourceTimestamp(env:Bindings,event:Event){
- if(event.occurredAt!==null)return event
+async function sourceTimestamp(env:Bindings,event:Event):Promise<Event>{
+ if(event.occurredAt!==null&&event.kind!=='recording')return event
  const resource=event.kind==='message'?'Messages':event.kind==='recording'?'Recordings':null
  if(!resource)throw new Fault('provider_event_timestamp_required')
  let response:Response
@@ -75,16 +75,36 @@ async function sourceTimestamp(env:Bindings,event:Event){
  let receipt:Record<string,unknown>
  try{receipt=await response.json()}catch{throw new Fault('invalid_provider_readback',502)}
  if(receipt.sid!==event.externalId||receipt.account_sid!==event.account||event.kind==='message'&&(receipt.from!==event.from||receipt.to!==event.to)||event.kind==='recording'&&receipt.call_sid!==event.parent)throw new Fault('provider_readback_identity_mismatch',502)
+ if(event.kind==='recording'){
+  if(receipt.status!==event.state)throw new Fault('provider_recording_status_mismatch',502)
+  const completed=event.state==='completed'
+  if(completed&&(!/^\d{1,6}$/.test(String(receipt.duration))||![1,2].includes(Number(receipt.channels))))throw new Fault('provider_recording_metadata_unavailable',503)
+  const occurredAt=Date.parse(String(receipt.start_time??receipt.date_created))
+  if(!Number.isFinite(occurredAt))throw new Fault('provider_time_unavailable',503)
+  return {...event,occurredAt,data:{...event.data,...(completed?{durationSeconds:Number(receipt.duration),channels:Number(receipt.channels)}:{}),capture:'provider metadata only; capture consent is unverified',captureConsent:'unverified'}}
+ }
  const occurredAt=Date.parse(String(event.kind==='message'?(receipt.date_sent??receipt.date_created):(receipt.start_time??receipt.date_created)))
  if(!Number.isFinite(occurredAt))throw new Fault('provider_time_unavailable',503)
  return {...event,occurredAt}
 }
 
+// Reconsent changes authority, not the canonical identity of earlier facts.
+// Only the same provider account and exact native number share this lineage.
+async function historicalReceipt(env:Bindings,source:Source,eventId:string){
+ const rows=(await env.DB.prepare('SELECT body_hash,record_id FROM hnd_source_receipts WHERE source_id IN (SELECT id FROM hnd_sources WHERE account_id=? AND number_id=?) AND event_id=?').bind(source.account_id,source.number_id,eventId).all<{body_hash:string;record_id:string}>()).results
+ if(new Set(rows.map(row=>row.record_id+':'+row.body_hash)).size>1)throw new Fault('source_history_ambiguous',409)
+ return rows[0]
+}
+async function historicalObject(env:Bindings,source:Source,externalId:string){
+ const rows=(await env.DB.prepare('SELECT record_id,case_id FROM hnd_source_objects WHERE source_id IN (SELECT id FROM hnd_sources WHERE account_id=? AND number_id=?) AND external_id=?').bind(source.account_id,source.number_id,externalId).all<{record_id:string;case_id:string}>()).results
+ if(new Set(rows.map(row=>row.record_id+':'+row.case_id)).size>1)throw new Fault('source_history_ambiguous',409)
+ return rows[0]
+}
 async function ingest(env:Bindings,source:Source,event:Event,bodyHash:string,parameters:string,receivedAt:number):Promise<{held?:boolean;recordId?:string;caseId?:string;replay?:boolean}>{
  const db=env.DB
- const receipt=await db.prepare('SELECT body_hash,record_id FROM hnd_source_receipts WHERE source_id=? AND event_id=?').bind(source.id,event.eventId).first<{body_hash:string;record_id:string}>()
+ const receipt=await historicalReceipt(env,source,event.eventId)
  if(receipt){if(receipt.body_hash!==bodyHash)throw new Fault('source_event_conflict',409);await append(env,source.id,'source.replay',receipt.record_id,'completed',[sourceFence(env,source)],null,sourcePolicy(source));return {recordId:receipt.record_id,replay:true}}
- const parent=event.parent?await db.prepare('SELECT record_id,case_id FROM hnd_source_objects WHERE source_id=? AND external_id=?').bind(source.id,event.parent).first<{record_id:string;case_id:string}>():null
+ const parent=event.parent?await historicalObject(env,source,event.parent):null
  if(event.parent&&!parent){
   const pending=await db.prepare('SELECT body_hash FROM hnd_source_pending WHERE source_id=? AND event_id=?').bind(source.id,event.eventId).first<{body_hash:string}>()
   if(pending){if(pending.body_hash!==bodyHash)throw new Fault('source_event_conflict',409);return {held:true,replay:true}}
@@ -95,10 +115,12 @@ async function ingest(env:Bindings,source:Source,event:Event,bodyHash:string,par
  const own=ownNumber&&JSON.parse(ownNumber.data).e164
  if(!own)throw new Fault('source_number_unavailable',409)
  if(!parent&&event.from!==own&&event.to!==own)throw new Fault('source_number_out_of_scope',403)
- const peer=event.from===own?event.to:event.from,correlation=await digest([source.id,own,peer])
- const existingCase=parent?{case_id:parent.case_id}:await db.prepare('SELECT case_id FROM hnd_source_cases WHERE source_id=? AND correlation=?').bind(source.id,correlation).first<{case_id:string}>()
+ const peer=event.from===own?event.to:event.from,correlation=await digest([source.account_id,source.number_id,own,peer])
+ const lineage=(await db.prepare('SELECT id FROM hnd_sources WHERE account_id=? AND number_id=?').bind(source.account_id,source.number_id).all<{id:string}>()).results
+ const correlations=[correlation,...await Promise.all(lineage.map(previous=>digest([previous.id,own,peer])))]
+ const existingCase=parent?{case_id:parent.case_id}:await db.prepare('SELECT c.case_id FROM hnd_source_cases c JOIN hnd_sources s ON s.id=c.source_id WHERE s.account_id=? AND s.number_id=? AND c.correlation IN (SELECT value FROM json_each(?)) ORDER BY s.created_at,s.id LIMIT 1').bind(source.account_id,source.number_id,JSON.stringify(correlations)).first<{case_id:string}>()
  const caseId=existingCase?.case_id??id(),recordId=id(),now=receivedAt,occurredAt=event.occurredAt??receivedAt
- const existingObject=await db.prepare('SELECT record_id,case_id FROM hnd_source_objects WHERE source_id=? AND external_id=?').bind(source.id,event.externalId).first<{record_id:string;case_id:string}>()
+ const existingObject=await historicalObject(env,source,event.externalId)
  const objectKind=event.kind==='call'?(event.parent?'call_leg':'call_session'):event.kind
  const kind=existingObject?'provider_attempt':objectKind
  if(existingObject&&existingObject.case_id!==caseId)throw new Fault('source_correlation_conflict',409)
@@ -119,6 +141,13 @@ async function ingest(env:Bindings,source:Source,event:Event,bodyHash:string,par
   }
  }
 
+ if(event.kind==='recording'&&event.state==='completed'){
+  const mediaId=id(),parentId=existingObject?.record_id??recordId
+  const metadata=event.data as Record<string,unknown>
+  statements.push(db.prepare('INSERT INTO hnd_records VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(mediaId,'media','native',source.id+':'+event.eventId+':audio',occurredAt,now,caseId,parentId,null,JSON.stringify({mime:'audio/wav',durationSeconds:metadata.durationSeconds,channels:metadata.channels,recordingSid:event.externalId,captureConsent:'unverified',content:'not copied; separate exact-person playback approval required'}),source.id))
+  statements.push(db.prepare('INSERT INTO hnd_record_sources VALUES (?,?,?,?)').bind(mediaId,source.id,'twilio',event.eventId+':audio'))
+ }
+
  // A verified inbound opt-out cancels pending promises for this correlated need.
  // Started remote work stays visibly started: this is not a claim of remote deletion.
  if (event.kind === 'message' && ['received','receiving'].includes(event.state) && 'text' in event.data && /^(stop|stopall|unsubscribe|cancel|end|quit)$/i.test(String(event.data.text).trim())) {
@@ -130,7 +159,7 @@ async function ingest(env:Bindings,source:Source,event:Event,bodyHash:string,par
  statements.push(db.prepare('INSERT INTO hnd_source_receipts VALUES (?,?,?,?,?,?)').bind(source.id,event.eventId,bodyHash,occurredAt,now,recordId))
  statements.push(db.prepare('DELETE FROM hnd_source_pending WHERE source_id=? AND event_id=?').bind(source.id,event.eventId))
  try{await append(env,source.id,'source.receive',recordId,'completed',statements,null,sourcePolicy(source))}
- catch(error){if(/UNIQUE constraint failed: hnd_(source_cases|source_objects|source_receipts)/.test(String(error)))return ingest(env,source,event,bodyHash,parameters,receivedAt);throw error}
+ catch(error){if(/UNIQUE constraint failed: hnd_(source_cases|source_objects|source_receipts|records)/.test(String(error)))return ingest(env,source,event,bodyHash,parameters,receivedAt);throw error}
  return {recordId,caseId,replay:false}
 }
 export async function twilioResponse(request:Request,original:Bindings):Promise<Response|null>{
@@ -145,11 +174,11 @@ export async function twilioResponse(request:Request,original:Bindings):Promise<
   const body=await request.text();if(new TextEncoder().encode(body).length>65536)throw new Fault('body_too_large',413)
   const p=new URLSearchParams(body)
   await verify(request,env,p)
-  let event=normalize(p)
+  let event:Event=normalize(p)
   const source=await eventSource(env,event)
   knownSource=source??await env.DB.prepare(`SELECT s.* FROM hnd_sources s JOIN hnd_records n ON n.id=s.number_id WHERE s.account_id=? AND (json_extract(n.data,'$.e164')=? OR EXISTS(SELECT 1 FROM hnd_source_objects so WHERE so.source_id=s.id AND so.external_id IN (?,?))) ORDER BY s.revision DESC LIMIT 1`).bind(event.account,event.to,event.externalId,event.parent).first<Source>()
   if(!source)throw new Fault('invalid_source_proof',403)
-  const alreadyRecorded=await env.DB.prepare('SELECT event_id FROM hnd_source_receipts WHERE source_id=? AND event_id=?').bind(source.id,event.eventId).first()
+  const alreadyRecorded=await historicalReceipt(env,source,event.eventId)
   if(!alreadyRecorded)event=await sourceTimestamp(env,event)
   // Persist only the documented fields needed to replay a verified dependent event.
   const allowed=['AccountSid','CallSid','ParentCallSid','CallStatus','CallDuration','SequenceNumber','Timestamp','From','To','MessageSid','MessageStatus','SmsStatus','Body','NumMedia','RecordingSid','RecordingStatus',...Array.from({length:10},(_,i)=>['MediaUrl'+i,'MediaContentType'+i]).flat()]
@@ -157,7 +186,7 @@ export async function twilioResponse(request:Request,original:Bindings):Promise<
   const result=await ingest(env,source,event,bodyHash,retained,receivedAt)
   if(!result.held){
    const pending=(await env.DB.prepare('SELECT * FROM hnd_source_pending WHERE source_id=? AND parent_external_id=? ORDER BY received_at LIMIT 100').bind(source.id,event.externalId).all<{parameters:string;body_hash:string;received_at:number}>()).results
-   for(const item of pending)await ingest(env,source,normalize(new URLSearchParams(item.parameters)),item.body_hash,item.parameters,item.received_at)
+   for(const item of pending)await ingest(env,source,await sourceTimestamp(env,normalize(new URLSearchParams(item.parameters))),item.body_hash,item.parameters,item.received_at)
   }
   return json({...result,customerOutcome:'unconfirmed',externalEffectOccurred:false},result.held?202:200)
  }catch(error){

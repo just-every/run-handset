@@ -6,7 +6,7 @@ const time=(value:unknown)=>typeof value==='number'?new Intl.DateTimeFormat('en-
 const label=(key:string)=>({ownerId:'Responsible person',dueAt:'Due date',closeReason:'Closure reason',transferFrom:'Previous call leg',amountCents:'USD cents',sizeBytes:'Size in bytes',amountMicrousd:'USD millionths (negative means credit)',providerPriceUsd:'Carrier price in USD',source_id:'Source reference',e164:'Phone number',mime:'Media type'}[key]??key.replaceAll('_',' ').replace(/([a-z])([A-Z])/g,'$1 $2'))
 const option=(value:string,name:string,selected:string)=>`<option value="${e(value)}" ${value===selected?'selected':''}>${e(name.slice(0,36))}</option>`
 const selection=(title:string,name:string,options:string)=>{const selectId="select-"+id();return `<label for="${selectId}">${e(title)}</label><select id="${selectId}" name="${e(name)}">${options}</select>`}
-const display=(data:Record<string,unknown>)=>`<dl>${Object.entries(data).map(([key,value])=>`<dt>${e(label(key))}</dt><dd>${e(key==='dueAt'?time(value):value)}</dd>`).join('')}</dl>`
+const display=(data:Record<string,unknown>)=>`<dl>${Object.entries(data).map(([key,value])=>`<dt>${e(label(key))}</dt><dd>${e(key==='dueAt'?time(value):value!==null&&typeof value==='object'?JSON.stringify(value):value)}</dd>`).join('')}</dl>`
 const personName=(people:PersonOption[],personId:string)=>people.find(p=>p.id===personId)?.display_name??personId
 export function caseForm(current?:CaseRow,actorId='',notice='',people:PersonOption[]=[]){
  const selected=current?.owner_id??actorId

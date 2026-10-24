@@ -18,9 +18,12 @@ export async function delegationFixture(runtime){
 }
 export async function recordingFixture(runtime,f){
  const sid='synthetic-handset-710'
- f.resource('Recordings',sid,{call_sid:f.root.CallSid,start_time:new Date().toUTCString(),status:'completed'})
+ f.resource('Recordings',sid,{call_sid:f.root.CallSid,start_time:new Date().toUTCString(),status:'in-progress'})
+ const started=await f.callback({RecordingSid:sid,CallSid:f.root.CallSid,RecordingStatus:'in-progress',From:'',To:''})
+ assert.equal(started.status,200,await started.clone().text());const recordingId=(await started.json()).recordId
+ f.resource('Recordings',sid,{call_sid:f.root.CallSid,start_time:new Date().toUTCString(),status:'completed',duration:'1',channels:1,date_updated:new Date().toUTCString(),price:'-0.00250',price_unit:'USD'})
  const recorded=await f.callback({RecordingSid:sid,CallSid:f.root.CallSid,RecordingStatus:'completed',From:'',To:''})
- assert.equal(recorded.status,200,await recorded.clone().text());const recordingId=(await recorded.json()).recordId
+ assert.equal(recorded.status,200,await recorded.clone().text())
  const url=`https://api.twilio.com/2010-04-01/Accounts/${f.account}/Recordings/${sid}.wav`
  // A short synthetic PCM WAV. Never includes captured voices or customer audio.
  const bytes=Buffer.alloc(60);bytes.write('RIFF');bytes.writeUInt32LE(52,4);bytes.write('WAVEfmt ',8);bytes.writeUInt32LE(16,16);bytes.writeUInt16LE(1,20);bytes.writeUInt16LE(1,22);bytes.writeUInt32LE(8000,24);bytes.writeUInt32LE(16000,28);bytes.writeUInt16LE(2,32);bytes.writeUInt16LE(16,34);bytes.write('data',36);bytes.writeUInt32LE(16,40)

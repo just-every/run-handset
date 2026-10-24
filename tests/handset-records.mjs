@@ -120,7 +120,9 @@ test('Signed carrier events correlate transfers recording and MMS with immutable
   const receipt=await first.json(),caseId=receipt.caseId
   assert.equal((await runtime.sql('SELECT * FROM hnd_source_pending')).results.length,0)
   const recording={CallSid:root.CallSid,RecordingSid:'synthetic-handset-512',RecordingStatus:'completed',From:'',To:''}
-  f.resource('Recordings',recording.RecordingSid,{call_sid:root.CallSid,start_time:timestamp,date_created:timestamp})
+  f.resource('Recordings',recording.RecordingSid,{call_sid:root.CallSid,start_time:timestamp,status:'in-progress'})
+  assert.equal((await f.callback({...recording,RecordingStatus:'in-progress',Timestamp:timestamp})).status,200)
+  f.resource('Recordings',recording.RecordingSid,{call_sid:root.CallSid,start_time:timestamp,date_created:timestamp,status:'completed',duration:'75',channels:2})
   assert.equal((await f.callback(recording)).status,200)
   const message={MessageSid:'synthetic-handset-513',MessageStatus:'received',Body:' Synthetic appointment photo ',NumMedia:'1',MediaUrl0:'https://api.twilio.com/2010-04-01/Accounts/synthetic-handset-502/Messages/synthetic-handset-513/Media/synthetic-handset-514',MediaContentType0:'image/png'}
   f.resource('Messages',message.MessageSid,{from:'+15125550126',to:'+15125550125',date_sent:timestamp,date_created:timestamp})
@@ -128,12 +130,16 @@ test('Signed carrier events correlate transfers recording and MMS with immutable
   const duplicate=await f.callback(message);assert.equal(duplicate.status,200);assert.equal((await duplicate.json()).replay,true)
   assert.equal((await f.callback({...message,Body:'Changed receipt content'})).status,409)
   const detail=await (await runtime.request('/api/handset/cases/'+caseId,{headers:f.headers})).json()
-  assert.equal(detail.records.length,5)
+  assert.equal(detail.records.length,7)
   assert.ok(detail.records.every(r=>r.source==='twilio'&&r.occurred_at===Date.parse(timestamp)&&r.received_at>=r.occurred_at))
   const leg=detail.records.find(r=>r.kind==='call_leg'),call=detail.records.find(r=>r.kind==='call_session')
   assert.equal(leg.parent_id,call.id)
+  const captured=detail.records.find(r=>r.kind==='recording'),audio=detail.records.find(r=>r.kind==='media'&&JSON.parse(r.data).mime==='audio/wav')
+  assert.equal(audio.parent_id,captured.id);assert.equal(JSON.parse(audio.data).durationSeconds,75);assert.equal(JSON.parse(audio.data).channels,2);assert.equal(JSON.parse(captured.data).captureConsent,'unverified')
+  assert.equal((await runtime.request('/api/handset/recordings/'+captured.id+'/playback',{headers:f.headers})).status,403,'metadata cannot authorize audio')
+  assert.equal((await f.callback(recording)).status,200);assert.equal((await runtime.sql("SELECT count(*) AS n FROM hnd_records WHERE kind='media'")).results[0].n,2)
   const mms=detail.records.find(r=>r.kind==='message'),media=JSON.parse(mms.data)
-  assert.equal(detail.records.find(r=>r.kind==='media').parent_id,mms.id)
+  assert.equal(detail.records.find(r=>r.kind==='media'&&JSON.parse(r.data).mime==='image/png').parent_id,mms.id)
   assert.equal(media.text,message.Body);assert.equal(media.channel,'mms');assert.equal(media.providerStatus,'received');assert.equal(media.customerOutcome,'unconfirmed')
   assert.equal((await runtime.sql('SELECT count(*) AS count FROM hnd_cases')).results[0].count,1,'one shared caller case across sources')
   assert.ok(runtime.sourceRequests.every(r=>r.method==='GET'&&!r.url.includes('/Media/')),'source readback never downloads audio or images')
@@ -142,7 +148,7 @@ test('Signed carrier events correlate transfers recording and MMS with immutable
   assert.equal((await f.callback({...root,CallStatus:'completed',SequenceNumber:'1',CallDuration:'75'})).status,200)
   const later=await (await runtime.request('/api/handset/cases/'+caseId,{headers:f.headers})).json()
   assert.equal(later.records.filter(r=>r.kind==='call_session').length,1,'provider status changes retain one canonical call')
-  const status= later.records.find(r=>r.kind==='provider_attempt')
+  const status= later.records.find(r=>r.kind==='provider_attempt'&&JSON.parse(r.data).objectKind==='call_session')
   assert.equal(status.parent_id,call.id);assert.equal(JSON.parse(status.data).providerStatus,'completed')
   const linked=await(await runtime.request('/api/handset/records/'+call.id,{headers:f.headers})).json()
   assert.ok(linked.related.some(r=>r.id===status.id))
@@ -165,6 +171,16 @@ test('Unsigned foreign-number revoked and failed-readback carrier events cannot 
   assert.equal((await f.callback({...root,From:'+15125550128',To:'+15125550129'})).status,403)
   assert.equal((await f.callback({MessageSid:'synthetic-handset-521',MessageStatus:'received',Body:'Readback is missing',NumMedia:'0'})).status,503)
   assert.equal((await runtime.sql('SELECT count(*) AS count FROM hnd_source_receipts')).results[0].count,0)
+  const recorded={RecordingSid:'synthetic-handset-522',CallSid:root.CallSid,RecordingStatus:'completed',Timestamp:root.Timestamp}
+  for(const invalid of [{sid:'synthetic-handset-foreign'},{account_sid:'synthetic-handset-foreign'},{call_sid:'synthetic-handset-foreign'},{status:'in-progress'}]){
+   f.resource('Recordings',recorded.RecordingSid,{call_sid:root.CallSid,status:'completed',start_time:root.Timestamp,duration:'1',channels:1,...invalid})
+   assert.equal((await f.callback(recorded)).status,502,'a supplied callback timestamp cannot skip exact recording readback')
+  }
+  for(const invalid of [{duration:null},{channels:3},{start_time:null}]){
+   f.resource('Recordings',recorded.RecordingSid,{call_sid:root.CallSid,status:'completed',start_time:root.Timestamp,duration:'1',channels:1,...invalid})
+   assert.equal((await f.callback(recorded)).status,503)
+  }
+  assert.equal((await runtime.sql("SELECT count(*) AS n FROM hnd_records WHERE kind IN ('recording','media')")).results[0].n,0)
   assert.equal((await f.callback(root)).status,200)
   assert.equal((await post(runtime,'/api/handset/sources/revoke',{sourceId:f.source.id},f.headers)).status,200)
   assert.equal((await f.callback({...root,SequenceNumber:'1',CallStatus:'completed'})).status,403)
@@ -187,7 +203,7 @@ test('Source consent revisions isolate account numbers and require fresh owner c
   const secondSource=await second.json()
   const call={CallSid:'synthetic-handset-531',CallStatus:'ringing',SequenceNumber:'0',Timestamp:timestamp}
   const first=await f.callback(call);assert.equal(first.status,200)
-  const firstRecord=(await first.json()).recordId
+  const firstReceipt=await first.json(),firstRecord=firstReceipt.recordId
   const other=await f.callback({...call,CallSid:'synthetic-handset-532',To:'+15125550127'})
   assert.equal(other.status,200)
   const otherRecord=(await other.json()).recordId
@@ -204,8 +220,12 @@ test('Source consent revisions isolate account numbers and require fresh owner c
   const renewed=await consent();assert.equal(renewed.status,201)
   const renewedSource=await renewed.json();assert.notEqual(renewedSource.id,f.source.id)
   assert.equal((await consent()).status,409,'an active consent cannot be silently replaced')
+  const replay=await f.callback(call);assert.equal(replay.status,200);const replayed=await replay.json()
+  assert.equal(replayed.replay,true);assert.equal(replayed.recordId,firstRecord,'reconsent cannot duplicate a historical source receipt')
+  const child=await f.callback({...call,CallSid:'synthetic-handset-541',ParentCallSid:call.CallSid,From:'',To:''})
+  assert.equal(child.status,200);assert.equal((await child.json()).caseId,firstReceipt.caseId,'a transfer after reconsent retains its original case')
   const current={...call,CallSid:'synthetic-handset-534'}
-  assert.equal((await f.callback(current)).status,200)
+  const continued=await f.callback(current);assert.equal(continued.status,200);assert.equal((await continued.json()).caseId,firstReceipt.caseId,'fresh consent does not turn the same caller into another lead')
   assert.equal((await runtime.request('/api/handset/records/'+firstRecord,{headers:f.headers})).status,200,'earlier evidence survives reconsent')
   // Native owner management changes real sessions and versions through its door.
   assert.equal((await post(runtime,'/auth/invite',{email:'synthetic-handset-535@example.test',displayName:'Source reviewer',role:'owner'},f.headers)).status,202)
@@ -266,6 +286,8 @@ test('Owner-attested exact-person playback preserves applied grants and fails cl
   assert.equal((await runtime.request(path,{headers:f.assistantHeaders})).status,403)
   assert.equal((await runtime.request(path,{headers:f.headers})).status,403,'owner still needs exact-person attestation')
   assert.equal((await post(runtime,'/api/handset/recordings/grants',media.grantInput,f.assistantHeaders)).status,403)
+  const detail=await (await runtime.request('/api/handset/records/'+media.recordingId,{headers:f.headers})).json()
+  await f.create('records',{kind:'provider_attempt',sourceId:'synthetic-handset-712',parentId:media.recordingId,caseId:detail.record.case_id,occurredAt:Date.now(),data:{operation:'Manual follow-up observation',state:'uncertain'}})
   const grant=await f.create('recordings/grants',media.grantInput)
   const played=await runtime.request(path,{headers:f.assistantHeaders})
   assert.equal(played.status,200,await played.clone().text());assert.equal(played.headers.get('cache-control'),'private, no-store')
@@ -293,6 +315,15 @@ test('Owner-attested exact-person playback preserves applied grants and fails cl
   runtime.twilioResources.set(media.meta,original)
   assert.equal((await post(runtime,'/api/handset/recordings/grants/'+third.id+'/revoke',{},f.headers)).status,200)
   assert.equal((await runtime.request(path,{headers:f.assistantHeaders})).status,403)
+  await f.create('recordings/grants',media.grantInput)
+  runtime.twilioResources.set(media.url,async()=>{
+   runtime.twilioResources.set(media.meta,{...original,status:'absent'})
+   const absent=await f.callback({RecordingSid:original.sid,CallSid:f.root.CallSid,RecordingStatus:'absent',From:'',To:''})
+   assert.equal(absent.status,200)
+   return {__audio:[...media.bytes]}
+  })
+  const absent=await runtime.request(path,{headers:f.assistantHeaders});assert.equal(absent.status,409,'a later unavailable recording status prevents buffered audio release');assert.ok(!(await absent.text()).includes('RIFF'))
+  assert.equal((await post(runtime,'/api/handset/recordings/grants',media.grantInput,f.headers)).status,404)
   const archive=await (await runtime.request('/api/handset/audit/export',{headers:f.headers})).json(),actor=(await runtime.sql('SELECT pseudonym FROM hnd_actor_refs WHERE operator_id=?','synthetic-handset-2')).results[0].pseudonym
   assert.ok(archive.rows.some(r=>r.actor===actor&&r.action==='recording.playback'&&r.subject===media.recordingId&&r.outcome==='completed'))
   assert.ok(archive.rows.some(r=>r.actor===actor&&r.action==='recording.playback'&&r.outcome==='refused'))
@@ -561,12 +592,57 @@ test('Carrier price readback preserves exact USD precision and append-only corre
   assert.equal(detail.records.find(r=>r.id===original.id).data,original.data)
   runtime.twilioResources.set(url,{...receipt,price:'-0.04350'})
   assert.equal((await read()).status,409,'a conflicting older price never replaces the current observation')
+  // SMS and MMS prices belong to the same source case, without claiming delivery
+  // or a settled invoice from a price observation.
+  for(const [index,media] of [0,1].entries()){
+   const message='synthetic-handset-usage-'+(index+2),messageUrl=`https://api.twilio.com/2010-04-01/Accounts/${f.account}/Messages/${message}.json`
+   const event=await f.callback({MessageSid:message,MessageStatus:'received',Timestamp:time,Body:'Synthetic message price',NumMedia:String(media),...(media?{MediaUrl0:`https://api.twilio.com/media/${message}`,MediaContentType0:'image/png'}:{})})
+   assert.equal(event.status,200);const received=await event.json();assert.equal(received.caseId,linked.caseId)
+   const messagePath='/api/handset/records/'+received.recordId+'/usage-receipt',readMessage=()=>post(runtime,messagePath,{confirm:'read exact billed usage'},f.headers)
+   const price={sid:message,account_sid:f.account,from:'+15125550126',to:'+15125550125',status:'received',date_created:time,date_sent:null,date_updated:time,price:'-0.00750',price_unit:'USD',num_segments:'2'}
+   assert.equal((await post(runtime,messagePath,{confirm:'read exact billed usage'})).status,401)
+   for(const invalid of [{sid:'synthetic-handset-foreign'},{account_sid:'synthetic-handset-foreign'},{to:'+15125550199'}]){
+    runtime.twilioResources.set(messageUrl,{...price,...invalid});assert.equal((await readMessage()).status,502)
+   }
+   for(const invalid of [{price:null},{price_unit:'CAD'},{num_segments:null},{num_segments:'2.5'},{date_updated:null}]){
+    runtime.twilioResources.set(messageUrl,{...price,...invalid});assert.equal((await readMessage()).status,503)
+   }
+   runtime.twilioResources.set(messageUrl,{...price,status:'queued'});assert.equal((await readMessage()).status,409)
+   runtime.twilioResources.set(messageUrl,price)
+   const priced=await readMessage();assert.equal(priced.status,201,await priced.clone().text());const row=(await priced.json()).record,data=JSON.parse(row.data)
+   assert.equal(row.parent_id,received.recordId);assert.equal(row.occurred_at,Date.parse(time));assert.equal(data.amountMicrousd,7500);assert.equal(data.segments,2);assert.equal(data.mediaCount,media);assert.equal(data.invoiceReconciled,false);assert.equal(data.customerOutcome,'unconfirmed')
+   await runtime.restart();const replayed=await readMessage();assert.equal(replayed.status,200);assert.equal((await replayed.json()).record.id,row.id)
+   runtime.twilioResources.set(messageUrl,{...price,price:'-0.00850',date_updated:new Date(Date.now()).toUTCString()})
+   const updates=await Promise.all([readMessage(),readMessage()]);assert.equal(updates.filter(r=>r.status===201).length,1);assert.ok(updates.every(r=>[200,201,409].includes(r.status)))
+   const history=await (await runtime.request('/api/handset/records/'+row.id,{headers:f.headers})).json();assert.equal(history.record.data,row.data)
+   runtime.twilioResources.set(messageUrl,price);assert.equal((await readMessage()).status,200,'exact historical replay never changes the current price')
+   runtime.twilioResources.set(messageUrl,{...price,price:'-0.00950'});assert.equal((await readMessage()).status,409)
+  }
+  const recordingSid='synthetic-handset-usage-4',recordingUrl=`https://api.twilio.com/2010-04-01/Accounts/${f.account}/Recordings/${recordingSid}.json`
+  const recordingPrice={sid:recordingSid,account_sid:f.account,call_sid:sid,status:'completed',date_created:time,start_time:time,date_updated:time,duration:'75',channels:2,price:'-0.00250',price_unit:'USD'}
+  runtime.twilioResources.set(recordingUrl,recordingPrice)
+  const recorded=await f.callback({RecordingSid:recordingSid,CallSid:sid,RecordingStatus:'completed',From:'',To:''})
+  assert.equal(recorded.status,200);const recording=(await recorded.json()).recordId
+  const readRecording=()=>post(runtime,'/api/handset/records/'+recording+'/usage-receipt',{confirm:'read exact billed usage'},f.headers)
+  for(const invalid of [{sid:'synthetic-handset-foreign'},{account_sid:'synthetic-handset-foreign'},{call_sid:'synthetic-handset-foreign'}]){
+   runtime.twilioResources.set(recordingUrl,{...recordingPrice,...invalid});assert.equal((await readRecording()).status,502)
+  }
+  for(const invalid of [{duration:null},{channels:3}]){
+   runtime.twilioResources.set(recordingUrl,{...recordingPrice,...invalid});assert.equal((await readRecording()).status,503)
+  }
+  runtime.twilioResources.set(recordingUrl,recordingPrice)
+  const charge=await readRecording();assert.equal(charge.status,201,await charge.clone().text());const recordingUsage=(await charge.json()).record,recordingData=JSON.parse(recordingUsage.data)
+  assert.equal(recordingUsage.parent_id,recording);assert.equal(recordingData.amountMicrousd,2500);assert.equal(recordingData.durationSeconds,75);assert.equal(recordingData.channels,2);assert.equal(recordingData.invoiceReconciled,false)
+  await runtime.restart();assert.equal((await readRecording()).status,200)
+  runtime.twilioResources.set(recordingUrl,{...recordingPrice,price:'-0.00350',date_updated:new Date(Date.now()).toUTCString()})
+  const revised=await readRecording();assert.equal(revised.status,201);assert.equal((await revised.json()).record.supersedes_id,recordingUsage.id)
+  assert.equal((await runtime.request('/api/handset/recordings/'+recording+'/playback',{headers:f.headers})).status,403,'a storage price observation conveys no playback authority')
   runtime.twilioResources.set(url,async()=>{
    assert.equal((await post(runtime,'/api/handset/sources/revoke',{sourceId:f.source.id},f.headers)).status,200)
    return {...receipt,price:'-0.03350',date_updated:new Date(Date.now()+1000).toUTCString()}
   })
   assert.equal((await read()).status,409,'source revocation during price readback prevents a new canonical fact')
-  assert.equal((await runtime.sql("SELECT COUNT(*) AS n FROM hnd_records WHERE kind='usage'")).results[0].n,2)
+  assert.equal((await runtime.sql("SELECT COUNT(*) AS n FROM hnd_records WHERE kind='usage'")).results[0].n,8)
   assert.ok(runtime.sourceRequests.every(r=>r.method==='GET'))
  } finally { await runtime.close() }
 })
