@@ -316,7 +316,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "3e32250a44dabbcdf7da94d948fe863b71ddfe2493d3a6aca0fd84ddf8e041a8",
+      "sha256": "8479620c539de2c4dc0f64e153b8745261ecd2969ba4ef31c4c6f817405e4324",
       "executable": false
     },
     "AGENTS.md": {
@@ -332,7 +332,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "b45b4f12e1ea161d1ea9fbd38b332d7c64f276c46806088afcf4b73750182af0",
+      "sha256": "5558b02a2fa2bf700a258d48611608270a9e0a4be30bfbacb8618cf01fb3377e",
       "executable": false
     },
     "deploy-demo.json": {
@@ -384,7 +384,7 @@
       "executable": false
     },
     "docs/KNOWLEDGE.md": {
-      "sha256": "43902616b5c27430b017f3fe42d4afc4947122f964635417be815e1b11f63cac",
+      "sha256": "c49db99f90cb21ad92bece7cf2772aa82f585ef875f29e0a78e4836e80aebd31",
       "executable": false
     },
     "docs/NUMBER-COMPLIANCE.md": {
@@ -657,6 +657,10 @@
     },
     "migrations/core/0055_handset_knowledge_custody.sql": {
       "sha256": "df97df2a50265adead46e9482d3a9de2b55f8bc2ee169d9e2d78ca4793e7c2d9",
+      "executable": false
+    },
+    "migrations/core/0056_handset_knowledge_processing.sql": {
+      "sha256": "e959d3ee3c108d0388821fde706109b94e664870c28f3700258651da7f43bed6",
       "executable": false
     },
     "ONBOARDING.md": {
@@ -1604,7 +1608,11 @@
       "executable": false
     },
     "src/handset/knowledge/doors.ts": {
-      "sha256": "a50947418bf092b8eb60df4e67e9db31ffca07dbbd97b2954017d6ea142ac662",
+      "sha256": "9e89406bbf20b27cbe9c754dc94792a4e26b93b02987a125f0752157de0191e8",
+      "executable": false
+    },
+    "src/handset/knowledge/processing.ts": {
+      "sha256": "bc349f86662f5cd9968c61fb4d593ae502ea1119b2ffbc9d43aaabd20e6e0e5a",
       "executable": false
     },
     "src/handset/knowledge/retention.ts": {
@@ -3848,7 +3856,7 @@
       "executable": false
     },
     "tests/handset-records.mjs": {
-      "sha256": "3c4b9636930b1b250b111bdaff86dcad9b060c79c9a52d8bffb0d1bbbf15d5cb",
+      "sha256": "defef40517fc7870d28af223772abe3b9d0b6cc2402abaa71f512bf86c726a21",
       "executable": false
     },
     "tests/handset-recovery.mjs": {
@@ -3952,7 +3960,7 @@
       "executable": false
     },
     "tests/helpers/handset-worker.mjs": {
-      "sha256": "e6a810066445e1b13808cf731fd65fd1990f85a48020da0ec4b8705c69dc17e6",
+      "sha256": "cafbaa0af950fedbc93615275c5d5559c0f0af531ab1ab3bdd67a27022107ec5",
       "executable": false
     },
     "tests/helpers/handset-workflows-browser.mjs": {

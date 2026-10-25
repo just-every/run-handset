@@ -4,6 +4,7 @@ import { commit } from '../audit/store'
 import { choice, Fault, id, integer, json, keys, owner, text, type ObjectValue } from '../core'
 import { extracted, fetchSource, type Provider } from './sources'
 import { expireKnowledge } from './retention'
+import { processingDoor } from './processing'
 
 interface Source { id:string; provider:Provider; external_id:string; cloud_id:string; title:string; revision:number; source_revision:string; citation:string; body:string; state:string; owner_id:string; owner_version:number; refreshed_at:number; expires_at:number }
 const root = '/api/handset/knowledge'
@@ -21,6 +22,8 @@ export async function knowledgeDoor(request:Request,env:Bindings,actor:Session,v
  if(url.search)throw new Fault('not_found',404)
  const db=env.DB,action=path.slice(root.length)
  await expireKnowledge(env)
+ const processing=await processingDoor(request,env,actor,v)
+ if(processing)return processing
  if(request.method==='GET'&&!action){
   const rows=(await db.prepare('SELECT * FROM hnd_knowledge_sources ORDER BY title,id LIMIT 100').all<Source>()).results
   await commit(env,actor,'knowledge.read','installation','completed')

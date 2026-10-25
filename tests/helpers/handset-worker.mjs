@@ -80,7 +80,7 @@ async function seed(db, ownerEmail) {
  * launch headless with --use-mock-keychain and --password-store=basic, real HOME.
  * mails contains raw SendGrid JSON, without transport headers or credentials.
  */
-export async function openHandset({ liveMail = false, twilio = false, edges = null, callingClock: useCallingClock = false, knowledgeEdge = null, clockTime } = {}) {
+export async function openHandset({ liveMail = false, twilio = false, edges = null, callingClock: useCallingClock = false, knowledgeEdge = null, modelEdge = null, clockTime } = {}) {
   if (liveMail && ['MAIL_TO', 'MAIL_FROM', 'MAIL_API_KEY'].some(name => !process.env[name])) {
     throw new Error('Live mail requires MAIL_TO, MAIL_FROM and MAIL_API_KEY')
   }
@@ -105,6 +105,7 @@ export async function openHandset({ liveMail = false, twilio = false, edges = nu
     }
   })()
   async function outboundService(request) {
+    if (modelEdge && request.url === 'https://api.openai.com/v1/chat/completions') return modelEdge(request, WorkerResponse)
     if (knowledgeEdge) { const answer = await knowledgeEdge(request, WorkerResponse); if (answer) return answer }
     if (edges) { const answer = await edges.handle(request, WorkerResponse); if (answer) return answer }
     if(twilio && (request.url.startsWith('https://api.twilio.com/2010-04-01/Accounts/') || request.url.startsWith('https://insights.twilio.com/v1/Voice/') || request.url.startsWith('https://numbers.twilio.com/v1/Porting/') || request.url.startsWith('https://messaging.twilio.com/v1/Tollfree/Verifications/') || request.url.startsWith('https://messaging.twilio.com/v1/a2p/BrandRegistrations/'))) {
@@ -158,6 +159,7 @@ export async function openHandset({ liveMail = false, twilio = false, edges = nu
       bindings: {
         ...(twilio?{HANDSET_TWILIO_AUTH_TOKEN:'synthetic-handset-500'}:{}),
         ...(edges?{HANDSET_DIAL_ORIGIN:edges.origins.dial,HANDSET_DIAL_TOKEN:edges.secrets.dial,HANDSET_STRIPE_KEY:edges.secrets.stripe,HANDSET_ORBIT_ORIGIN:edges.origins.orbit,HANDSET_ORBIT_TOKEN:edges.secrets.orbit,HANDSET_HELPDESK_ORIGIN:edges.origins.helpdesk,HANDSET_HELPDESK_TOKEN:edges.secrets.helpdesk}:{}),
+        ...(modelEdge?{AI_ENABLED:'true',AI_API_KEY:'synthetic-handset-970',AI_MODEL:'gpt-4.1-mini'}:{}),
         AUTH_LOCAL: 'false', AUTH_ORIGIN: origin, OWNER_EMAIL: ownerEmail,
         SESSION_SECRET: 'synthetic-handset-7-synthetic-handset-8', INSTALLATION_KEY: randomBytes(32).toString('hex'),
         MAIL_PROVIDER: 'sendgrid',
