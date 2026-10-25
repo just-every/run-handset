@@ -8,6 +8,7 @@ async function read(url: string, token: string, accept = 'application/json', ext
  try { response = await fetch(url, { headers: { authorization: 'Bearer ' + token, accept, ...extra }, redirect: 'manual', signal: AbortSignal.timeout(8000) }) }
  catch { throw new Fault('knowledge_source_unavailable', 503) }
  if (!response.ok) { await response.body?.cancel(); throw new Fault(response.status === 401 || response.status === 403 || response.status === 404 ? 'knowledge_source_access_refused' : 'knowledge_source_unavailable', 409) }
+ if (accept === 'text/plain' && response.headers.get('content-type')?.split(';')[0].trim().toLowerCase() !== 'text/plain') { await response.body?.cancel(); throw new Fault('knowledge_unsupported_document', 415) }
  const reader = response.body?.getReader(); if (!reader) throw new Fault('knowledge_empty_source')
  const chunks: Uint8Array[] = []; let length = 0
  try {

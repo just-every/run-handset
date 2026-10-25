@@ -738,6 +738,7 @@ test('Quality intake rejects ungrounded moments unavailable recordings stale rub
 test('Selected knowledge sources refresh at official API edges and revoke derived retrieval without granting tool or model authority',async()=>{
  const wire=[],resources=new Map(),root='/api/handset/knowledge',credential='synthetic-handset-930'
  const runtime=await openHandset({knowledgeEdge:async(request,Response)=>{
+  if(request.url==='https://api.sendgrid.com/v3/mail/send')return null
   wire.push({url:request.url,method:request.method,authorization:request.headers.get('authorization')})
   const value=resources.get(request.url)
   assert.ok(value,'Only the selected official API resource is requested: '+request.url)
@@ -781,6 +782,15 @@ test('Selected knowledge sources refresh at official API edges and revoke derive
    assert.equal(unavailable.state,'unavailable')
    configure('3','Hours 11 to 7. Price $70.')
    source=await api('/'+source.id+'/refresh',{...consent,credential,revision:unavailable.revision})
+   // A hostile provider redirect is refused without following or forwarding its credential.
+   resources.set(d.page??d.content,{status:302,body:'',headers:{location:'http://169.254.169.254/latest/meta-data/'}})
+   const beforeRedirect=wire.length
+   await api('/'+source.id+'/refresh',{...consent,credential,revision:source.revision},409)
+   assert.equal(wire.length,beforeRedirect+1)
+   assert.equal((await api('/search',{query:'Hours',sourceIds:[source.id]})).state,'knowledge_gap')
+   const redirected=(await (await runtime.request(root,{headers})).json()).sources.find(s=>s.id===source.id)
+   configure('4','Hours 11 to 7. Price $70.')
+   source=await api('/'+source.id+'/refresh',{...consent,credential,revision:redirected.revision})
    await api('/'+source.id+'/revoke',{revision:source.revision,confirm:'revoke this source'})
    assert.equal((await api('/search',{query:'Hours',sourceIds:[source.id]})).matches.length,0)
    assert.equal((await runtime.sql('SELECT body FROM hnd_knowledge_sources WHERE id=?',source.id)).results[0].body,'')
@@ -799,6 +809,7 @@ test('Knowledge uploads enforce current owner consent, expiry and exact revision
  const root='/api/handset/knowledge',sourceExternal='synthetic-handset-950'
  let hold=false
  const runtime=await openHandset({knowledgeEdge:async(request,Response)=>{
+  if(request.url==='https://api.sendgrid.com/v3/mail/send')return null
   if(hold){started();await blocked}
   const body=request.url.includes('/children?')?{has_more:false,results:[{type:'paragraph',paragraph:{rich_text:[{plain_text:'Hours 9 to 5'}]}}]}:{id:sourceExternal,last_edited_time:'1'}
   return new Response(JSON.stringify(body),{headers:{'content-type':'application/json'}})
@@ -822,8 +833,14 @@ test('Knowledge uploads enforce current owner consent, expiry and exact revision
   assert.equal((await api('/search',{query:'Hours',sourceIds:[source.id]})).state,'knowledge_gap')
   const revised=await api('/'+source.id+'/refresh',{...consent,revision:source.revision,mediaType:'text/markdown',content:'Hours 10 to 6'})
   await api('/'+source.id+'/revoke',{revision:source.revision,confirm:'revoke this source'},409)
+  await runtime.sql("UPDATE oa_operators SET version=version+1 WHERE id='synthetic-handset-1'")
+  const renewed=await signIn(runtime);headers.cookie=renewed.cookie
+  assert.equal((await api('/search',{query:'Hours',sourceIds:[source.id]})).state,'knowledge_gap')
+  await api('/'+source.id+'/refresh',{...consent,revision:revised.revision,mediaType:'text/plain',content:'Hours 12 to 8'},403)
+  // A new source requires a new explicit consent under the changed native owner.
+  const renewedSource=await api('',upload,201)
   await runtime.restart()
-  assert.match((await api('/search',{query:'Hours',sourceIds:[source.id]})).matches[0].text,/10 to 6/)
+  assert.match((await api('/search',{query:'Hours',sourceIds:[renewedSource.id]})).matches[0].text,/9 to 5/)
   await api('/'+source.id+'/erase',{revision:revised.revision,confirm:'erase this source'})
   assert.equal((await api('/search',{query:'Hours',sourceIds:[source.id]})).state,'knowledge_gap')
   const remote=await api('',{...consent,provider:'notion',externalId:sourceExternal,title:'Remote facts',credential:'synthetic-handset-951'},201)

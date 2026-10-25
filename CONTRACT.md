@@ -359,8 +359,8 @@ Judged from the code and tests at commit `fe585db` (23 October 2026).
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 3 | 0 | 0 | 3 |
-| Target and push further | 0 | 17 | 79 | 96 |
-| All | 3 | 17 | 79 | 99 |
+| Target and push further | 0 | 18 | 78 | 96 |
+| All | 3 | 18 | 78 | 99 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
