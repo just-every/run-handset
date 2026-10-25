@@ -4,6 +4,7 @@ import { session, owner, json, input, Fault, page } from '../core'
 import { knowledgeDoor } from '../knowledge/doors'
 import { erasureDoor } from '../erasure/doors'
 import { qualityDoor } from '../quality/doors'
+import { flowConsole } from '../flows/console'
 import { flowDoor } from '../flows/doors'
 import { transcriptPage } from '../transcripts/pages'
 import { transcriptDoor } from '../transcripts/doors'
@@ -31,7 +32,7 @@ import { ownerDoor as receptionistDoor } from '../receptionist/doors'
 
 export async function productResponse(request: Request, original: Bindings): Promise<Response|null> {
  const url = new URL(request.url), path = url.pathname, html = path.startsWith('/app/')
- if (!/^\/(api\/handset|app\/(cases|records|audit|grants|sources|admin|queues|reports\/queues|protection|dialer|front-desk|recordings|transcripts|receptionist|rules|followups|recovery|operations))(\/|$)/.test(path)) return null
+ if (!/^\/(api\/handset|app\/(cases|records|audit|grants|sources|admin|queues|reports\/queues|protection|dialer|front-desk|recordings|transcripts|flows|receptionist|rules|followups|recovery|operations))(\/|$)/.test(path)) return null
  let auth: {env:Bindings;session:Session}|undefined
  try {
   auth = await session(request,original)
@@ -76,6 +77,7 @@ export async function productResponse(request: Request, original: Bindings): Pro
   if(path==='/api/handset/transcripts'||path.startsWith('/api/handset/transcripts/')){
    return await transcriptDoor(request,env,actor,request.method==='GET'?undefined:await input(request,1048576))
   }
+  if(path==='/app/flows'||path.startsWith('/app/flows/'))return await flowConsole(request,env,actor,request.method==='GET'?undefined:await input(request))
   if(path==='/api/handset/flows'||path.startsWith('/api/handset/flows/'))return await flowDoor(request,env,actor,request.method==='GET'?undefined:await input(request))
   const records=await recordsDoor(request,env,actor)
   if(records)return records

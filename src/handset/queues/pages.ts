@@ -6,7 +6,7 @@ const select=(label:string,name:string,items:[string,string][],value?:string)=>{
 const button=(path:string,label:string,fields:string='')=>`<form method="post" action="/app/queues/${e(path)}">${fields}<button>${e(label)}</button></form>`
 export async function queuesPage(data:Snapshot,people:{id:string;display_name:string}[]){
  const agentOptions=data.agents.map(a=>[a.operator_id,a.display_name] as [string,string]),queueOptions=data.queues.map(q=>[q.id,q.name] as [string,string])
- return page('Queues',`<p>Native routing and staffing / Colas y personal. Queue assignments are durable. Carrier ringing, connected audio, spoken announcements and destination delivery remain unverified.</p><p><a href="/app/queues">Refresh current state</a> · <a href="/app/queues/media">Approve media routes</a> · <a href="/api/handset/queues/events">Native queue events</a></p><p role="status">${e(data.countsMeaning)}</p>
+ return page('Queues',`<p>Native routing and staffing / Colas y personal. Queue assignments are durable. Carrier ringing, connected audio, spoken announcements and destination delivery remain unverified.</p><p><a href="/app/queues">Refresh current state</a> · <a href="/app/queues/media">Approve media routes</a> · <a href="/app/flows">Call-flow settings</a> · <a href="/api/handset/queues/events">Native queue events</a></p><p role="status">${e(data.countsMeaning)}</p>
  <h2>Queues and waiting callers</h2>${data.queues.map(q=>{
  const count=(state:string)=>data.counts.find(c=>c.queue_id===q.id&&c.state===state)?.count??0
  const members=data.memberships.filter(m=>m.queue_id===q.id)

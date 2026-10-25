@@ -1,25 +1,12 @@
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
-import { Fault, choice, id, integer, json, keys, object, owner, text, type ObjectValue } from '../core'
+import { Fault, id, integer, json, keys, owner, text, type ObjectValue } from '../core'
 import { commit } from '../audit/store'
 import { guard, sql } from '../delegation/store'
+import { definition, type FlowDefinition } from './definition'
+import { evaluateFlow, validateEvaluationInput } from './evaluation'
 
-type Node = {id:string;kind:string;next:string[];queueId?:string;language?:string}
-type Definition = {name:string;entry:string;nodes:Node[];timezone:string;overrides:{date:string;entry:string}[]}
 type Version = {id:string;flow_id:string;version:number;definition:string;state:string}
-function definition(raw:unknown):Definition {
- const v=object(raw);keys(v,['name','entry','nodes','timezone','overrides'])
- const timezone=text(v.timezone,'timezone');try{new Intl.DateTimeFormat('en-US',{timeZone:timezone})}catch{throw new Fault('invalid_timezone')}
- if(!Array.isArray(v.nodes)||!v.nodes.length||v.nodes.length>50)throw new Fault('invalid_flow_nodes')
- const nodes=v.nodes.map(raw=>{const n=object(raw);keys(n,['id','kind','next','queueId','language']);if(!Array.isArray(n.next)||n.next.length>10)throw new Fault('invalid_branches');return {id:text(n.id,'nodeId'),kind:choice(n.kind,['hours','menu','queue','receptionist','end'],'nodeKind'),next:n.next.map(x=>text(x,'destination')), ...(n.queueId?{queueId:text(n.queueId,'queueId')}:{}),...(n.language?{language:choice(n.language,['en','es'],'language')}:{})}})
- const ids=new Set(nodes.map(n=>n.id)),entry=text(v.entry,'entry');if(ids.size!==nodes.length||!ids.has(entry))throw new Fault('duplicate_or_missing_entry')
- for(const n of nodes){if(n.next.some(x=>!ids.has(x))||new Set(n.next).size!==n.next.length)throw new Fault('orphaned_destination');if(['hours','menu'].includes(n.kind)&&n.next.length<2||['queue','receptionist','end'].includes(n.kind)&&n.next.length)throw new Fault('empty_or_invalid_branches');if(n.kind==='queue'&&!n.queueId)throw new Fault('queue_required')}
- const visited=new Set<string>(),active=new Set<string>();function visit(target:string){if(active.has(target))throw new Fault('cyclic_flow');if(visited.has(target))return;active.add(target);for(const next of nodes.find(n=>n.id===target)!.next)visit(next);active.delete(target);visited.add(target)}visit(entry)
- if(visited.size!==nodes.length)throw new Fault('unreachable_node_or_language')
- if(!Array.isArray(v.overrides)||v.overrides.length>100)throw new Fault('invalid_overrides')
- const dates=new Set<string>(),overrides=v.overrides.map(raw=>{const o=object(raw);keys(o,['date','entry']);const date=text(o.date,'date'),target=text(o.entry,'entry');if(!/^\d{4}-\d\d-\d\d$/.test(date)||!Number.isFinite(Date.parse(date+'T00:00:00Z'))||new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date||!ids.has(target)||dates.has(date))throw new Fault('invalid_dated_override');dates.add(date);return {date,entry:target}})
- return {name:text(v.name,'name'),entry,nodes,timezone,overrides}
-}
 async function version(env:Bindings,target:string){const row=await sql(env,'SELECT * FROM hnd_flow_versions WHERE id=?',target).first<Version>();if(!row)throw new Fault('flow_version_missing',404);return row}
 export async function flowDoor(request:Request,env:Bindings,actor:Session,value?:ObjectValue):Promise<Response>{
  owner(actor)
@@ -27,9 +14,10 @@ export async function flowDoor(request:Request,env:Bindings,actor:Session,value?
  if(url.search)throw new Fault('unexpected_flow_query')
  if(path===base&&request.method==='GET'){
   const versions=(await sql(env,'SELECT * FROM hnd_flow_versions ORDER BY created_at DESC,id LIMIT 100').all()).results
-  const publications=(await sql(env,'SELECT * FROM hnd_flow_publications ORDER BY flow_id LIMIT 100').all()).results
+  const publications=(await sql(env,'SELECT p.*,o.display_name AS approver_name FROM hnd_flow_publications p LEFT JOIN oa_operators o ON o.id=p.approved_by ORDER BY p.flow_id LIMIT 100').all()).results
+  const tests=(await sql(env,'SELECT version_id,path FROM hnd_flow_tests ORDER BY created_at DESC LIMIT 1000').all()).results
   await commit(env,actor,'flow.read','installation','completed')
-  return json({versions,publications,bounded:true,qualification:'native path tests only; no carrier routing or audible test calls'})
+  return json({versions,publications,tests,bounded:true,qualification:'native path tests only; no carrier routing or audible test calls'})
  }
  if(path===base&&request.method==='POST'){
   keys(value!,['flowId','previousVersionId','definition']);const d=definition(value!.definition),target=id(),flow=value!.flowId?text(value!.flowId,'flowId'):id()
@@ -42,9 +30,14 @@ export async function flowDoor(request:Request,env:Bindings,actor:Session,value?
    sql(env,'INSERT INTO hnd_flow_versions VALUES (?,?,?,?,?,?,?)',target,flow,next,JSON.stringify(d),'draft',actor.operator.id,Date.now())])
   return json({id:target,flowId:flow,version:next,state:'draft'},201)
  }
- const match=path.match(/^\/api\/handset\/flows\/([^/]+)\/(test|publish|rollback)$/)
+ const match=path.match(/^\/api\/handset\/flows\/([^/]+)\/(test|publish|rollback|evaluate)$/)
  if(!match||request.method!=='POST')throw new Fault('not_found',404)
- const row=await version(env,match[1]),d=JSON.parse(row.definition) as Definition,action=match[2]
+ const row=await version(env,match[1]),d=JSON.parse(row.definition) as FlowDefinition,action=match[2]
+ if(action==='evaluate'){
+  const result=evaluateFlow(d,validateEvaluationInput(value))
+  await commit(env,actor,'flow.read',row.id,'completed')
+  return json({versionId:row.id,...result,qualification:'native scenario evaluation only; no carrier routing or audible test'})
+ }
  if(action==='test'){
   keys(value!,['path']);if(!['draft','tested'].includes(row.state))throw new Fault('flow_not_testable',409)
   if(!Array.isArray(value!.path)||value!.path.length<1||value!.path.length>50)throw new Fault('invalid_test_path')

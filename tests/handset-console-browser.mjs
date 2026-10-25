@@ -7,13 +7,14 @@ import { signIn,post } from './helpers/handset-auth.mjs'
 import { adminCsv,adminFixture } from './helpers/handset-admin.mjs'
 import { localDateTime } from './helpers/handset-browser-time.mjs'
 import { dialerJourney } from './helpers/handset-dialer-browser.mjs'
+import { flowJourney } from './helpers/handset-flow-browser.mjs'
 import { queueMediaJourney } from './helpers/handset-queue-browser.mjs'
 import { queueFixture } from './helpers/handset-queues.mjs'
 import { protectionFixture } from './helpers/handset-protection.mjs'
 import { metricDataset,metricStart,metricConfig } from './helpers/handset-metrics.mjs'
 import { importDataset } from './helpers/handset-import.mjs'
 
-for(const width of [1440,390])for(const domain of ['administration','queues','queue-media','metrics','protection','dialer'])test(`${domain} console at ${width}`,async()=>{
+for(const width of [1440,390])for(const domain of ['administration','queues','queue-media','flows','metrics','protection','dialer'])test(`${domain} console at ${width}`,async()=>{
  const runtime=await openHandset({twilio:true,callingClock:domain==='dialer'}),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage()
  page.setDefaultTimeout(10000)
@@ -23,6 +24,7 @@ for(const width of [1440,390])for(const domain of ['administration','queues','qu
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name+' fits viewport')
   assert.equal(await page.locator('h1').count(),1,name+' has a single page heading')
   await page.screenshot({path:`${directory}/${width}-${name}.png`,fullPage:true})
+  if(domain==='flows')await page.screenshot({path:`${directory}/${width}-${name}-viewport.png`})
   if(focus)await focus.screenshot({path:`${directory}/${width}-${name}-focus.png`})
   const tree=await page.locator('main').ariaSnapshot()
   assert.match(tree,/heading/,name+' accessibility tree')
@@ -100,6 +102,7 @@ for(const width of [1440,390])for(const domain of ['administration','queues','qu
    assert.equal(own.agent.availability,'away');assert.equal(own.memberships.find(m=>m.name==='Sales / Ventas').logged_in,0);assert.ok(own.agent.wrap_until>Date.now())
    assert.equal(await page.getByRole('button',{name:'Configure native agent',exact:true}).count(),0)
   }
+  if(domain==='flows')await flowJourney({runtime,page,proof,cookie})
   if(domain==='queue-media')await queueMediaJourney({runtime,page,proof,cookie})
   if(domain==='dialer')await dialerJourney({runtime,page,proof})
   if(domain==='metrics'){
@@ -185,7 +188,7 @@ for(const width of [1440,390])for(const domain of ['administration','queues','qu
   await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
   const member=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'}),[memberName,...memberValue]=member.cookie.split('=')
   await context.clearCookies();await context.addCookies([{name:memberName,value:memberValue.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
-  const privatePaths={administration:[['/app/admin/bulk','bulk'],['/app/admin/templates','template']],queues:[['/app/queues','queue']],'queue-media':[['/app/queues/media','queue-media']],metrics:[['/app/reports/queues','report'],['/app/import','import']],protection:[['/app/protection','protection']],dialer:[['/app/dialer','dialer']]}
+  const privatePaths={flows:[['/app/flows','flows']],administration:[['/app/admin/bulk','bulk'],['/app/admin/templates','template']],queues:[['/app/queues','queue']],'queue-media':[['/app/queues/media','queue-media']],metrics:[['/app/reports/queues','report'],['/app/import','import']],protection:[['/app/protection','protection']],dialer:[['/app/dialer','dialer']]}
   for(const [path,name] of privatePaths[domain]){
    await page.goto(runtime.origin+path);await page.getByRole('alert').waitFor();await proof(name+'-permission-denied')
   }

@@ -335,11 +335,15 @@ test('Native flow drafts require every branch test and exact publication approva
   const second=await send('',{flowId:first.flowId,previousVersionId:first.id,definition:{...definition,name:'Revised reception'}},201)
   let snapshot=await (await runtime.request(base,{headers})).json();assert.equal(snapshot.publications[0].version_id,first.id,'draft has no live publication change')
   for(const path of [['hours','menu','sales'],['hours','after'],['hours','menu','after']])await send('/'+second.id+'/test',{path})
+  await send('/'+second.id+'/publish',{revision:0,confirm},409)
+  snapshot=await (await runtime.request(base,{headers})).json();assert.equal(snapshot.publications[0].version_id,first.id);assert.equal(snapshot.publications[0].revision,1)
   await send('/'+second.id+'/publish',{revision:1,confirm});await send('/'+first.id+'/rollback',{revision:1,confirm},409)
   await send('/'+first.id+'/rollback',{revision:2,confirm});await runtime.restart()
   snapshot=await (await runtime.request(base,{headers})).json();assert.equal(snapshot.publications[0].version_id,first.id);assert.equal(snapshot.publications[0].revision,3)
   assert.equal(snapshot.versions.find(v=>v.id===second.id).state,'retired');assert.equal((await q.read()).entries.find(e=>e.id===active.id).state,'active','native publication never mutates existing queue calls')
   const audit=await runtime.sql("SELECT action FROM hnd_audit WHERE action LIKE 'flow.%'");assert.ok(audit.results.some(r=>r.action==='flow.rollback'))
+  assert.deepEqual(JSON.parse(snapshot.versions.find(v=>v.id===first.id).definition),definition)
+  const retained=await runtime.sql("SELECT a.subject,a.actor,r.operator_id FROM hnd_audit a JOIN hnd_actor_refs r ON r.pseudonym=a.actor WHERE a.action='flow.rollback' AND a.outcome='completed'");assert.equal(retained.results.length,1);assert.equal(retained.results[0].subject,first.id);assert.equal(retained.results[0].operator_id,'synthetic-handset-1')
  }finally{await runtime.close()}
 })
 
@@ -361,5 +365,45 @@ test('Native flow authoring refuses malformed graphs stale drafts and unauthoriz
   assert.equal((await post(runtime,base,{definition:valid},{cookie:member.cookie})).status,403)
   assert.equal((await runtime.request(base,{headers:{cookie:member.cookie}})).status,403)
   const foreign=await runtime.request(base,{method:'POST',headers:{cookie,origin:'https://synthetic-handset-foreign.example.test','content-type':'application/json'},body:JSON.stringify({definition:valid})});assert.equal(foreign.status,403)
+ }finally{await runtime.close()}
+})
+
+test('Native scenario evaluation applies local hours holiday overrides and both DST transitions without publishing or routing',async()=>{
+ const runtime=await openHandset()
+ try{
+  const f=await queueFixture(runtime),base='/api/handset/flows'
+  const definition={name:'Chicago hours',entry:'hours',timezone:'America/Chicago',overrides:[{date:'2026-11-26',entry:'after'}],nodes:[{id:'hours',kind:'hours',hours:{weekly:[{days:[1,2,3,4,5,6,7],startMinute:90,endMinute:150}]},next:['sales','after']},{id:'sales',kind:'queue',queueId:f.sales.id,next:[]},{id:'after',kind:'receptionist',next:[]}]}
+  const create=await post(runtime,base,{definition},f.headers);assert.equal(create.status,201,await create.clone().text());const version=await create.json()
+  async function evaluate(instant,terminal,localMinute,overrideApplied=false){const r=await post(runtime,base+'/'+version.id+'/evaluate',{instant},f.headers);assert.equal(r.status,200,await r.clone().text());const d=await r.json();assert.equal(d.terminal.id,terminal);assert.equal(d.localMinute,localMinute);assert.equal(d.overrideApplied,overrideApplied);assert.equal(d.versionId,version.id);assert.equal(d.liveRouting,false)}
+  await evaluate('2026-03-08T07:29:59Z','after',89)
+  await evaluate('2026-03-08T07:30:00Z','sales',90)
+  await evaluate('2026-03-08T07:59:59Z','sales',119)
+  await evaluate('2026-03-08T08:00:00Z','after',180)
+  await evaluate('2026-11-01T06:45:00Z','sales',105)
+  await evaluate('2026-11-01T07:45:00Z','sales',105)
+  await evaluate('2026-11-26T07:45:00Z','after',105,true)
+  assert.equal((await post(runtime,base+'/'+version.id+'/evaluate',{instant:'2026-11-01T01:45:00'},f.headers)).status,400)
+  assert.equal((await post(runtime,base+'/'+version.id+'/evaluate',{instant:'2026-02-30T01:45:00Z'},f.headers)).status,400)
+  const snapshot=await (await runtime.request(base,{headers:f.headers})).json();assert.equal(snapshot.publications.length,0);assert.equal(snapshot.versions[0].state,'draft');assert.equal(runtime.sourceRequests.length,0)
+  await runtime.sql("UPDATE oa_sessions SET revoked_at=? WHERE operator_id='synthetic-handset-1'",Date.now())
+  assert.equal((await post(runtime,base+'/'+version.id+'/evaluate',{instant:'2026-11-01T07:45:00Z'},f.headers)).status,401)
+ }finally{await runtime.close()}
+})
+
+test('Native group scenarios select simultaneous sequential round robin and longest idle eligible members without granting call authority',async()=>{
+ const runtime=await openHandset()
+ try{
+  const f=await queueFixture(runtime),base='/api/handset/flows',members=[f.english,f.spanish]
+  for(const strategy of ['simultaneous','sequential','round_robin','longest_idle']){
+   const definition={name:strategy,entry:'sales',timezone:'America/Chicago',overrides:[],nodes:[{id:'sales',kind:'queue',queueId:f.sales.id,next:[],group:{strategy,members}}]}
+   const created=await post(runtime,base,{definition},f.headers);assert.equal(created.status,201,await created.clone().text());const v=await created.json(),instant='2026-11-02T16:00:00Z'
+   const states=members.map((id,i)=>({id,eligible:true,idleSince:i?'2026-11-02T14:00:00Z':'2026-11-02T15:00:00Z'}))
+   const run=async(state,status=200)=>{const r=await post(runtime,base+'/'+v.id+'/evaluate',{instant,groups:{sales:state}},f.headers);assert.equal(r.status,status,await r.clone().text());return r.json()}
+   const selected=await run({members:states,cursor:1});assert.deepEqual(selected.group.selected,strategy==='simultaneous'?members:strategy==='sequential'?[f.english]:[f.spanish]);assert.equal(selected.liveRouting,false)
+   const unavailable=await run({members:states.map(m=>({...m,eligible:false})),cursor:1});assert.deepEqual(unavailable.group.selected,[])
+   await run({members:states.slice(1),cursor:1},400)
+   if(strategy==='round_robin'){const next=await run({members:states,cursor:selected.group.nextCursor});assert.deepEqual(next.group.selected,[f.english]);await run({members:states},400)}
+  }
+  assert.equal(runtime.sourceRequests.length,0)
  }finally{await runtime.close()}
 })

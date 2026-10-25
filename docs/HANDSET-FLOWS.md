@@ -1,40 +1,51 @@
 # Native call-flow versions
 
-HND-006 is partial. The owner-only native API at `/api/handset/flows` stores
-immutable definitions and separate publication pointers. It does not route calls,
-record prompts, synthesize speech or make a carrier request.
+HND-006 remains partial. Current native owners open **Queues → Call-flow settings**
+at `/app/flows`. Build connected steps, configure hours and a timezone, choose
+an existing sales queue and add dated holidays. Save creates an immutable draft.
+The visual editor exposes step destinations, retained versions and native tests.
+Every control has a visible text label.
 
-POST a `definition` with a name, entry node, IANA timezone, dated overrides and
-nodes. Nodes have an ID, kind and explicit next destinations. Supported kinds
-are hours, menu, queue, receptionist and end. A queue node names an existing
-native queue. Menu and hours nodes need at least two branches; terminal nodes
-have none. Unknown fields, unsupported emergency routing, cycles, missing
-destinations, duplicate destinations and unreachable nodes are refused. Dated
-overrides identify local calendar dates and existing entries; they are stored,
-not yet evaluated as real DST-aware routing schedules.
+The same current-owner API is `/api/handset/flows`. Definitions include name,
+entry, IANA timezone, dated overrides and nodes. Node kinds are hours, menu,
+queue, receptionist and end. Queue nodes name existing native queues. Cycles,
+missing destinations, duplicate branches, unreachable nodes, empty branches and
+unsupported emergency fields are refused before saving. A changed definition
+always creates a new version; it cannot change an existing publication.
 
-A revision supplies `flowId` and `previousVersionId` from the latest version.
-Stale drafts are refused. Existing versions never change their definition.
-POST a complete node-ID `path` to the version's `test` child. Every edge must
-appear in a complete path before the version becomes tested. These are native
-graph traversals, never audible or official carrier test calls.
+Test every native branch before exact-version approval. These graph traversals
+are not audible or official carrier test calls. Publication and rollback require
+`confirm: approve this exact tested flow version` and the current publication
+revision. A named current owner is recorded atomically. Stale publication and
+rollback are refused. Rollback retains both definitions and attributable history.
+Neither publication nor rollback changes existing queue calls.
 
-POST `revision` and `confirm: approve this exact tested flow version` to the
-version's `publish` child. The named current owner is recorded atomically with
-the exact tested version; the previous publication becomes retired. The same
-confirmation and current publication revision on a retired version's `rollback`
-child restores it in one request, preserving both definitions and audit history.
-This only changes native configuration. Existing queue calls are not changed;
-active-call flow-version binding and safe transfer remain unimplemented.
+POST an explicit ISO timestamp with offset as `instant` to a version's `evaluate`
+child. Hours nodes optionally define `hours.weekly` windows with ISO weekdays
+(1 Monday through 7 Sunday), `startMinute` inclusive and `endMinute` exclusive.
+Hours destinations are open first and closed second. Overnight hours use two
+windows. Dated overrides select their entry before weekly hours using the flow's
+local calendar date. IANA timezone evaluation handles repeated and skipped DST
+hours from the explicit instant. Legacy versions without hours metadata remain
+intact and refuse evaluation when an unconfigured hours node is visited.
 
-Conservative default ADOPTED pending ct: only current native owners author,
-read, test or approve this preparatory configuration; no carrier, prompt, number
-assignment or outbound effect is authorized. HND-027 inherits broader scoped
-administration and HND-047 inherits live-flow audit composition.
+Menus require explicit `choices` mapping node IDs to one of their destinations.
+Queue nodes may configure `group` with `strategy` and ordered `members`.
+Simultaneous selects all eligible members, sequential previews the first eligible
+member, round robin rotates from the supplied cursor, and longest idle selects
+the earliest supplied idle time. `groups` maps each queue node to complete member
+eligibility, optional idle timestamps and an explicit round-robin cursor. The
+result explains the path, local date, override and selected members. Caller
+supplied eligibility is scenario input, never staffing or carrier authority.
+The evaluator is a pure calculation and makes no live routing or outbound call.
 
-Remaining HND-006 work includes the visual builder, complete scheduling and
-routing predicates, speech and DTMF menus, group strategies, number assignments,
-qualified test calls, live version binding and safe rollback, HND-087 prompt
-creation and pinned versions, and extension dialing under personal rules.
-Record-by-phone and audible carrier qualification require authorized carrier
-and receiving endpoints, which this task does not hold. No new account is used.
+The approved preparatory boundary grants no prompt, number assignment, carrier,
+outbound or live-routing authority. HND-027 retains broader scoped flow
+administration and greeting-only separation; HND-047 retains live-flow audit.
+
+Remaining work includes caller-ID rules, complete live scheduling and US-holiday
+calendars, speech and DTMF, live group progression, overflow and failover, number
+assignments, qualified test calls, active-call version binding and safe transfer,
+HND-087 prompt creation and pinned versions, and extension dialing under personal
+rules. Record-by-phone and audible qualification require authorized carrier and
+controlled receiving endpoints. This run uses no carrier key.

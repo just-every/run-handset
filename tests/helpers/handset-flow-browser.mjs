@@ -1,0 +1,49 @@
+import assert from 'node:assert/strict'
+import { post,signIn } from './handset-auth.mjs'
+import { queueFixture } from './handset-queues.mjs'
+
+export async function flowJourney({runtime,page,proof,cookie}){
+ const f=await queueFixture(runtime,cookie),base='/api/handset/flows'
+ const click=async name=>{await page.getByRole('button',{name,exact:true}).click();await page.waitForLoadState('load')}
+ await page.goto(runtime.origin+'/app/queues')
+ await page.getByRole('link',{name:'Call-flow settings',exact:true}).click();await proof('flows-empty-builder')
+ await click('Add another step');assert.equal(await page.getByLabel('Step ID 5',{exact:true}).inputValue(),'step-5');await proof('flows-added-step-preview')
+ await click('Remove step 5');assert.equal(await page.getByLabel('Step ID 5',{exact:true}).count(),0)
+ await page.getByLabel('Flow name',{exact:true}).fill('Austin bilingual reception')
+ await page.getByLabel('ISO weekdays 1',{exact:true}).fill('1, 2, 3, 4, 5, 6, 7');await page.getByLabel('Opens 1',{exact:true}).fill('01:30');await page.getByLabel('Closes 1',{exact:true}).fill('02:30')
+ await page.getByLabel('Language 3',{exact:true}).selectOption('en');await page.getByLabel('Language 4',{exact:true}).selectOption('es')
+ await page.getByLabel('Holiday date 1',{exact:true}).fill('2026-11-01');await page.getByLabel('Holiday destination 1',{exact:true}).selectOption('after')
+ await click('Save immutable draft');await proof('flows-draft')
+ const first=new URL(page.url()).pathname.split('/').at(-1),firstUrl=page.url()
+ let data=await (await runtime.request(base,{headers:f.headers})).json();assert.equal(data.publications.length,0)
+ assert.equal(await page.getByRole('button',{name:'Publish this tested version',exact:true}).count(),0)
+ for(const path of ['hours → menu → sales','hours → menu → after','hours → after'])await click('Test '+path)
+ await proof('flows-tested-approval')
+ await page.getByRole('checkbox',{name:/I approve this exact tested flow version/}).check();await click('Publish this tested version');await proof('flows-published')
+ data=await (await runtime.request(base,{headers:f.headers})).json();assert.equal(data.publications[0].version_id,first)
+ const evaluation=page.locator('form').filter({has:page.getByRole('button',{name:'Evaluate native scenario',exact:true})})
+ await evaluation.getByLabel('Evaluation instant',{exact:true}).fill('2026-11-01T07:45:00Z');await click('Evaluate native scenario')
+ await page.getByRole('heading',{name:'Native scenario evaluated',exact:true}).waitFor();assert.match(await page.locator('main').innerText(),/Holiday override/);assert.deepEqual(await page.locator('main ol li').allTextContents(),['after']);await proof('flows-holiday-evaluated')
+ await page.getByRole('link',{name:'Return to exact flow version',exact:true}).click()
+ await page.getByLabel('Flow name',{exact:true}).fill('Austin revised reception');await click('Save immutable draft')
+ const second=new URL(page.url()).pathname.split('/').at(-1),secondUrl=page.url()
+ data=await (await runtime.request(base,{headers:f.headers})).json();assert.equal(data.publications[0].version_id,first);await proof('flows-new-draft-keeps-publication')
+ await page.getByLabel('Destinations 1',{exact:true}).fill('hours, after');await click('Save immutable draft');await page.getByRole('alert').filter({hasText:'cyclic flow'}).waitFor();assert.equal(await page.getByLabel('Destinations 1',{exact:true}).inputValue(),'hours, after');await proof('flows-cycle-refused')
+ await page.goto(secondUrl)
+ for(const path of ['hours → menu → sales','hours → menu → after','hours → after'])await click('Test '+path)
+ await page.getByRole('checkbox',{name:/I approve this exact tested flow version/}).check();await click('Publish this tested version')
+ await page.goto(firstUrl);await page.getByRole('checkbox',{name:/I approve this exact tested flow version/}).check()
+ // A competing current publication change makes the already-open rollback form stale.
+ const confirm='approve this exact tested flow version'
+ assert.equal((await post(runtime,base+'/'+first+'/rollback',{revision:2,confirm},f.headers)).status,200)
+ await click('Roll back to this version');await page.getByRole('alert').filter({hasText:'flow publication changed'}).waitFor();await proof('flows-stale-rollback-refused')
+ await page.goto(secondUrl);await page.getByRole('checkbox',{name:/I approve this exact tested flow version/}).check();await click('Roll back to this version');await proof('flows-rollback-completed')
+ data=await (await runtime.request(base,{headers:f.headers})).json();assert.equal(data.publications[0].version_id,second);assert.equal(data.versions.length,2)
+ await page.goto(firstUrl);await page.getByLabel('Destinations 1',{exact:true}).fill('');await click('Save immutable draft');await page.getByRole('alert').filter({hasText:'empty or invalid branches'}).waitFor();assert.equal(await page.getByLabel('Destinations 1',{exact:true}).inputValue(),'');await proof('flows-empty-branch-refused')
+ assert.equal(await page.locator('button, a, summary').evaluateAll(controls=>controls.every(c=>c.textContent.trim().length>2)),true,'All flow controls carry visible text; no icon-only control lacks a tooltip')
+ await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
+ const other=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'}),[name,...value]=other.cookie.split('=')
+ await page.context().clearCookies();await page.context().addCookies([{name,value:value.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
+ const denied=await page.goto(firstUrl);assert.equal(denied.status(),403);await page.getByRole('alert').waitFor();await proof('flows-owner-only-refused')
+ assert.equal((await post(runtime,base+'/'+first+'/test',{path:['hours','after']},{cookie:other.cookie})).status,403)
+}
