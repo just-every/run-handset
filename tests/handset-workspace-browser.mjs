@@ -11,7 +11,7 @@ for(const width of [1440,390])test(`Native case work, conflict and source drill-
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage()
  const evidence=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-workspace'
  await mkdir(evidence,{recursive:true})
- async function proof(name){assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name);await page.screenshot({path:`${evidence}/${width}-${name}.png`,fullPage:true})}
+ async function proof(name){await page.waitForLoadState('load');await page.evaluate(()=>document.fonts.ready.then(()=>{}));assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name);await page.screenshot({path:`${evidence}/${width}-${name}.png`,fullPage:true})}
  try{
   const {cookie}=await signIn(runtime),[name,...value]=cookie.split('=')
   await context.addCookies([{name,value:value.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
@@ -141,7 +141,7 @@ for(const width of [1440,390])test(`Explicit executive delegation and owner-atte
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage(),evidence=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-workspace'
  await mkdir(evidence,{recursive:true})
  async function as(cookie){const [name,...value]=cookie.split('=');await context.clearCookies();await context.addCookies([{name,value:value.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])}
- async function proof(name){assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name);await page.screenshot({path:`${evidence}/${width}-${name}.png`,fullPage:true})}
+ async function proof(name){await page.waitForLoadState('load');await page.evaluate(()=>document.fonts.ready.then(()=>{}));assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name);await page.screenshot({path:`${evidence}/${width}-${name}.png`,fullPage:true})}
  try{
   const owner=await signIn(runtime);await as(owner.cookie)
   await page.goto(runtime.origin+'/app/front-desk');await proof('empty-front-desk')
@@ -218,7 +218,7 @@ for(const width of [1440,390])test(`Executive inbound routing and suspended sour
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage(),evidence=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-workspace'
  await mkdir(evidence,{recursive:true})
  async function as(cookie){const [name,...value]=cookie.split('=');await context.clearCookies();await context.addCookies([{name,value:value.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])}
- async function proof(name){
+ async function proof(name){await page.waitForLoadState('load');await page.evaluate(()=>document.fonts.ready.then(()=>{}));
   const overflow=await page.evaluate(()=>[...document.querySelectorAll('main *')].map(el=>({tag:el.tagName,classes:el.className,left:el.getBoundingClientRect().left,right:el.getBoundingClientRect().right,width:el.getBoundingClientRect().width,display:getComputedStyle(el).display})).filter(el=>el.right>innerWidth+1||el.left<0))
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${name}: ${JSON.stringify(overflow)}`)
   await page.screenshot({path:`${evidence}/${width}-${name}.png`,fullPage:true})
@@ -276,7 +276,7 @@ for(const width of [1440,390])test(`Reviewed front desk call execution and provi
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage(),evidence=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-workspace'
  await mkdir(evidence,{recursive:true})
  async function as(cookie){const [name,...value]=cookie.split('=');await context.clearCookies();await context.addCookies([{name,value:value.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])}
- async function proof(name){assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name);await page.screenshot({path:`${evidence}/${width}-${name}.png`,fullPage:true})}
+ async function proof(name){await page.waitForLoadState('load');await page.evaluate(()=>document.fonts.ready.then(()=>{}));assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name);await page.screenshot({path:`${evidence}/${width}-${name}.png`,fullPage:true})}
  try{
   const f=await controlFixture(runtime)
   for(const kind of ['pickup','park','transfer','callback']){
@@ -316,7 +316,7 @@ for(const width of [1440,390])test(`Exact-person audit read and export approvals
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage(),evidence=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-workspace'
  await mkdir(evidence,{recursive:true})
  async function as(cookie){const [name,...value]=cookie.split('=');await context.clearCookies();await context.addCookies([{name,value:value.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])}
- async function proof(name){assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name);await page.screenshot({path:`${evidence}/${width}-${name}.png`,fullPage:true})}
+ async function proof(name){await page.waitForLoadState('load');await page.evaluate(()=>document.fonts.ready.then(()=>{}));assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name);await page.screenshot({path:`${evidence}/${width}-${name}.png`,fullPage:true})}
  try{
   const owner=await signIn(runtime),headers={cookie:owner.cookie}
   assert.equal((await post(runtime,'/auth/operator/status',{operatorId:'synthetic-handset-2',status:'active'},headers)).status,200)
@@ -356,7 +356,7 @@ for(const width of [1440,390])test(`Assigned number-scoped teammate case work an
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage(),evidence=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-workspace'
  await mkdir(evidence,{recursive:true})
  async function as(cookie){const [name,...value]=cookie.split('=');await context.clearCookies();await context.addCookies([{name,value:value.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])}
- async function proof(name){assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name);await page.screenshot({path:`${evidence}/${width}-${name}.png`,fullPage:true})}
+ async function proof(name){await page.waitForLoadState('load');await page.evaluate(()=>document.fonts.ready.then(()=>{}));assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name);await page.screenshot({path:`${evidence}/${width}-${name}.png`,fullPage:true})}
  try{
   const f=await sourceFixture(runtime),native=await recordsFixture(runtime,f.cookie)
   assert.equal((await post(runtime,'/auth/operator/status',{operatorId:'synthetic-handset-2',status:'active'},f.headers)).status,200)
