@@ -28,7 +28,10 @@ export async function configure(env:Bindings,actor:Session,value:unknown) {
  ])}catch(error){if(String(error).includes('UNIQUE constraint'))throw new Fault('metric_config_changed',409);throw error}
  return config
 }
+export const erasureEpoch=async(db:D1Database)=>Number((await db.prepare("SELECT count(*) AS n FROM ik_d1_erasure_journal WHERE destination='handset-queue-metrics'").first<{n:number}>())?.n??0)
+export const reportFence=(db:D1Database,epoch:number)=>db.prepare("INSERT INTO hnd_guard(ok) SELECT count(*)=? FROM ik_d1_erasure_journal WHERE destination='handset-queue-metrics'").bind(epoch)
 export async function liveReport(env:Bindings,config:Config) {
+ const epoch=await erasureEpoch(env.DB)
  const sources=await datasets(env.DB),entries:Entry[]=[],segments:Segment[]=[],entryValues=new Map<string,string>(),segmentValues=new Map<string,string>()
  for(const source of sources){
   for(const e of source.dataset.entries){const value=JSON.stringify(e),prior=entryValues.get(e.id);if(prior!==undefined&&prior!==value)throw new Fault('source_entry_conflict',409);if(prior===undefined){entryValues.set(e.id,value);entries.push(e)}}
@@ -36,12 +39,12 @@ export async function liveReport(env:Bindings,config:Config) {
  }
  validateCorrelation(entries,segments)
  const report=calculate(entries,segments,config)
- return {...report,sourceRevisions:sources.map(s=>({id:s.id,revision:s.revision})),sourceHash:await digest(sources),source:'reviewed native datasets; source observations retain their supplied identities'}
+ return {...report,erasureEpoch:epoch,sourceRevisions:sources.map(s=>({id:s.id,revision:s.revision})),sourceHash:await digest(sources),source:'reviewed native datasets; source observations retain their supplied identities'}
 }
 export async function saveReport(env:Bindings,actor:Session,config:Config) {
  const report=await liveReport(env,config)
  if(!report.finalized)throw new Fault('provisional_entries_remain',409)
  const reportId=id()
- await commit(env,actor,'metrics.finalize',reportId,'completed',[env.DB.prepare('INSERT INTO hnd_metric_reports VALUES (?,?,?,?,?,?)').bind(reportId,config.queueId,config.revision,report.sourceHash,JSON.stringify(report),Date.now())])
+ await commit(env,actor,'metrics.finalize',reportId,'completed',[reportFence(env.DB,report.erasureEpoch),env.DB.prepare('INSERT INTO hnd_metric_reports VALUES (?,?,?,?,?,?)').bind(reportId,config.queueId,config.revision,report.sourceHash,JSON.stringify(report),Date.now())])
  return {id:reportId,...report}
 }

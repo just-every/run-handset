@@ -3,7 +3,7 @@ import type { Session } from '../../modules/operator-auth/index.mjs'
 import { escape as e, Fault, integer, json, keys, consolePage as page, text, type ObjectValue } from '../core'
 import { commit } from '../audit/store'
 import { configForm, reportBody, reportPage } from './pages'
-import { configure, configs, currentConfig, datasets, liveReport, saveReport } from './store'
+import { configure, configs, currentConfig, datasets, liveReport, saveReport, erasureEpoch, reportFence } from './store'
 import { listSchedules, runDueReports, scheduleReport } from './schedules'
 
 export async function metricsDoor(request:Request,env:Bindings,actor:Session,data?:ObjectValue):Promise<Response|null> {
@@ -16,9 +16,14 @@ export async function metricsDoor(request:Request,env:Bindings,actor:Session,dat
    const rows=await configs(db),schedules=await listSchedules(db)
    return html?page('Queue reports',`<p>Review source observations, versioned formulas and scheduled reports. Source events do not themselves certify carrier delivery.</p><p><a href="/app/import">Move in queue dataset</a></p><ul>${rows.map(c=>`<li><a href="/app/reports/queues/live?queueId=${encodeURIComponent(c.queueId)}">${e(c.queueId)} · formula ${c.revision}</a></li>`).join('')||'<li>No queues configured.</li>'}</ul><h2>Configure a queue interval</h2>${configForm()}<h2>Scheduled reports</h2><ul>${schedules.results.map(s=>`<li>${e(s.queue_id)} · ${e(s.recipient)} · ${e(new Date(s.due_at).toISOString())} · ${e(s.state)}${s.report_id?` · <a href="/app/reports/queues/history/${e(s.report_id)}">Report snapshot</a>`:''}</li>`).join('')||'<li>No scheduled reports.</li>'}</ul><form method="post" action="/app/reports/queues/run"><button>Run due reports</button></form>`):json({configs:rows,schedules:schedules.results})
   }
-  if(action==='/datasets')return json({datasets:await datasets(db)})
+  if(action==='/datasets'){
+   const epoch=await erasureEpoch(db),rows=await datasets(db)
+   await commit(env,actor,'metrics.read','installation','completed',[reportFence(db,epoch)])
+   return json({datasets:rows})
+  }
   if(action==='/live'){
    const config=await currentConfig(db,text(url.searchParams.get('queueId'),'queueId')),report=await liveReport(env,config)
+   await commit(env,actor,'metrics.read','installation','completed',[reportFence(db,report.erasureEpoch)])
    return html?reportPage(report,actor.operator.email):json(report)
   }
   if(action.startsWith('/history/')){

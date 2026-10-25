@@ -3,7 +3,7 @@ import type { Session } from '../../modules/operator-auth/index.mjs'
 import { operatorMail } from '../../mail.server.mjs'
 import { actorRef, append, commit } from '../audit/store'
 import { escape, Fault, id, keys, object, text, timestamp } from '../core'
-import { currentConfig, liveReport } from './store'
+import { currentConfig, liveReport, reportFence } from './store'
 
 interface Schedule {id:string;queue_id:string;config_revision:number;owner_id:string;owner_version:number;recipient:string;due_at:number;created_at:number;state:string;report_id:string|null}
 export async function scheduleReport(env:Bindings,actor:Session,value:unknown) {
@@ -30,6 +30,7 @@ export async function runDueReports(env:Bindings,now=Date.now()) {
   if(!owner||job.recipient!==env.OWNER_EMAIL){await append(env,pseudonym,'metrics.deliver',job.id,'refused',[db.prepare("UPDATE hnd_metric_schedules SET state='refused' WHERE id=? AND state='scheduled'").bind(job.id)]);results.push({id:job.id,state:'refused'});continue}
   const config=await currentConfig(db,job.queue_id,job.config_revision),report=await liveReport(env,config),reportId=id()
   try{await append(env,pseudonym,'metrics.deliver',job.id,'completed',[
+   reportFence(db,report.erasureEpoch),
    db.prepare("INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_metric_schedules s JOIN oa_operators o ON o.id=s.owner_id WHERE s.id=? AND s.state='scheduled' AND s.owner_version=o.version AND o.role='owner' AND o.status='active' AND o.email=s.recipient").bind(job.id),
    db.prepare('INSERT INTO hnd_metric_reports VALUES (?,?,?,?,?,?)').bind(reportId,config.queueId,config.revision,report.sourceHash,JSON.stringify(report),now),
    db.prepare("UPDATE hnd_metric_schedules SET state='sending',report_id=? WHERE id=? AND state='scheduled'").bind(reportId,job.id),

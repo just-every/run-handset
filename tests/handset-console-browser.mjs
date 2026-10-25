@@ -219,3 +219,43 @@ for (const width of [1440, 390]) for (const domain of ['rules', 'followups', 're
   await page.goto(f.runtime.origin + '/app/' + domain); assert.match(new URL(page.url()).pathname, /signin/)
  } finally { await context.close(); await browser.close(); await f.runtime.close() }
 })
+
+for(const width of [1440,390])test(`Owner dataset erasure settings and committed refusal states at ${width}`,async()=>{
+ const {minimalDataset}=await import('./helpers/handset-import.mjs')
+ const runtime=await openHandset(),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage()
+ const directory=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-console'
+ await mkdir(directory,{recursive:true})
+ async function proof(name){
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name)
+  assert.equal(await page.locator('button').evaluateAll(rows=>rows.every(row=>row.textContent.trim().length>0)),true,'every control has a visible label')
+  await page.screenshot({path:`${directory}/${width}-erasure-${name}.png`,fullPage:true})
+ }
+ async function cookieFor(cookie){const [name,...value]=cookie.split('=');await context.clearCookies();await context.addCookies([{name,value:value.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])}
+ try{
+  const {cookie}=await signIn(runtime);await cookieFor(cookie)
+  await page.goto(runtime.origin+'/app/admin/erasure');await proof('empty')
+  await importDataset(runtime,cookie,minimalDataset(1900))
+  await page.goto(runtime.origin+'/app/import')
+  await page.getByRole('link',{name:'Erase imported queue data',exact:true}).click();await proof('populated')
+  await runtime.sql("UPDATE hnd_metric_datasets SET revision=revision+1 WHERE id='synthetic-handset-1900'")
+  await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Erase dataset',exact:true}).click()
+  await page.getByRole('alert').waitFor();assert.match(await page.locator('main').innerText(),/dataset changed/);await proof('stale')
+  await page.goto(runtime.origin+'/app/admin/erasure')
+  await runtime.sql("CREATE TRIGGER synthetic_browser_erasure_failure BEFORE DELETE ON hnd_metric_datasets BEGIN SELECT RAISE(ABORT,'synthetic_failure'); END")
+  await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Erase dataset',exact:true}).click()
+  await page.getByRole('alert').waitFor();await proof('failed')
+  await runtime.sql('DROP TRIGGER synthetic_browser_erasure_failure')
+  await page.goto(runtime.origin+'/app/admin/erasure')
+  await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Erase dataset',exact:true}).focus()
+  await page.keyboard.press('Enter')
+  await page.getByRole('heading',{name:'Dataset deletion committed',exact:true}).waitFor();await proof('committed')
+  assert.match(await page.locator('main').innerText(),/Complete installation erasure is unavailable/)
+  await page.getByRole('link',{name:'Return to erasure settings',exact:true}).click();await proof('receipt')
+  assert.match(await page.locator('main').innerText(),/No imported datasets remain/)
+  await runtime.sql("UPDATE oa_operators SET status='active',role='admin' WHERE id='synthetic-handset-2'")
+  const other=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'});await cookieFor(other.cookie)
+  await page.goto(runtime.origin+'/app/admin/erasure');await page.getByRole('alert').waitFor();await proof('denied')
+  assert.equal((await post(runtime,'/api/handset/erasure/erase',{entity:'queue-dataset'}, {cookie:other.cookie})).status,403)
+ }finally{await context.close();await browser.close();await runtime.close()}
+})
