@@ -24,17 +24,6 @@
       }
     },
     {
-      "path": ".github/workflows/verify.yml",
-      "originPath": "export/verify.yml",
-      "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
-      "files": {
-        ".github/workflows/verify.yml": "4d3bd56c619c6c6a2d9c03b480028328ac6939042de5929a72c64d2f66c4af66"
-      },
-      "modes": {
-        ".github/workflows/verify.yml": "100644"
-      }
-    },
-    {
       "path": "LICENSE",
       "originPath": "LICENSE",
       "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",

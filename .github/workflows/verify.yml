@@ -87,6 +87,7 @@ jobs:
         if: matrix.browser
         run: |
           set -euo pipefail
+          mkdir -p "$HOME/.cache/ms-playwright" "$HOME/.cache/rer-apt/archives"
           sudo env "PATH=$PATH" "APT_ARCHIVES=$HOME/.cache/rer-apt/archives" python3 scripts/install-chromium-deps.py
           pnpm exec playwright install chromium
       - name: Reserve disk for native runtime journeys

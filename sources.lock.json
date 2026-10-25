@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "parent": null,
   "edition": "just-every/handset",
-  "manifest": "5f814a298bf74aa8c8547db991d4592dac3bb3d4f1fb3aaf66bfa74454e0f91c",
+  "manifest": "db31eacafc524a091dc2cb9825cbf3ab4fee627812267e1f682011c29758fb0a",
   "toolchain": {
     "id": "runeditrun/edition-authoring",
     "version": "1.1.0",
@@ -250,6 +250,34 @@
         "digest": "897fb49529818a12eb462a3c54f2a43c9b73daa024970b71a4aaadbc59004ef5",
         "sha256": "03e87657cd6b01a8b7127935d79be3177cf033d3598f8ea4f0e366ced0b8abed"
       }
+    },
+    {
+      "id": "just-every/handset-verification",
+      "source": {
+        "kind": "local",
+        "paths": [
+          ".github/workflows/verify.yml"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
+          "path": "export",
+          "paths": [
+            "verify.yml"
+          ]
+        },
+        "mappings": [
+          {
+            "path": ".github/workflows/verify.yml",
+            "originPath": "verify.yml"
+          }
+        ]
+      },
+      "baseline": {
+        "key": "1b929baf992ea74a93bac7b7bc3c95711c9d3e5465634bbcbb6920d35807fa6c",
+        "digest": "acba63c06b9cc6c31c670cd4f6849065f8adf2e7f125f256cab27ff5710f1a42",
+        "sha256": "799b995db5661e183de9868a82951efeb56d75b80d850e15f5e7bf70e526ee29"
+      }
     }
   ],
   "files": {
@@ -270,7 +298,7 @@
       "executable": false
     },
     ".github/workflows/verify.yml": {
-      "sha256": "4d3bd56c619c6c6a2d9c03b480028328ac6939042de5929a72c64d2f66c4af66",
+      "sha256": "8a7c7e662a7e21cd9cc4c4fd93ae3a39ed89a6bfd2e39df66da446d35334ff08",
       "executable": false
     },
     ".gitignore": {
@@ -290,7 +318,7 @@
       "executable": false
     },
     "base-copies.json": {
-      "sha256": "81851f34dafba3ecdf6cd6444a84fbe33ea96d781c5aa55fd6dacb3d739a31f2",
+      "sha256": "406388b806c0b918118c97a3ba8ce0c08a2db11bbf42211159b8718d87992a1e",
       "executable": false
     },
     "CLAUDE.md": {
@@ -382,7 +410,7 @@
       "executable": false
     },
     "edition.json": {
-      "sha256": "5f814a298bf74aa8c8547db991d4592dac3bb3d4f1fb3aaf66bfa74454e0f91c",
+      "sha256": "db31eacafc524a091dc2cb9825cbf3ab4fee627812267e1f682011c29758fb0a",
       "executable": false
     },
     "HOMEPAGE-VARIANTS.md": {
