@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "parent": null,
   "edition": "just-every/handset",
-  "manifest": "db31eacafc524a091dc2cb9825cbf3ab4fee627812267e1f682011c29758fb0a",
+  "manifest": "b57a842bfbf89d84c986d9f39e790845b8c655ebdce20b8dd0933a5be7442138",
   "toolchain": {
     "id": "runeditrun/edition-authoring",
     "version": "1.1.0",
@@ -256,27 +256,33 @@
       "source": {
         "kind": "local",
         "paths": [
-          ".github/workflows/verify.yml"
+          ".github/workflows/verify.yml",
+          "scripts/install-chromium-deps.py"
         ],
         "origin": {
           "repository": "https://github.com/runeditrun/base.git",
           "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
           "path": "export",
           "paths": [
-            "verify.yml"
+            "verify.yml",
+            "install-chromium-deps.py"
           ]
         },
         "mappings": [
           {
             "path": ".github/workflows/verify.yml",
             "originPath": "verify.yml"
+          },
+          {
+            "path": "scripts/install-chromium-deps.py",
+            "originPath": "install-chromium-deps.py"
           }
         ]
       },
       "baseline": {
-        "key": "1b929baf992ea74a93bac7b7bc3c95711c9d3e5465634bbcbb6920d35807fa6c",
-        "digest": "acba63c06b9cc6c31c670cd4f6849065f8adf2e7f125f256cab27ff5710f1a42",
-        "sha256": "799b995db5661e183de9868a82951efeb56d75b80d850e15f5e7bf70e526ee29"
+        "key": "49d09ac4e092ef41c1c24c29aa7f2565c87664b2875cf507aa18a53704831913",
+        "digest": "79ded9f8aa03f9f8aabeb4f3a6a8693487c8872fdf9e98177d90d3d39026c914",
+        "sha256": "e0e36f79c789a936129d3285f05f89e8cd13fd94baecad85180e88c9e8c29fc4"
       }
     }
   ],
@@ -410,7 +416,7 @@
       "executable": false
     },
     "edition.json": {
-      "sha256": "db31eacafc524a091dc2cb9825cbf3ab4fee627812267e1f682011c29758fb0a",
+      "sha256": "b57a842bfbf89d84c986d9f39e790845b8c655ebdce20b8dd0933a5be7442138",
       "executable": false
     },
     "HOMEPAGE-VARIANTS.md": {

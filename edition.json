@@ -212,20 +212,26 @@
       "source": {
         "kind": "local",
         "paths": [
-          ".github/workflows/verify.yml"
+          ".github/workflows/verify.yml",
+          "scripts/install-chromium-deps.py"
         ],
         "origin": {
           "repository": "https://github.com/runeditrun/base.git",
           "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
           "path": "export",
           "paths": [
-            "verify.yml"
+            "verify.yml",
+            "install-chromium-deps.py"
           ]
         },
         "mappings": [
           {
             "path": ".github/workflows/verify.yml",
             "originPath": "verify.yml"
+          },
+          {
+            "path": "scripts/install-chromium-deps.py",
+            "originPath": "install-chromium-deps.py"
           }
         ]
       }
