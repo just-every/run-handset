@@ -13,7 +13,7 @@ function fromForm(v:ObjectValue):FlowDefinition {
  if(!Number.isSafeInteger(count)||count<1||count>50||!Number.isSafeInteger(overrideCount)||overrideCount<1||overrideCount>101)throw new Fault('invalid_form_nodes')
  const minute=(raw:unknown,end=false)=>{const m=String(raw).match(/^(\d\d):(\d\d)$/);if(!m||(Number(m[1])>23&&!(end&&m[1]==='24'&&m[2]==='00'))||Number(m[2])>59)throw new Fault('invalid_hours');return Number(m[1])*60+Number(m[2])}
  return {name:text(v.name,'name'),entry:text(v.entry,'entry'),timezone:text(v.timezone,'timezone'),nodes:Array.from({length:count},(_,i)=>{
-  const kind=text(v['kind'+i],'kind'),group=v['strategy'+i]?{strategy:v['strategy'+i],members:list(v['members'+i])}:undefined
+  const kind=text(v['kind'+i],'kind'),group=v['strategy'+i]?{strategy:v['strategy'+i],members:Object.entries(v).filter(([key])=>key.startsWith(`member${i}-`)).map(([,value])=>text(value,'memberId'))}:undefined
   const windowCount=Number(v['windowCount'+i]??0);if(!Number.isSafeInteger(windowCount)||windowCount<0||windowCount>100)throw new Fault('invalid_weekly_hours')
   const extras=Array.from({length:windowCount},(_,w)=>({days:list(v[`windowDays${i}-${w}`]).map(Number),startMinute:minute(v[`windowOpens${i}-${w}`]??'09:00'),endMinute:minute(v[`windowCloses${i}-${w}`]??'17:00',true)})).filter(window=>window.days.length)
   return {id:text(v['id'+i],'nodeId'),kind,next:list(v['next'+i]),...(kind==='queue'?{queueId:String(v['queueId'+i]??'')}:{}),...(v['language'+i]?{language:String(v['language'+i])}:{}),...(kind==='hours'?{hours:{weekly:[...(list(v['days'+i]).length?[{days:list(v['days'+i]).map(Number),startMinute:minute(v['opens'+i]),endMinute:minute(v['closes'+i],true)}]:[]),...extras]}}:{}),...(group?{group}: {})}
@@ -26,6 +26,8 @@ export async function flowConsole(request:Request,env:Bindings,actor:Session,v?:
  const api=(path:string,value?:ObjectValue)=>flowDoor(new Request(new URL('/api/handset/flows'+path,url),{method:value?'POST':'GET'}),env,actor,value)
  const inventory=await (await api('')).json() as FlowSnapshot
  const queues=(await sql(env,'SELECT id,name FROM hnd_queues ORDER BY name LIMIT 100').all<{id:string;name:string}>()).results
+ inventory.people=(await sql(env,"SELECT id,display_name FROM oa_operators WHERE status='active' ORDER BY display_name LIMIT 100").all<{id:string;display_name:string}>()).results
+ const personName=(id:string)=>inventory.people!.find(p=>p.id===id)?.display_name??id
  const parts=suffix.split('/').filter(Boolean),selected=parts[0]&&parts[0]!=='save'?inventory.versions.find(row=>row.id===parts[0]):undefined
  if(parts[0]&&parts[0]!=='save'&&!selected)throw new Fault('flow_version_missing',404)
  if(request.method==='GET')return flowsPage(inventory,queues,selected)
@@ -58,7 +60,7 @@ export async function flowConsole(request:Request,env:Bindings,actor:Session,v?:
   const result=await api('/'+selected.id+'/'+action,value)
   if(action==='evaluate'){
    const data=await result.json() as {path:string[];localDate:string;localMinute:number;timezone:string;overrideApplied:boolean;group?:{selected:string[];nextCursor:number|null}}
-   return consolePage('Native scenario evaluated',`<p role="status">Preview only. No live routing or audible call.</p><p>Version ${selected.version} · ${e(data.timezone)} · ${e(data.localDate)} · Local time ${String(Math.floor(data.localMinute/60)).padStart(2,'0')}:${String(data.localMinute%60).padStart(2,'0')} · ${data.overrideApplied?'Holiday override':'Weekly hours'}</p><ol>${data.path.map(step=>`<li>${e(step)}</li>`).join('')}</ol>${data.group?`<p>Selected group members: ${e(data.group.selected.join(', ')||'None eligible')} · Next cursor ${e(data.group.nextCursor)}</p>`:''}<a href="/app/flows/${e(selected.id)}">Return to exact flow version</a>`)
+   return consolePage('Native scenario evaluated',`<p role="status">Preview only. No live routing or audible call.</p><p>Version ${selected.version} · ${e(data.timezone)} · ${e(data.localDate)} · Local time ${String(Math.floor(data.localMinute/60)).padStart(2,'0')}:${String(data.localMinute%60).padStart(2,'0')} · ${data.overrideApplied?'Holiday override':'Weekly hours'}</p><ol>${data.path.map(step=>`<li>${e(step)}</li>`).join('')}</ol>${data.group?`<p>Selected group members: ${e(data.group.selected.map(personName).join(', ')||'None eligible')}${data.group.nextCursor!==null?' · Next starting member '+e(personName(d.nodes.find(n=>n.id===data.path.at(-1))!.group!.members[data.group.nextCursor])):''}</p>`:''}<a href="/app/flows/${e(selected.id)}">Return to exact flow version</a>`)
   }
   return new Response(null,{status:303,headers:{location:'/app/flows/'+selected.id}})
  }catch(error){

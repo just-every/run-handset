@@ -1572,7 +1572,7 @@
       "executable": false
     },
     "src/handset/flows/console.ts": {
-      "sha256": "816f775b39d8e93cefb83e07612609b7617e59e59ffe428dcb21039bbaea50e9",
+      "sha256": "ffab0b977ae0316f15164cc71e42917d4486ea71bee5147d1369b0982e19405e",
       "executable": false
     },
     "src/handset/flows/definition.ts": {
@@ -1592,7 +1592,7 @@
       "executable": false
     },
     "src/handset/flows/pages.ts": {
-      "sha256": "7801715121aacf7b30c84f42bd29f6c8d752e50164347a4e692c42c581762418",
+      "sha256": "b33f00143f7e5fa05bf8585c238cc4f658efacc4deeb1ee909b3a73e348534ab",
       "executable": false
     },
     "src/handset/followups/doors.ts": {
@@ -3968,7 +3968,7 @@
       "executable": false
     },
     "tests/helpers/handset-flow-browser.mjs": {
-      "sha256": "41a17f015aef7380a6ca42dd59993e09bfbd412c472f5b6c6864260263039dbb",
+      "sha256": "355386a3dfc9c7f5c2c3917727b39f285a377da764edb9e337df87960c5d6d8e",
       "executable": false
     },
     "tests/helpers/handset-import.mjs": {
