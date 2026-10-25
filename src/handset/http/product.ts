@@ -4,6 +4,7 @@ import { session, owner, json, input, Fault, page } from '../core'
 import { knowledgeDoor } from '../knowledge/doors'
 import { erasureDoor } from '../erasure/doors'
 import { qualityDoor } from '../quality/doors'
+import { flowDoor } from '../flows/doors'
 import { transcriptPage } from '../transcripts/pages'
 import { transcriptDoor } from '../transcripts/doors'
 import { delegationDoor } from '../delegation/doors'
@@ -75,6 +76,7 @@ export async function productResponse(request: Request, original: Bindings): Pro
   if(path==='/api/handset/transcripts'||path.startsWith('/api/handset/transcripts/')){
    return await transcriptDoor(request,env,actor,request.method==='GET'?undefined:await input(request,1048576))
   }
+  if(path==='/api/handset/flows'||path.startsWith('/api/handset/flows/'))return await flowDoor(request,env,actor,request.method==='GET'?undefined:await input(request))
   const records=await recordsDoor(request,env,actor)
   if(records)return records
   if(path==='/api/handset/grant-scopes'||path.startsWith('/api/handset/grant-scopes/'))return await scopeDoor(request,env,actor,request.method==='GET'?undefined:await input(request))

@@ -316,3 +316,50 @@ test('A lost Dial response is never replayed after restart; verified active call
   assert.equal((await post(runtime,f.base+'/overflow/'+f.sales.id+'/route',{url:'https://synthetic-handset-999.example.test/voicemail?synthetic-handset-998',revision:1,confirm:'approve exact queue overflow route'},f.headers)).status,400)
  }finally{await runtime.close()}
 })
+
+test('Native flow drafts require every branch test and exact publication approval while rollback retains versions',async()=>{
+ const runtime=await openHandset()
+ try{
+  const q=await queueFixture(runtime),base='/api/handset/flows',headers=q.headers
+  async function send(path,value,status=200){const r=await post(runtime,base+path,value,headers);assert.equal(r.status,status,await r.clone().text());return r.json()}
+  const definition={name:'Austin bilingual reception',entry:'hours',timezone:'America/Chicago',overrides:[{date:'2026-11-01',entry:'after'}],nodes:[{id:'hours',kind:'hours',next:['menu','after']},{id:'menu',kind:'menu',next:['sales','after']},{id:'sales',kind:'queue',queueId:q.sales.id,language:'en',next:[]},{id:'after',kind:'receptionist',language:'es',next:[]}]}
+  const first=await send('',{definition},201),confirm='approve this exact tested flow version'
+  await send('/'+first.id+'/publish',{revision:0,confirm},409)
+  await send('/'+first.id+'/test',{path:['hours','menu','sales']})
+  await send('/'+first.id+'/test',{path:['hours','after']})
+  await send('/'+first.id+'/publish',{revision:0,confirm},409)
+  assert.equal((await send('/'+first.id+'/test',{path:['hours','menu','after']})).state,'tested')
+  await send('/'+first.id+'/publish',{revision:0,confirm:'approve something else'},403)
+  const publication=await send('/'+first.id+'/publish',{revision:0,confirm});assert.equal(publication.approvedBy,'synthetic-handset-1');assert.equal(publication.liveRouting,false)
+  const active=await q.admit(q.sales);await q.write(q.base+'/'+q.sales.id+'/dispatch',{});await q.action(active.id,'accept')
+  const second=await send('',{flowId:first.flowId,previousVersionId:first.id,definition:{...definition,name:'Revised reception'}},201)
+  let snapshot=await (await runtime.request(base,{headers})).json();assert.equal(snapshot.publications[0].version_id,first.id,'draft has no live publication change')
+  for(const path of [['hours','menu','sales'],['hours','after'],['hours','menu','after']])await send('/'+second.id+'/test',{path})
+  await send('/'+second.id+'/publish',{revision:1,confirm});await send('/'+first.id+'/rollback',{revision:1,confirm},409)
+  await send('/'+first.id+'/rollback',{revision:2,confirm});await runtime.restart()
+  snapshot=await (await runtime.request(base,{headers})).json();assert.equal(snapshot.publications[0].version_id,first.id);assert.equal(snapshot.publications[0].revision,3)
+  assert.equal(snapshot.versions.find(v=>v.id===second.id).state,'retired');assert.equal((await q.read()).entries.find(e=>e.id===active.id).state,'active','native publication never mutates existing queue calls')
+  const audit=await runtime.sql("SELECT action FROM hnd_audit WHERE action LIKE 'flow.%'");assert.ok(audit.results.some(r=>r.action==='flow.rollback'))
+ }finally{await runtime.close()}
+})
+
+test('Native flow authoring refuses malformed graphs stale drafts and unauthorized publication',async()=>{
+ const runtime=await openHandset()
+ try{
+  const {cookie}=await signIn(runtime),headers={cookie},base='/api/handset/flows'
+  const valid={name:'Reception',entry:'menu',timezone:'America/Chicago',overrides:[],nodes:[{id:'menu',kind:'menu',next:['english','spanish']},{id:'english',kind:'end',language:'en',next:[]},{id:'spanish',kind:'end',language:'es',next:[]}]}
+  for(const transform of [d=>d.nodes[0].next=['menu','english'],d=>d.nodes[0].next=[],d=>d.nodes[0].next=['english','absent'],d=>d.nodes.push({id:'unreachable',kind:'end',language:'es',next:[]}),d=>d.nodes[0].emergencyInterception=true,d=>d.overrides=[{date:'2026-02-30',entry:'english'}],d=>d.nodes[0].kind='emergency']){
+   const bad=structuredClone(valid);transform(bad);const r=await post(runtime,base,{definition:bad},headers);assert.equal(r.status,400,await r.clone().text())
+  }
+  const first=await (await post(runtime,base,{definition:valid},headers)).json()
+  const next=await post(runtime,base,{flowId:first.flowId,previousVersionId:first.id,definition:valid},headers);assert.equal(next.status,201)
+  assert.equal((await post(runtime,base,{flowId:first.flowId,previousVersionId:first.id,definition:valid},headers)).status,409)
+  assert.equal((await post(runtime,base+'/'+first.id+'/test',{path:['menu']},headers)).status,400)
+  assert.equal((await runtime.request(base)).status,401)
+  await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
+  const member=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'})
+  assert.equal((await post(runtime,base,{definition:valid},{cookie:member.cookie})).status,403)
+  assert.equal((await runtime.request(base,{headers:{cookie:member.cookie}})).status,403)
+  const foreign=await runtime.request(base,{method:'POST',headers:{cookie,origin:'https://synthetic-handset-foreign.example.test','content-type':'application/json'},body:JSON.stringify({definition:valid})});assert.equal(foreign.status,403)
+ }finally{await runtime.close()}
+})
