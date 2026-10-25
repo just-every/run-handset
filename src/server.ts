@@ -25,6 +25,7 @@ import { tickQueues } from './handset/queues/tick'
 import { dialerProviderResponse } from './handset/dialer/provider'
 import { tickDialer } from './handset/dialer/tick'
 import { tickRules } from './handset/integrations/delivery/outbox'
+import { expireKnowledge } from './handset/knowledge/retention'
 import { tickRecovery } from './handset/recovery/doors'
 import { receptionistProviderResponse } from './handset/receptionist/authorization'
 
@@ -77,6 +78,7 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     })
   },
   async scheduled(event, env) {
+    await expireKnowledge(runtimeBindings(env))
     await tickQueues(runtimeBindings(env))
     await runDueReports(runtimeBindings(env), event.scheduledTime)
     await tickDialer(runtimeBindings(env))

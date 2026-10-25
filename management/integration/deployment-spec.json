@@ -330,6 +330,18 @@
       "name": "core-0053_handset_dataset_erasure.sql",
       "sha256": "d9325176a2a858e202efed268d1f1e836c124223e9fb9e32726b4150171eb5fc",
       "sql": "-- Owner erasure is the sole exception to normal report immutability.\nCREATE TABLE hnd_erasure_guard (operation TEXT PRIMARY KEY);\nCREATE TABLE hnd_dataset_erasures (\n id TEXT PRIMARY KEY, target_hash TEXT NOT NULL UNIQUE, committed_at TEXT NOT NULL,\n dataset_rows INTEGER NOT NULL, revision_rows INTEGER NOT NULL,\n report_rows INTEGER NOT NULL, schedule_rows INTEGER NOT NULL\n);\nCREATE TRIGGER hnd_dataset_erasures_no_update BEFORE UPDATE ON hnd_dataset_erasures BEGIN SELECT RAISE(ABORT,'append_only'); END;\nCREATE TRIGGER hnd_dataset_erasures_no_delete BEFORE DELETE ON hnd_dataset_erasures BEGIN SELECT RAISE(ABORT,'append_only'); END;\nDROP TRIGGER hnd_metric_reports_no_delete;\nCREATE TRIGGER hnd_metric_reports_no_delete BEFORE DELETE ON hnd_metric_reports\n WHEN NOT EXISTS(SELECT 1 FROM hnd_erasure_guard) BEGIN SELECT RAISE(ABORT,'append_only'); END;\n"
+    },
+    {
+      "binding": "DB",
+      "name": "core-0054_handset_knowledge.sql",
+      "sha256": "35dc4b89a5edc1c429545166078b39e25ed2f20a99748de30cbb695a3c07dbba",
+      "sql": "CREATE TABLE hnd_knowledge_sources (\n id TEXT PRIMARY KEY,\n provider TEXT NOT NULL CHECK(provider IN ('notion','confluence','google-drive','upload')),\n external_id TEXT NOT NULL,\n cloud_id TEXT NOT NULL,\n title TEXT NOT NULL,\n revision INTEGER NOT NULL CHECK(revision > 0),\n source_revision TEXT NOT NULL,\n citation TEXT NOT NULL,\n body TEXT NOT NULL,\n state TEXT NOT NULL CHECK(state IN ('active','unavailable','revoked','erased')),\n owner_id TEXT NOT NULL,\n owner_version INTEGER NOT NULL,\n refreshed_at INTEGER NOT NULL,\n expires_at INTEGER NOT NULL\n);\n"
+    },
+    {
+      "binding": "DB",
+      "name": "core-0055_handset_knowledge_custody.sql",
+      "sha256": "df97df2a50265adead46e9482d3a9de2b55f8bc2ee169d9e2d78ca4793e7c2d9",
+      "sql": "-- Native authority changes immediately remove text held by the old consent.\nCREATE TRIGGER hnd_knowledge_owner_changed AFTER UPDATE OF version,role,status ON oa_operators\nBEGIN\n UPDATE hnd_knowledge_sources SET body='',state='unavailable'\n WHERE owner_id=NEW.id AND body<>'' AND\n (owner_version<>NEW.version OR NEW.role<>'owner' OR NEW.status<>'active');\nEND;\nCREATE TRIGGER hnd_knowledge_owner_removed AFTER DELETE ON oa_operators\nBEGIN\n UPDATE hnd_knowledge_sources SET body='',state='unavailable'\n WHERE owner_id=OLD.id AND body<>'';\nEND;\n"
     }
   ],
   "compatibilityDate": "2026-09-08",

@@ -80,7 +80,7 @@ async function seed(db, ownerEmail) {
  * launch headless with --use-mock-keychain and --password-store=basic, real HOME.
  * mails contains raw SendGrid JSON, without transport headers or credentials.
  */
-export async function openHandset({ liveMail = false, twilio = false, edges = null, callingClock: useCallingClock = false, knowledgeEdge = null } = {}) {
+export async function openHandset({ liveMail = false, twilio = false, edges = null, callingClock: useCallingClock = false, knowledgeEdge = null, clockTime } = {}) {
   if (liveMail && ['MAIL_TO', 'MAIL_FROM', 'MAIL_API_KEY'].some(name => !process.env[name])) {
     throw new Error('Live mail requires MAIL_TO, MAIL_FROM and MAIL_API_KEY')
   }
@@ -92,7 +92,7 @@ export async function openHandset({ liveMail = false, twilio = false, edges = nu
   const origin = `https://127.0.0.1:${await freePort()}`
   const ownerEmail = liveMail ? process.env.MAIL_TO : 'synthetic-handset-1@example.test'
   const directory = await mkdtemp(join(tmpdir(), 'synthetic-handset-'))
-  const clock = useCallingClock ? callingClock() : null
+  const clock = useCallingClock || Number.isSafeInteger(clockTime) ? callingClock(clockTime) : null
   // TLS trust is scoped to this client's loopback requests, never process-wide.
   let dispatcher = new Agent({ connect: { rejectUnauthorized: false } })
   const mails = [], twilioResources = new Map(), sourceRequests = []
@@ -183,6 +183,10 @@ export async function openHandset({ liveMail = false, twilio = false, edges = nu
         await runtime.ready
         if (clock) { await runtime.dispatchFetch(new URL('/health', origin)); await clock.attach(runtime) }
         db = await runtime.getD1Database('DB')
+      },
+      async setTime(time) {
+        if (!clock) throw new Error('Enable the isolated test clock first')
+        clock.set(time); await clock.attach(runtime)
       },
       async scheduled(time = Date.now()) {
         const worker = await runtime.getWorker()

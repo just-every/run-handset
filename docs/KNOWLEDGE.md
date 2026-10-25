@@ -36,7 +36,7 @@ Revocation and erasure clear local text and prevent later refresh. The audit
 retains opaque references and actions, not document contents or credentials.
 This is source-cache deletion, not installation-wide erasure.
 
-Conservative default ADOPTED pending ct: only the active consenting native
+Interim source-access policy APPROVED (ct 25 Oct 14:15Z): only the active consenting native
 owner can retrieve text; explicit source consent and the current owner version
 are required, cached text expires after 15 minutes, and no model processing,
 customer contact or external action is authorized. Other owners can inspect
@@ -55,3 +55,18 @@ complete owner source UI with its 1440 and 390 browser journeys. The current
 15-minute cache does not promise immediate upstream revocation detection;
 refresh or local revocation removes access sooner. No complete acceptance
 journey or live voice qualification is claimed by this preparatory API.
+
+Cache text is unavailable at the exact 15-minute retrieval boundary. Every
+knowledge request clears expired text before reading; the existing minute
+scheduler also clears it without a retrieval request. A delayed scheduled event
+uses the current clock. Native owner version, role and status changes remove
+text immediately in the same database operation. Source metadata and opaque
+audit remain; retention cleanup never extends consent or creates a model grant.
+
+Named Gap — Consented model processing of retrieved source text (HND-100):
+per-source and per-purpose processing consent, processing only under the
+consenting owner's current version, source-labelled output, and withdrawal
+stopping the next run and erasing derived output are missing. The approved
+retrieval policy authorizes no model processing. HND-015 and HND-051 name their
+source-permission inheritance in both contract documents; HND-065 and HND-066
+name source-cache custody there as well.
