@@ -332,7 +332,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "6034241694e46c680180a2071793a48903f40eb7a5d8cc2e3fd1f8c479a1af8b",
+      "sha256": "66bb632b63073e7152c690ad2a2cc91d040449cddf33f0ce58db23397c583489",
       "executable": false
     },
     "deploy-demo.json": {
@@ -1912,7 +1912,7 @@
       "executable": false
     },
     "src/handset/transcripts/pages.ts": {
-      "sha256": "f2043cf997715abc55b083b4d7b9f906e8b58025e84b48168ad536c44369c963",
+      "sha256": "ac5a90606651c4b39100b48ba64b6d730b138b37cc386cd33ff8843325d9b819",
       "executable": false
     },
     "src/identity.ts": {

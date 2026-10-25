@@ -11,7 +11,7 @@ const moment=(s:Moment)=>`${e(s.speaker)} · ${e(s.language)} · ${(s.startMs/10
 const notice='<p>Owner-supplied text. Speech accuracy and capture consent are unqualified. Playback permission is separate.</p>'
 export async function transcriptPage(request:Request,env:Bindings,actor:Session,value?:ObjectValue):Promise<Response>{
  const url=new URL(request.url),suffix=url.pathname.slice(base.length),api=new URL('/api/handset/transcripts'+suffix+url.search,url)
- for(const [key,val] of api.searchParams)if(val==='')api.searchParams.delete(key)
+ for(const [key,val] of [...api.searchParams])if(val==='')api.searchParams.delete(key)
  if(request.method==='POST'){
   if(!/^\/[0-9a-f-]{36}\/corrections$/.test(suffix)||!value)throw new Fault('not_found',404)
   const response=await transcriptDoor(new Request(api,{method:'POST'}),env,actor,{...value,revision:Number(value.revision)})
