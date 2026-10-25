@@ -181,3 +181,10 @@ independent current exact-recording approval. Export and employee-note scopes
 are separate explicit permissions. Source, person and capability revocation are
 fenced before releasing content. This adds no recording, transcript, model or
 customer-contact authority. See `docs/QUALITY.md` for the remaining HND-020 work.
+The native `/api/handset/transcripts` namespace is documented in
+`docs/HANDSET-TRANSCRIPTS.md`. Every operation requires a native session. Owner
+writes and independent exact-person transcript-text grants are checked inside
+the handler; a recording playback grant does not authorize text retrieval.
+Current source and number revisions fence detail, search and changes. The API
+is a supplied-text foundation with no new screen, speech processor or model
+transport. HND-020, HND-043 and HND-051 inherit these text and source checks.

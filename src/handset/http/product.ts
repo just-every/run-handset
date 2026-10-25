@@ -4,6 +4,7 @@ import { session, owner, json, input, Fault, page } from '../core'
 import { knowledgeDoor } from '../knowledge/doors'
 import { erasureDoor } from '../erasure/doors'
 import { qualityDoor } from '../quality/doors'
+import { transcriptDoor } from '../transcripts/doors'
 import { delegationDoor } from '../delegation/doors'
 import { recordingsPage } from '../recording/doors'
 import { scopeDoor } from '../authority/sponsors'
@@ -68,6 +69,9 @@ export async function productResponse(request: Request, original: Bindings): Pro
    const response=await sourceDoor(request,env,actor,request.method==='GET'?undefined:await input(request))
    if(response)return response
    throw new Fault('not_found',404)
+  }
+  if(path==='/api/handset/transcripts'||path.startsWith('/api/handset/transcripts/')){
+   return await transcriptDoor(request,env,actor,request.method==='GET'?undefined:await input(request,1048576))
   }
   const records=await recordsDoor(request,env,actor)
   if(records)return records
