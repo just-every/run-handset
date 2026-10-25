@@ -50,6 +50,13 @@ async function erase(env:Bindings,actor:Session,v:ObjectValue){
  await commit(env,actor,'erasure.complete',operation,'completed')
  return {receipt,importCustody:proof,scope:'queue-dataset',installationErasureComplete:false,externalCopies:'Already delivered messages and downloaded archives remain outside local recall.',offlineRestore:'An offline receiving installation must be given the later erasure journal to reject an older archive.'}
 }
+function receiptBody(receipt:ObjectValue|null){
+ if(!receipt)return '<p>No committed receipt is available.</p>'
+ return `<article><h3>Committed ${e(receipt.committed_at)}</h3><dl>${[['Datasets deleted','dataset_rows'],['Import revisions deleted','revision_rows'],['Report snapshots deleted','report_rows'],['Affected report jobs','schedule_rows']].map(([label,key])=>`<dt>${label}</dt><dd>${e(receipt[key])}</dd>`).join('')}</dl><details><summary>Audit references</summary><p style="overflow-wrap:anywhere;word-break:break-all">Receipt ${e(receipt.id)}</p><p style="overflow-wrap:anywhere;word-break:break-all">Target digest ${e(receipt.target_hash)}</p></details></article>`
+}
+function journalBody(entries:Awaited<ReturnType<typeof readD1ErasureJournal>>){
+ return entries.map(entry=>`<details><summary>Import store counts · ${e(entry.recordedAt)}</summary><p style="overflow-wrap:anywhere;word-break:break-all">Receipt ${e(entry.receiptId)}</p><ul>${entry.stores.map(store=>`<li style="overflow-wrap:anywhere;word-break:break-all">${e(store.store)}: ${store.rows} affected rows</li>`).join('')}</ul></details>`).join('')
+}
 export async function erasureDoor(request:Request,env:Bindings,actor:Session,v?:ObjectValue):Promise<Response>{
  owner(actor)
  const url=new URL(request.url),html=url.pathname.startsWith('/app/'),base=html?'/app/admin/erasure':'/api/handset/erasure'
@@ -60,12 +67,12 @@ export async function erasureDoor(request:Request,env:Bindings,actor:Session,v?:
   const importJournal=await readD1ErasureJournal(context(env,actor))
   await commit(env,actor,'erasure.read','installation','completed',[reportFence(env.DB,epoch)])
   if(!html)return json({datasets,receipts,importJournal,installationErasureComplete:false})
-  return consolePage('Erase imported queue data',`<p>Owner settings · <a href="/app/import">Import history</a></p><p>This door erases one imported queue dataset, its retained source content and dependent local report snapshots. Pending reports are stopped. Other personal data, media, legal holds and provider copies require further erasure work; complete installation erasure is unavailable.</p><p>Already delivered messages and downloaded archives cannot be recalled. An offline receiving installation needs the later erasure journal before restoring an older archive.</p><h2>Review exact dataset</h2>${datasets.length?datasets.map(row=>`<form method="post" action="${base}/erase">${hidden('entity','queue-dataset')}${hidden('targetId',row.id)}${hidden('revision',row.revision)}<p style="overflow-wrap:anywhere">Dataset ${e(row.id)} · revision ${row.revision}</p><label><input type="checkbox" name="confirm" value="erase this exact dataset and retained copies" required>Erase this exact dataset and retained copies, including whole affected import originals</label><button>Erase dataset</button></form>`).join(''):'<p>No imported datasets remain.</p>'}<h2>Committed deletion receipts</h2><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${e(JSON.stringify({receipts,importJournal},null,2))}</pre>`)
+  return consolePage('Erase imported queue data',`<p>Owner settings · <a href="/app/import">Import history</a></p><p>This door erases one imported queue dataset, its retained source content and dependent local report snapshots. Pending reports are stopped. Other personal data, media, legal holds and provider copies require further erasure work; complete installation erasure is unavailable.</p><p>Already delivered messages and downloaded archives cannot be recalled. An offline receiving installation needs the later erasure journal before restoring an older archive.</p><h2>Review exact dataset</h2>${datasets.length?datasets.map(row=>`<form method="post" action="${base}/erase">${hidden('entity','queue-dataset')}${hidden('targetId',row.id)}${hidden('revision',row.revision)}<p style="overflow-wrap:anywhere">Dataset ${e(row.id)} · revision ${row.revision}</p><label><input type="checkbox" name="confirm" value="erase this exact dataset and retained copies" required>Erase this exact dataset and retained copies, including whole affected import originals</label><button>Erase dataset</button></form>`).join(''):'<p>No imported datasets remain.</p>'}<h2>Committed deletion receipts</h2>${receipts.length?receipts.map(receiptBody).join(''):'<p>No deletions have committed.</p>'}${journalBody(importJournal)}`)
  }
  if(request.method==='POST'&&url.pathname===base+'/erase'&&v){
   if(html&&typeof v.revision==='string')v.revision=Number(v.revision)
   const result=await erase(env,actor,v)
-  return html?consolePage('Dataset deletion committed',`<p>The selected dataset cascade committed. Complete installation erasure is unavailable.</p><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${e(JSON.stringify(result,null,2))}</pre><a href="${base}">Return to erasure settings</a>`):json(result)
+  return html?consolePage('Dataset deletion committed',`<p>The selected dataset cascade committed. Complete installation erasure is unavailable.</p>${receiptBody(result.receipt)}${journalBody([result.importCustody])}<p>${e(result.externalCopies)}</p><p>${e(result.offlineRestore)}</p><a href="${base}">Return to erasure settings</a>`):json(result)
  }
  throw new Fault('method_not_allowed',405)
 }

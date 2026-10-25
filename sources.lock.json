@@ -1462,7 +1462,7 @@
       "executable": false
     },
     "src/handset/erasure/doors.ts": {
-      "sha256": "2db3ad5a5290f56e94f501da90cd862db3e20ca65ee4d145ec7ae8466772c827",
+      "sha256": "98adc94b6fb2cb9c66b516c4d8952c916556cec210d71f1e2281caf99d18c446",
       "executable": false
     },
     "src/handset/erasure/portability.d.mts": {
@@ -3690,7 +3690,7 @@
       "executable": false
     },
     "tests/handset-import.mjs": {
-      "sha256": "1cb4b479e0d2dbceeaf580e9544b2887fe3cfab1978c289cb8d8a45e0a46aff1",
+      "sha256": "d4e27af25620b9dceb9c5609a51c769f2509f9c19f52dfc771825726fe93a3a4",
       "executable": false
     },
     "tests/handset-outbound.mjs": {

@@ -141,7 +141,7 @@ test('Owner dataset erasure commits native and import custody counts and refuses
   dataset.name='Synthetic private erasure name'
   const imported=await importDataset(runtime,cookie,dataset)
   const pending=await planDataset(runtime,cookie,[{...dataset,name:'Stale private update'}],true)
-  const config={queueId:dataset.entries[0].queueId,revision:0,targetSeconds:20,shortSeconds:5,method:'include-abandons',excludeShort:false,startAt:1792454400000,endAt:1792540800000,timezone:'America/Chicago'}
+  const config={queueId:dataset.entries[0].queueId,revision:0,targetSeconds:20,shortSeconds:5,method:'include-abandons',excludeShort:false,startAt:1792454400000,endAt:1792540800000,timezone:'UTC'}
   assert.equal((await post(runtime,'/api/handset/metrics/config',config,h)).status,201)
   const finalized=await post(runtime,'/api/handset/metrics/finalize',{queueId:config.queueId,configRevision:1},h)
   assert.equal(finalized.status,201,await finalized.clone().text())
