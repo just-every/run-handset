@@ -7,8 +7,9 @@ import { destination, namespace, targetKind } from '../import/source'
 import { ownerPredicate } from '../import/context'
 import { targets } from '../import/targets'
 import { checkpoint } from './portability.mjs'
+import { erasureEpoch, reportFence } from '../metrics/store'
 import { commit } from '../audit/store'
-import { Fault, consolePage, escape as e,  hidden, id, integer, json, keys, owner, text, type ObjectValue } from '../core'
+import { Fault, consolePage, escape as e, hidden, id, integer, json, keys, owner, text, type ObjectValue } from '../core'
 
 const sql=(sql:string,...params:unknown[]):D1Sql=>({sql,params})
 const guard=(condition:string,...params:unknown[])=>sql(`INSERT INTO hnd_guard(ok) SELECT CASE WHEN (${condition}) THEN 1 ELSE 0 END`,...params)
@@ -54,10 +55,10 @@ export async function erasureDoor(request:Request,env:Bindings,actor:Session,v?:
  const url=new URL(request.url),html=url.pathname.startsWith('/app/'),base=html?'/app/admin/erasure':'/api/handset/erasure'
  if(url.search||![base,base+'/erase'].includes(url.pathname))throw new Fault('not_found',404)
  if(request.method==='GET'&&url.pathname===base){
-  const datasets=(await env.DB.prepare('SELECT id,revision FROM hnd_metric_datasets ORDER BY id LIMIT 101').all<{id:string;revision:number}>()).results
+  const epoch=await erasureEpoch(env.DB),datasets=(await env.DB.prepare('SELECT id,revision FROM hnd_metric_datasets ORDER BY id LIMIT 101').all<{id:string;revision:number}>()).results
   const receipts=(await env.DB.prepare('SELECT * FROM hnd_dataset_erasures ORDER BY committed_at DESC LIMIT 100').all()).results
   const importJournal=await readD1ErasureJournal(context(env,actor))
-  await commit(env,actor,'erasure.read','installation','completed')
+  await commit(env,actor,'erasure.read','installation','completed',[reportFence(env.DB,epoch)])
   if(!html)return json({datasets,receipts,importJournal,installationErasureComplete:false})
   return consolePage('Erase imported queue data',`<p>Owner settings · <a href="/app/import">Import history</a></p><p>This door erases one imported queue dataset, its retained source content and dependent local report snapshots. Pending reports are stopped. Other personal data, media, legal holds and provider copies require further erasure work; complete installation erasure is unavailable.</p><p>Already delivered messages and downloaded archives cannot be recalled. An offline receiving installation needs the later erasure journal before restoring an older archive.</p><h2>Review exact dataset</h2>${datasets.length?datasets.map(row=>`<form method="post" action="${base}/erase">${hidden('entity','queue-dataset')}${hidden('targetId',row.id)}${hidden('revision',row.revision)}<p style="overflow-wrap:anywhere">Dataset ${e(row.id)} · revision ${row.revision}</p><label><input type="checkbox" name="confirm" value="erase this exact dataset and retained copies" required>Erase this exact dataset and retained copies, including whole affected import originals</label><button>Erase dataset</button></form>`).join(''):'<p>No imported datasets remain.</p>'}<h2>Committed deletion receipts</h2><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${e(JSON.stringify({receipts,importJournal},null,2))}</pre>`)
  }

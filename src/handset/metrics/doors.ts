@@ -27,8 +27,9 @@ export async function metricsDoor(request:Request,env:Bindings,actor:Session,dat
    return html?reportPage(report,actor.operator.email):json(report)
   }
   if(action.startsWith('/history/')){
-   const reportId=text(action.slice('/history/'.length),'reportId'),report=await db.prepare('SELECT * FROM hnd_metric_reports WHERE id=?').bind(reportId).first<{id:string;value:string;created_at:number}>()
+   const epoch=await erasureEpoch(db),reportId=text(action.slice('/history/'.length),'reportId'),report=await db.prepare('SELECT * FROM hnd_metric_reports WHERE id=?').bind(reportId).first<{id:string;value:string;created_at:number}>()
    if(!report)throw new Fault('report_not_found',404)
+   await commit(env,actor,'metrics.read','installation','completed',[reportFence(db,epoch)])
    return html?page('Historical queue report',`<p>Snapshot ${e(report.id)} · ${e(new Date(report.created_at).toISOString())}</p>${reportBody(JSON.parse(report.value))}<a href="/app/reports/queues">All queue reports</a>`):json({id:report.id,...JSON.parse(report.value)})
   }
   throw new Fault('not_found',404)

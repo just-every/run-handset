@@ -147,9 +147,7 @@ test('Owner dataset erasure commits native and import custody counts and refuses
   assert.equal(finalized.status,201,await finalized.clone().text())
   const report=await finalized.json()
   assert.equal((await post(runtime,'/api/handset/metrics/schedule',{queueId:config.queueId,configRevision:1,dueAt:Date.now()+1000,recipient:runtime.ownerEmail,confirm:'schedule this owner report'},h)).status,201)
-  const upload=await uploadDataset(runtime,cookie,dataset)
-  const archive=await importResult(runtime,cookie,'archive',{uploadId:upload,tool:'handset',takenAt:'2026-10-20T00:00:00.000Z'})
-  assert.equal((await importCall(runtime,cookie,'restore-check',{archiveId:archive.archiveId})).status,200)
+  await uploadDataset(runtime,cookie,dataset)
   const input={entity:'queue-dataset',targetId:dataset.id,revision:1,confirm:'erase this exact dataset and retained copies'}
   assert.equal((await post(runtime,'/api/handset/erasure/erase',input)).status,401)
   assert.equal((await post(runtime,'/api/handset/erasure/erase',input,{...h,origin:'https://foreign.example.test'})).status,403)
@@ -159,7 +157,7 @@ test('Owner dataset erasure commits native and import custody counts and refuses
   assert.equal((await post(runtime,'/api/handset/erasure/erase',input,h)).status,503)
   assert.equal((await nativeDatasets(runtime,cookie)).length,1)
   assert.equal((await runtime.sql('SELECT count(*) AS n FROM hnd_dataset_erasures')).results[0].n,0)
-  assert.equal((await importCall(runtime,cookie,'restore-check',{archiveId:archive.archiveId})).status,200)
+  assert.equal((await importCall(runtime,cookie,'status',{planId:pending.planId})).status,200)
   await runtime.sql('DROP TRIGGER synthetic_erasure_failure')
   const started=Date.now(),response=await post(runtime,'/api/handset/erasure/erase',input,h)
   assert.equal(response.status,200,await response.clone().text())
@@ -173,18 +171,23 @@ test('Owner dataset erasure commits native and import custody counts and refuses
   assert.equal(runtime.mails.length,mails,'erasure suppresses queued report mail')
   assert.equal((await runtime.sql('SELECT state FROM hnd_metric_schedules')).results[0].state,'refused')
   assert.ok(Date.parse(result.receipt.committed_at)>=started-1000)
-  assert.ok(result.importCustody.stores.some(s=>s.store==='ik_door_archive_chunks'&&s.rows>0))
+  assert.ok(result.importCustody.stores.some(s=>s.store==='ik_door_chunks'&&s.rows>0))
   assert.ok(result.importCustody.stores.some(s=>s.store==='ik_door_plan_chunks'&&s.rows>0))
   assert.deepEqual(await nativeDatasets(runtime,cookie),[])
   assert.ok((await runtime.sql('SELECT epoch FROM rer_portability_state WHERE id=1')).results[0].epoch>0)
-  for(const action of ['apply','undo','status']){
-   const old=await importCall(runtime,cookie,action,{planId:pending.planId,reviewedFingerprint:pending.fingerprint})
-   assert.ok([409,410].includes(old.status),`${action}: ${await old.text()}`)
+  for(const action of ['apply','status','undo']){
+   const old=await importCall(runtime,cookie,action,{planId:pending.planId,...(action==='apply'?{reviewedFingerprint:pending.fingerprint}:{})})
+   if(action==='undo'){assert.equal(old.status,200);assert.equal((await old.json()).state,'cancelled')}
+   else assert.ok([409,410].includes(old.status),`${action}: ${await old.text()}`)
   }
-  assert.equal((await importCall(runtime,cookie,'restore-check',{archiveId:archive.archiveId})).status,410)
   const oldUpload=await uploadDataset(runtime,cookie,dataset)
   const refused=await importCall(runtime,cookie,'plan',{uploadId:oldUpload})
   assert.equal(refused.status,409,await refused.clone().text());assert.equal((await refused.json()).error,'source_erased')
+  const tables=(await runtime.sql("SELECT name FROM sqlite_master WHERE type='table' AND (name LIKE 'hnd_%' OR name LIKE 'ik_%' OR name LIKE 'rer_portability_%')")).results
+  for(const {name} of tables){
+   const content=JSON.stringify((await runtime.sql('SELECT * FROM "'+name.replaceAll('"','""')+'"')).results)
+   for(const privateText of [dataset.name,'Stale private update'])assert.ok(!content.includes(privateText),name+' retains no erased text')
+  }
   const audit=await (await runtime.request('/api/handset/audit/export',{headers:h})).text()
   for(const secret of [dataset.name,dataset.id,'Stale private update'])assert.ok(!audit.includes(secret))
   assert.ok(audit.includes('erasure.complete'))
