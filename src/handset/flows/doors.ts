@@ -17,7 +17,7 @@ function definition(raw:unknown):Definition {
  const visited=new Set<string>(),active=new Set<string>();function visit(target:string){if(active.has(target))throw new Fault('cyclic_flow');if(visited.has(target))return;active.add(target);for(const next of nodes.find(n=>n.id===target)!.next)visit(next);active.delete(target);visited.add(target)}visit(entry)
  if(visited.size!==nodes.length)throw new Fault('unreachable_node_or_language')
  if(!Array.isArray(v.overrides)||v.overrides.length>100)throw new Fault('invalid_overrides')
- const dates=new Set<string>(),overrides=v.overrides.map(raw=>{const o=object(raw);keys(o,['date','entry']);const date=text(o.date,'date'),target=text(o.entry,'entry');if(!/^\d{4}-\d\d-\d\d$/.test(date)||new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date||!ids.has(target)||dates.has(date))throw new Fault('invalid_dated_override');dates.add(date);return {date,entry:target}})
+ const dates=new Set<string>(),overrides=v.overrides.map(raw=>{const o=object(raw);keys(o,['date','entry']);const date=text(o.date,'date'),target=text(o.entry,'entry');if(!/^\d{4}-\d\d-\d\d$/.test(date)||!Number.isFinite(Date.parse(date+'T00:00:00Z'))||new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date||!ids.has(target)||dates.has(date))throw new Fault('invalid_dated_override');dates.add(date);return {date,entry:target}})
  return {name:text(v.name,'name'),entry,nodes,timezone,overrides}
 }
 async function version(env:Bindings,target:string){const row=await sql(env,'SELECT * FROM hnd_flow_versions WHERE id=?',target).first<Version>();if(!row)throw new Fault('flow_version_missing',404);return row}

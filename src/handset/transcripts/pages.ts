@@ -11,7 +11,10 @@ const moment=(s:Moment)=>`${e(s.speaker)} · ${e(s.language)} · ${(s.startMs/10
 const notice='<p>Owner-supplied text. Speech accuracy and capture consent are unqualified. Playback permission is separate.</p>'
 export async function transcriptPage(request:Request,env:Bindings,actor:Session,value?:ObjectValue):Promise<Response>{
  const url=new URL(request.url),suffix=url.pathname.slice(base.length),api=new URL('/api/handset/transcripts'+suffix+url.search,url)
- for(const [key,val] of [...api.searchParams])if(val==='')api.searchParams.delete(key)
+ for(const [key,val] of [...api.searchParams]){
+  if(val==='')api.searchParams.delete(key)
+  else if(['from','to'].includes(key)){const at=Date.parse(val+':00Z');if(!Number.isFinite(at))throw new Fault('invalid_search_date');api.searchParams.set(key,String(at))}
+ }
  if(request.method==='POST'){
   if(!/^\/[0-9a-f-]{36}\/corrections$/.test(suffix)||!value)throw new Fault('not_found',404)
   const response=await transcriptDoor(new Request(api,{method:'POST'}),env,actor,{...value,revision:Number(value.revision)})
@@ -24,7 +27,7 @@ export async function transcriptPage(request:Request,env:Bindings,actor:Session,
  if(!suffix){
   const result=await response.json() as {matches:Result[]}
   const cards=result.matches.map(item=>`<article><h2><a href="${base}/${e(item.id)}">${e(new Date(item.recordedAt).toISOString())}</a></h2><p>${e(item.provenance)}</p>${item.state==='missing'?`<p role="status">Missing transcript: ${e(item.reason)}</p>`:item.segments.map(s=>`<p><a href="${base}/${e(item.id)}#moment-${e(s.id)}">${moment(s)}</a>: ${e(s.text)}</p>`).join('')}<p>${item.annotations.length} cited annotations</p></article>`).join('')
-  return consolePage('Transcript evidence search',notice+`<form method="get" action="${base}">${field('Search permitted text','q',url.searchParams.get('q')??'','search',false)}${field('From epoch milliseconds','from',url.searchParams.get('from')??'','number',false)}${field('Through epoch milliseconds','to',url.searchParams.get('to')??'','number',false)}${field('Number ID','numberId',url.searchParams.get('numberId')??'','text',false)}${field('Follow-up owner ID','ownerId',url.searchParams.get('ownerId')??'','text',false)}<button>Search transcripts</button></form><p role="status">${result.matches.length} permitted results. Searches inspect at most 50 currently granted recordings, with five matching moments per result.</p>${cards||'<p>No permitted matches.</p>'}`)
+  return consolePage('Transcript evidence search',notice+`<form method="get" action="${base}">${field('Search permitted text','q',url.searchParams.get('q')??'','search',false)}${field('From (UTC)','from',url.searchParams.get('from')??'','datetime-local',false)}${field('Through (UTC)','to',url.searchParams.get('to')??'','datetime-local',false)}${field('Number ID','numberId',url.searchParams.get('numberId')??'','text',false)}${field('Follow-up owner ID','ownerId',url.searchParams.get('ownerId')??'','text',false)}<button>Search transcripts</button></form><p role="status">${result.matches.length} permitted results. Searches inspect at most 50 currently granted recordings, with five matching moments per result.</p>${cards||'<p>No permitted matches.</p>'}`)
  }
  const item=await response.json() as Result
  const annotations=item.annotations.map(a=>`<li>${e(a.kind)}: ${e(a.text)} · cited moment ${e(a.segment_id)}${a.owner_id?` · Owner ${e(a.owner_id)} · ${e(a.due_state)}${a.due_at?` · ${e(new Date(a.due_at).toISOString())}`:''}`:''}</li>`).join('')

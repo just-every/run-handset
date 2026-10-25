@@ -2,7 +2,7 @@
 
 The native transcript API is a partial foundation for HND-014. It does not run
 speech recognition, capture audio, infer a promise or certify consent. There is
-no new screen. Existing playback continues to require its independent recording
+a native search and correction console at `/app/transcripts`. Existing playback continues to require its independent recording
 approval. Original supplied text is retained unchanged, rather than described
 as machine output.
 
@@ -65,3 +65,15 @@ erasure, restore fences and processor deletion are unproved and remain HND-066
 obligations. Capture-consent qualification remains HND-013. HND-020, HND-043 and
 HND-051 must inherit these source and independent text-access fences before
 using this foundation. No DONE claim is made.
+
+## Search and correction console
+
+Open the transcript search link from recordings. Search currently granted text,
+open a dated result and follow its exact speaker offsets and cited annotations.
+Owners may correct English and Spanish segments with an atomic revision check;
+the original supplied text and attributed history remain visible. Missing text
+keeps its reason and offers no correction or commitment authoring form. Every
+page reuses the API's independent current text and source authority. The forms
+use the existing console theme and have labeled text controls; no icon-only
+control is introduced. Desktop and handset journeys cover a seven-call week,
+the Tuesday citation and owner, bilingual history, missing text and denied reads.

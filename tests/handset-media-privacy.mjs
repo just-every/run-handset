@@ -99,9 +99,9 @@ for(const width of [1440,390])test(`Transcript week search and bilingual correct
   const tuesday=week[1],path='/'+tuesday.transcriptId
   await f.write(path+'/annotations',{segmentId:'synthetic-handset-850',kind:'promise',text:'Call Tuesday about the refund',ownerId:'synthetic-handset-1',dueState:'scheduled',dueAt:Date.parse('2026-10-27T16:00:00Z'),confirm:'I confirm this exact cited promise'})
   const [name,...rest]=f.cookie.split('=');await context.addCookies([{name,value:rest.join('='),url:f.runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
-  await page.goto(f.runtime.origin+'/app/transcripts');await page.getByLabel('Search permitted text').fill('refund');await page.getByRole('button',{name:'Search transcripts'}).click()
+  await page.goto(f.runtime.origin+'/app/recordings');await proof('recordings-entry');await page.getByRole('link',{name:'Search permitted transcript text'}).click();await page.getByLabel('Search permitted text').fill('refund');await page.getByRole('button',{name:'Search transcripts'}).click()
   assert.match(await page.locator('main').innerText(),/7 permitted results/);await proof('week-search')
-  await page.getByRole('link',{name:/2026-10-20T16:00/}).click();assert.ok(await page.locator('#moment-synthetic-handset-850').count())
+  await page.getByLabel('From (UTC)').fill('2026-10-20T00:00');await page.getByLabel('Through (UTC)').fill('2026-10-20T23:59');await page.getByRole('button',{name:'Search transcripts'}).click();assert.match(await page.locator('main').innerText(),/1 permitted results/);await proof('tuesday-filter');await page.getByRole('link',{name:/2026-10-20T16:00/}).click();assert.ok(await page.locator('#moment-synthetic-handset-850').count())
   assert.match(await page.locator('main').innerText(),/32.0–37.0 seconds/);assert.match(await page.locator('main').innerText(),/Owner synthetic-handset-1 · scheduled/);await proof('tuesday-moment')
   await page.getByLabel('Correct en text').fill('I will call about the refund on Tuesday. Check the condenser.');await page.getByRole('button',{name:'Save en correction'}).click()
   await page.getByLabel('Correct es text').fill('El condensador no funciona; necesito el reembolso.');await page.getByRole('button',{name:'Save es correction'}).click()

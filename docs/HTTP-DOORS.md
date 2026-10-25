@@ -186,5 +186,9 @@ The native `/api/handset/transcripts` namespace is documented in
 writes and independent exact-person transcript-text grants are checked inside
 the handler; a recording playback grant does not authorize text retrieval.
 Current source and number revisions fence detail, search and changes. The API
-is a supplied-text foundation with no new screen, speech processor or model
-transport. HND-020, HND-043 and HND-051 inherit these text and source checks.
+is a supplied-text foundation with a native search and correction console at
+`/app/transcripts`, without a speech processor or model transport. HND-020, HND-043 and HND-051 inherit these text and source checks.
+
+The owner-only `/api/handset/flows` namespace stores preparatory immutable
+versions, native path tests and exact publication or rollback approvals. It
+authorizes no carrier effect. See `docs/HANDSET-FLOWS.md`.
