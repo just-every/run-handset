@@ -4,6 +4,7 @@ import { session, owner, json, input, Fault, page } from '../core'
 import { knowledgeDoor } from '../knowledge/doors'
 import { erasureDoor } from '../erasure/doors'
 import { qualityDoor } from '../quality/doors'
+import { transcriptPage } from '../transcripts/pages'
 import { transcriptDoor } from '../transcripts/doors'
 import { delegationDoor } from '../delegation/doors'
 import { recordingsPage } from '../recording/doors'
@@ -29,7 +30,7 @@ import { ownerDoor as receptionistDoor } from '../receptionist/doors'
 
 export async function productResponse(request: Request, original: Bindings): Promise<Response|null> {
  const url = new URL(request.url), path = url.pathname, html = path.startsWith('/app/')
- if (!/^\/(api\/handset|app\/(cases|records|audit|grants|sources|admin|queues|reports\/queues|protection|dialer|front-desk|recordings|receptionist|rules|followups|recovery|operations))(\/|$)/.test(path)) return null
+ if (!/^\/(api\/handset|app\/(cases|records|audit|grants|sources|admin|queues|reports\/queues|protection|dialer|front-desk|recordings|transcripts|receptionist|rules|followups|recovery|operations))(\/|$)/.test(path)) return null
  let auth: {env:Bindings;session:Session}|undefined
  try {
   auth = await session(request,original)
@@ -70,6 +71,7 @@ export async function productResponse(request: Request, original: Bindings): Pro
    if(response)return response
    throw new Fault('not_found',404)
   }
+  if(path==='/app/transcripts'||path.startsWith('/app/transcripts/'))return await transcriptPage(request,env,actor,request.method==='GET'?undefined:await input(request))
   if(path==='/api/handset/transcripts'||path.startsWith('/api/handset/transcripts/')){
    return await transcriptDoor(request,env,actor,request.method==='GET'?undefined:await input(request,1048576))
   }

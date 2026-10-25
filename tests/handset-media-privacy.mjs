@@ -1,30 +1,11 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { openHandset } from './helpers/handset-worker.mjs'
-import { sourceFixture } from './helpers/handset-sources.mjs'
+import { transcriptFixture } from './helpers/handset-transcripts.mjs'
 import { post, signIn } from './helpers/handset-auth.mjs'
 
-async function fixture(){
- const runtime=await openHandset({twilio:true})
- try{
-  const f=await sourceFixture(runtime),base='/api/handset/transcripts'
-  async function write(path,value,status=201,headers=f.headers){const r=await post(runtime,base+path,value,headers);assert.equal(r.status,status,await r.clone().text());return r.json()}
-  async function get(path='',headers=f.headers){const r=await runtime.request(base+path,{headers});assert.equal(r.status,200,await r.clone().text());return r.json()}
-  async function create(day=0,state='supplied'){
-   const callSid=`synthetic-handset-${810+day}`,sid=`synthetic-handset-${830+day}`,date=new Date(Date.parse('2026-10-19T16:00:00Z')+day*86400000).toUTCString()
-   const call=await f.callback({CallSid:callSid,CallStatus:'completed',SequenceNumber:'0',Timestamp:date});assert.equal(call.status,200,await call.clone().text())
-   f.resource('Recordings',sid,{call_sid:callSid,start_time:date,status:'completed'})
-   const recording=await f.callback({RecordingSid:sid,CallSid:callSid,RecordingStatus:'completed',From:'',To:''});assert.equal(recording.status,200,await recording.clone().text())
-   const recordingId=(await recording.json()).recordId
-   const input={recordingId,durationMs:120000,state,confirm:'authorize supplied transcript for my exact identity',...(state==='supplied'?{segments:[{id:'synthetic-handset-850',speaker:'Maria Torres',language:'en',startMs:32000,endMs:37000,text:'I will call about the refund on Tuesday. Check the condensor.',confidence:0.96},{id:'synthetic-handset-851',speaker:'Rosa García',language:'es',startMs:45000,endMs:50000,text:'El condensor no funciona; necesito el reembolso.',confidence:0.65}]}:{reason:'Audio unavailable from the speech processor'})}
-   return {...await write('',input),input,recordingId}
-  }
-  return {...f,runtime,base,write,get,create}
- }catch(error){await runtime.close();throw error}
-}
 
 test('Supplied bilingual transcript moments retain originals and attributed corrections with stale-write refusal',async()=>{
- const f=await fixture()
+ const f=await transcriptFixture()
  try{
   const week=[];for(let day=0;day<7;day++)week.push(await f.create(day))
   const tuesday=week[1],path='/'+tuesday.transcriptId
@@ -51,7 +32,7 @@ test('Supplied bilingual transcript moments retain originals and attributed corr
 })
 
 test('Transcript annotations separate inference and sentiment from human-confirmed promises and refuse missing-audio fabrication',async()=>{
- const f=await fixture()
+ const f=await transcriptFixture()
  try{
   const created=await f.create(),path='/'+created.transcriptId,citation={segmentId:'synthetic-handset-850'}
   await f.write(path+'/annotations',{...citation,kind:'sentiment',text:'Possibly frustrated; supplied human judgment'})
@@ -73,7 +54,7 @@ test('Transcript annotations separate inference and sentiment from human-confirm
 })
 
 test('Exact-person transcript permissions and source revocation stop direct search detail and correction access after restart',async()=>{
- const f=await fixture()
+ const f=await transcriptFixture()
  try{
   const created=await f.create(),path='/'+created.transcriptId
   await f.runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
@@ -105,4 +86,31 @@ test('Exact-person transcript permissions and source revocation stop direct sear
   assert.equal(foreign.status,403)
   const events=await f.runtime.sql("SELECT action FROM hnd_audit WHERE action LIKE 'transcript.%'");assert.ok(events.results.some(e=>e.action==='transcript.revoke'))
  }finally{await f.runtime.close()}
+})
+
+for(const width of [1440,390])test(`Transcript week search and bilingual correction history at ${width}`,async()=>{
+ const {chromium}=await import('@playwright/test'),{mkdir}=await import('node:fs/promises')
+ const f=await transcriptFixture(),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage()
+ const directory=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-transcripts';await mkdir(directory,{recursive:true})
+ async function proof(name){assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:`${directory}/${width}-${name}.png`,fullPage:true})}
+ try{
+  const week=[];for(let day=0;day<7;day++)week.push(await f.create(day))
+  const tuesday=week[1],path='/'+tuesday.transcriptId
+  await f.write(path+'/annotations',{segmentId:'synthetic-handset-850',kind:'promise',text:'Call Tuesday about the refund',ownerId:'synthetic-handset-1',dueState:'scheduled',dueAt:Date.parse('2026-10-27T16:00:00Z'),confirm:'I confirm this exact cited promise'})
+  const [name,...rest]=f.cookie.split('=');await context.addCookies([{name,value:rest.join('='),url:f.runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
+  await page.goto(f.runtime.origin+'/app/transcripts');await page.getByLabel('Search permitted text').fill('refund');await page.getByRole('button',{name:'Search transcripts'}).click()
+  assert.match(await page.locator('main').innerText(),/7 permitted results/);await proof('week-search')
+  await page.getByRole('link',{name:/2026-10-20T16:00/}).click();assert.ok(await page.locator('#moment-synthetic-handset-850').count())
+  assert.match(await page.locator('main').innerText(),/32.0–37.0 seconds/);assert.match(await page.locator('main').innerText(),/Owner synthetic-handset-1 · scheduled/);await proof('tuesday-moment')
+  await page.getByLabel('Correct en text').fill('I will call about the refund on Tuesday. Check the condenser.');await page.getByRole('button',{name:'Save en correction'}).click()
+  await page.getByLabel('Correct es text').fill('El condensador no funciona; necesito el reembolso.');await page.getByRole('button',{name:'Save es correction'}).click()
+  const history=await page.locator('main').innerText();assert.match(history,/Revision 1 · synthetic-handset-1/);assert.match(history,/Revision 2 · synthetic-handset-1/);assert.match(history,/condensor/);assert.match(history,/condensador/);await proof('bilingual-history')
+  const missing=await f.create(8,'missing');await page.goto(f.runtime.origin+'/app/transcripts/'+missing.transcriptId);assert.match(await page.locator('main').innerText(),/Missing transcript: Audio unavailable/);assert.equal(await page.getByRole('button',{name:/Save .* correction/}).count(),0);await proof('missing-reason')
+  await f.runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
+  const outsider=await signIn({...f.runtime,ownerEmail:'synthetic-handset-2@example.test'}),[otherName,...otherValue]=outsider.cookie.split('=')
+  await context.clearCookies();await context.addCookies([{name:otherName,value:otherValue.join('='),url:f.runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
+  await page.goto(f.runtime.origin+'/app/transcripts?q=refund');assert.match(await page.locator('main').innerText(),/No permitted matches/);assert.doesNotMatch(await page.locator('main').innerText(),/Maria Torres|condensor|Call Tuesday/);await proof('outside-team')
+  const denied=await page.goto(f.runtime.origin+'/app/transcripts/'+tuesday.transcriptId);assert.equal(denied.status(),403);await proof('denied-detail')
+ }finally{await context.close();await browser.close();await f.runtime.close()}
 })
