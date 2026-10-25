@@ -1,6 +1,7 @@
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { session, owner, json, input, Fault, page } from '../core'
+import { knowledgeDoor } from '../knowledge/doors'
 import { erasureDoor } from '../erasure/doors'
 import { qualityDoor } from '../quality/doors'
 import { delegationDoor } from '../delegation/doors'
@@ -32,6 +33,7 @@ export async function productResponse(request: Request, original: Bindings): Pro
  try {
   auth = await session(request,original)
   const {env,session:actor} = auth, db=env.DB
+  if(path==='/api/handset/knowledge'||path.startsWith('/api/handset/knowledge/'))return await knowledgeDoor(request,env,actor,request.method==='GET'?undefined:await input(request,200000))
   if(path==='/app/admin/erasure'||path.startsWith('/app/admin/erasure/')||path==='/api/handset/erasure'||path.startsWith('/api/handset/erasure/'))return await erasureDoor(request,env,actor,request.method==='GET'?undefined:await input(request))
   if(path==='/api/handset/quality'||path.startsWith('/api/handset/quality/')){
    return await qualityDoor(request,env,actor,request.method==='GET'?undefined:await input(request))

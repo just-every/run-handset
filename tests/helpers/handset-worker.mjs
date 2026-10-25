@@ -80,7 +80,7 @@ async function seed(db, ownerEmail) {
  * launch headless with --use-mock-keychain and --password-store=basic, real HOME.
  * mails contains raw SendGrid JSON, without transport headers or credentials.
  */
-export async function openHandset({ liveMail = false, twilio = false, edges = null, callingClock: useCallingClock = false } = {}) {
+export async function openHandset({ liveMail = false, twilio = false, edges = null, callingClock: useCallingClock = false, knowledgeEdge = null } = {}) {
   if (liveMail && ['MAIL_TO', 'MAIL_FROM', 'MAIL_API_KEY'].some(name => !process.env[name])) {
     throw new Error('Live mail requires MAIL_TO, MAIL_FROM and MAIL_API_KEY')
   }
@@ -105,6 +105,7 @@ export async function openHandset({ liveMail = false, twilio = false, edges = nu
     }
   })()
   async function outboundService(request) {
+    if (knowledgeEdge) { const answer = await knowledgeEdge(request, WorkerResponse); if (answer) return answer }
     if (edges) { const answer = await edges.handle(request, WorkerResponse); if (answer) return answer }
     if(twilio && (request.url.startsWith('https://api.twilio.com/2010-04-01/Accounts/') || request.url.startsWith('https://insights.twilio.com/v1/Voice/') || request.url.startsWith('https://numbers.twilio.com/v1/Porting/') || request.url.startsWith('https://messaging.twilio.com/v1/Tollfree/Verifications/') || request.url.startsWith('https://messaging.twilio.com/v1/a2p/BrandRegistrations/'))) {
       sourceRequests.push({url:request.url,method:request.method})
