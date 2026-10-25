@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "publicReleaseNotes": "Prepare Handset for hosted installation with a deployment descriptor, explicit mail provider setup and source provenance.",
+  "publicReleaseNotes": "Prepare Handset for hosted installation with rer 0.2.80, a current deployment specification, explicit mail provider setup, source provenance and published contract metadata.",
   "migrations": [
     "migrations/core/0001_owner.sql",
     "migrations/core/0002_outbox.sql",
@@ -53,7 +53,9 @@
     "migrations/core/0049_handset_auth_anonymous.sql",
     "migrations/core/0049_handset_delivery_reason.sql",
     "migrations/core/0050_handset_grant_credentials.sql",
-    "migrations/core/0051_handset_authority_scopes.sql"
+    "migrations/core/0051_handset_authority_scopes.sql",
+    "migrations/core/0052_handset_quality.sql",
+    "migrations/core/0053_handset_dataset_erasure.sql"
   ],
   "breaking": false,
   "agentUpdateInstructions": "Install the pinned dependencies, build the application and follow OPERATIONS.md for configuration and recovery."
