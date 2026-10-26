@@ -90,6 +90,7 @@ for(const width of [1440,390])for(const domain of ['administration','queues','qu
   await page.reload();await proof('queues-overflow-held')
   const queueRevision=(await queues.read()).queues.find(q=>q.id===queues.support.id).revision
   await queues.write(queues.base+'/'+queues.support.id+'/configure',{name:'Support / Soporte',mode:'longest_idle',skills:[],maxWaitSeconds:100,wrapSeconds:30,maxWaiting:100,overflowKind:'voicemail',revision:queueRevision,confirm:'approve native queue policy'})
+  await page.goto(runtime.origin+'/app/queues/settings')
   const revise=page.locator('details').filter({has:page.locator('summary',{hasText:'Revise Support'})})
   await revise.locator('summary').click();await revise.getByRole('checkbox').check();await revise.getByRole('button',{name:'Save queue policy',exact:true}).click();await page.getByRole('alert').waitFor();await proof('queue-stale-refusal')
   }

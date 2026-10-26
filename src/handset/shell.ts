@@ -12,6 +12,7 @@ const work = [
  ['/app/queues', 'Queues'], ['/app/front-desk', 'Front desk'], ['/app/recordings', 'Recordings'], ['/app/receptionist', 'Caller outcomes'],
 ] as const
 const settings = [
+ ['/app/queues/settings', 'Queue setup'], ['/app/queues/media', 'Media routes'], ['/app/flows', 'Call flows'], ['/app/front-desk/settings', 'Front desk setup'], ['/app/receptionist/settings', 'Caller outcome limits'], ['/app/callbacks/settings', 'Callback policy'],
  ['/app/rules', 'Rules'], ['/app/operations', 'Continuity'], ['/app/dialer', 'Dialer'], ['/app/protection', 'Protection'],
  ['/app/sources', 'Sources'], ['/app/grants', 'Application grants'], ['/app/admin/templates', 'Templates'], ['/app/admin/bulk', 'Bulk administration'],
  ['/app/reports/queues', 'Queue reports'], ['/app/audit', 'Audit'], ['/app/import', 'Move in'], ['/auth/settings/identity', 'Account'],
@@ -37,7 +38,8 @@ export function appDocument(title: string, body: string, status = 200): Response
 export async function markCurrent(path: string, response: Response): Promise<Response> {
  if (!response.headers.get('content-type')?.startsWith('text/html') || !response.body) return response
  const within = (href: string) => path === href || path.startsWith(href + '/')
- const tab = work.find(([href]) => within(href)), setting = settings.find(([href]) => within(href))
+ // A setup page under a daily tab (Queue setup under Queues) belongs to Settings.
+ const setting = settings.find(([href]) => within(href)), tab = setting ? undefined : work.find(([href]) => within(href))
  if (!tab && !setting) return response
  // The bar precedes main, so each first occurrence is the bar's own entry.
  let html = await response.text()

@@ -1,8 +1,9 @@
 import type { Bindings } from './auth.server'
+import { followupSamples } from './handset/followups/demo'
 
 /** Existing native case samples; these are observations, never carrier receipts. */
 export async function seedDemo(env: Bindings, { ownerEmail, now }: { ownerEmail: string; now: Date }) {
- const owner = await env.DB.prepare("SELECT id FROM oa_operators WHERE email=? AND role='owner' AND status='active'").bind(ownerEmail).first<{id:string}>()
+ const owner = await env.DB.prepare("SELECT id,version FROM oa_operators WHERE email=? AND role='owner' AND status='active'").bind(ownerEmail).first<{id:string;version:number}>()
  if (!owner) throw new Error('Demo owner is missing')
  const at = now.getTime(), due = at + 86400000
  const cases = [
@@ -23,4 +24,5 @@ export async function seedDemo(env: Bindings, { ownerEmail, now }: { ownerEmail:
  for (const [index,[id,kind,data]] of records.entries()) statements.push(env.DB.prepare("INSERT INTO hnd_records(id,kind,source,source_id,occurred_at,received_at,case_id,data,actor_id) VALUES(?,?,'native',?,?,?,'10000000-0000-4000-8000-000000000001',?,?) ON CONFLICT DO NOTHING").bind(`10000000-0000-4000-8000-${String(index+101).padStart(12,'0')}`,kind,'demo-'+id,at,at,JSON.stringify(data),owner.id))
  statements.push(env.DB.prepare("INSERT INTO hnd_filters(id,operator_id,name,query,created_at) VALUES('10000000-0000-4000-8000-000000000201',?,'Open cases / Casos abiertos',?,?) ON CONFLICT DO NOTHING").bind(owner.id,JSON.stringify({status:'open'}),at))
  await env.DB.batch(statements)
+ await followupSamples(env, owner, at)
 }

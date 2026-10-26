@@ -34,7 +34,7 @@ export async function queueMediaJourney({runtime,page,proof,cookie}){
  await section(name(f.english)).getByRole('checkbox').check()
  await click(section(name(f.english)).getByRole('button',{name:'Approve agent route',exact:true}))
  await page.getByRole('alert').waitFor();await proof('queue-media-stale-refusal')
- await page.goto(runtime.origin+'/app/queues')
+ await page.goto(runtime.origin+'/app/queues/settings')
  const bindingForm=page.locator('form').filter({has:page.getByRole('button',{name:'Authorize signed inbound queue routing',exact:true})})
  await bindingForm.getByLabel('Approved inbound source',{exact:true}).selectOption(source.source.id)
  await bindingForm.getByLabel('Queue',{exact:true}).selectOption(f.sales.id)

@@ -4,7 +4,7 @@ import { approveControl, executeControl, reconcileControl } from './controls'
 import { commit } from '../audit/store'
 import { Fault, escape as e, consolePage, integer, json, keys, owner, text, type ObjectValue } from '../core'
 import { configureLine, createDelegation, delegated, intent, linePolicy, presence, revokeDelegation, sql, type Line } from './store'
-import { deskPage, type Desk } from './pages'
+import { deskPage, deskSettingsPage, type Desk } from './pages'
 import { approveInbound } from './inbound-policy'
 
 export async function desk(env:Bindings,actor:Session):Promise<Desk>{
@@ -33,6 +33,7 @@ export async function delegationDoor(request:Request,env:Bindings,actor:Session,
  const path=new URL(request.url).pathname,html=path.startsWith('/app/'),base=html?'/app/front-desk':'/api/handset/front-desk'
  if(path!==base&&!path.startsWith(base+'/'))return null
  if(request.method==='GET'&&path===base){keys(Object.fromEntries(new URL(request.url).searchParams),[]);const result=await desk(env,actor);return html?deskPage(result,actor.operator.role==='owner'):json(result)}
+ if(html&&request.method==='GET'&&path===base+'/settings'){owner(actor);keys(Object.fromEntries(new URL(request.url).searchParams),[]);return deskSettingsPage(await desk(env,actor))}
  if(request.method!=='POST')throw new Fault('method_not_allowed',405)
  const v={...value}
  if(html){for(const key of ['revision','lineRevision','dnd','maxSeconds'])if(typeof v[key]==='string')v[key]=v[key]===''?undefined:Number(v[key]);if(typeof v.weekdays==='string')v.weekdays=v.weekdays.split(',').map(Number);if(typeof v.expiresAt==='string')v.expiresAt=new Date(v.expiresAt+'Z').getTime();for(const k of ['id','revision','callId','target','forwardTo','listId','delegationId'])if(v[k]===''||v[k]===undefined)delete v[k]}
@@ -54,5 +55,6 @@ export async function delegationDoor(request:Request,env:Bindings,actor:Session,
   return consolePage('Call control observation',`<p role="status">${observed?'Provider membership observed / Membresía observada':'Request retained; outcome uncertain / Resultado incierto'}</p><p>${e(receipt.operation.kind)} · ${receipt.replay?'This request was already started; no provider write was repeated.':observed?'The provider readback matches the reviewed call and endpoint.':'No pickup, parking, transfer or completed callback is claimed until readback.'}</p>${receipt.observation?`<p>${e(receipt.observation)}</p>`:''}${receipt.dialer?.held?`<p role="alert">Callback held: ${e(receipt.dialer.held.replaceAll('_',' '))}. No additional dial was made.</p>`:''}<p>No completed customer outcome is claimed. Controlled receiver audio remains unqualified.</p><details><summary>Request reference</summary><p>${e(receipt.operation.id)}</p></details><a href="/app/front-desk">Return to front desk</a>`,status)
  }
  if(path===base+'/operations')return consolePage('Call request held / Solicitud pendiente','<p role="status">No call effect occurred. Qualified media endpoints and exact spend approval are required before dialing or changing audio. This request retains the assistant actor, executive principal and approved business-number reference.</p><a href="/app/front-desk">Return to front desk</a>',202)
- return new Response(null,{status:303,headers:{location:'/app/front-desk','cache-control':'no-store'}})
+ // Setup forms return to Front desk setup; daily call work to the Front desk.
+ return new Response(null,{status:303,headers:{location:['/lines','/routing','/delegations','/revoke'].includes(path.slice(base.length))?'/app/front-desk/settings':'/app/front-desk','cache-control':'no-store'}})
 }
