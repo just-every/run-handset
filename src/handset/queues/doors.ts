@@ -2,6 +2,7 @@ import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { commit, denied } from '../audit/store'
 import { Fault, input, integer, json, keys, owner, session, text, type ObjectValue } from '../core'
+import { settingsSave } from '../refusal'
 import { configureAgent, configureQueue, membership, presence } from './configuration'
 import { enqueue, entryAction } from './entries'
 import { events, snapshot } from './read'
@@ -23,6 +24,7 @@ function formValues(value:ObjectValue){
  return data
 }
 const redirect=(location:string)=>new Response(null,{status:303,headers:{location,'cache-control':'no-store'}})
+const activePeople=async(env:Bindings)=>(await env.DB.prepare("SELECT id,display_name FROM oa_operators WHERE status='active' ORDER BY display_name,id").all<{id:string;display_name:string}>()).results
 // Queue setup's own forms return to Queue setup; media approvals to Media routes; daily work to Queues.
 const returnTo=(path:string)=>/\/(agents|overflow)\/[^/]+\/route(?:\/revoke)?$|\/offers\/[^/]+\/reconcile$/.test(path)?'/app/queues/media':/^\/app\/queues(?:\/create|\/[^/]+\/configure|\/agents|\/sources(?:\/revoke)?)?$/.test(path)?'/app/queues/settings':'/app/queues'
 export async function queueDoor(request:Request,env:Bindings,actor:Session,data?:ObjectValue):Promise<Response|null>{
@@ -42,12 +44,11 @@ export async function queueDoor(request:Request,env:Bindings,actor:Session,data?
    keys(Object.fromEntries(url.searchParams),[])
    const result=await snapshot(ctx);await commit(env,actor,'product.access','installation','completed')
    if(!html)return json(result)
-   const people=(await env.DB.prepare("SELECT id,display_name FROM oa_operators WHERE status='active' ORDER BY display_name,id").all<{id:string;display_name:string}>()).results
-   return queuesPage(result,people)
+   return queuesPage(result,await activePeople(env))
   }
   if(html&&path===base+'/settings'){
    const result=await snapshot(ctx);await commit(env,actor,'product.access','installation','completed')
-   return queueSettingsPage(result,(await env.DB.prepare("SELECT id,display_name FROM oa_operators WHERE status='active' ORDER BY display_name,id").all<{id:string;display_name:string}>()).results)
+   return queueSettingsPage(result,await activePeople(env))
   }
   if(html&&path===base+'/media'){const result=await snapshot(ctx);await commit(env,actor,'product.access','installation','completed');return queueMediaPage(result)}
   if(path===base+'/events'){
@@ -60,7 +61,11 @@ export async function queueDoor(request:Request,env:Bindings,actor:Session,data?
   if(detail){await queue(ctx,detail[1]);const result=await snapshot(ctx,detail[1]);await commit(env,actor,'product.access',detail[1],'completed');return json(result)}
   return null
  }
- let value=data??await input(request);if(html)value=formValues(value)
+ const raw=data??await input(request),value=html?formValues(raw):raw
+ // A refused Queue setup save stays on Queue setup with the person's entries.
+ if(html&&returnTo(path)==='/app/queues/settings')return settingsSave(env,actor,{action:path,values:raw},()=>write(value),async refusal=>{const result=await snapshot(ctx);await commit(env,actor,'product.access','installation','completed');return queueSettingsPage(result,await activePeople(env),refusal)})
+ return write(value)
+ async function write(value:ObjectValue):Promise<Response|null>{
  let result:unknown,status=200
  if(path===base||path===base+'/create'){result=await configureQueue(ctx,value);status=201}
  else if(path===base+'/sources'){result=await bindSource(ctx,value);status=201}
@@ -88,4 +93,5 @@ export async function queueDoor(request:Request,env:Bindings,actor:Session,data?
   else return null
  }
  return html?redirect(returnTo(path)):json(result,status)
+ }
 }

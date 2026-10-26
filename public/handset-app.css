@@ -298,8 +298,11 @@
   .hs-notice > span + span::before { content: none; }
   .hs-create { padding: 18px 20px 20px; }
   .hs-pane > article > :is(h2, h3) { font-size: 26px; }
-  .hs-main .hs-search { grid-template-columns: minmax(0, 1fr) auto; }
+  .hs-main .hs-search { position: relative; grid-template-columns: minmax(0, 1fr) auto; }
   .hs-search > label { grid-column: 1 / -1; }
+  /* The open Filters panel spans the search form, so no field starts off-screen. */
+  .hs-search > details { position: static; }
+  .hs-filter-fields { left: 0; right: 0; width: auto; }
   .hs-main .hs-history li { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .hs-pane > article { padding: 22px 20px; }
 }
