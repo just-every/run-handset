@@ -1,12 +1,12 @@
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
-import { Fault, input, json, text, type ObjectValue } from '../core'
+import { Fault, input, json, type ObjectValue } from '../core'
 import type { AppliedPolicy } from '../audit/policy'
 import type { Grant } from '../authority/store'
 import { decide } from './exceptions'
 import * as ops from './operations'
 import type { ExceptionRow, Outcome } from './model'
-import { receptionistPage } from './pages'
+import { receptionistPage, receptionistSettingsPage } from './pages'
 import { currentPolicy, loadOutcome, openOutcome, policyHistory, readOutcome, writePolicy } from './store'
 
 const agentBase = '/api/handset/application/receptionist'
@@ -42,12 +42,13 @@ export async function ownerDoor(request: Request, env: Bindings, actor: Session,
   const current = await currentPolicy(db)
   const exceptions = (await db.prepare('SELECT * FROM hnd_rx_exceptions ORDER BY (status=\'open\') DESC, created_at DESC LIMIT 100').all<ExceptionRow>()).results
   const outcomes = (await db.prepare("SELECT o.*,COALESCE((SELECT group_concat(kind||' '||state||' — '||replace(reason,'_',' '),'; ') FROM hnd_rx_steps s WHERE s.outcome_id=o.id),'') AS states FROM hnd_rx_outcomes o ORDER BY created_at DESC LIMIT 50").all<Outcome & { states: string }>()).results
-  if (html) return receptionistPage(current, exceptions, outcomes, actor.operator.id)
+  if (html) return receptionistPage(current, exceptions, outcomes)
   return json({ policy: current ? { version: current.version, ...current.policy } : null, history: (await policyHistory(db)).map(h => ({ version: h.version, ownerId: h.owner_id, createdAt: h.created_at })), exceptions: exceptions.map(x => ({ ...x, requested: JSON.parse(x.requested), evidence: JSON.parse(x.evidence) })), outcomes })
  }
+ if (html && request.method === 'GET' && action === '/settings') return receptionistSettingsPage(await currentPolicy(db), actor.operator.id)
  if (request.method !== 'POST' || !data) throw new Fault('method_not_allowed', 405)
  if (action === '/policy') {
-  const value = html ? { ...data, policy: parseJson(data.policy), expectedVersion: Number(data.expectedVersion) } : data
+  const value = html ? { confirm: data.confirm, policy: policyFields(data), expectedVersion: Number(data.expectedVersion) } : data
   const saved = await writePolicy(env, actor, value)
   return html ? Response.redirect(new URL(base, url).toString(), 303) : json(saved, 201)
  }
@@ -58,4 +59,17 @@ export async function ownerDoor(request: Request, env: Bindings, actor: Session,
  }
  throw new Fault('not_found', 404)
 }
-function parseJson(value: unknown) { try { return JSON.parse(text(value, 'policy', 20000)) } catch (error) { if (error instanceof Fault) throw error; throw new Fault('invalid_policy_json') } }
+/** The settings form's labelled fields as one policy; the policy reader still checks every value. */
+function policyFields(data: ObjectValue) {
+ const value = (name: string) => typeof data[name] === 'string' ? String(data[name]).trim() : ''
+ const cents = (name: string) => value(name) === '' ? Number.NaN : Math.round(Number(value(name)) * 100)
+ const rows = (prefix: string, names: string[]) => [...new Set(Object.keys(data).filter(key => key.startsWith(prefix + '.')).map(key => key.split('.')[1]))].sort((a, b) => Number(a) - Number(b))
+  .map(n => Object.fromEntries(names.map(name => [name, value(`${prefix}.${n}.${name}`)]))).filter(row => Object.values(row).some(Boolean))
+ const hours = rows('hours', ['start', 'end']).length ? [0, 1, 2, 3, 4, 5, 6].flatMap(day => value(`hours.${day}.start`) || value(`hours.${day}.end`) ? [{ day, start: value(`hours.${day}.start`), end: value(`hours.${day}.end`) }] : []) : []
+ return {
+  businessName: value('businessName'), timezone: value('timezone'), hours, callbackMinutes: Number(value('callbackMinutes')), exceptionOwnerId: value('exceptionOwnerId'), orbitTarget: value('orbitTarget'),
+  maxDepositCents: cents('maxDeposit'), maxDiscountCents: cents('maxDiscount'), maxRefundCents: cents('maxRefund'),
+  services: rows('services', ['id', 'name', 'eventTypeId', 'bookingPage', 'minutes', 'deposit']).map(s => ({ id: s.id, name: s.name, eventTypeId: s.eventTypeId, bookingPage: s.bookingPage, minutes: Number(s.minutes), depositCents: s.deposit === '' ? 0 : Math.round(Number(s.deposit) * 100) })),
+  knowledge: rows('knowledge', ['topic', 'value', 'version']), supportConversations: rows('support', ['caseId', 'conversationId']),
+ }
+}

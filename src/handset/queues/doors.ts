@@ -6,7 +6,7 @@ import { configureAgent, configureQueue, membership, presence } from './configur
 import { enqueue, entryAction } from './entries'
 import { events, snapshot } from './read'
 import { dispatch, reconcile } from './routing'
-import { queuesPage } from './pages'
+import { queueSettingsPage, queuesPage } from './pages'
 import { queue } from './storage'
 import { bindSource, revokeBinding } from './provider-consent'
 import { revokeMediaRoute, writeAgentRoute, writeOverflowRoute } from './media-policy'
@@ -22,7 +22,9 @@ function formValues(value:ObjectValue){
  if(data.overflowQueueId==='')delete data.overflowQueueId
  return data
 }
-const redirect=(media=false)=>new Response(null,{status:303,headers:{location:media?'/app/queues/media':'/app/queues','cache-control':'no-store'}})
+const redirect=(location:string)=>new Response(null,{status:303,headers:{location,'cache-control':'no-store'}})
+// Queue setup's own forms return to Queue setup; media approvals to Media routes; daily work to Queues.
+const returnTo=(path:string)=>/\/(agents|overflow)\/[^/]+\/route(?:\/revoke)?$|\/offers\/[^/]+\/reconcile$/.test(path)?'/app/queues/media':/^\/app\/queues(?:\/create|\/[^/]+\/configure|\/agents|\/sources(?:\/revoke)?)?$/.test(path)?'/app/queues/settings':'/app/queues'
 export async function queueDoor(request:Request,env:Bindings,actor:Session,data?:ObjectValue):Promise<Response|null>{
  const url=new URL(request.url),path=url.pathname,html=path.startsWith('/app/'),base=html?'/app/queues':'/api/handset/queues'
  if(path!==base&&!path.startsWith(base+'/'))return null
@@ -42,6 +44,10 @@ export async function queueDoor(request:Request,env:Bindings,actor:Session,data?
    if(!html)return json(result)
    const people=(await env.DB.prepare("SELECT id,display_name FROM oa_operators WHERE status='active' ORDER BY display_name,id").all<{id:string;display_name:string}>()).results
    return queuesPage(result,people)
+  }
+  if(html&&path===base+'/settings'){
+   const result=await snapshot(ctx);await commit(env,actor,'product.access','installation','completed')
+   return queueSettingsPage(result,(await env.DB.prepare("SELECT id,display_name FROM oa_operators WHERE status='active' ORDER BY display_name,id").all<{id:string;display_name:string}>()).results)
   }
   if(html&&path===base+'/media'){const result=await snapshot(ctx);await commit(env,actor,'product.access','installation','completed');return queueMediaPage(result)}
   if(path===base+'/events'){
@@ -81,5 +87,5 @@ export async function queueDoor(request:Request,env:Bindings,actor:Session,data?
   }else if(action)result=await entryAction(ctx,action[1],action[2],value)
   else return null
  }
- return html?redirect(/\/(agents|overflow)\/[^/]+\/route(?:\/revoke)?$|\/offers\/[^/]+\/reconcile$/.test(path)):json(result,status)
+ return html?redirect(returnTo(path)):json(result,status)
 }
