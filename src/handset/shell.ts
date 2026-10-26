@@ -7,11 +7,11 @@ import branding from '../branding.json'
 const escape = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
 
 // Daily work stays in the bar; configuration and oversight live under Settings.
-const work = [
+export const work = [
  ['/app/followups', 'Follow-ups'], ['/app/cases', 'Cases'], ['/app/recovery', 'Recovery'], ['/app/callbacks', 'Callbacks'],
  ['/app/queues', 'Queues'], ['/app/front-desk', 'Front desk'], ['/app/recordings', 'Recordings'], ['/app/receptionist', 'Caller outcomes'],
 ] as const
-const settings = [
+export const settings = [
  ['/app/queues/settings', 'Queue setup'], ['/app/queues/media', 'Media routes'], ['/app/flows', 'Call flows'], ['/app/front-desk/settings', 'Front desk setup'], ['/app/receptionist/settings', 'Caller outcome limits'], ['/app/callbacks/settings', 'Callback policy'],
  ['/app/rules', 'Rules'], ['/app/operations', 'Continuity'], ['/app/dialer', 'Dialer'], ['/app/protection', 'Protection'],
  ['/app/sources', 'Sources'], ['/app/grants', 'Application grants'], ['/app/admin/templates', 'Templates'], ['/app/admin/bulk', 'Bulk administration'],

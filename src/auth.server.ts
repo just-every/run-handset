@@ -6,7 +6,7 @@ import { fontDocumentResponse } from './base/font-response'
 import { createOperatorAuth, createAuthHandler, createSignInHandler, type AuthConfig } from './modules/operator-auth/index.mjs'
 import { operatorMail } from './mail.server.mjs'
 import branding from './branding.json'
-import { appDocument } from './handset/shell'
+import { appDocument, settings, work } from './handset/shell'
 
 // The edition's declared theme (public/rer-theme.css), as Base frames link it.
 const theme = { href: '/rer-theme.css', productName: branding.name, accentColor: branding.primaryColor }
@@ -101,8 +101,8 @@ async function handleAuthResponse(request: Request, original: Bindings): Promise
  if (url.pathname === '/app') {
   const session = await operatorAuth(env).getSession(request)
   if (!session) return new Response(null, { status: 303, headers: { ...privateHeaders, location: '/signin' } })
-  const links = (rows: [string, string][]) => `<ul class="hs-links">${rows.map(([href, label]) => `<li><a href="${href}">${label}</a></li>`).join('')}</ul>`
-  return appDocument('Home', `<p class="hs-sub">Signed in as ${escape(session.operator.displayName)}</p><div class="hs-home"><section><h2>Daily work</h2>${links([['/app/cases', 'Shared cases'], ['/app/front-desk', 'Front desk'], ['/app/recordings', 'Recordings'], ['/app/queues', 'Queues']])}</section><section><h2>Settings</h2>${links([['/app/audit', 'Audit'], ['/app/grants', 'Application grants'], ['/app/admin/bulk', 'Bulk administration'], ['/app/admin/templates', 'Templates'], ['/app/reports/queues', 'Queue reports'], ['/app/protection', 'Protection'], ['/app/import', 'Move in']])}</section></div><form method="post" action="/auth/signout"><button type="submit" class="hs-secondary">Sign out</button></form>`)
+  const links = (rows: readonly (readonly [string, string])[]) => `<ul class="hs-links">${rows.map(([href, label]) => `<li><a href="${href}">${label}</a></li>`).join('')}</ul>`
+  return appDocument('Home', `<p class="hs-sub">Signed in as ${escape(session.operator.displayName)}</p><div class="hs-home"><section><h2>Daily work</h2>${links(work)}</section><section><h2>Settings</h2>${links(settings)}</section></div><form method="post" action="/auth/signout"><button type="submit" class="hs-secondary">Sign out</button></form>`)
  }
  return null
 }
