@@ -10,10 +10,9 @@ interface Transcript {id:string;recording_id:string;source_id:string;source_revi
 interface Segment {id:string;speaker:string;language:'en'|'es';startMs:number;endMs:number;text:string;confidence:number}
 interface Annotation {id:string;transcript_id:string;segment_id:string;kind:string;text:string;owner_id:string|null;due_at:number|null;due_state:string|null;created_by:string;created_at:number}
 interface Correction {revision:number;segment_id:string;replacement:string;created_by:string;created_at:number}
-const clock="CAST(ROUND((julianday('now')-2440587.5)*86400000) AS INTEGER)"
-const permission=`g.revoked_at IS NULL AND g.expires_at>${clock} AND p.status='active' AND p.version=g.person_version AND o.status='active' AND o.role='owner' AND o.version=g.owner_version`
+const permission=`g.revoked_at IS NULL AND g.expires_at>? AND p.status='active' AND p.version=g.person_version AND o.status='active' AND o.role='owner' AND o.version=g.owner_version`
 function accessFence(env:Bindings,actor:Session,target:string){
- return guard(env,`SELECT CASE WHEN EXISTS(SELECT 1 FROM hnd_transcript_access g JOIN oa_operators p ON p.id=g.person_id JOIN oa_operators o ON o.id=g.created_by WHERE g.transcript_id=? AND g.person_id=? AND ${permission}) THEN 1 ELSE 0 END`,target,actor.operator.id)
+ return guard(env,`SELECT CASE WHEN EXISTS(SELECT 1 FROM hnd_transcript_access g JOIN oa_operators p ON p.id=g.person_id JOIN oa_operators o ON o.id=g.created_by WHERE g.transcript_id=? AND g.person_id=? AND ${permission}) THEN 1 ELSE 0 END`,target,actor.operator.id,Date.now())
 }
 async function metadata(env:Bindings,target:string){
  const row=await sql(env,'SELECT * FROM hnd_transcripts WHERE id=?',target).first<Transcript>()
@@ -23,7 +22,7 @@ async function metadata(env:Bindings,target:string){
  return {row,source}
 }
 async function current(env:Bindings,actor:Session,target:string){
- const permitted=await sql(env,`SELECT g.id FROM hnd_transcript_access g JOIN oa_operators p ON p.id=g.person_id JOIN oa_operators o ON o.id=g.created_by WHERE g.transcript_id=? AND g.person_id=? AND ${permission} LIMIT 1`,target,actor.operator.id).first()
+ const permitted=await sql(env,`SELECT g.id FROM hnd_transcript_access g JOIN oa_operators p ON p.id=g.person_id JOIN oa_operators o ON o.id=g.created_by WHERE g.transcript_id=? AND g.person_id=? AND ${permission} LIMIT 1`,target,actor.operator.id,Date.now()).first()
  if(!permitted)throw new Fault('transcript_access_required',403)
  const {row,source}=await metadata(env,target)
  const fences=()=>[nativeFence(env,actor),accessFence(env,actor,target),sourceFence(env,source)]
@@ -78,7 +77,7 @@ export async function transcriptDoor(request:Request,env:Bindings,actor:Session,
   for(const key of url.searchParams.keys())if(!['q','recordingId','from','to','numberId','ownerId'].includes(key))throw new Fault('unsupported_search_filter')
   const query=text(url.searchParams.get('q')??'','query',200,true).toLocaleLowerCase(),recording=url.searchParams.get('recordingId'),number=url.searchParams.get('numberId'),person=url.searchParams.get('ownerId')
   const from=url.searchParams.has('from')?integer(Number(url.searchParams.get('from')),'from',0,8640000000000000):0,to=url.searchParams.has('to')?integer(Number(url.searchParams.get('to')),'to',from,8640000000000000):8640000000000000
-  const candidates=await sql(env,`SELECT DISTINCT t.id FROM hnd_transcripts t JOIN hnd_records r ON r.id=t.recording_id JOIN hnd_sources s ON s.id=t.source_id JOIN hnd_transcript_access g ON g.transcript_id=t.id JOIN oa_operators p ON p.id=g.person_id JOIN oa_operators o ON o.id=g.created_by WHERE g.person_id=? AND ${permission} AND (? IS NULL OR t.recording_id=?) AND r.occurred_at BETWEEN ? AND ? AND (? IS NULL OR s.number_id=?) AND (? IS NULL OR EXISTS(SELECT 1 FROM hnd_transcript_annotations a WHERE a.transcript_id=t.id AND a.owner_id=?)) ORDER BY r.occurred_at DESC,t.id LIMIT 50`,actor.operator.id,recording,recording,from,to,number,number,person,person).all<{id:string}>()
+  const candidates=await sql(env,`SELECT DISTINCT t.id FROM hnd_transcripts t JOIN hnd_records r ON r.id=t.recording_id JOIN hnd_sources s ON s.id=t.source_id JOIN hnd_transcript_access g ON g.transcript_id=t.id JOIN oa_operators p ON p.id=g.person_id JOIN oa_operators o ON o.id=g.created_by WHERE g.person_id=? AND ${permission} AND (? IS NULL OR t.recording_id=?) AND r.occurred_at BETWEEN ? AND ? AND (? IS NULL OR s.number_id=?) AND (? IS NULL OR EXISTS(SELECT 1 FROM hnd_transcript_annotations a WHERE a.transcript_id=t.id AND a.owner_id=?)) ORDER BY r.occurred_at DESC,t.id LIMIT 50`,actor.operator.id,Date.now(),recording,recording,from,to,number,number,person,person).all<{id:string}>()
   const matches=[]
   for(const candidate of candidates.results){
    try{
