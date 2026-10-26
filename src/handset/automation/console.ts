@@ -18,7 +18,7 @@ export const due = (at = Date.now() + 3600000) => field('Due at (UTC)', 'dueAt',
 export const revision = (row: Row) => hidden('revision', row.revision)
 export const approval = (value: string, label: string) => `<label><input type="checkbox" name="confirm" value="${e(value)}" required> ${e(label)}</label>`
 export const area = (label: string, name: string, value = '') => `<label>${e(label)}<textarea aria-label="${e(label)}" name="${e(name)}" rows="4" required>${e(value)}</textarea></label>`
-export const nav = '<nav aria-label="Customer work"><a href="/app/rules">Rules</a> · <a href="/app/followups">Follow-up review</a> · <a href="/app/recovery">Missed-call recovery</a> · <a href="/app/callbacks">Callbacks</a> · <a href="/app/operations">Continuity review</a></nav>'
+export const nav = '<nav aria-label="Customer work"><a href="/app/rules">Rules</a><a href="/app/followups">Follow-up review</a><a href="/app/recovery">Missed-call recovery</a><a href="/app/callbacks">Callbacks</a><a href="/app/operations">Continuity review</a></nav>'
 export const bounds = (text: string) => `<p role="status">${e(text)}</p>`
 
 type Door = (request: Request, env: Bindings, actor: Session, value?: ObjectValue) => Promise<Response | null>
