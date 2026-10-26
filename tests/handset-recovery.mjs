@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import { post } from './helpers/handset-auth.mjs'
 import { receptionistFixture } from './helpers/handset-receptionist.mjs'
 import { sourceFixture } from './helpers/handset-sources.mjs'
+import { intakeFixture, intakeTime } from './helpers/handset-recovery-intake.mjs'
 
 async function setup() {
  const f = await receptionistFixture(), source = await sourceFixture(f.runtime)
@@ -17,6 +18,87 @@ async function setup() {
  }
  return { ...f, source, missed, open, action }
 }
+
+test('Reviewed business hours admit one owned task from final carrier readback without granting contact or resetting human decisions',async()=>{
+ const f=await intakeFixture()
+ try {
+  const unapproved=f.call(1);assert.equal((await unapproved.send()).status,200);assert.equal((await f.get()).cases.length,0)
+  await f.runtime.setTime(intakeTime+1000)
+  const approved=await f.approve();assert.equal(approved.policy.revision,1)
+  const stale=await post(f.runtime,f.base+'/policies',{sourceId:f.source.source.id,revision:0,timezone:'UTC',hours:{weekly:[]},confirm:'approve owned missed-call intake'},f.source.headers)
+  assert.equal(stale.status,409)
+  const unauthorized=await post(f.runtime,f.base+'/policies',{sourceId:f.source.source.id,revision:1,timezone:'UTC',hours:{weekly:[]},confirm:'approve owned missed-call intake'},{authorization:'Bearer synthetic-handset-1001'})
+  assert.equal(unauthorized.status,401)
+  assert.equal((await unapproved.send()).status,200);assert.equal((await f.get()).cases.length,0,'approval never backfills an older missed outcome')
+  const call=f.call(2),response=await call.send();assert.equal(response.status,200,await response.clone().text())
+  const observed=await response.json(),task=(await f.get()).cases[0]
+  assert.equal(task.call_record_id,observed.recordId);assert.equal(task.owner_id,'synthetic-handset-1');assert.equal(task.state,'open')
+  assert.equal(task.due_at,Date.parse(call.resource.end_time)+60000)
+  const taken=await f.write(f.base+'/'+task.id+'/takeover',{revision:task.revision,note:'Mara is already handling this need'},200)
+  await call.send();await f.runtime.restart();await call.send()
+  let report=await f.get();assert.equal(report.cases.length,1);assert.deepEqual(report.cases[0],taken.recovery)
+  const retry=f.call(3,{caller:call.caller});assert.equal((await retry.send()).status,200);assert.equal((await f.get()).cases.length,1)
+  assert.equal((await f.get()).cases[0].state,'human')
+  const answered=f.call(4,{status:'completed'}),childSid='synthetic-handset-intake-staff'
+  const child={sid:childSid,account_sid:f.source.account,parent_call_sid:answered.sid,direction:'outbound-dial',from:answered.caller,to:'+15125551099',status:'completed',duration:'20'}
+  answered.children.calls.push(child);f.source.resource('Calls',childSid,child)
+  assert.equal((await answered.send()).status,200);assert.equal((await f.get()).cases.length,1,'a completed staff conversation is not missed')
+  const failed=f.call(5);f.runtime.twilioResources.delete(failed.url)
+  assert.equal((await failed.send()).status,503);assert.equal((await f.get()).cases.length,1)
+  f.runtime.twilioResources.set(failed.url,failed.resource)
+  assert.equal((await failed.send()).status,200);assert.equal((await f.get()).cases.length,2,'a provider retry completes interrupted intake once')
+  const race=f.call(6)
+  f.runtime.twilioResources.set(race.url,async()=>{
+   await f.write(f.base+'/policies/revoke',{sourceId:f.source.source.id,revision:1},200)
+   return race.resource
+  })
+  assert.equal((await race.send()).status,409);assert.equal((await f.get()).cases.length,2,'revocation during readback fences task creation')
+  const reapproved=await f.approve(2);assert.equal(reapproved.policy.revision,3)
+  const stopped=f.call(7)
+  await f.write('/api/handset/protection/stops',{numberId:f.source.numberId,recipient:stopped.caller,channel:'all',reason:'dnc',confirm:'record outbound consent stop'})
+  assert.equal((await stopped.send()).status,200)
+  assert.equal((await f.get()).cases.find(r=>r.recipient===stopped.caller).state,'stopped')
+  await f.runtime.setTime(Date.parse('2026-10-26T22:00:00Z'))
+  const closed=f.call(8);assert.equal((await closed.send()).status,200);assert.equal((await f.get()).cases.length,3,'the local closing boundary excludes intake')
+  report=await f.get();assert.equal(report.intakePolicies.length,1);assert.equal(report.intakePolicies[0].revision,3)
+  assert.equal((await f.get('/api/handset/consent')).permissions.length,0)
+  assert.equal((await f.get('/api/handset/callbacks')).callbacks.length,0)
+  assert.equal(f.runtime.sourceRequests.filter(r=>r.method==='POST').length,0)
+ }finally{await f.runtime.close()}
+})
+
+test('Final queue outcomes create owned missed-call work with retained place while failed staff offers alone create nothing',async()=>{
+ const f=await intakeFixture()
+ try {
+  const {queueFixture,authorizeQueueMedia}=await import('./helpers/handset-queues.mjs')
+  const q=await queueFixture(f.runtime,f.source.cookie),{edge,destinations}=await authorizeQueueMedia(q,f.source)
+  await f.approve()
+  const call=edge.resource(80,{parent_call_sid:null})
+  let response=await edge.callback(call);assert.equal(response.status,200,await response.clone().text());assert.match(await response.text(),/<Dial/)
+  let state=await q.read(),offer=state.offers[0],place=state.entries.find(r=>r.id===offer.entry_id)
+  const child=edge.child(80,call,destinations[q.english],'no-answer')
+  response=await edge.status(offer,child,{CallStatus:'no-answer'});assert.equal(response.status,204,await response.clone().text())
+  assert.equal((await f.get()).cases.length,0,'the customer is still waiting after the first failed staff ring')
+  edge.parent(call,{parent_call_sid:null,status:'completed',end_time:new Date().toUTCString(),duration:'0'})
+  response=await edge.status(offer,child,{CallStatus:'no-answer'});assert.equal(response.status,204,await response.clone().text())
+  let task=(await f.get()).cases[0]
+  assert.equal(task.queue_entry_id,place.id);assert.equal(JSON.parse(task.queue_place).queued_at,place.queued_at);assert.equal(JSON.parse(task.queue_place).priority,place.priority)
+  await edge.callback({...call,CallStatus:'completed'})
+  response=await f.source.callback({...call,CallStatus:'completed',SequenceNumber:'1',Timestamp:new Date().toISOString()});assert.equal(response.status,200,await response.clone().text())
+  assert.equal((await f.get()).cases.length,1,'queue and canonical doors share the same owned task')
+  await q.presence(q.english,'unavailable')
+  const waiting=edge.resource(81,{parent_call_sid:null})
+  response=await edge.callback(waiting);assert.equal(response.status,200,await response.clone().text())
+  state=await q.read();place=state.entries.find(r=>r.id!==task.queue_entry_id)
+  edge.parent(waiting,{parent_call_sid:null,status:'completed',end_time:new Date().toUTCString(),duration:'0'})
+  response=await edge.callback({...waiting,CallStatus:'completed'});assert.equal(response.status,200,await response.clone().text())
+  assert.equal((await f.get()).cases.length,2,'terminal queue callers without a live offer are also owned')
+  assert.equal((await f.get()).cases.find(r=>r.recipient===waiting.From).queue_entry_id,place.id)
+  await f.runtime.restart();await edge.callback({...waiting,CallStatus:'completed'})
+  assert.equal((await f.get()).cases.length,2)
+  assert.equal(f.runtime.sourceRequests.filter(r=>r.method==='POST').length,0)
+ }finally{await f.runtime.close()}
+})
 
 test('Verified missed legs correlate to one recovery need and retain their queue place while opt-outs suppress contact', async () => {
  const f = await setup()

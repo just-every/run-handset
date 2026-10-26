@@ -5,6 +5,7 @@ import { callTerminal, cancelRinging, readCall, readChildren, type ProviderCall 
 import { offerById, offerGuard, type Offer } from './offers'
 import { overflow } from './entries'
 import { childRecords } from './provider-records'
+import { observeUnansweredCall } from '../recovery/intake'
 
 export function destinationMatches(offer:Offer,to:string){
  return offer.destination_kind==='client'?to==='client:'+offer.destination:to===offer.destination||to===offer.destination.replace(/^sips?:/,'')
@@ -31,7 +32,7 @@ export async function recoverOffer(original:Context,originalOffer:Offer,childSid
   if(matches[0])child=await readCall(ctx,offer.account_id,matches[0].sid)
  }
  if(child){verifyChild(offer,child);if(child.from!==parent.from)throw new Fault('queue_child_caller_mismatch',502)}
- if(['completed','failed'].includes(offer.state))return {offer,child,parent}
+ if(['completed','failed'].includes(offer.state)){if(callTerminal(parent.status))await observeUnansweredCall(ctx.env,source.source_id,(await entry(ctx,offer.entry_id)).call_id);return {offer,child,parent}}
  if(offer.state==='active'&&child&&!callTerminal(child.status)&&child.status!=='in-progress')return {offer,child,parent}
  const row=await entry(ctx,offer.entry_id)
  if(row.current_visit_id!==offer.visit_id||!['reserved','active'].includes(row.state))throw new Fault('queue_offer_entry_conflict',409)
@@ -80,5 +81,6 @@ async function finish(ctx:Context,offer:Offer,row:Awaited<ReturnType<typeof entr
   ...(bridged&&duration!==null&&duration>0?[statement(ctx,'INSERT INTO hnd_queue_service_observations VALUES (?,?,?,?,?,?)',offer.id,q.id,row.language,row.skills,duration!,now)]:[]),
   event(ctx,bridged?'offer.completed':abandoned?'entry.abandoned':'offer.failed',q.id,row.id,offer.agent_id,{offerId:offer.id,transport:child?.status??'parent ended',audioReceipt:'unknown',serviceSeconds:duration,wrapUntil:bridged?now+q.wrap_seconds*1000:null},now),
  ])
+ if(callTerminal(parent.status))await observeUnansweredCall(ctx.env,offer.source_id,row.call_id)
  if(!bridged&&!abandoned)await overflow(ctx,await entry(ctx,row.id),q,row.deadline_at<=now?'maximum_wait':'agent_offer_failed',now)
 }

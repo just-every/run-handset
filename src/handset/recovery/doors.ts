@@ -4,6 +4,7 @@ import { actorRef, append, commit } from '../audit/store'
 import { Fault, id, integer, json, keys, owner, text, timestamp, type ObjectValue } from '../core'
 import { activeSourceById, sourceFence } from '../providers/sources'
 import type { RecordRow } from '../records/model'
+import { configureIntake, intakeSnapshot, revokeIntake } from './intake-policy'
 
 interface Recovery {
  id: string; case_id: string; source_id: string; call_record_id: string; queue_entry_id: string | null;
@@ -102,9 +103,11 @@ export async function recoveryDoor(request: Request, env: Bindings, actor: Sessi
  owner(actor)
  if (path === base && request.method === 'GET') {
   const rows = (await env.DB.prepare('SELECT * FROM hnd_recovery ORDER BY due_at,id LIMIT 200').all<Recovery>()).results
-  return json({ cases: rows, truncated: rows.length === 200, overdue: rows.filter(r => ['open','human','escalated'].includes(r.state) && r.due_at <= Date.now()).length })
+  return json({ cases: rows, truncated: rows.length === 200, overdue: rows.filter(r => ['open','human','escalated'].includes(r.state) && r.due_at <= Date.now()).length, ...await intakeSnapshot(env) })
  }
  if (request.method !== 'POST' || !value) throw new Fault('method_not_allowed', 405)
+ if (path === base + '/policies') return json(await configureIntake(env, actor, value), 201)
+ if (path === base + '/policies/revoke') return json(await revokeIntake(env, actor, value))
  if (path === base) { const result = await create(env, actor, value); return json(result, result.replay ? 200 : 201) }
  const m = path.slice(base.length).match(/^\/([0-9a-f-]{36})\/(takeover|stop|assign|decline|resolve|escalate|callback-proposal)$/)
  if (!m) throw new Fault('not_found', 404)

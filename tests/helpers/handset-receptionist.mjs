@@ -14,9 +14,9 @@ export const policyFor = (namedPerson, supportConversations = []) => ({
  maxDepositCents: 5000, maxDiscountCents: 500, maxRefundCents: 0, callbackMinutes: 45, exceptionOwnerId: namedPerson,
  knowledge: [{ topic: 'service_area', value: 'Austin and Round Rock', version: 'k-12' }, { topic: 'deposit', value: '$50.00', version: 'k-12' }], orbitTarget, supportConversations,
 })
-export async function receptionistFixture({ connectors = true } = {}) {
+export async function receptionistFixture({ connectors = true, clockTime } = {}) {
  const edges = connectors ? createEdges() : null
- const runtime = await openHandset({ twilio: true, edges })
+ const runtime = await openHandset({ twilio: true, edges, clockTime })
  const { cookie } = await signIn(runtime), headers = { cookie }
  await runtime.sql('UPDATE oa_operators SET status=?,role=? WHERE id=?', 'active', 'owner', 'synthetic-handset-2')
  const named = await signIn({ ...runtime, ownerEmail: 'synthetic-handset-2@example.test' })

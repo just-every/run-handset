@@ -4,6 +4,7 @@ import { consolePage, escape as e, field, hidden, Fault, keys, type ObjectValue 
 import { rulesPage } from './pages'
 import { followupsPage } from '../followups/pages'
 import { recoveryPage } from '../recovery/pages'
+import { intakeErrorMessage, intakeHours } from '../recovery/intake-settings'
 import { operationsPage } from '../operations/pages'
 import { callbacksPage } from '../callbacks/pages'
 
@@ -25,6 +26,10 @@ const pages: Record<string, (snapshot: Snapshot) => Promise<Response>> = { rules
 function formValue(root: string, suffix: string, raw: ObjectValue): ObjectValue {
  const value = { ...raw }
  for (const key of ['revision', 'expectedRevision', 'delayMinutes', 'startMinute', 'endMinute', 'maxAttempts', 'retrySeconds']) if (key in value) value[key] = Number(value[key])
+ if (root === 'recovery' && suffix === '/policies') {
+  keys(value, ['sourceId','revision','timezone','opens','closes','day1','day2','day3','day4','day5','day6','day7','confirm'])
+  return { sourceId: value.sourceId, revision: value.revision, timezone: value.timezone, hours: intakeHours(value), confirm: value.confirm }
+ }
  if ('dueAt' in value) {
   if (typeof value.dueAt !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(value.dueAt)) throw new Fault('invalid_dueAt')
   value.dueAt = Date.parse(value.dueAt + ':00Z')
@@ -49,7 +54,17 @@ export async function workConsole(request: Request, env: Bindings, actor: Sessio
  }
  if (request.method === 'GET' && root === 'operations' && /^\/[0-9a-f-]{36}\/export$/.test(suffix)) return door(new Request(api), env, actor)
  if (request.method !== 'POST' || !raw) throw new Fault('method_not_allowed', 405)
- const response = await door(new Request(api, { method: 'POST' }), env, actor, formValue(root, suffix, raw))
+ let response: Response | null
+ try {
+  response = await door(new Request(api, { method: 'POST' }), env, actor, formValue(root, suffix, raw))
+ } catch (error) {
+  if (root !== 'recovery' || !['/policies', '/policies/revoke'].includes(suffix) || !(error instanceof Fault) || error.status === 401 || error.status === 403 && error.code !== 'explicit_intake_approval_required') throw error
+  const current = await door(new Request(new URL('/api/handset/recovery', url)), env, actor)
+  if (!current) throw new Fault('not_found', 404)
+  if (!current.ok) return current
+  const page = await render({ ...await current.json() as Snapshot, intakeDraft: raw, intakeError: intakeErrorMessage(error) })
+  return new Response(page.body, { status: error.status, headers: page.headers })
+ }
  if (!response) throw new Fault('not_found', 404)
  const result = await response.json() as Snapshot
  if (root === 'rules' && suffix === '/preview') return consolePage('Review tested rule', nav + details([

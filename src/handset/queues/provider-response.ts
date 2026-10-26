@@ -10,6 +10,7 @@ import { recoverOffer } from './offer-readback'
 import { overflowInstructions, routeReady, unavailableEnding } from './overflow-response'
 import type { Entry } from './model'
 import { holdOffer } from '../callbacks/hold'
+import { observeUnansweredCall } from '../recovery/intake'
 
 export async function voiceInstructions(ctx:Context,source:BoundSource,p:URLSearchParams){
  const callId=await sourceCall(ctx,source,p)
@@ -23,6 +24,7 @@ export async function voiceInstructions(ctx:Context,source:BoundSource,p:URLSear
    if(offer&&['uncertain','ringing','active'].includes(offer.state))await recoverOffer(ctx,offer)
    else if(['waiting','reserved','active'].includes(row.state))await entryAction(ctx,row.id,'abandon',{revision:row.revision})
   }
+  await observeUnansweredCall(ctx.env,source.source_id,callId)
   return '<Hangup/>'
  }
  if(!row)row=(await enqueue(ctx,source.queue_id,{callId,language:p.get('Digits')===source.spanish_digit?'es':source.language,skills:[],priority:0})).entry

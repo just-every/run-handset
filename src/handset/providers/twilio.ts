@@ -1,4 +1,5 @@
 import { surveyIncoming } from '../surveys/provider'
+import { observeUnansweredCall } from '../recovery/intake'
 import { runtimeBindings, type Bindings } from '../../auth.server'
 import { append } from '../audit/store'
 import { sourcePolicy } from '../audit/policy'
@@ -104,7 +105,7 @@ async function historicalObject(env:Bindings,source:Source,externalId:string){
 async function ingest(env:Bindings,source:Source,event:Event,bodyHash:string,parameters:string,receivedAt:number):Promise<{held?:boolean;recordId?:string;caseId?:string;replay?:boolean}>{
  const db=env.DB
  const receipt=await historicalReceipt(env,source,event.eventId)
- if(receipt){if(receipt.body_hash!==bodyHash)throw new Fault('source_event_conflict',409);await append(env,source.id,'source.replay',receipt.record_id,'completed',[sourceFence(env,source)],null,sourcePolicy(source));return {recordId:receipt.record_id,replay:true}}
+ if(receipt){if(receipt.body_hash!==bodyHash)throw new Fault('source_event_conflict',409);await append(env,source.id,'source.replay',receipt.record_id,'completed',[sourceFence(env,source)],null,sourcePolicy(source));if(event.kind==='call')await observeUnansweredCall(env,source.id,receipt.record_id);return {recordId:receipt.record_id,replay:true}}
  const parent=event.parent?await historicalObject(env,source,event.parent):null
  if(event.parent&&!parent){
   const pending=await db.prepare('SELECT body_hash FROM hnd_source_pending WHERE source_id=? AND event_id=?').bind(source.id,event.eventId).first<{body_hash:string}>()
@@ -161,6 +162,7 @@ async function ingest(env:Bindings,source:Source,event:Event,bodyHash:string,par
  statements.push(db.prepare('DELETE FROM hnd_source_pending WHERE source_id=? AND event_id=?').bind(source.id,event.eventId))
  try{await append(env,source.id,'source.receive',recordId,'completed',statements,null,sourcePolicy(source))}
  catch(error){if(/UNIQUE constraint failed: hnd_(source_cases|source_objects|source_receipts|records)/.test(String(error)))return ingest(env,source,event,bodyHash,parameters,receivedAt);throw error}
+ if(event.kind==='call')await observeUnansweredCall(env,source.id,recordId)
  return {recordId,caseId,replay:false}
 }
 export async function twilioResponse(request:Request,original:Bindings):Promise<Response|null>{

@@ -2,7 +2,7 @@ import type { Bindings } from '../../auth.server'
 import { append } from '../audit/store'
 import { sourcePolicy } from '../audit/policy'
 import { Fault, id } from '../core'
-import { capturePermission, carePrompt, getCall, getPolicy, guard, policyAuthority, type ConsentCall } from './store'
+import { capturePermission, carePrompt, getPolicy, guard, policyAuthority, type ConsentCall } from './store'
 import { dispatchText, enqueueText } from './texts'
 
 /** The one-reply decision and owned callback share the exact verified call.
@@ -26,8 +26,4 @@ export async function missedCall(env:Bindings,call:ConsentCall,recordId:string,m
   await env.DB.prepare('UPDATE hnd_consent_outcomes SET reason=? WHERE call_id=?').bind(sent.reason,call.id).run()
  }
  return env.DB.prepare('SELECT * FROM hnd_consent_outcomes WHERE call_id=?').bind(call.id).first()
-}
-export async function observeMissedRecord(env:Bindings,sourceId:string,sid:string,recordId:string,at:number) {
- const call=await env.DB.prepare('SELECT id FROM hnd_consent_calls WHERE source_id=? AND call_sid=?').bind(sourceId,sid).first<{id:string}>()
- if(call)await missedCall(env,await getCall(env,call.id),recordId,at)
 }
