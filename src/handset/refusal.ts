@@ -98,7 +98,8 @@ export function withRefusal(body: string, refusal?: Refusal) {
  if (!refusal) return body
  const entered = (name: string) => typeof refusal.values[name] === 'string' ? String(refusal.values[name]) : undefined
  const named = refusal.field ?? fields[refusal.code] ?? (refusal.code.startsWith('invalid_') ? refusal.code.slice(8) : '')
- const note = (why: string) => `<div class="hs-problem" id="settings-problem" role="alert"><p>${e(why)}</p><details><summary>Technical detail</summary><code>${e(refusal.code)}</code></details></div>`
+ // With no field to focus, the explanation itself takes focus so it is in view.
+ const note = (why: string, focus = true) => `<div class="hs-problem" id="settings-problem" role="alert"${focus ? ' tabindex="-1" autofocus' : ''}><p>${e(why)}</p><details><summary>Technical detail</summary><code>${e(refusal.code)}</code></details></div>`
  let at = -1
  const filled = body.replace(/<form\b[^>]*>[\s\S]*?<\/form>/g, (form, index: number) => {
   if (at >= 0 || attribute(form, 'action') !== e(refusal.action) || !sameForm(form, refusal.values)) return form
@@ -106,7 +107,7 @@ export function withRefusal(body: string, refusal?: Refusal) {
   const field = controls(form).some(tag => attribute(tag, 'name') === e(named)) ? named : '', label = field ? labelOf(form, e(field)) : undefined
   const why = words[refusal.code] ?? (label ? `Check “${label}” and save again.` : 'This wasn’t saved. Check the entries below and save again.')
   const mark = (tag: string, name?: string) => field && name === e(field) ? tag.replace(/>$/, () => ' aria-invalid="true" aria-describedby="settings-problem" autofocus>') : tag
-  return form.replace(/^<form\b[^>]*>/, open => open + note(why))
+  return form.replace(/^<form\b[^>]*>/, open => open + note(why, !field))
    .replace(/<input\b[^>]*>/g, tag => {
     const name = attribute(tag, 'name'), value = name === undefined ? undefined : entered(name)
     if (['hidden', 'checkbox', 'radio', 'submit'].includes(attribute(tag, 'type') ?? 'text')) return tag
