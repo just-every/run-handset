@@ -12,8 +12,8 @@
 .hero-day { font-family: var(--font-mono); color: var(--white); }
 .hero-alt { font-family: var(--font-sans); color: var(--white); text-wrap: pretty; }
 .hero-alt b { font-weight: 600; white-space: nowrap; }
-/* The day's line fits on one line from 1080 px; narrower it takes two, one group each, and drops the separator between them. */
-@media (max-width: 1079.98px) {
+/* The day's line fits on one line from 1200 px; narrower it takes two, one group each, and drops the separator between them. */
+@media (max-width: 1199.98px) {
   .hero-day .sep { display: none; }
   .hero-day .group { display: block; }
 }
