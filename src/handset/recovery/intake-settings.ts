@@ -34,7 +34,7 @@ export function intakeErrorMessage(error: Fault): string {
 }
 
 export function intakeSettings(snapshot: Record<string, unknown>): string {
- const sources = (snapshot.intakeSources ?? []) as Source[], policies = (snapshot.intakePolicies ?? []) as Policy[]
+ const sources = snapshot.intakeSources as Source[], policies = snapshot.intakePolicies as Policy[]
  const draft = snapshot.intakeDraft as ObjectValue | undefined, error = snapshot.intakeError
  return `<details${error ? ' open' : ''}><summary>Settings: missed-call intake</summary>${error ? `<p role="alert">${e(error)}</p>` : ''}<p>Task intake is off until an owner explicitly approves this source and its local hours. Approval creates owned tasks only; it never contacts customers. The approving owner receives new tasks. Existing recoveries and their decisions remain unchanged.</p>${sources.map(source => {
   const policy = policies.find(row => row.source_id === source.id)

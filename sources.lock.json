@@ -2148,7 +2148,7 @@
       "executable": false
     },
     "src/handset/recovery/intake-settings.ts": {
-      "sha256": "9ed58cdd40d1d364d6062195c0bf45b9de89fdd1c621b97f47210b989c6f304e",
+      "sha256": "d1eff811e9faec54dc7995fd40c31ea0dc952f3bd6edb2c0360d06ca6d0606c3",
       "executable": false
     },
     "src/handset/recovery/intake.ts": {
@@ -4152,7 +4152,7 @@
       "executable": false
     },
     "tests/handset-recovery.mjs": {
-      "sha256": "18eca07b95aa4cc50f6f2b9ea315ff73b27f49d5ba2cc35e9625db75bfbc118d",
+      "sha256": "ed9b32cb7423ccaa0cc1d98d7ae5f73e44741f19e9d9d7779de5e43500cdcc4d",
       "executable": false
     },
     "tests/handset-reporting.mjs": {

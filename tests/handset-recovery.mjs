@@ -67,6 +67,14 @@ test('Reviewed business hours admit one owned task from final carrier readback w
   report=await f.get();assert.equal(report.intakePolicies.length,1);assert.equal(report.intakePolicies[0].revision,3)
   assert.equal((await f.get('/api/handset/consent')).permissions.length,0)
   assert.equal((await f.get('/api/handset/callbacks')).callbacks.length,0)
+  await f.runtime.setTime(intakeTime+1000)
+  const withdrawn=f.call(9)
+  f.runtime.twilioResources.set(withdrawn.url,async()=>{
+   await f.write('/api/handset/sources/revoke',{sourceId:f.source.source.id},200)
+   return withdrawn.resource
+  })
+  assert.equal((await withdrawn.send()).status,409)
+  assert.equal((await f.get()).cases.length,3,'source withdrawal during readback cannot create owned work')
   assert.equal(f.runtime.sourceRequests.filter(r=>r.method==='POST').length,0)
  }finally{await f.runtime.close()}
 })
