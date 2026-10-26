@@ -114,3 +114,53 @@ test('Continuity assessment separates media from API health, cites connector and
   assert.equal((await post(f.runtime, '/api/handset/operations/assess', { callRecordId: missed.recordId }, f.headers)).status, 502)
  } finally { await f.runtime.close() }
 })
+
+// Customer-care permission is distinct from source records and marketing.
+test('Explicit caller permission produces one missed-call reply and owned task through signed provider doors', async()=>{
+ const {consentFixture,oneReplyJourney}=await import('./helpers/handset-consent.mjs'),f=await consentFixture()
+ try {
+  await oneReplyJourney(f)
+  const declined=await f.start(2),yes=await (await f.start(3)).decision('1'),no=await declined.decision('2')
+  assert.equal(no.replaceAll(declined.call.id,'call'),yes.replace(/calls\/[0-9a-f-]+\//,'calls/call/'),'decline keeps the exact staff ringing instructions')
+  await declined.missed();const timeout=await f.start(4);await timeout.decision(null);await timeout.missed()
+  const stopped=await f.start(5);await stopped.decision('1');await f.stop(stopped);await stopped.missed()
+  const unknown=await f.start(6,{identity:'No-TN-Validation'});await unknown.decision('1');await unknown.missed()
+  const report=await f.get();assert.equal(f.receiver.sent.length,1);assert.equal(report.outcomes.length,5)
+  assert.ok(report.texts.some(t=>t.reason==='recipient_STOP_or_DNC'));assert.ok(report.texts.some(t=>t.reason==='caller_identity_unclear'))
+  assert.equal(report.permissions.filter(p=>p.state==='declined').length,2)
+  assert.ok(report.permissions.every(p=>JSON.parse(p.event).marketingEnrollment===false))
+  const recoveries=await f.get('/api/handset/recovery');assert.equal(recoveries.cases.length,5);assert.ok(recoveries.cases.every(c=>c.owner_id==='synthetic-handset-1'))
+  assert.equal((await f.signed(f.configured.providerPath,stopped.fields,{signature:false})).status,403)
+  assert.equal((await f.runtime.request(f.base)).status,401)
+ } finally {await f.runtime.close()}
+})
+
+test('Current registration and recipient hours hold texts and uncertain creates never replay',async()=>{
+ const {consentFixture}=await import('./helpers/handset-consent.mjs'),f=await consentFixture()
+ try {
+  f.registration.status='IN_REVIEW';const pending=await f.start(20);await pending.decision('1');await pending.missed()
+  f.registration.status='TWILIO_APPROVED';const timezone=await f.start(21,{configureRecipient:false});await timezone.decision('1');await timezone.missed()
+  const quiet=await f.start(22);await f.recipient(quiet.caller,'Asia/Tokyo');await quiet.decision('1');await quiet.missed()
+  assert.equal(f.receiver.sent.length,0)
+  const lost=await f.start(23);await lost.decision('1');f.receiver.drop=true;await lost.missed();await lost.missed();await f.runtime.restart();await f.runtime.scheduled()
+  assert.equal(f.receiver.sent.length,1)
+  const report=await f.get();assert.ok(report.texts.some(t=>t.reason==='tollfree_registration_not_approved'));assert.ok(report.texts.some(t=>t.reason==='recipient_timezone_unknown_or_expired'));assert.ok(report.texts.some(t=>t.reason==='recipient_quiet_hours'));assert.ok(report.texts.some(t=>t.state==='uncertain'))
+ } finally {await f.runtime.close()}
+})
+
+test('A native human can attest a permitted same-call verbal moment but missing recording permission is refused',async()=>{
+ const {consentFixture}=await import('./helpers/handset-consent.mjs'),f=await consentFixture()
+ try {
+  const call=await f.start(30),verbal={callId:call.call.id,transcriptId:'synthetic-handset-no-permission',segmentId:'synthetic-handset-moment',recordingPermissionId:'synthetic-handset-missing',confirm:'I heard explicit permission for one customer-care text about this call'}
+  const denied=await post(f.runtime,f.base+'/verbal',verbal,f.source.headers)
+  assert.equal(denied.status,403);assert.equal((await f.get()).permissions.length,0)
+  const recordingPermission=await f.write(f.base+'/recording-permissions',{callId:call.call.id,evidence:'Mara verified the caller explicitly agreed to this recording before recording began.',confirm:'I verified participant permission before this recording'})
+  const sid='synthetic-handset-verbal-recording';f.source.resource('Recordings',sid,{call_sid:call.sid,start_time:new Date().toUTCString(),status:'completed',duration:'30',channels:2})
+  const recorded=await f.source.callback({RecordingSid:sid,CallSid:call.sid,RecordingStatus:'completed',From:'',To:''});assert.equal(recorded.status,200,await recorded.clone().text())
+  const recordingId=(await recorded.json()).recordId,transcript=await f.write('/api/handset/transcripts',{recordingId,durationMs:30000,state:'supplied',segments:[{id:'synthetic-handset-moment',speaker:'Caller',language:'en',startMs:5000,endMs:9000,text:'Yes, you may send me one text about this missed call.',confidence:1}],confirm:'authorize supplied transcript for my exact identity'})
+  const result=await f.write(f.base+'/verbal',{...verbal,transcriptId:transcript.transcriptId,recordingPermissionId:recordingPermission.id})
+  const event=JSON.parse(result.permission.event);assert.equal(event.kind,'human_verbal');assert.equal(event.personId,'synthetic-handset-1');assert.equal(event.moment.startMs,5000);assert.equal(event.marketingEnrollment,false)
+  await call.missed();assert.equal(f.receiver.sent.length,1)
+  assert.equal((await post(f.runtime,f.base+'/verbal',{...verbal,transcriptId:transcript.transcriptId,recordingPermissionId:recordingPermission.id},{authorization:'Bearer synthetic-handset-model-assertion'})).status,401)
+ } finally {await f.runtime.close()}
+})

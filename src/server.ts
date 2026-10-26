@@ -10,6 +10,9 @@ import { lobbyResponse } from './base/lobby'
 import { setupStateResponse } from './base/setup-state'
 import { authResponse, runtimeBindings, type Bindings } from './auth.server'
 import { identity } from './identity'
+import { consentProviderResponse } from './handset/consent/provider'
+import { tickConsentTexts } from './handset/consent/texts'
+import { surveyProviderResponse, tickSurveys } from './handset/surveys/doors'
 import { twilioResponse } from './handset/providers/twilio'
 import { versionedResponse } from './handset/api/v1'
 import { applicationResponse } from './handset/authority/application'
@@ -44,6 +47,10 @@ function noTransform(response: Response): Response {
 export default withDemo<Bindings, ExportedHandler<Bindings>>({
   async fetch(request, env, execution) {
     return observeProduct(request,env,async()=>{
+    const consent = await consentProviderResponse(request, env)
+    if (consent) return consent
+    const survey = await surveyProviderResponse(request, env)
+    if (survey) return survey
     const protection = await protectionCarrierResponse(request, env)
     if (protection) return protection
     const receptionist = await receptionistProviderResponse(request, env)
@@ -78,6 +85,8 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     })
   },
   async scheduled(event, env) {
+    await tickConsentTexts(runtimeBindings(env))
+    await tickSurveys(runtimeBindings(env))
     await expireKnowledge(runtimeBindings(env))
     await tickQueues(runtimeBindings(env))
     await runDueReports(runtimeBindings(env), event.scheduledTime)

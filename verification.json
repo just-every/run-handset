@@ -63,6 +63,16 @@
         "pnpm run build",
         "node --test --test-concurrency=1 tests/handset-console-browser.mjs"
       ]
+    },
+    {
+      "name": "handset-consent",
+      "browser": true,
+      "hosted": false,
+      "commands": [
+        "pnpm run build",
+        "node --test --test-concurrency=1 tests/handset-recovery.mjs",
+        "node --test --test-concurrency=1 tests/handset-consent-browser.mjs"
+      ]
     }
   ],
   "nightly": []
