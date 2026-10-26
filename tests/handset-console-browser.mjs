@@ -8,14 +8,15 @@ import { adminCsv,adminFixture } from './helpers/handset-admin.mjs'
 import { localDateTime } from './helpers/handset-browser-time.mjs'
 import { dialerJourney } from './helpers/handset-dialer-browser.mjs'
 import { flowJourney } from './helpers/handset-flow-browser.mjs'
+import { promptJourney, speechEdge } from './helpers/handset-prompts-browser.mjs'
 import { queueMediaJourney } from './helpers/handset-queue-browser.mjs'
 import { queueFixture } from './helpers/handset-queues.mjs'
 import { protectionFixture } from './helpers/handset-protection.mjs'
 import { metricDataset,metricStart,metricConfig } from './helpers/handset-metrics.mjs'
 import { importDataset } from './helpers/handset-import.mjs'
 
-for(const width of [1440,390])for(const domain of ['administration','queues','queue-media','flows','metrics','protection','dialer'])test(`${domain} console at ${width}`,async()=>{
- const runtime=await openHandset({twilio:true,callingClock:domain==='dialer'}),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+for(const width of [1440,390])for(const domain of ['administration','queues','queue-media','flows','prompts','metrics','protection','dialer'])test(`${domain} console at ${width}`,async()=>{
+ const runtime=await openHandset({twilio:true,callingClock:domain==='dialer',...(domain==='prompts'?{ttsEdge:speechEdge}:{})}),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic',...(domain==='prompts'?['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']:[])]})
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage()
  page.setDefaultTimeout(10000)
  const directory=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-console'
@@ -103,6 +104,7 @@ for(const width of [1440,390])for(const domain of ['administration','queues','qu
    assert.equal(await page.getByRole('button',{name:'Configure native agent',exact:true}).count(),0)
   }
   if(domain==='flows')await flowJourney({runtime,page,proof,cookie})
+  if(domain==='prompts'){await context.grantPermissions(['microphone'],{origin:runtime.origin});await promptJourney({runtime,page,proof,cookie})}
   if(domain==='queue-media')await queueMediaJourney({runtime,page,proof,cookie})
   if(domain==='dialer')await dialerJourney({runtime,page,proof})
   if(domain==='metrics'){
