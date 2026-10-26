@@ -2,12 +2,11 @@ import { rejectedResponse } from './base/rejected-response'
 import { createDependencies } from './modules/dependencies/index.mjs'
 import { createIdpOwnerClaimHandler, createOwnerClaimHandler } from './modules/owner-claim/index.mjs'
 import { firstRunResponse } from './base/setup'
-import { fontHead } from './base/font-head'
 import { fontDocumentResponse } from './base/font-response'
-import { themeFrame } from './base/theme-frame'
 import { createOperatorAuth, createAuthHandler, createSignInHandler, type AuthConfig } from './modules/operator-auth/index.mjs'
 import { operatorMail } from './mail.server.mjs'
 import branding from './branding.json'
+import { appDocument } from './handset/shell'
 
 // The edition's declared theme (public/rer-theme.css), as Base frames link it.
 const theme = { href: '/rer-theme.css', productName: branding.name, accentColor: branding.primaryColor }
@@ -62,10 +61,6 @@ export function operatorAuth(env: Bindings) {
 
 const privateHeaders = { 'cache-control': 'no-store', 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff', 'x-robots-tag': 'noindex, nofollow' }
 const escape = (value: string) => value.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
-async function html(body: string) {
- const frame = await themeFrame(theme)
- return new Response(`<!doctype html><html lang="en"${frame.htmlClass}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(branding.name)}</title>${fontHead}${frame.head}</head><body><main>${frame.brand}${body}</main></body></html>`, { headers: { ...privateHeaders, 'referrer-policy': 'strict-origin', 'content-type': 'text/html; charset=utf-8', 'content-security-policy': `default-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; ${frame.policy}` } })
-}
 
 async function handleAuthResponse(request: Request, original: Bindings): Promise<Response | null> {
  const env = runtimeBindings(original), url = new URL(request.url)
@@ -106,7 +101,8 @@ async function handleAuthResponse(request: Request, original: Bindings): Promise
  if (url.pathname === '/app') {
   const session = await operatorAuth(env).getSession(request)
   if (!session) return new Response(null, { status: 303, headers: { ...privateHeaders, location: '/signin' } })
-  return html(`<h1>${escape(branding.name)}</h1><p>Signed in as ${escape(session.operator.displayName)}</p><p><a href="/app/cases">Shared cases</a> · <a href="/app/front-desk">Front desk</a> · <a href="/app/recordings">Recordings</a> · <a href="/app/audit">Audit</a> · <a href="/app/grants">Application grants</a> · <a href="/app/admin/bulk">Bulk administration</a> · <a href="/app/admin/templates">Templates</a> · <a href="/app/queues">Queues</a> · <a href="/app/reports/queues">Queue reports</a> · <a href="/app/protection">Protection</a> · <a href="/app/import">Move in</a></p><form method="post" action="/auth/signout"><button type="submit">Sign out</button></form>`)
+  const links = (rows: [string, string][]) => `<ul class="hs-links">${rows.map(([href, label]) => `<li><a href="${href}">${label}</a></li>`).join('')}</ul>`
+  return appDocument('Home', `<p class="hs-sub">Signed in as ${escape(session.operator.displayName)}</p><div class="hs-home"><section><h2>Daily work</h2>${links([['/app/cases', 'Shared cases'], ['/app/front-desk', 'Front desk'], ['/app/recordings', 'Recordings'], ['/app/queues', 'Queues']])}</section><section><h2>Settings</h2>${links([['/app/audit', 'Audit'], ['/app/grants', 'Application grants'], ['/app/admin/bulk', 'Bulk administration'], ['/app/admin/templates', 'Templates'], ['/app/reports/queues', 'Queue reports'], ['/app/protection', 'Protection'], ['/app/import', 'Move in']])}</section></div><form method="post" action="/auth/signout"><button type="submit" class="hs-secondary">Sign out</button></form>`)
  }
  return null
 }

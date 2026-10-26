@@ -22,7 +22,7 @@ export const nav = '<nav aria-label="Customer work"><a href="/app/rules">Rules</
 export const bounds = (text: string) => `<p role="status">${e(text)}</p>`
 
 type Door = (request: Request, env: Bindings, actor: Session, value?: ObjectValue) => Promise<Response | null>
-const pages: Record<string, (snapshot: Snapshot) => Promise<Response>> = { rules: rulesPage, followups: followupsPage, recovery: recoveryPage, callbacks: callbacksPage, operations: operationsPage }
+const pages: Record<string, (snapshot: Snapshot, url: URL) => Promise<Response>> = { rules: rulesPage, followups: followupsPage, recovery: recoveryPage, callbacks: callbacksPage, operations: operationsPage }
 function formValue(root: string, suffix: string, raw: ObjectValue): ObjectValue {
  const value = { ...raw }
  for (const key of ['revision', 'expectedRevision', 'delayMinutes', 'startMinute', 'endMinute', 'maxAttempts', 'retrySeconds']) if (key in value) value[key] = Number(value[key])
@@ -50,7 +50,7 @@ export async function workConsole(request: Request, env: Bindings, actor: Sessio
  if (request.method === 'GET' && suffix === '') {
   const response = await door(new Request(api), env, actor)
   if (!response) throw new Fault('not_found', 404)
-  return render(await response.json() as Snapshot)
+  return render(await response.json() as Snapshot, url)
  }
  if (request.method === 'GET' && root === 'operations' && /^\/[0-9a-f-]{36}\/export$/.test(suffix)) return door(new Request(api), env, actor)
  if (request.method !== 'POST' || !raw) throw new Fault('method_not_allowed', 405)

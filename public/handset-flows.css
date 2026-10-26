@@ -1,9 +1,8 @@
+/* Call-flow and prompt consoles: nodes and graph steps as hairline cards in the app look. */
 .hnd-flow-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 16px; }
-.hnd-flow-node { min-width: 0; margin: 0; border: 1px solid currentColor; border-radius: 12px; padding: 16px; }
+.hs-main .hnd-flow-node { margin: 0; padding: 18px; }
 .hnd-flow-node legend { padding: 0 8px; }
-.hnd-flow-node input, .hnd-flow-node select, .hnd-flow-node textarea { min-width: 0; }
-.hnd-flow-graph { display: flex; flex-wrap: wrap; gap: 16px; padding: 0; list-style: none; }
-.hnd-flow-graph li { flex: 1 1 180px; border: 1px solid currentColor; border-radius: 12px; padding: 16px; }
-.rer-themed main:has(.hnd-flow-grid) { max-width: 1120px; }
-.hnd-flow-node select { width: 100%; min-height: 46px; padding: 10px 14px; border: 1px solid var(--rer-border, #64748b); border-radius: calc(var(--rer-radius, 20px) / 2); background: var(--rer-surface, #fff); color: var(--rer-text, #172033); font: inherit; }
+.hnd-flow-node :is(input, select, textarea) { min-width: 0; }
 .hnd-flow-node label, .hnd-flow-node details { margin-top: 8px; }
+.hs-main .hnd-flow-graph { display: flex; flex-wrap: wrap; gap: 16px; padding: 0; list-style: none; }
+.hs-main .hnd-flow-graph li { flex: 1 1 180px; margin: 0; padding: 16px; border: 1px solid var(--hs-line); border-radius: var(--hs-radius); }
