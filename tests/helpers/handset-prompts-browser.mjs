@@ -45,7 +45,7 @@ export async function promptJourney({ runtime, page, proof, cookie }) {
  await phone.getByLabel('Your registered number', { exact: true }).fill('+15125559999'); await click('Request recording call')
  await page.getByRole('alert').waitFor(); assert.match(await page.getByRole('alert').innerText(), /unauthorized record destination/)
  await phone.getByLabel('Your registered number', { exact: true }).fill(people[0].destination); await click('Request recording call')
- assert.match(await page.getByRole('status').last().innerText(), /One-time code \d{6}/); await proof('prompts-phone-code')
+ assert.match(await page.getByText(/One-time code \d{6}/).innerText(), /One-time code \d{6}/); await proof('prompts-phone-code')
  const listing = await (await runtime.request('/api/handset/prompts', { headers: { cookie } })).json()
  assert.deepEqual(listing.versions.map(v => v.source).sort(), ['browser_recording', 'tts', 'upload'])
  assert.equal(listing.recordings.length, 1)

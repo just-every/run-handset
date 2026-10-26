@@ -11,7 +11,7 @@ export async function callbackJourney({ runtime, page, proof, cookie }) {
  await page.getByText('Approve or change the callback policy', { exact: true }).click()
  await page.getByLabel('Staff number to ring', { exact: true }).fill('+15125550777'); await page.getByLabel('Business name spoken to callers', { exact: true }).fill('Cedar Creek Heating')
  await page.getByLabel('Queue', { exact: true }).selectOption({ label: 'Sales / Ventas' })
- await page.getByRole('checkbox').check(); await click('Save callback policy')
+ await page.getByRole('checkbox', { name: /I approve calling back/ }).check(); await click('Save callback policy')
  assert.match(await page.locator('main').innerText(), /Rings staff at\s*\+15125550777/); await proof('callbacks-policy')
  // An owned missed call, a reviewed recipient window and an owner-scheduled callback the customer asked for.
  const missed = await (await source.callback({ From: '+15125552001', CallSid: 'synthetic-handset-missed-1', CallStatus: 'no-answer', SequenceNumber: '0', Timestamp: new Date().toISOString() })).json()
