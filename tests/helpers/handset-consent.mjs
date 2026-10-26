@@ -62,7 +62,7 @@ export async function oneReplyJourney(f) {
  const call=await f.start(1)
  assert.match(call.prompt,/Cedar Creek Heating/);assert.match(call.prompt,/input="dtmf"/);assert.match(call.prompt,/Press 1/)
  const ringing=await call.decision('1');assert.match(ringing,new RegExp(f.staff.replace('+','\\+')))
- const began=performance.now();await call.missed();const elapsed=performance.now()-began
+ const began=performance.now();await call.missed();let elapsed=performance.now()-began
  assert.equal(f.receiver.sent.length,1);assert.ok(elapsed<60000)
  let report=await f.get(),permission=report.permissions.find(p=>p.call_id===call.call.id)
  const event=JSON.parse(permission.event)
@@ -71,7 +71,7 @@ export async function oneReplyJourney(f) {
  assert.equal(event.serverTimestamp,consentTime);assert.match(event.legalBasis,/explicit caller permission/);assert.match(event.legalConfiguration,/TCPA/)
  assert.equal(event.marketingEnrollment,false);assert.equal(permission.state,'consumed');assert.equal(report.outcomes.length,1)
  assert.equal(report.texts[0].state,'confirmed');assert.equal(report.texts[0].delivered_at,null,'accepted is not delivered')
- await f.delivered();await call.decision('1');await call.missed();await f.runtime.restart();await call.missed();await f.runtime.scheduled()
+ await f.delivered();elapsed=performance.now()-began;assert.ok(elapsed<60000,'independent delivery edge receipt stays within the deadline');await call.decision('1');await call.missed();await f.runtime.restart();await call.missed();await f.runtime.scheduled()
  assert.equal(f.receiver.sent.length,1);report=await f.get();assert.equal(report.outcomes.length,1);assert.equal(report.permissions.length,1)
  return {call,elapsed}
 }

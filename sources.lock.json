@@ -316,7 +316,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "2c37c221cfd5ee9ced3baf30cbd33473fc116e1bd541e3c78c5e59bc2f9a7729",
+      "sha256": "31ff9d9605d55c408554360e3d9007d7bfc4b5282c10348cc8ef6685a1e5688b",
       "executable": false
     },
     "AGENTS.md": {
@@ -332,7 +332,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "dd8143288fb416e1fb7e4b7b343d39c2916cffbc64c3d7ffd5854fcdf4dac8cf",
+      "sha256": "d3c3490a52a3e4288fad04e015a868cee0dd603f3db83c48c72e84d722e9334c",
       "executable": false
     },
     "deploy-demo.json": {
@@ -1972,7 +1972,7 @@
       "executable": false
     },
     "src/handset/surveys/doors.ts": {
-      "sha256": "90e89fcc2a87b1cf5026d8392ae35a4d7e51f6ef877f31c91f2d7f37c7da89c6",
+      "sha256": "5872978d17c3121dc4e57b6ae7d40f6dc736d0bee753a82706ada3ca405bda50",
       "executable": false
     },
     "src/handset/surveys/provider.ts": {
@@ -3996,7 +3996,7 @@
       "executable": false
     },
     "tests/helpers/handset-consent.mjs": {
-      "sha256": "72001453dac2c1088ed32be565d99afac3db1fbe2bd2b27e5c790fb241cd9318",
+      "sha256": "5187c981a5a7e8f7fca8e23c734da989e003d27975c4e2e7cbb9a3cab7cbd7d6",
       "executable": false
     },
     "tests/helpers/handset-delegation.mjs": {
