@@ -46,6 +46,6 @@ administration and greeting-only separation; HND-047 retains live-flow audit.
 Remaining work includes caller-ID rules, complete live scheduling and US-holiday
 calendars, speech and DTMF, live group progression, overflow and failover, number
 assignments, qualified test calls, active-call version binding and safe transfer,
-HND-087 prompt creation and pinned versions, and extension dialing under personal
-rules. Record-by-phone and audible qualification require authorized carrier and
+audible qualification of the HND-087 prompts that flow steps can now pin (see
+docs/PROMPTS.md), and extension dialing under personal rules. Record-by-phone and audible qualification require authorized carrier and
 controlled receiving endpoints. This run uses no carrier key.

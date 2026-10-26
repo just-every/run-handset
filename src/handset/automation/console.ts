@@ -5,6 +5,7 @@ import { rulesPage } from './pages'
 import { followupsPage } from '../followups/pages'
 import { recoveryPage } from '../recovery/pages'
 import { operationsPage } from '../operations/pages'
+import { callbacksPage } from '../callbacks/pages'
 
 export type Row = Record<string, string | number | null>
 export type Snapshot = Record<string, unknown>
@@ -16,14 +17,14 @@ export const due = (at = Date.now() + 3600000) => field('Due at (UTC)', 'dueAt',
 export const revision = (row: Row) => hidden('revision', row.revision)
 export const approval = (value: string, label: string) => `<label><input type="checkbox" name="confirm" value="${e(value)}" required> ${e(label)}</label>`
 export const area = (label: string, name: string, value = '') => `<label>${e(label)}<textarea aria-label="${e(label)}" name="${e(name)}" rows="4" required>${e(value)}</textarea></label>`
-export const nav = '<nav aria-label="Customer work"><a href="/app/rules">Rules</a> · <a href="/app/followups">Follow-up review</a> · <a href="/app/recovery">Missed-call recovery</a> · <a href="/app/operations">Continuity review</a></nav>'
+export const nav = '<nav aria-label="Customer work"><a href="/app/rules">Rules</a> · <a href="/app/followups">Follow-up review</a> · <a href="/app/recovery">Missed-call recovery</a> · <a href="/app/callbacks">Callbacks</a> · <a href="/app/operations">Continuity review</a></nav>'
 export const bounds = (text: string) => `<p role="status">${e(text)}</p>`
 
 type Door = (request: Request, env: Bindings, actor: Session, value?: ObjectValue) => Promise<Response | null>
-const pages: Record<string, (snapshot: Snapshot) => Promise<Response>> = { rules: rulesPage, followups: followupsPage, recovery: recoveryPage, operations: operationsPage }
+const pages: Record<string, (snapshot: Snapshot) => Promise<Response>> = { rules: rulesPage, followups: followupsPage, recovery: recoveryPage, callbacks: callbacksPage, operations: operationsPage }
 function formValue(root: string, suffix: string, raw: ObjectValue): ObjectValue {
  const value = { ...raw }
- for (const key of ['revision', 'expectedRevision', 'delayMinutes', 'startMinute', 'endMinute', 'maxAttempts']) if (key in value) value[key] = Number(value[key])
+ for (const key of ['revision', 'expectedRevision', 'delayMinutes', 'startMinute', 'endMinute', 'maxAttempts', 'retrySeconds']) if (key in value) value[key] = Number(value[key])
  if ('dueAt' in value) {
   if (typeof value.dueAt !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(value.dueAt)) throw new Fault('invalid_dueAt')
   value.dueAt = Date.parse(value.dueAt + ':00Z')

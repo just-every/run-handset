@@ -32,12 +32,13 @@ import { operationsDoor } from '../operations/doors'
 import { deliveryDoor } from '../integrations/delivery/doors'
 import { rulesDoor } from '../automation/doors'
 import { recoveryDoor } from '../recovery/doors'
+import { callbackDoor } from '../callbacks/doors'
 import { followupDoor } from '../followups/doors'
 import { ownerDoor as receptionistDoor } from '../receptionist/doors'
 
 export async function productResponse(request: Request, original: Bindings): Promise<Response|null> {
  const url = new URL(request.url), path = url.pathname, html = path.startsWith('/app/')
- if (!/^\/(api\/handset|app\/(exports|consent|surveys|cases|records|audit|grants|sources|admin|queues|reports\/queues|protection|dialer|front-desk|recordings|transcripts|flows|prompts|receptionist|rules|followups|recovery|operations))(\/|$)/.test(path)) return null
+ if (!/^\/(api\/handset|app\/(exports|consent|surveys|cases|records|audit|grants|sources|admin|queues|reports\/queues|protection|dialer|front-desk|recordings|transcripts|flows|prompts|receptionist|rules|followups|recovery|callbacks|operations))(\/|$)/.test(path)) return null
  let auth: {env:Bindings;session:Session}|undefined
  try {
   auth = await session(request,original)
@@ -98,7 +99,7 @@ export async function productResponse(request: Request, original: Bindings): Pro
   try { owner(actor) } catch(error) { await denied(env,actor,'product.access'); throw error }
   const read = request.method === 'GET', write = request.method === 'POST'
   for(const [root,door] of [
-   ['queues',queueDoor],['metrics',metricsDoor],['protection',protectionDoor],['dialer',dialerDoor],['receptionist',receptionistDoor],['followups',followupDoor],['recovery',recoveryDoor],['rules',rulesDoor],['delivery',deliveryDoor],['operations',operationsDoor],['compliance',complianceDoor],
+   ['queues',queueDoor],['metrics',metricsDoor],['protection',protectionDoor],['dialer',dialerDoor],['receptionist',receptionistDoor],['followups',followupDoor],['recovery',recoveryDoor],['callbacks',callbackDoor],['rules',rulesDoor],['delivery',deliveryDoor],['operations',operationsDoor],['compliance',complianceDoor],
   ] as const){
    const appRoot=root==='metrics'?'/app/reports/queues':'/app/'+root
    if(path==='/api/handset/'+root||path.startsWith('/api/handset/'+root+'/')||path===appRoot||path.startsWith(appRoot+'/')){

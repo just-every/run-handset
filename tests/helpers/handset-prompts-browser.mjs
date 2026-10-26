@@ -7,7 +7,7 @@ export const speechEdge = async (request, Response) => new Response(wavBytes({ r
 export async function promptJourney({ runtime, page, proof, cookie }) {
  const author = page.locator('form[data-prompt-author]'), phone = page.locator('form[action="/app/prompts/phone-recordings"]')
  const click = async name => { await page.getByRole('button', { name, exact: true }).first().click(); await page.waitForLoadState('load') }
- const source = await sourceFixture(runtime, { e164: business })
+ await sourceFixture(runtime, { e164: business })
  await page.goto(runtime.origin + '/app/prompts'); await proof('prompts-empty')
  for (const [name, use] of [['Main greeting', 'main attendant'], ['Queue wait', 'queue']]) {
   const form = page.locator('form[action="/app/prompts"]')
@@ -49,5 +49,4 @@ export async function promptJourney({ runtime, page, proof, cookie }) {
  const listing = await (await runtime.request('/api/handset/prompts', { headers: { cookie } })).json()
  assert.deepEqual(listing.versions.map(v => v.source).sort(), ['browser_recording', 'tts', 'upload'])
  assert.equal(listing.recordings.length, 1)
- void source
 }

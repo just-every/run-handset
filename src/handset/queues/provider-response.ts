@@ -9,6 +9,7 @@ import { currentOffer, emitOffer } from './offers'
 import { recoverOffer } from './offer-readback'
 import { overflowInstructions, routeReady, unavailableEnding } from './overflow-response'
 import type { Entry } from './model'
+import { holdOffer } from '../callbacks/hold'
 
 export async function voiceInstructions(ctx:Context,source:BoundSource,p:URLSearchParams){
  const callId=await sourceCall(ctx,source,p)
@@ -77,5 +78,5 @@ async function say(ctx:Context,prepared:Record<string,unknown>|null,row:Entry){
 }
 async function waitingInstructions(ctx:Context,source:BoundSource,row:Entry,prepared?:Record<string,unknown>|null){
  const prompt=prepared===undefined?await announcement(ctx,row):prepared
- return `${await say(ctx,prompt,row)}<Pause length="1"/><Redirect method="POST">${e(ctx.env.AUTH_ORIGIN+'/providers/twilio/queues/'+source.id)}</Redirect>`
+ return `${await say(ctx,prompt,row)}${await holdOffer(ctx.env,source,row)}<Pause length="1"/><Redirect method="POST">${e(ctx.env.AUTH_ORIGIN+'/providers/twilio/queues/'+source.id)}</Redirect>`
 }

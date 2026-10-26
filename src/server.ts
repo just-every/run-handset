@@ -12,6 +12,8 @@ import { authResponse, runtimeBindings, type Bindings } from './auth.server'
 import { identity } from './identity'
 import { tickExports } from './handset/exports/doors'
 import { consentProviderResponse } from './handset/consent/provider'
+import { callbackProviderResponse } from './handset/callbacks/provider'
+import { tickCallbacks } from './handset/callbacks/dial'
 import { promptProviderResponse } from './handset/prompts/provider'
 import { tickConsentTexts } from './handset/consent/texts'
 import { surveyProviderResponse, tickSurveys } from './handset/surveys/doors'
@@ -51,6 +53,8 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     return observeProduct(request,env,async()=>{
     const consent = await consentProviderResponse(request, env)
     if (consent) return consent
+    const callbacks = await callbackProviderResponse(request, env)
+    if (callbacks) return callbacks
     const prompts = await promptProviderResponse(request, env)
     if (prompts) return prompts
     const survey = await surveyProviderResponse(request, env)
@@ -97,6 +101,7 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     await runDueReports(runtimeBindings(env), event.scheduledTime)
     await tickDialer(runtimeBindings(env))
     await tickRecovery(runtimeBindings(env), event.scheduledTime)
+    await tickCallbacks(runtimeBindings(env), event.scheduledTime)
     await tickRules(runtimeBindings(env), event.scheduledTime)
   },
 } satisfies ExportedHandler<Bindings>, { seed: seedDemo })

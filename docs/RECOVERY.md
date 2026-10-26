@@ -32,3 +32,7 @@ evidence. Human takeover removes callback proposal controls. Same-case booking
 resolution requires independently confirmed outcome evidence; a person can
 record customer decline with a note. Stale forms refuse rather than changing
 a newer revision. The screen discloses its 200-case window.
+
+HND-017 adds owner-approved virtual hold and callbacks on top of these recoveries;
+see docs/CALLBACKS.md. A recovery resolves from a callback only after the carrier's
+own staff-leg readback shows a conversation.
