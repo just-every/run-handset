@@ -804,7 +804,7 @@
       "executable": false
     },
     "public/fonts/fonts.css": {
-      "sha256": "771375035d774eeb839e5c77bbd27e5d3ffcc2f61d7870b48920a737d2d23408",
+      "sha256": "1b7fa69da317acf46ef95c536b5c94feb163dfb9ae2a982342f07fdfdc36f706",
       "executable": false
     },
     "public/fonts/ibm-plex-mono/ibm-plex-mono-latin-400.woff2": {
@@ -840,19 +840,19 @@
       "executable": false
     },
     "public/fonts/README.md": {
-      "sha256": "63b6419a6549eee2a8819805d6f72e3c8192242bb09bd66a2b47c5c32ce9ecaa",
+      "sha256": "8b153daea9e5ded3450ae7164281466f12e68ef919db151357f637657c6d27c3",
       "executable": false
     },
     "public/handset-app.css": {
-      "sha256": "2012b0e7b8ab61a34132a290b3796a67900842c836900d4b23c09f19e3d099e4",
+      "sha256": "5dec6e94744d23297508cd1a83daf4357e83fbb2cadff47251f9f843c78b43b8",
       "executable": false
     },
-    "public/handset-console.css": {
-      "sha256": "6e850d5c122d1baf128833ba82653e365872474d6b512537d8234a25d7320f2c",
+    "public/handset-cord.svg": {
+      "sha256": "410d07eab3d8b4589d2ac55e6e05d2af7e906a2f627180eb2755d750f9425e05",
       "executable": false
     },
     "public/handset-flows.css": {
-      "sha256": "7f05b3710919d1df7ab25be7e6ab8d38b97742b709714923d5dbc8657eb5130f",
+      "sha256": "a7531a3dd7c33f49019467e46bf3f4bfeec62c1bd4cfab3e3e683b20e480c42a",
       "executable": false
     },
     "public/handset-prompts.js": {
@@ -1292,7 +1292,7 @@
       "executable": false
     },
     "src/auth.server.ts": {
-      "sha256": "7bdf327205e34780e3db91366c7d2c767c7d4a20af88ec8fa46941e1ddd1c02d",
+      "sha256": "89375df6f24360715c543848283da529b7411a0336ab57ca0b81d0c361cdc0a3",
       "executable": false
     },
     "src/base/actor.ts": {
@@ -1516,7 +1516,7 @@
       "executable": false
     },
     "src/handset/automation/console.ts": {
-      "sha256": "4b0afb178b750211c7a0c5bfad88c2b4e8b20e60c4e28286bd3c0fdcd037d625",
+      "sha256": "cafa2c3903b9d814d3a9e84be6728b60c6e7a4414b04715beb4c831ff8a17496",
       "executable": false
     },
     "src/handset/automation/doors.ts": {
@@ -1580,7 +1580,7 @@
       "executable": false
     },
     "src/handset/core.ts": {
-      "sha256": "7dc087abf7b808340ccbd8592e998433f3c9a10bcb4c99b53309cf32f02008f7",
+      "sha256": "e3b0b4b7354492ce5137686d016080033425c9e20e3b282f930a44d91c669460",
       "executable": false
     },
     "src/handset/delegation/callback-authority.ts": {
@@ -1772,7 +1772,7 @@
       "executable": false
     },
     "src/handset/followups/pages.ts": {
-      "sha256": "8a366f0961068c66d575dae6a1755b7c7711a2dfd418734e832a35ddc405d676",
+      "sha256": "5ad7dbdb27a4d4762246fb3d178fd2a52de382fff2222769d1ab9baed878395d",
       "executable": false
     },
     "src/handset/followups/store.ts": {
@@ -1784,7 +1784,7 @@
       "executable": false
     },
     "src/handset/http/product.ts": {
-      "sha256": "907fb6f04097ab810521270a5a9f4f0a85e43b2d073d387b95850e7d615f37da",
+      "sha256": "b55ee9db28d36d62ddc9a85e8f8b3286947d5ceb3dc4b300bcf7eedc16be7878",
       "executable": false
     },
     "src/handset/import/bridge.ts": {
@@ -2165,6 +2165,10 @@
     },
     "src/handset/recovery/pages.ts": {
       "sha256": "f16bfa4834ce483135b1e33a91ddef0d11a89bc0034e5869a226b0ecf62c93c9",
+      "executable": false
+    },
+    "src/handset/shell.ts": {
+      "sha256": "e4492bf1dbff164a216d92d01ea79115128099f18446e857190a139a5c257c23",
       "executable": false
     },
     "src/handset/surveys/doors.ts": {
