@@ -844,7 +844,7 @@
       "executable": false
     },
     "public/handset-prompts.js": {
-      "sha256": "ede987f65c57bcb0dcfbfb11878542c8f07245b2952daa2381cdb9fd4facf9c3",
+      "sha256": "b65d1a87a3a13fb5edc4a757521eb6e23dfed6103f5c0c2d36bdc529ea847700",
       "executable": false
     },
     "public/rer-theme.css": {
@@ -4056,7 +4056,7 @@
       "executable": false
     },
     "tests/handset-console-browser.mjs": {
-      "sha256": "5840e95a90e6d1e12d657bfdd89edd8e1b8810ba82e1896446f90a7f8fe4be9f",
+      "sha256": "9584f1a025e109a72003506a7ed9f52f42a6fb3840692a42fe6e1689ce018980",
       "executable": false
     },
     "tests/handset-import.mjs": {
@@ -4120,7 +4120,7 @@
       "executable": false
     },
     "tests/helpers/handset-callbacks-browser.mjs": {
-      "sha256": "8341a9089abb296892c36ca503dc5fa41f855121c16ab3ea764504bf45dfef8f",
+      "sha256": "998116784abc81269dd57604437c44cbeb253698d5bc0b3a672d03316e304450",
       "executable": false
     },
     "tests/helpers/handset-clock.mjs": {
@@ -4180,7 +4180,7 @@
       "executable": false
     },
     "tests/helpers/handset-prompts-browser.mjs": {
-      "sha256": "77509af66efd5ca90e7c65c134dd10786424b2b8ce3c6fe2966859c15ff88df6",
+      "sha256": "558a4d6657610329b45ff3385740789d528c1c93c3a2834a0ba1f7f27e4b5eed",
       "executable": false
     },
     "tests/helpers/handset-prompts.mjs": {
