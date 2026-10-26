@@ -42,6 +42,12 @@ const words: Record<string, string> = {
  invalid_staffTarget: 'Enter the staff number in full, such as +15055550100.',
  invalid_maxAttempts: 'The attempt limit is 1 to 3.',
  invalid_retrySeconds: 'Retry after 60 to 86,400 seconds.',
+ invalid_name: 'Enter a queue name.',
+ invalid_maxWaitSeconds: 'The maximum wait is 1 to 86,400 seconds.',
+ invalid_wrapSeconds: 'Wrap-up is 0 to 3,600 seconds.',
+ invalid_maxWaiting: 'Waiting and reserved capacity is 1 to 1,000 callers.',
+ invalid_overflowQueueId: 'Choose the queue callers overflow to, or pick another overflow.',
+ unexpected_overflow_queue: 'An overflow queue applies only to “Another queue”. Choose None, or choose Another queue.',
  overflow_cycle: 'That overflow sends callers back to this queue. Choose another.',
  agent_language_required: 'Add at least one language, such as en.',
  invalid_capacity: 'Capacity is 1 to 10 assignments at once.',
@@ -59,7 +65,7 @@ const words: Record<string, string> = {
 // Refusals whose field isn't the one named after "invalid_".
 const fields: Record<string, string> = {
  invalid_maxDepositCents: 'maxDeposit', invalid_maxDiscountCents: 'maxDiscount', invalid_maxRefundCents: 'maxRefund', named_person_must_be_active_owner: 'exceptionOwnerId',
- source_inactive: 'sourceId', active_source_required: 'sourceId', queue_missing: 'queueId', overflow_cycle: 'overflowQueueId', agent_language_required: 'languages', invalid_spanish_digit: 'spanishDigit',
+ source_inactive: 'sourceId', active_source_required: 'sourceId', queue_missing: 'queueId', overflow_cycle: 'overflowQueueId', unexpected_overflow_queue: 'overflowQueueId', agent_language_required: 'languages', invalid_spanish_digit: 'spanishDigit',
  invalid_working_hours: 'opens', invalid_weekday: 'weekdays', invalid_forwarding_destination: 'forwardTo', line_not_found: 'lineId', distinct_assistant_required: 'assistantId', delegation_not_found: 'delegationId',
 }
 const conflict = 'Someone saved a newer version while you were editing, so this wasn’t saved. The page now shows the current version; make your change again.'
