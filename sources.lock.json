@@ -1059,6 +1059,10 @@
       "sha256": "81fb89bca1794ec85daece6294153ebe789c5389565a2292cb99412a3d9b1a3b",
       "executable": false
     },
+    "reports/REPORT.md": {
+      "sha256": "c2a146590d91c0a0286535847e31c1fffeca546db79ff2bd21d025dafa02c08e",
+      "executable": false
+    },
     "rer-project.json": {
       "sha256": "25e5b209544073d2c4c69e68f5ef315228a96ab7cf107c7b89b56d00e8233241",
       "executable": false
@@ -4024,15 +4028,15 @@
       "executable": false
     },
     "src/site/styles/landing.css": {
-      "sha256": "2f6b28588f4294c76eaae48213318b421edce9491641f7883193e9e9f2778091",
+      "sha256": "48422cede857cb13092d7a75784c8c97eda74dacc8180524f3adc35fda1d66bf",
       "executable": false
     },
     "src/site/styles/sections/burst.css": {
-      "sha256": "0cb2122da4f0ff908b1bf822528e8d029f9ead5a464cfe314e8bfa962989ff77",
+      "sha256": "c9e364444492791e275b5fd32ceee8968f4d8060f7f2a4a94ffaa5daaa6ed575",
       "executable": false
     },
     "src/site/styles/sections/closing.css": {
-      "sha256": "0bc0d392dadfa17359ec7659c68d5e5770a011122440bbfbe3883afc672a2f09",
+      "sha256": "a0ba86bd16848390029c19ec48a7552e61e0f4ba0a0333a9e8ff6476ed74747c",
       "executable": false
     },
     "src/site/styles/sections/hero.css": {
@@ -4040,23 +4044,23 @@
       "executable": false
     },
     "src/site/styles/sections/interlude.css": {
-      "sha256": "b9275ba2bccd23abd27d858d9d07a6068f9bf393ef92e2fc04dd92c10a012124",
+      "sha256": "0aedf6466f4eed00c93742c9778cb0f05f2e6009bd92f879249a4565826a5302",
       "executable": false
     },
     "src/site/styles/sections/name.css": {
-      "sha256": "bb7ca3a2170b2f19a552f8c646ad7dc7ebcac41f87b401151669e87520d67284",
+      "sha256": "7fe5430b9b8fb8bc6c9507a1932a7672015ccc7f307dfb87feabc8e60a3c852f",
       "executable": false
     },
     "src/site/styles/sections/numbers-screens.css": {
-      "sha256": "577bbaa087f6df8b3075140caed007473090f51309c8611aa9cdbeceb3210495",
+      "sha256": "8ec3ce3cfce8edeb328d4cbb939bded30cbf1c5f6eacc26b80c33c15d9cfdf78",
       "executable": false
     },
     "src/site/styles/sections/numbers.css": {
-      "sha256": "921e06ca25e75475716ce2bb0b1554ab0db5ed3e9eed3aa7356dba1304018f96",
+      "sha256": "908d01032b2c1e8edf665232915d46090bd4e54b4e0160f200e2ba66a9df3c7b",
       "executable": false
     },
     "src/site/styles/sections/press.css": {
-      "sha256": "1f15d0c7bef46cf8b10b34737a01d2e9a5d13407e842c5e15e22263cb0aba7c6",
+      "sha256": "6f5bb3d07a59bfddb5c8bb7b9f7770f55b50ec3c017e6029e842c20106924f7e",
       "executable": false
     },
     "src/site/styles/site.css": {

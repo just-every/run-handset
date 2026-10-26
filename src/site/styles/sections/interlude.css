@@ -8,7 +8,7 @@
 
 @media (min-width: 1024px) {
   .desk-phone { --dw: calc(630 * var(--u)); position: absolute; top: 0; right: 0; }
-  .interlude-tag { position: absolute; left: calc(var(--edge) + 128 * var(--u)); top: calc(814.5 * var(--u)); white-space: nowrap; }
+  .interlude-tag { position: absolute; left: calc(var(--edge) + 106 * var(--u)); top: calc(814.5 * var(--u)); white-space: nowrap; }
 }
 
 @media (max-width: 1023.98px) {

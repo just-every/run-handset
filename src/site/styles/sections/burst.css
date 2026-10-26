@@ -5,6 +5,7 @@
 .burst-log li { color: var(--white); }
 
 @media (min-width: 1024px) {
+  .s-burst { --copy-top: 139; --copy-left: 148; }
   .s-burst .burst-art { position: absolute; left: var(--edge); top: calc(628.125 * var(--u)); width: calc(1331.25 * var(--u)); }
   .burst-wire { position: absolute; left: calc(var(--edge) + 728.4375 * var(--u)); top: calc(593 * var(--u)); width: max(1px, var(--u)); height: calc(150 * var(--u)); }
   .burst-log { position: absolute; left: calc(var(--edge) + 741.5625 * var(--u)); top: calc(593.4375 * var(--u)); font-size: max(13px, calc(18.75 * var(--u))); }
