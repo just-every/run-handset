@@ -37,6 +37,8 @@ export async function flowConsole(request:Request,env:Bindings,actor:Session,v?:
   if(suffix==='/save'){
    const d=fromForm(v!);draft=d
    if(v!.previousVersionId)editing=inventory.versions.find(row=>row.id===v!.previousVersionId)
+   // The form has no prompt controls: keep the previous version's pins on steps that still exist.
+   if(editing)for(const old of (JSON.parse(editing.definition) as FlowDefinition).nodes)if(old.prompt){const same=d.nodes.find(n=>n.id===old.id);if(same)same.prompt=old.prompt}
    if(typeof v!.operation==='string'&&v!.operation.startsWith('remove:')){
     const index=Number(v!.operation.slice(7));if(!Number.isSafeInteger(index)||index<0||index>=d.nodes.length||d.nodes.length===1)throw new Fault('invalid_step_removal')
     d.nodes.splice(index,1)

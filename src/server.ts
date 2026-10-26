@@ -12,6 +12,7 @@ import { authResponse, runtimeBindings, type Bindings } from './auth.server'
 import { identity } from './identity'
 import { tickExports } from './handset/exports/doors'
 import { consentProviderResponse } from './handset/consent/provider'
+import { promptProviderResponse } from './handset/prompts/provider'
 import { tickConsentTexts } from './handset/consent/texts'
 import { surveyProviderResponse, tickSurveys } from './handset/surveys/doors'
 import { twilioResponse } from './handset/providers/twilio'
@@ -50,6 +51,8 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     return observeProduct(request,env,async()=>{
     const consent = await consentProviderResponse(request, env)
     if (consent) return consent
+    const prompts = await promptProviderResponse(request, env)
+    if (prompts) return prompts
     const survey = await surveyProviderResponse(request, env)
     if (survey) return survey
     const protection = await protectionCarrierResponse(request, env)

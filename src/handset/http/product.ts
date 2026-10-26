@@ -9,6 +9,8 @@ import { erasureDoor } from '../erasure/doors'
 import { qualityDoor } from '../quality/doors'
 import { flowConsole } from '../flows/console'
 import { flowDoor } from '../flows/doors'
+import { promptConsole } from '../prompts/console'
+import { promptDoor } from '../prompts/doors'
 import { transcriptPage } from '../transcripts/pages'
 import { transcriptDoor } from '../transcripts/doors'
 import { delegationDoor } from '../delegation/doors'
@@ -35,7 +37,7 @@ import { ownerDoor as receptionistDoor } from '../receptionist/doors'
 
 export async function productResponse(request: Request, original: Bindings): Promise<Response|null> {
  const url = new URL(request.url), path = url.pathname, html = path.startsWith('/app/')
- if (!/^\/(api\/handset|app\/(exports|consent|surveys|cases|records|audit|grants|sources|admin|queues|reports\/queues|protection|dialer|front-desk|recordings|transcripts|flows|receptionist|rules|followups|recovery|operations))(\/|$)/.test(path)) return null
+ if (!/^\/(api\/handset|app\/(exports|consent|surveys|cases|records|audit|grants|sources|admin|queues|reports\/queues|protection|dialer|front-desk|recordings|transcripts|flows|prompts|receptionist|rules|followups|recovery|operations))(\/|$)/.test(path)) return null
  let auth: {env:Bindings;session:Session}|undefined
  try {
   auth = await session(request,original)
@@ -85,6 +87,8 @@ export async function productResponse(request: Request, original: Bindings): Pro
   }
   if(path==='/app/flows'||path.startsWith('/app/flows/'))return await flowConsole(request,env,actor,request.method==='GET'?undefined:await input(request))
   if(path==='/api/handset/flows'||path.startsWith('/api/handset/flows/'))return await flowDoor(request,env,actor,request.method==='GET'?undefined:await input(request))
+  if(path==='/app/prompts'||path.startsWith('/app/prompts/'))return await promptConsole(request,env,actor,request.method==='GET'?undefined:await input(request,4500000))
+  if(path==='/api/handset/prompts'||path.startsWith('/api/handset/prompts/'))return await promptDoor(request,env,actor,request.method==='GET'?undefined:await input(request,4500000))
   const records=await recordsDoor(request,env,actor)
   if(records)return records
   if(path==='/api/handset/grant-scopes'||path.startsWith('/api/handset/grant-scopes/'))return await scopeDoor(request,env,actor,request.method==='GET'?undefined:await input(request))
