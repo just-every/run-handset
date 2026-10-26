@@ -202,6 +202,7 @@
 .hs-timeline { display: grid; gap: 14px; margin: 0 0 4px !important; padding: 0 !important; list-style: none; }
 .hs-main .hs-timeline li { display: grid; grid-template-columns: 4.2em minmax(0, 1fr); gap: 16px; margin: 0; font-size: 17px; line-height: 1.45; }
 .hs-timeline time { color: var(--hs-ink); font-size: 16px; line-height: 1.6; }
+.hs-timeline span { text-wrap: pretty; }
 .hs-hint { display: block; color: var(--hs-muted); font-size: 14px; font-weight: 400; }
 .hs-main p.hs-hint { margin: 0 0 12px; }
 .hs-notice > span + span::before { content: "·"; margin-right: 10px; }
@@ -228,9 +229,10 @@
 /* Settings forms: ordinary labelled fields, side by side where they fit. */
 .hs-main form.hs-limits { max-width: 1040px; }
 /* Facts in one line with dots between; a dot that would start a wrapped line falls outside and is clipped. */
-.hs-dots { display: flex; flex-wrap: wrap; overflow: hidden; }
-.hs-dots > span { margin-left: -1.1em; white-space: nowrap; }
-.hs-dots > span::before { content: "·"; display: inline-block; width: 1.1em; text-align: center; }
+.hs-dots { overflow: hidden; }
+.hs-dots > span { display: flex; flex-wrap: wrap; margin-left: -1.1em; }
+.hs-dots > span > span { white-space: nowrap; }
+.hs-dots > span > span::before { content: "·"; display: inline-block; width: 1.1em; text-align: center; }
 .hs-field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 14px 18px; }
 .hs-main .hs-row-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr)); gap: 10px 14px; margin: 0 0 14px; padding: 12px 16px 16px; }
 .hs-field-grid > .hs-row-fields { margin: 0; }
@@ -257,8 +259,8 @@
 .hs-saved { color: var(--hs-muted); font-size: 15px; }
 .hs-after { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px 24px; margin-top: 4px; }
 .hs-after > details { margin: 0; }
-.hs-after > .hs-create { flex: 1 1 100%; padding: 0; border: 0; }
-.hs-after > .hs-create[open] { padding: 24px 28px; border: 1px solid var(--hs-line); border-radius: var(--hs-radius); }
+.hs-after > .hs-create, .hs-main > .hs-create-page { flex: 1 1 100%; padding: 0; border: 0; }
+.hs-after > .hs-create[open], .hs-main > .hs-create-page[open] { padding: 24px 28px; border: 1px solid var(--hs-line); border-radius: var(--hs-radius); }
 .hs-history { gap: 10px; margin-bottom: 18px !important; }
 .hs-main .hs-history li { grid-template-columns: 7.4em minmax(0, 1fr); }
 .hs-history a { color: var(--hs-ink); text-decoration: none; }
