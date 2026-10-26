@@ -236,6 +236,8 @@
 .hs-field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 14px 18px; }
 .hs-main .hs-row-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr)); gap: 10px 14px; margin: 0 0 14px; padding: 12px 16px 16px; }
 .hs-field-grid > .hs-row-fields { margin: 0; }
+.hs-field-grid.hs-hours { grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr)); }
+.hs-main .hs-row-fields.hs-wide { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
 .hs-row-fields > legend { padding: 0 6px; }
 .hs-problem { margin: 0 0 18px; padding: 14px 16px; border-radius: var(--hs-field-radius); background: var(--hs-red); color: var(--hs-on-red); }
 .hs-problem p { margin: 0 0 6px !important; font-weight: 500; }
