@@ -1,11 +1,12 @@
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { Fault, input, json, type ObjectValue } from '../core'
+import { settingsSave } from '../refusal'
 import type { AppliedPolicy } from '../audit/policy'
 import type { Grant } from '../authority/store'
 import { decide } from './exceptions'
 import * as ops from './operations'
-import type { ExceptionRow, Outcome } from './model'
+import { policy as parsePolicy, type ExceptionRow, type Outcome } from './model'
 import { receptionistPage, receptionistSettingsPage } from './pages'
 import { currentPolicy, loadOutcome, openOutcome, policyHistory, readOutcome, writePolicy } from './store'
 
@@ -48,9 +49,12 @@ export async function ownerDoor(request: Request, env: Bindings, actor: Session,
  if (html && request.method === 'GET' && action === '/settings') return receptionistSettingsPage(await currentPolicy(db), actor.operator.id)
  if (request.method !== 'POST' || !data) throw new Fault('method_not_allowed', 405)
  if (action === '/policy') {
-  const value = html ? { confirm: data.confirm, policy: policyFields(data), expectedVersion: Number(data.expectedVersion) } : data
-  const saved = await writePolicy(env, actor, value)
-  return html ? Response.redirect(new URL(base, url).toString(), 303) : json(saved, 201)
+  if (!html) return json(await writePolicy(env, actor, data), 201)
+  // A refused save keeps the person in the limits editor with every entry.
+  return settingsSave(env, actor, { action: path, values: data }, async () => {
+   await writePolicy(env, actor, { confirm: data.confirm, policy: policyFields(data), expectedVersion: Number(data.expectedVersion) })
+   return Response.redirect(new URL(base, url).toString(), 303)
+  }, async refusal => receptionistSettingsPage(await currentPolicy(db), actor.operator.id, { ...refusal, field: refusedRow(data, refusal.code) }))
  }
  const decision = action.match(/^\/exceptions\/([0-9a-f-]{36})\/decision$/)
  if (decision) {
@@ -58,6 +62,24 @@ export async function ownerDoor(request: Request, env: Bindings, actor: Session,
   return html ? Response.redirect(new URL(base + '#exception-' + decision[1], url).toString(), 303) : json({ id: row!.id, status: row!.status, decidedBy: row!.decided_by, note: row!.note })
  }
  throw new Fault('not_found', 404)
+}
+// Row refusals by the settings form's row prefix: the field each code is about.
+const rowFields: [string, Record<string, string>][] = [
+ ['hours', { invalid_hours: 'start', invalid_start: 'start', invalid_end: 'end' }],
+ ['services', { invalid_policy: 'id', invalid_serviceId: 'id', invalid_serviceName: 'name', invalid_eventTypeId: 'eventTypeId', invalid_bookingPage: 'bookingPage', invalid_minutes: 'minutes', invalid_depositCents: 'deposit', service_deposit_exceeds_limit: 'deposit' }],
+ ['knowledge', { invalid_topic: 'topic', invalid_value: 'value', invalid_version: 'version' }],
+ ['support', { invalid_caseId: 'caseId', invalid_conversationId: 'conversationId' }],
+]
+/** The field of the staffed day, service, answer or mapping a refusal is about: the first row the policy reader refuses on its own. */
+function refusedRow(data: ObjectValue, code: string) {
+ if (code === 'duplicate_service') { const ids = Object.keys(data).filter(key => /^services\.\d+\.id$/.test(key)); return ids.find((key, n) => data[key] && ids.slice(0, n).some(other => data[other] === data[key])) }
+ for (const [prefix, names] of rowFields) {
+  if (!names[code]) continue
+  for (const row of new Set(Object.keys(data).filter(key => key.startsWith(prefix + '.')).map(key => key.split('.')[1]))) {
+   const alone = Object.fromEntries(Object.entries(data).filter(([key]) => !key.startsWith(prefix + '.') || key.startsWith(`${prefix}.${row}.`)))
+   try { parsePolicy(policyFields(alone)) } catch (error) { if (error instanceof Fault && error.code === code) return `${prefix}.${row}.${names[code]}` }
+  }
+ }
 }
 /** The settings form's labelled fields as one policy; the policy reader still checks every value. */
 function policyFields(data: ObjectValue) {

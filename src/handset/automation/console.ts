@@ -2,6 +2,7 @@ import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { consolePage, escape as e, field, hidden, Fault, keys, type ObjectValue } from '../core'
 import { denied } from '../audit/store'
+import { settingsSave } from '../refusal'
 import { rulesPage } from './pages'
 import { followupsPage } from '../followups/pages'
 import { recoveryPage } from '../recovery/pages'
@@ -69,6 +70,11 @@ export async function workConsole(request: Request, env: Bindings, actor: Sessio
   }
   return new Response(null, { status: 303, headers: { location: `${base}?followup=${encodeURIComponent(String((made.followup as Row).id))}#detail`, 'cache-control': 'no-store' } })
  }
+ // A refused callback policy stays on Callback policy with the person's entries.
+ if (root === 'callbacks' && suffix === '/policies') return settingsSave(env, actor, { action: url.pathname, values: raw }, async () => {
+  if (!await door(new Request(api, { method: 'POST' }), env, actor, formValue(root, suffix, raw))) throw new Fault('not_found', 404)
+  return new Response(null, { status: 303, headers: { location: base, 'cache-control': 'no-store' } })
+ }, async refusal => callbackSettingsPage(await (await door(new Request(new URL('/api/handset/callbacks', url)), env, actor))!.json() as Snapshot, refusal))
  let response: Response | null
  try {
   response = await door(new Request(api, { method: 'POST' }), env, actor, formValue(root, suffix, raw))

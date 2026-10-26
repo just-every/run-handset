@@ -5,6 +5,7 @@ import { commit } from '../audit/store'
 import { Fault, escape as e, consolePage, integer, json, keys, owner, text, type ObjectValue } from '../core'
 import { configureLine, createDelegation, delegated, intent, linePolicy, presence, revokeDelegation, sql, type Line } from './store'
 import { deskPage, deskSettingsPage, type Desk } from './pages'
+import { settingsSave } from '../refusal'
 import { approveInbound } from './inbound-policy'
 
 export async function desk(env:Bindings,actor:Session):Promise<Desk>{
@@ -37,6 +38,10 @@ export async function delegationDoor(request:Request,env:Bindings,actor:Session,
  if(request.method!=='POST')throw new Fault('method_not_allowed',405)
  const v={...value}
  if(html){for(const key of ['revision','lineRevision','dnd','maxSeconds'])if(typeof v[key]==='string')v[key]=v[key]===''?undefined:Number(v[key]);if(typeof v.weekdays==='string')v.weekdays=v.weekdays.split(',').map(Number);if(typeof v.expiresAt==='string')v.expiresAt=new Date(v.expiresAt+'Z').getTime();for(const k of ['id','revision','callId','target','forwardTo','listId','delegationId'])if(v[k]===''||v[k]===undefined)delete v[k]}
+ // A refused Front desk setup save stays on Front desk setup with the person's entries.
+ if(html&&['/lines','/routing','/delegations','/revoke'].includes(path.slice(base.length)))return settingsSave(env,actor,{action:path,values:value??{}},write,async refusal=>deskSettingsPage(await desk(env,actor),refusal))
+ return write()
+ async function write():Promise<Response>{
  let result:unknown,status=200
  if(path===base+'/lines'){result=await configureLine(env,actor,v);status=201}
  else if(path===base+'/routing'){result=await approveInbound(env,actor,v);status=201}
@@ -57,4 +62,5 @@ export async function delegationDoor(request:Request,env:Bindings,actor:Session,
  if(path===base+'/operations')return consolePage('Call request held / Solicitud pendiente','<p role="status">No call effect occurred. Qualified media endpoints and exact spend approval are required before dialing or changing audio. This request retains the assistant actor, executive principal and approved business-number reference.</p><a href="/app/front-desk">Return to front desk</a>',202)
  // Setup forms return to Front desk setup; daily call work to the Front desk.
  return new Response(null,{status:303,headers:{location:['/lines','/routing','/delegations','/revoke'].includes(path.slice(base.length))?'/app/front-desk/settings':'/app/front-desk','cache-control':'no-store'}})
+ }
 }
