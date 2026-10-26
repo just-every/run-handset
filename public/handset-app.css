@@ -1,5 +1,205 @@
-/* Every Handset page: on narrow screens a definition list stacks each label over its value. */
-@media (max-width: 480px) {
-  .rer-themed main dl { grid-template-columns: minmax(0, 1fr); gap: 4px; }
-  .rer-themed main dd { margin-bottom: 12px; }
+/* Every signed-in Handset page (owner-approved app look A, 26 Oct 2026): a black bar over a white page,
+   the outline grotesk for page titles, one plain sans for reading, mono for times and references,
+   white cards with hairline borders, and mint only on the primary button, the selected row and focus. */
+:root {
+  --hs-ink: #101214;
+  --hs-bar: #0f1012;
+  --hs-bar-line: #34373c;
+  --hs-bar-text: #c3c8cd;
+  --hs-page: #ffffff;
+  --hs-line: #e4e7eb;
+  --hs-rule: #eceef1;
+  --hs-field: #c9ced5;
+  --hs-soft: #f3f4f6;
+  --hs-muted: #535b67;
+  --hs-link: #1d5fc4;
+  --hs-mint: #34deb4;
+  --hs-mint-hover: #22cfa3;
+  --hs-on-mint: #06261d;
+  --hs-focus: #12a37f;
+  --hs-amber: #fcefd2;
+  --hs-on-amber: #85500f;
+  --hs-red: #fde8e8;
+  --hs-on-red: #a3221a;
+  --hs-blue: #dfeafd;
+  --hs-on-blue: #1a56b3;
+  --hs-grey: #edf0f4;
+  --hs-on-grey: #39404b;
+  --hs-radius: 14px;
+  --hs-field-radius: 10px;
+  --hs-display: Archivo, 'Arial Black', Arial, sans-serif;
+  --hs-sans: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
+  --hs-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* Base's demo label reads these. */
+  --rer-link: var(--hs-link);
+  --rer-focus: var(--hs-focus);
+  color-scheme: light;
+}
+*, *::before, *::after { box-sizing: border-box; }
+.hs { margin: 0; min-height: 100vh; background: var(--hs-page); color: var(--hs-ink); font: 400 16px/1.55 var(--hs-sans); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+.hs :focus-visible { outline: 3px solid var(--hs-focus); outline-offset: 2px; }
+.hs a { color: var(--hs-link); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+
+/* The bar: tile and wordmark, daily-work tabs, Settings. */
+.hs-bar { display: flex; align-items: stretch; gap: 32px; min-height: 68px; padding: 0 32px; background: var(--hs-bar); color: #fff; }
+.hs-brand { display: flex; flex: none; align-items: center; gap: 12px; color: #fff !important; text-decoration: none; font: 700 22px/1 var(--hs-display); letter-spacing: -.02em; white-space: nowrap; }
+.hs-brand img { display: block; width: 36px; height: 36px; }
+.hs-bar [data-rer-demo-exit] { align-self: center; margin-inline-start: -16px; color: var(--hs-bar-text); font-size: 13px; }
+.hs-tabs { display: flex; flex: 1 1 auto; align-items: stretch; gap: 26px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.hs-tabs::-webkit-scrollbar { display: none; }
+.hs-tabs a { display: flex; flex: none; align-items: center; padding-top: 3px; border-bottom: 3px solid transparent; color: var(--hs-bar-text); font-size: 15px; font-weight: 500; text-decoration: none; white-space: nowrap; }
+.hs-tabs a:hover { color: #fff; }
+.hs-tabs a[aria-current="page"] { border-bottom-color: #fff; color: #fff; font-weight: 600; }
+.hs-tabs a:focus-visible { outline-offset: -3px; }
+.hs-menu { position: relative; flex: none; align-self: center; }
+.hs-menu summary { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 14px; border: 1px solid var(--hs-bar-line); border-radius: 10px; background: #1a1c1f; color: #e8ebee; font-size: 15px; font-weight: 500; list-style: none; cursor: pointer; }
+.hs-menu summary::-webkit-details-marker { display: none; }
+.hs-menu summary::after { content: ""; width: 7px; height: 7px; margin-top: -4px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); }
+.hs-menu[open] summary::after { margin-top: 4px; transform: rotate(225deg); }
+.hs-menu summary[data-current] { border-color: #8d939b; color: #fff; }
+.hs-menu nav { position: absolute; z-index: 20; top: calc(100% + 10px); right: 0; display: grid; gap: 2px; width: 260px; padding: 8px; border: 1px solid var(--hs-line); border-radius: var(--hs-radius); background: #fff; box-shadow: 0 18px 40px -18px rgba(16, 18, 20, .35); }
+.hs-menu nav a { padding: 9px 12px; border-radius: 8px; color: var(--hs-ink); font-size: 15px; text-decoration: none; }
+.hs-menu nav a:hover, .hs-menu nav a[aria-current="page"] { background: var(--hs-soft); }
+.hs-menu nav a[aria-current="page"] { font-weight: 600; }
+
+/* The page: outline title, quiet subline, then cards. */
+.hs-main { max-width: 1376px; margin: 0 auto; padding: 44px 40px 80px; overflow-wrap: anywhere; }
+.hs-main > h1 { margin: 0 0 10px; color: transparent; -webkit-text-stroke: 1.4px var(--hs-ink); font: 800 44px/1.08 var(--hs-display); letter-spacing: -.035em; word-spacing: .12em; text-wrap: balance; }
+@media (forced-colors: active) { .hs-main > h1 { color: CanvasText; -webkit-text-stroke: 0; } }
+.hs-main > p, .hs-main > nav + p { max-width: 78ch; color: var(--hs-muted); }
+.hs-main > p:first-of-type { margin-top: 0; }
+.hs-sub, .hs-main > p[role="status"] { color: var(--hs-muted); font-size: 16px; letter-spacing: .02em; }
+.hs-main p { margin: 0 0 16px; text-wrap: pretty; }
+.hs-main [role="alert"] { margin: 0 0 20px; padding: 12px 16px; border-radius: var(--hs-field-radius); background: var(--hs-red); color: var(--hs-on-red); font-weight: 500; }
+.hs-main h2 { margin: 36px 0 14px; font: 700 24px/1.2 var(--hs-display); letter-spacing: -.02em; text-wrap: balance; }
+.hs-main h3 { margin: 0 0 10px; font-size: 19px; font-weight: 600; line-height: 1.3; }
+.hs-main h2:first-child, .hs-main h3:first-child { margin-top: 0; }
+
+/* In-page section tabs (a page's own nav); the separators between links stay out of view. */
+.hs-main nav { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 6px 0 26px; padding-bottom: 12px; border-bottom: 1px solid var(--hs-rule); font-size: 0; }
+.hs-main nav a { color: var(--hs-muted); font-size: 15px; font-weight: 500; text-decoration: none; }
+.hs-main nav a:hover { color: var(--hs-ink); }
+.hs-main nav a[aria-current="page"] { color: var(--hs-ink); font-weight: 600; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 8px; }
+
+/* Cards: white with a hairline border; a card inside a card becomes a ruled block. */
+.hs-main section, .hs-main article, .hs-main fieldset { min-width: 0; margin: 0 0 20px; padding: 28px; border: 1px solid var(--hs-line); border-radius: var(--hs-radius); background: #fff; }
+.hs-main :is(section, article) :is(section, article) { margin: 20px 0 0; padding: 20px 0 0; border: 0; border-top: 1px solid var(--hs-rule); border-radius: 0; }
+.hs-main section > :last-child, .hs-main article > :last-child { margin-bottom: 0; }
+.hs-main fieldset { padding: 18px 20px; }
+.hs-main legend { padding: 0 6px; font-weight: 600; }
+
+/* Facts: label beside value, one line each where they fit. */
+.hs-main dl { display: grid; grid-template-columns: minmax(120px, 220px) minmax(0, 1fr); gap: 10px 24px; margin: 0 0 20px; }
+.hs-main dt { color: var(--hs-muted); font-size: 15px; }
+.hs-main dd { margin: 0; overflow-wrap: anywhere; }
+
+/* Fields: one border each, and focus shows on that border. */
+.hs-main form { display: grid; gap: 16px; max-width: 760px; margin: 0 0 16px; }
+.hs-main label { display: grid; gap: 6px; font-size: 15px; font-weight: 500; }
+.hs-main label:has(> input[type="checkbox"]) { display: flex; align-items: flex-start; gap: 10px; font-weight: 400; }
+.hs-main :is(input:not([type="checkbox"]):not([type="hidden"]):not([type="file"]), select, textarea) { width: 100%; min-width: 0; min-height: 46px; padding: 10px 14px; border: 1px solid var(--hs-field); border-radius: var(--hs-field-radius); background: #fff; color: var(--hs-ink); font: inherit; font-size: 16px; }
+.hs-main textarea { min-height: 104px; resize: vertical; }
+.hs-main input[type="file"] { max-width: 100%; font: inherit; font-size: 15px; }
+.hs-main input[type="checkbox"] { flex: none; width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--hs-ink); }
+.hs-main :is(input, select, textarea):focus-visible { outline: none; border-color: var(--hs-focus); box-shadow: 0 0 0 1px var(--hs-focus); }
+
+/* Buttons: outlined by default; the first form's action in each card is the mint primary. */
+.hs-main button { justify-self: start; min-height: 46px; padding: 10px 20px; border: 1px solid var(--hs-field); border-radius: var(--hs-field-radius); background: #fff; color: var(--hs-ink); font: 600 16px/1.2 var(--hs-sans); cursor: pointer; }
+.hs-main button:hover { border-color: #8d939b; background: var(--hs-soft); }
+.hs-main button:disabled { cursor: not-allowed; opacity: .55; }
+.hs-main :is(section, article, .hs-actions) > form:first-of-type > button:not([type="button"]), .hs-main > form:first-of-type > button:not([type="button"]):not(.hs-secondary) { border-color: var(--hs-mint); background: var(--hs-mint); color: var(--hs-on-mint); }
+.hs-main :is(section, article, .hs-actions) > form:first-of-type > button:not([type="button"]):hover, .hs-main > form:first-of-type > button:not([type="button"]):not(.hs-secondary):hover { border-color: var(--hs-mint-hover); background: var(--hs-mint-hover); }
+
+/* Disclosures read as link-weight tertiary actions. */
+.hs-main details { margin: 0 0 14px; }
+.hs-main summary { width: fit-content; color: var(--hs-link); font-weight: 500; cursor: pointer; }
+.hs-main details[open] > summary { margin-bottom: 14px; }
+
+/* Lists, tables and records. */
+.hs-main :is(ul, ol) { margin: 0 0 16px; padding-left: 1.25em; }
+.hs-main li { margin: 6px 0; }
+.hs-main table { display: block; width: 100%; max-width: 100%; margin: 0 0 16px; overflow-x: auto; border-collapse: collapse; }
+.hs-main :is(th, td) { padding: 10px 14px 10px 0; border-bottom: 1px solid var(--hs-rule); text-align: left; vertical-align: top; }
+.hs-main th { color: var(--hs-muted); font-size: 14px; font-weight: 600; }
+.hs-main pre { margin: 0 0 16px; padding: 14px 16px; border-radius: var(--hs-field-radius); background: var(--hs-soft); font: 14px/1.5 var(--hs-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.hs-main code { padding: 1px 6px; border-radius: 6px; background: var(--hs-soft); font: 14px var(--hs-mono); }
+.hs-main pre code { padding: 0; background: none; }
+.hs-main audio { width: 100%; max-width: 480px; }
+.hs-mono { font-family: var(--hs-mono); font-weight: 500; letter-spacing: 0; }
+
+/* Home: daily work and Settings side by side. */
+.hs-home { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 20px; margin: 28px 0 8px; }
+.hs-links { margin: 0; padding: 0; list-style: none; }
+.hs-links li { margin: 0; border-top: 1px solid var(--hs-rule); }
+.hs-links li:first-child { border-top: 0; }
+.hs-links a { display: block; padding: 12px 0; color: var(--hs-ink); font-size: 17px; font-weight: 500; text-decoration: none; }
+.hs-links a:hover { text-decoration: underline; }
+
+/* Status chips: one per row, never mint. */
+.hs-chip { display: inline-block; padding: 4px 12px; border-radius: 8px; background: var(--hs-grey); color: var(--hs-on-grey); font-size: 15px; font-weight: 500; line-height: 1.4; white-space: nowrap; }
+.hs-chip[data-tone="amber"] { background: var(--hs-amber); color: var(--hs-on-amber); }
+.hs-chip[data-tone="red"] { background: var(--hs-red); color: var(--hs-on-red); }
+.hs-chip[data-tone="blue"] { background: var(--hs-blue); color: var(--hs-on-blue); }
+.hs-count { display: inline-block; min-width: 26px; margin-left: 8px; padding: 1px 8px; border-radius: 8px; background: var(--hs-grey); color: var(--hs-on-grey); font-size: 14px; font-weight: 600; text-align: center; }
+
+/* The coiled cord: one loop, repeated cleanly. */
+.hs-cord { height: 14px; margin: 22px 0; border: 0; background: url('/handset-cord.svg') left center / 18px 14px repeat-x; }
+
+/* The amber due notice beside the actions it governs. */
+.hs-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; width: fit-content; max-width: 100%; margin: 0 0 18px; padding: 11px 18px; border-radius: var(--hs-field-radius); background: var(--hs-amber); color: var(--hs-on-amber); font-weight: 600; }
+.hs-notice[data-tone="grey"] { background: var(--hs-grey); color: var(--hs-on-grey); }
+
+/* The tagged note: the handset mark beside the drafted words. */
+.hs-note { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 14px; margin: 0 0 18px; }
+.hs-note img { width: 22px; height: 22px; margin-top: 2px; border-radius: 5px; }
+.hs-note p { margin: 0; color: var(--hs-ink); }
+
+/* List with detail: roomy rows on the left, the chosen item's card on the right. */
+.hs-split { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
+.hs-main .hs-list { padding: 0; overflow: hidden; }
+.hs-list-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; padding: 22px 28px 18px; border-bottom: 1px solid var(--hs-rule); }
+.hs-list-head h2 { margin: 0; font: 600 18px/1.3 var(--hs-sans); letter-spacing: 0; }
+.hs-rows { margin: 0; padding: 0; list-style: none; }
+.hs-main .hs-rows li { margin: 0; border-top: 1px solid var(--hs-rule); }
+.hs-main .hs-rows li:first-child { border-top: 0; }
+.hs-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 6px 22px; padding: 22px 28px; color: var(--hs-ink) !important; text-decoration: none; }
+.hs-row:hover { background: #f8f9fa; }
+.hs-row[aria-current="true"] { background: var(--hs-soft); box-shadow: inset 5px 0 0 var(--hs-mint); }
+.hs-row-name { display: block; font-size: 19px; font-weight: 600; line-height: 1.3; }
+.hs-row-meta { display: block; margin-top: 4px; color: var(--hs-muted); font-size: 16px; }
+.hs-row .hs-mono { font-size: 17px; }
+.hs-empty { padding: 26px 28px; color: var(--hs-muted); }
+.hs-pane > article { padding: 32px; }
+.hs-pane > article > h3 { margin-bottom: 8px; font: 700 28px/1.15 var(--hs-display); letter-spacing: -.02em; }
+.hs-pane .hs-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-bottom: 22px; }
+.hs-pane dl { grid-template-columns: minmax(110px, 170px) minmax(0, 1fr); gap: 12px 22px; }
+.hs-pane dd { font-size: 17px; }
+.hs-pane form { max-width: none; }
+.hs-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px; }
+.hs-actions > form { flex: 0 1 auto; margin: 0; }
+.hs-actions > details { flex-basis: 100%; }
+.hs-close { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 16px 20px; margin-top: 8px; padding-top: 20px; border-top: 1px solid var(--hs-rule); }
+.hs-close > form { margin: 0; }
+@media (min-width: 1100px) {
+  .hs-split { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+}
+
+/* Narrow screens: the bar wraps its tabs to a scrolling second row; facts stack. */
+@media (max-width: 760px) {
+  .hs-bar { flex-wrap: wrap; gap: 0 16px; padding: 10px 16px 0; }
+  .hs-brand { min-height: 44px; font-size: 20px; }
+  .hs-brand img { width: 32px; height: 32px; }
+  .hs-menu { margin-left: auto; }
+  .hs-tabs { flex-basis: 100%; order: 3; gap: 22px; min-height: 48px; margin: 8px -16px 0; padding: 0 16px; }
+  .hs-main { padding: 28px 16px 64px; }
+  .hs-main > h1 { font-size: 32px; -webkit-text-stroke-width: 1.2px; }
+  .hs-main h2 { font-size: 21px; }
+  .hs-main section, .hs-main article { padding: 20px; }
+  .hs-main dl, .hs-pane dl { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .hs-main dd { margin-bottom: 10px; }
+  .hs-row { grid-template-columns: minmax(0, 1fr) auto; padding: 18px 20px; }
+  .hs-row .hs-chip { grid-column: 1 / -1; justify-self: start; }
+  .hs-list-head { padding: 18px 20px 14px; }
+  .hs-pane > article { padding: 22px 20px; }
+  .hs-pane > article > h3 { font-size: 24px; }
 }

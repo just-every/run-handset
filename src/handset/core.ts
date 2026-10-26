@@ -1,8 +1,6 @@
 import { operatorAuth, runtimeBindings, type Bindings } from '../auth.server'
 import type { Session } from '../modules/operator-auth/index.mjs'
-import { themeFrame } from '../base/theme-frame'
-import { fontHead } from '../base/font-head'
-import branding from '../branding.json'
+import { appDocument } from './shell'
 
 export type ObjectValue = Record<string, unknown>
 export class Fault extends Error {
@@ -61,11 +59,10 @@ export function ownerFence(db: D1Database, actor: Session): D1PreparedStatement 
  WHERE s.id=? AND s.operator_id=? AND s.operator_version=o.version AND o.role='owner' AND o.status='active'
  AND s.revoked_at IS NULL AND s.expires_at>?`).bind(actor.id, actor.operator.id, Date.now())
 }
-export async function page(title: string, body: string, status = 200, consoleStyle = false): Promise<Response> {
- const frame = await themeFrame({ href: '/rer-theme.css', productName: branding.name, accentColor: branding.primaryColor })
- return new Response(`<!doctype html><html lang="en"${frame.htmlClass}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)} · Handset</title>${fontHead}${frame.head}<link rel="stylesheet" href="/handset-app.css">${consoleStyle?'<link rel="stylesheet" href="/handset-console.css">':''}</head><body><main>${frame.brand}<nav aria-label="Handset"><a href="/app">Home</a> · <a href="/app/cases">Cases</a> · <a href="/app/front-desk">Front desk</a> · <a href="/app/recordings">Recordings</a> · <a href="/app/audit">Audit</a> · <a href="/app/grants">Application grants</a> · <a href="/app/sources">Sources</a> · <a href="/app/admin/bulk">Bulk administration</a> · <a href="/app/admin/templates">Templates</a> · <a href="/app/receptionist">Caller outcomes</a> · <a href="/app/rules">Rules</a> · <a href="/app/followups">Follow-ups</a> · <a href="/app/recovery">Recovery</a> · <a href="/app/operations">Continuity</a> · <a href="/app/queues">Queues</a> · <a href="/app/reports/queues">Queue reports</a> · <a href="/app/protection">Protection</a> · <a href="/app/import">Move in</a>${consoleStyle?' · <a href="/app/dialer">Dialer</a>':''}</nav><h1>${escape(title)}</h1>${body}</main></body></html>`, { status, headers: { ...headers, 'content-type': 'text/html; charset=utf-8', 'referrer-policy': 'strict-origin', 'content-security-policy': `default-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; ${frame.policy}` } })
+export async function page(title: string, body: string, status = 200): Promise<Response> {
+ return appDocument(title, body, status)
 }
-export const consolePage = (title:string, body:string, status=200) => page(title,body,status,true)
+export const consolePage = page
 export function field(label: string, name: string, value = '', type = 'text', required = true, step?:string) {
  return `<label>${escape(label)}<input name="${escape(name)}" type="${type}" value="${escape(value)}" ${required ? 'required' : ''}${step?` step="${escape(step)}"`:''}></label>`
 }

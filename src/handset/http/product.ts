@@ -35,8 +35,14 @@ import { recoveryDoor } from '../recovery/doors'
 import { callbackDoor } from '../callbacks/doors'
 import { followupDoor } from '../followups/doors'
 import { ownerDoor as receptionistDoor } from '../receptionist/doors'
+import { markCurrent } from '../shell'
 
 export async function productResponse(request: Request, original: Bindings): Promise<Response|null> {
+ const response = await route(request, original)
+ return response && markCurrent(new URL(request.url).pathname, response)
+}
+
+async function route(request: Request, original: Bindings): Promise<Response|null> {
  const url = new URL(request.url), path = url.pathname, html = path.startsWith('/app/')
  if (!/^\/(api\/handset|app\/(exports|consent|surveys|cases|records|audit|grants|sources|admin|queues|reports\/queues|protection|dialer|front-desk|recordings|transcripts|flows|prompts|receptionist|rules|followups|recovery|callbacks|operations))(\/|$)/.test(path)) return null
  let auth: {env:Bindings;session:Session}|undefined
