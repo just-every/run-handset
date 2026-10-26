@@ -1492,7 +1492,7 @@
       "executable": false
     },
     "src/handset/callbacks/pages.ts": {
-      "sha256": "47262c19085d3475e7d0d118b36dd4c631600f771c5ef68946cfe00cd64c01e0",
+      "sha256": "40474b869bede9ff23532820883f8a23b9fa36fda568d23864a007e4f06ef78e",
       "executable": false
     },
     "src/handset/callbacks/provider.ts": {
@@ -1824,7 +1824,7 @@
       "executable": false
     },
     "src/handset/prompts/console.ts": {
-      "sha256": "e9932db0ff4e21ccefc2c1027dc24ef0cccb9e7bdf462f255aa8e9603ae4f839",
+      "sha256": "b9822625831a7d5e3966cd8c7878cc51e9de1e1ebca1b808965d27e3c9d57eaf",
       "executable": false
     },
     "src/handset/prompts/doors.ts": {
