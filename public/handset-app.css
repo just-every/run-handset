@@ -205,6 +205,7 @@
 .hs-hint { display: block; color: var(--hs-muted); font-size: 14px; font-weight: 400; }
 .hs-main p.hs-hint { margin: 0 0 12px; }
 .hs-notice > span + span::before { content: "·"; margin-right: 10px; }
+.hs-main p.hs-history-link { margin: 14px 0 0; font-size: 15px; }
 .hs-consent { margin: 0 0 14px !important; }
 .hs-consent label { font-size: 15px; }
 .hs-main .hs-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; margin: 0 0 6px; }
@@ -274,8 +275,11 @@
   .hs-row { grid-template-columns: minmax(0, 1fr) auto; padding: 18px 20px; }
   .hs-row .hs-chip { grid-column: 1 / -1; justify-self: start; }
   .hs-list-head { padding: 18px 20px 14px; }
-  .hs-main .hs-filters { gap: 0 26px; padding: 0 20px; }
-  .hs-main .hs-filters a { min-height: 56px; font-size: 16px; }
+  .hs-main .hs-filters { gap: 0 14px; padding: 0 12px; }
+  .hs-main .hs-filters a { gap: 5px; min-height: 54px; font-size: 15px; }
+  .hs-filters .hs-count { min-width: 20px; padding: 1px 5px; }
+  .hs-notice { flex-direction: column; align-items: flex-start; }
+  .hs-notice > span + span::before { content: none; }
   .hs-create { padding: 18px 20px 20px; }
   .hs-pane > article > :is(h2, h3) { font-size: 26px; }
   .hs-main .hs-search { grid-template-columns: minmax(0, 1fr) auto; }
