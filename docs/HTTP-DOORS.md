@@ -40,6 +40,18 @@ and methods keep their ordinary 404/405 refusals.
 
 ## Current private doors and inherited work
 
+`/app/exports` and `/api/handset/exports` require a current native owner or admin
+at every request and again in authorizing transactions. CSV references grant
+no media access. Connector creation and revocation, exact archive approval and
+sensitive scheduled-email policy require the current owner. Each archive file
+release also repeats exact-person recording and transcript grants, current
+connector approval, retention deadline and export authority. The SFTP buyer
+command obtains its own native email session and calls these same artifact and
+receipt doors; it cannot borrow a browser profile or bypass media grants.
+`tests/handset-reporting.mjs` proves current authority and revocation, including
+restricted supervisor refusal. See `docs/CALL-EXPORTS.md` for all four sinks,
+separate buyer custody and inherited HND-065 and HND-066 obligations.
+
 `/app` independently checks a native session when rendering its document.
 `/auth/session`, `/auth/operators`, `/auth/sessions`, `/auth/domain-rules`,
 `/auth/providers` and `/auth/settings/identity` authorize within their native

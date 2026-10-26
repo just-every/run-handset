@@ -83,3 +83,8 @@ for(const width of [1440,390])for(const domain of ['consent','surveys'])test(`${
  const {consentBrowserJourney}=await import('./helpers/handset-consent-browser.mjs')
  await consentBrowserJourney(width,domain)
 })
+
+for(const width of [1440,390])test(`call-log exports owner workflow at ${width}`,async()=>{
+ const {exportsBrowserJourney}=await import('./helpers/handset-exports-browser.mjs')
+ await exportsBrowserJourney(width)
+})

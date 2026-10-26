@@ -14,7 +14,7 @@ export const definitions: Record<Kind, { required: string[]; optional?: string[]
  media: { required: ['name','mime'], optional: ['sizeBytes'] }, consent: { required: ['purpose','state'] },
  recording: { required: ['name','state'] }, transcript: { required: ['text','language'] },
  disposition: { required: ['text'] }, promise: { required: ['text','dueAt'] },
- provider_attempt: { required: ['operation','state'] }, usage: { required: ['amountCents','currency'] },
+ provider_attempt: { required: ['operation','state'] }, usage: { required: ['amountCents','currency'], optional: ['billedUnits','billedUnitKind'] },
  comment: { required: ['text'], optional: ['mention'] },
 }
 export interface RecordRow {
@@ -34,6 +34,10 @@ export function recordInput(value: ObjectValue) {
  }
  if (kind === 'number' && !/^\+[1-9]\d{7,14}$/.test(String(data.e164))) throw new Fault('invalid_e164')
  if (kind === 'location') { try { new Intl.DateTimeFormat('en-US', { timeZone: String(data.timezone) }) } catch { throw new Fault('invalid_timezone') } }
+ if(kind==='usage'&&('billedUnits' in data||'billedUnitKind' in data)){
+  if(typeof data.billedUnits!=='string'||!/^\d{1,12}(?:\.\d{1,6})?$/.test(data.billedUnits))throw new Fault('invalid_billed_units')
+  choice(data.billedUnitKind,['minutes','seconds','segments','messages','calls','bytes','megabytes'],'billedUnitKind')
+ }
  if (kind === 'usage' && data.currency !== 'USD') throw new Fault('invalid_currency')
  if (['call_session','message'].includes(kind)) choice(data.direction, ['inbound','outbound'], 'direction')
  if (kind === 'message') choice(data.channel, ['sms','mms','voicemail'], 'channel')

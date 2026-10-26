@@ -25,7 +25,8 @@ export function mailLink(message) {
   return new URL(link[0])
 }
 export async function signIn(runtime) {
-  assert.equal((await post(runtime, '/auth/magic-link', { email: runtime.ownerEmail, returnTo: '/app' })).status, 202)
+  const requested = await post(runtime, '/auth/magic-link', { email: runtime.ownerEmail, returnTo: '/app' })
+  assert.equal(requested.status, 202, 'native mail transport: '+JSON.stringify({submissions:runtime.mails.length,responses:runtime.mailResponses??[]}))
   const link = mailLink(runtime.mails.at(-1))
   const response = await post(runtime, '/auth/confirm', { token: link.searchParams.get('token') })
   assert.equal(response.status, 303)

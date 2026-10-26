@@ -12,7 +12,7 @@ import { unstable_splitSqlQuery as splitSql } from 'wrangler'
 const require = createRequire(import.meta.url)
 const runtimeRequire = createRequire(require.resolve('wrangler/package.json'))
 const { Miniflare, Response: WorkerResponse, convertV4MiniflareOptions } = runtimeRequire('miniflare')
-const { Agent } = createRequire(runtimeRequire.resolve('miniflare'))('undici')
+const { Agent, fetch: transportFetch } = createRequire(runtimeRequire.resolve('miniflare'))('undici')
 const root = fileURLToPath(new URL('../../', import.meta.url))
 
 async function emittedModules(config, base) {
@@ -95,7 +95,7 @@ export async function openHandset({ liveMail = false, twilio = false, edges = nu
   const clock = useCallingClock || Number.isSafeInteger(clockTime) ? callingClock(clockTime) : null
   // TLS trust is scoped to this client's loopback requests, never process-wide.
   let dispatcher = new Agent({ connect: { rejectUnauthorized: false } })
-  const mails = [], twilioResources = new Map(), sourceRequests = []
+  const mails = [], mailResponses = [], twilioResources = new Map(), sourceRequests = []
   let runtime, options, db, mailFailure = false, closing
   const close = () => closing ??= (async () => {
     try { await runtime?.dispose() }
@@ -125,10 +125,23 @@ export async function openHandset({ liveMail = false, twilio = false, edges = nu
         headers: { 'x-message-id': 'synthetic-handset-6' },
       })
     }
-    const response = await fetch(request.url, {
-      method: request.method, headers: request.headers, redirect: 'manual',
-      ...(request.body ? { body: await request.arrayBuffer() } : {}),
-    })
+    // Node computes its own transport framing when forwarding Worker requests.
+    const outgoingHeaders = new Headers(request.headers)
+    for (const name of ['transfer-encoding', 'connection', 'keep-alive', 'expect', 'content-length', 'host', 'upgrade']) outgoingHeaders.delete(name)
+    let response
+    try {
+      response = await transportFetch(request.url, {
+        method: request.method, headers: outgoingHeaders, redirect: 'manual',
+        ...(request.body ? { body: await request.arrayBuffer() } : {}),
+      })
+    } catch (error) {
+      if (isMail) {
+        const reason = ['invalid transfer-encoding header', 'invalid connection header', 'invalid upgrade header', 'invalid content-length header', 'invalid onConnect method', 'invalid onError method', 'invalid onHeaders method', 'invalid onData method', 'invalid onComplete method'].find(message => error.cause?.message === message)
+        mailResponses.push({ status: null, error: error.name, code: error.cause?.code, reason })
+      }
+      throw error
+    }
+    if (isMail) mailResponses.push({ status: response.status })
     return new WorkerResponse(response.body ? await response.arrayBuffer() : null, {
       status: response.status, statusText: response.statusText, headers: response.headers,
     })
@@ -176,7 +189,7 @@ export async function openHandset({ liveMail = false, twilio = false, edges = nu
     await migrate(db)
     await seed(db, ownerEmail)
     return {
-      origin, ownerEmail, mails, get db() { return db }, close, twilioResources, sourceRequests,
+      origin, ownerEmail, mails, mailResponses, get db() { return db }, close, twilioResources, sourceRequests,
       async restart() {
         await runtime.dispose()
         await dispatcher.close()
@@ -199,7 +212,7 @@ export async function openHandset({ liveMail = false, twilio = false, edges = nu
       request(path, options = {}) {
         const url = new URL(path, origin)
         if (url.origin !== origin) throw new Error('Harness requests must stay on its HTTPS origin')
-        return fetch(url, { redirect: 'manual', ...options, dispatcher })
+        return transportFetch(url, { redirect: 'manual', ...options, dispatcher })
       },
       setMailFailure(fail = true) {
         if (liveMail) throw new Error('Mail failure injection is available only with intercepted mail')

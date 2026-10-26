@@ -3,6 +3,8 @@ import { test } from 'node:test'
 import { openHandset } from './helpers/handset-worker.mjs'
 import { post, signIn } from './helpers/handset-auth.mjs'
 import { metricDataset,metricConfig } from './helpers/handset-metrics.mjs'
+import { exportFixture, archiveEdge, sftpEdge, range, encryptionKey, sha } from './helpers/handset-exports.mjs'
+import { runSftp } from '../src/handset/exports/sftp.mjs'
 import { importDataset } from './helpers/handset-import.mjs'
 
 test('Reviewed queue observations reconcile exact service levels, agent durations, historical snapshots and scheduled report contents',async()=>{
@@ -90,4 +92,124 @@ test('Metric sources reject overlapping states and inconsistent correlation; pro
   assert.equal((await (await runtime.request('/api/handset/metrics/live?queueId=queue-A',{headers})).json()).provisional,0)
   assert.equal((await post(runtime,'/api/handset/metrics/finalize',{queueId:'queue-A',configRevision:config.revision},headers)).status,201)
  }finally{await runtime.close()}
+})
+
+const decode=async(name,bytes,jobId)=>{
+ const key=await crypto.subtle.importKey('raw',Buffer.from(encryptionKey,'hex'),'AES-GCM',false,['decrypt']),fileKey=name.slice(jobId.length+1).replace(/\.(?:wav|json|manifest\.json)\.aes$/,'')
+ return Buffer.from(await crypto.subtle.decrypt({name:'AES-GCM',iv:bytes.subarray(0,12),additionalData:Buffer.from(jobId+':'+fileKey)},key,bytes.subarray(12)))
+}
+const csvUrl='/csv?'+new URLSearchParams(Object.fromEntries(Object.entries(range).map(([k,v])=>[k,String(v)])))
+
+test('Call-log CSV preserves every selected call and leg with timezone and explicit missing billing provenance through native admin doors',async()=>{
+ const f=await exportFixture()
+ try{
+  const admin=await f.persona('synthetic-handset-3500','admin'),supervisor=await f.persona('synthetic-handset-3501')
+  const one=await f.media(1),two=await f.media(2,{transcript:false})
+  const monthCalls=[]
+  for(let index=0;index<600;index++){
+   const receipt=await f.callback({CallSid:'synthetic-handset-'+(4000+index),CallStatus:'completed',SequenceNumber:'0',Timestamp:'Thu, 15 Oct 2026 16:00:00 GMT',CallDuration:'40'})
+   assert.equal(receipt.status,200,await receipt.clone().text());monthCalls.push((await receipt.json()).recordId)
+  }
+  const leg=await f.callback({CallSid:'synthetic-handset-3502',ParentCallSid:'synthetic-handset-3001',CallStatus:'completed',SequenceNumber:'0',Timestamp:'Thu, 15 Oct 2026 16:01:00 GMT',CallDuration:'30'});assert.equal(leg.status,200,await leg.clone().text());const legId=(await leg.json()).recordId
+  const disposition=await post(f.runtime,'/api/handset/records',{kind:'disposition',sourceId:'synthetic-handset-3503',occurredAt:range.from+1000,parentId:one.callId,caseId:one.caseId,data:{text:'=unsafe spreadsheet formula'}},f.headers);assert.equal(disposition.status,201)
+  const units=await post(f.runtime,'/api/handset/records',{kind:'usage',sourceId:'synthetic-handset-3505',occurredAt:range.from+1000,parentId:one.callId,caseId:one.caseId,data:{amountCents:17,currency:'USD',billedUnits:'2',billedUnitKind:'minutes'}},f.headers);assert.equal(units.status,201,await units.clone().text())
+  const response=await f.runtime.request(f.base+csvUrl,{headers:admin});assert.equal(response.status,200,await response.clone().text());const csv=await response.text()
+  assert.equal(response.headers.get('x-handset-call-count'),String(2+monthCalls.length));assert.equal(response.headers.get('x-handset-leg-count'),'1');assert.equal(response.headers.get('x-handset-row-count'),String(3+monthCalls.length))
+  for(const id of [one.callId,two.callId,...monthCalls,legId,one.recordingId,two.recordingId])assert.ok(csv.includes(id),id)
+  assert.ok(csv.includes('"2","minutes","","owner supplied; unverified","170000"'),'native entered billed units and their provenance survive export');assert.ok(csv.includes('America/Chicago'));assert.ok(csv.includes('11:00:00 GMT-05:00'));assert.ok(csv.includes("'=unsafe spreadsheet formula"));assert.ok(csv.includes('carrier billed units not supplied'));assert.equal(sha(Buffer.from(csv)),response.headers.get('x-handset-csv-sha256'))
+  const outside=await f.runtime.request(f.base+'/csv?'+new URLSearchParams({...range,from:String(range.to),to:String(range.to+86400000)}),{headers:admin});assert.equal(outside.headers.get('x-handset-call-count'),'0')
+  for(const path of ['',csvUrl,'/jobs/synthetic-handset-3504','/settings']){const r=await f.runtime.request(f.base+path,{headers:supervisor});assert.equal(r.status,403,await r.clone().text())}
+  for(const [path,body] of [['/jobs',{}],['/connectors',{}],['/schedules',{}],['/tick',{}]])assert.equal((await post(f.runtime,f.base+path,body,supervisor)).status,403)
+  assert.equal((await f.runtime.request('/app/exports',{headers:supervisor})).status,403)
+  assert.equal((await f.runtime.request(f.base+csvUrl)).status,401)
+  assert.equal((await post(f.runtime,f.base+'/jobs',{})).status,401)
+  await f.runtime.sql("UPDATE oa_operators SET role='member',version=version+1 WHERE id=?",'synthetic-handset-3500')
+  assert.equal((await f.runtime.request(f.base+csvUrl,{headers:admin})).status,401)
+ }finally{await f.runtime.close()}
+})
+
+test('Reviewed queue and owner schedules each send one sensitive CSV copy with shown recipient and timezone and stop after authority revocation',async()=>{
+ const f=await exportFixture()
+ try{
+  const media=await f.media(3)
+  await f.persona('synthetic-handset-3510')
+  const detail=await (await f.runtime.request('/api/handset/cases/'+media.caseId,{headers:f.headers})).json()
+  const assigned=await post(f.runtime,'/api/handset/cases/'+media.caseId,{title:detail.current.title,ownerId:'synthetic-handset-1',version:detail.current.version},f.headers);assert.equal(assigned.status,200,await assigned.clone().text())
+  const q=await post(f.runtime,'/api/handset/queues',{name:'Support',mode:'longest_idle',skills:[],maxWaitSeconds:120,wrapSeconds:30,maxWaiting:100,overflowKind:'voicemail',confirm:'approve native queue policy'},f.headers);assert.equal(q.status,201,await q.clone().text());const queue=await q.json()
+  const entry=await post(f.runtime,'/api/handset/queues/'+queue.id+'/entries',{callId:media.callId,language:'en',skills:[],priority:0},f.headers);assert.equal(entry.status,201,await entry.clone().text())
+  const value={...range,queueId:queue.id,recipient:'synthetic-handset-3505@example.test',dueAt:Date.now(),emailCopyPolicy:'I approve sensitive call-log CSV copies to this exact recipient in separate email custody',confirm:'schedule this exact call-log email'}
+  assert.equal((await post(f.runtime,f.base+'/schedules',{...value,emailCopyPolicy:undefined},f.headers)).status,403)
+  const scheduled=await f.write('/schedules',value)
+  const before=f.runtime.mails.length;await f.write('/tick',{},200);await f.write('/tick',{},200);await f.runtime.scheduled()
+  assert.equal(f.runtime.mails.length,before+1)
+  const mail=f.runtime.mails.at(-1),attachment=mail.attachments[0],csv=Buffer.from(attachment.content,'base64').toString()
+  assert.equal(mail.personalizations[0].to[0].email,value.recipient);assert.ok(csv.includes(media.callId));assert.ok(csv.includes(queue.id));assert.ok(csv.includes('America/Chicago'));assert.ok(mail.content.some(part=>part.value.includes('Calls: 1. Legs: 0.')))
+  const state=(await f.get()).schedules.find(s=>s.id===scheduled.id);assert.equal(state.state,'accepted');assert.equal(state.call_count,1);assert.equal(state.csv_hash,sha(Buffer.from(csv)))
+  const owned=await f.write('/schedules',{...value,queueId:undefined,ownerId:'synthetic-handset-1',dueAt:Date.now()})
+  await f.runtime.scheduled();await f.write('/tick',{},200)
+  assert.equal(f.runtime.mails.length,before+2)
+  const ownedCsv=Buffer.from(f.runtime.mails.at(-1).attachments[0].content,'base64').toString()
+  assert.ok(ownedCsv.includes(media.callId));assert.ok(ownedCsv.includes('"synthetic-handset-1"'))
+  assert.equal((await f.get()).schedules.find(s=>s.id===owned.id).call_count,1)
+  const other=await f.runtime.request(f.base+csvUrl+'&ownerId=synthetic-handset-3510',{headers:f.headers});assert.equal(other.headers.get('x-handset-call-count'),'0');assert.ok(!(await other.text()).includes(media.callId))
+  const held=await f.write('/schedules',{...value,queueId:undefined,ownerId:'synthetic-handset-1',dueAt:Date.now()+1000})
+  await f.runtime.sql("UPDATE oa_operators SET version=version+1 WHERE id=?",'synthetic-handset-1');await f.runtime.scheduled(Date.now()+2000)
+  assert.equal(f.runtime.mails.length,before+2);const stored=(await f.runtime.sql('SELECT state FROM hnd_export_schedules WHERE id=?',held.id)).results[0];assert.equal(stored.state,'refused')
+ }finally{await f.runtime.close()}
+})
+
+test('Official archive edges reconcile encrypted audio, transcripts and unavailable entries after interruption and lost acknowledgements without duplicate files',async()=>{
+ for(const provider of ['box','dropbox','google-drive']){
+  const edge=archiveEdge(),f=await exportFixture(edge)
+  try{
+   const available=await f.media(4),unavailable=await f.media(5,{audio:false,transcript:false}),connector=await f.connector(provider),job=await f.archive(connector.id)
+   edge.loseResponse()
+   const first=await post(f.runtime,f.base+'/jobs/'+job.id+'/run',{credential:'synthetic-handset-3301',encryptionKey},f.headers);assert.equal(first.status,503,await first.clone().text());assert.equal(edge.objects.size,1)
+   await f.runtime.restart()
+   const complete=await f.write('/jobs/'+job.id+'/run',{credential:'synthetic-handset-3301',encryptionKey},200)
+   assert.equal(complete.state,'verified');assert.equal(edge.objects.size,3);assert.equal(new Set(edge.uploads).size,edge.uploads.length)
+   const manifestFile=[...edge.objects.values()].find(file=>file.name.includes('.manifest.manifest.json.aes'));assert.ok(manifestFile)
+   const manifest=JSON.parse((await decode(manifestFile.name,manifestFile.bytes,job.id)).toString())
+   assert.equal(manifest.recordingCount,2);assert.equal(manifest.files.length,4)
+   const audio=manifest.files.find(file=>file.kind==='audio'&&file.recordingId===available.recordingId),transcript=manifest.files.find(file=>file.kind==='transcript'&&file.recordingId===available.recordingId),missing=manifest.files.find(file=>file.kind==='audio'&&file.recordingId===unavailable.recordingId)
+   assert.equal(audio.sha256,sha(available.bytes));assert.equal(missing.state,'unavailable');assert.equal(missing.reason,'recording_media_unavailable');assert.equal(transcript.transcriptLink,'/api/handset/transcripts/'+available.transcriptId)
+   for(const file of manifest.files.filter(file=>file.state==='verified')){const remote=edge.objects.get(file.name);assert.equal(sha(remote.bytes),file.cipherSha256);assert.equal(sha(await decode(file.name,remote.bytes,job.id)),file.sha256)}
+   const plainTranscript=JSON.parse((await decode(transcript.name,edge.objects.get(transcript.name).bytes,job.id)).toString());assert.equal(plainTranscript.segments[0].text,'Please call on Tuesday.')
+   const count=edge.uploads.length;await f.write('/jobs/'+job.id+'/run',{credential:'synthetic-handset-3301',encryptionKey},200);assert.equal(edge.uploads.length,count)
+   const next=await f.archive(connector.id);await f.write('/connectors/'+connector.id+'/revoke',{},200);const requests=edge.requests.length
+   assert.equal((await post(f.runtime,f.base+'/jobs/'+next.id+'/run',{credential:'synthetic-handset-3301',encryptionKey},f.headers)).status,409);assert.equal(edge.requests.length,requests);assert.equal(edge.objects.size,3)
+  }finally{await f.runtime.close()}
+ }
+})
+
+test('Archive export approval never substitutes for separate exact-person recording and transcript grants, including revocation during readback',async()=>{
+ const edge=archiveEdge(),f=await exportFixture(edge)
+ try{
+  const media=await f.media(6),connector=await f.connector('dropbox')
+  await post(f.runtime,'/api/handset/transcripts/'+media.transcriptId+'/revoke',{personId:'synthetic-handset-1'},f.headers)
+  const job=await f.archive(connector.id),complete=await f.write('/jobs/'+job.id+'/run',{credential:'synthetic-handset-3301',encryptionKey},200)
+  assert.equal(complete.files.find(file=>file.kind==='transcript').reason,'transcript_access_required')
+  assert.equal(edge.objects.size,2)
+  const next=await f.archive(connector.id)
+  edge.onDownload(async()=>{edge.onDownload(null);await post(f.runtime,'/api/handset/recordings/grants/'+media.grant.id+'/revoke',{},f.headers)})
+  const response=await post(f.runtime,f.base+'/jobs/'+next.id+'/run',{credential:'synthetic-handset-3301',encryptionKey},f.headers);assert.equal(response.status,403,await response.clone().text())
+  assert.equal((await f.get('/jobs/'+next.id)).state,'interrupted')
+  assert.ok(!(await f.get('/jobs/'+next.id)).files.some(file=>file.kind==='manifest'&&file.state==='verified'))
+ }finally{await f.runtime.close()}
+})
+
+test('Buyer OpenSSH SFTP pins the approved host key, independently reads encrypted files, resumes without duplication and obeys native connector revocation',async()=>{
+ const edge=await sftpEdge(),f=await exportFixture()
+ try{
+  await f.media(7);await f.media(8,{audio:false,transcript:false})
+  const connector=await f.connector('sftp',edge.destination),job=await f.archive(connector.id),config={origin:f.runtime.origin,jobId:job.id,encryptionKey,identityFile:edge.identityFile,knownHostsFile:edge.knownHostsFile}
+  const network=(url,options)=>f.runtime.request(String(url).slice(f.runtime.origin.length),options)
+   await runSftp(config,f.cookie,network)
+   assert.equal((await f.get('/jobs/'+job.id)).state,'client_verified');assert.equal(edge.objects.size,3)
+   const writes=edge.writes.length;await runSftp(config,f.cookie,network);assert.equal(edge.writes.length,writes)
+   const manifestFile=[...edge.objects].find(([name])=>name.includes('.manifest.manifest.json.aes')),manifest=JSON.parse((await decode(manifestFile[0].split('/').at(-1),manifestFile[1],job.id)).toString())
+   assert.equal(manifest.recordingCount,2);assert.ok(manifest.files.some(file=>file.state==='unavailable'));assert.ok(manifest.files.some(file=>file.transcriptLink))
+   const next=await f.archive(connector.id);await f.write('/connectors/'+connector.id+'/revoke',{},200)
+   await assert.rejects(runSftp({...config,jobId:next.id},f.cookie,network),/approve the exact archive/);assert.equal(edge.writes.length,writes)
+ }finally{await f.runtime.close();await edge.close()}
 })

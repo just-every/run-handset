@@ -10,6 +10,7 @@ import { lobbyResponse } from './base/lobby'
 import { setupStateResponse } from './base/setup-state'
 import { authResponse, runtimeBindings, type Bindings } from './auth.server'
 import { identity } from './identity'
+import { tickExports } from './handset/exports/doors'
 import { consentProviderResponse } from './handset/consent/provider'
 import { tickConsentTexts } from './handset/consent/texts'
 import { surveyProviderResponse, tickSurveys } from './handset/surveys/doors'
@@ -85,6 +86,7 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     })
   },
   async scheduled(event, env) {
+    await tickExports(runtimeBindings(env),event.scheduledTime)
     await tickConsentTexts(runtimeBindings(env))
     await tickSurveys(runtimeBindings(env))
     await expireKnowledge(runtimeBindings(env))
