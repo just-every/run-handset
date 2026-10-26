@@ -332,7 +332,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "d3c3490a52a3e4288fad04e015a868cee0dd603f3db83c48c72e84d722e9334c",
+      "sha256": "cff305dda209e233e32548fd3e55264828c5fdc110be16efc7b77d29e12f6044",
       "executable": false
     },
     "deploy-demo.json": {
@@ -353,6 +353,10 @@
     },
     "docs/backup.md": {
       "sha256": "c87c74604b80d87412c0169edd36d499b3ad50b6fa06ae13624903f0f7272468",
+      "executable": false
+    },
+    "docs/CALL-CONSENT.md": {
+      "sha256": "3eee23e2c7c9e21e281b2c8dca91755ad80c10a3e140c9189659936508bb5704",
       "executable": false
     },
     "docs/DELIVERY.md": {
@@ -388,7 +392,7 @@
       "executable": false
     },
     "docs/HTTP-DOORS.md": {
-      "sha256": "7373b463aba8bb465181d0e2bb54164d756a7677525aa9553d0d362b10f6a62b",
+      "sha256": "f65a73cce05e13b252a982c9c6ea33cd2235c9ff43f9235321e618a6657baea6",
       "executable": false
     },
     "docs/KNOWLEDGE.md": {

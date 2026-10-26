@@ -192,3 +192,23 @@ is a supplied-text foundation with a native search and correction console at
 The owner-only `/api/handset/flows` namespace stores preparatory immutable
 versions, native path tests and exact publication or rollback approvals. It
 authorizes no carrier effect. See `docs/HANDSET-FLOWS.md`.
+
+## Explicit call text consent and surveys
+
+Current native owners use `/app/consent`, `/api/handset/consent`,
+`/app/surveys` and `/api/handset/surveys`. The native session, origin and owner
+checks precede each operation; audited writes repeat current native ownership.
+The consent policy, recipient local-hours review, recording-permission
+attestation and verbal consent are separate explicit native actions.
+
+Additional signed Twilio exceptions are `/providers/twilio/consent/:sourceId`,
+its `/calls/:id/decision` and `/calls/:id/outcome` descendants,
+`/providers/twilio/consent/texts/:id/status`, and
+`/providers/twilio/surveys/:id` with its consent, rating and reply descendants.
+They require the installation-local exact-URL signature, scalar form fields,
+Host and origin binding and current source and policy authority. Call and message
+identities have independent provider readback. Only the exact owner-approved
+staff Dial and one purpose-permitted text can produce an external effect. A
+missed-call reply never grants survey or marketing permission. The shared signed
+event webhook also correlates actual inbound survey replies. See
+`docs/CALL-CONSENT.md` for effect-time fences and physical-receipt limits.
