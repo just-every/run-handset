@@ -46,7 +46,7 @@ export async function casePage(detail:{current:CaseRow;history:unknown[];records
  const edit=`<details class="hs-edit"${notice?' open':''}><summary>Edit case / Editar caso</summary>${caseForm(c,'',notice,people)}</details>`
  const versions=`<details><summary>Earlier versions (${detail.history.length})</summary><ol>${detail.history.map(item=>{const h=item as {version:number;snapshot:string};const snapshot=JSON.parse(h.snapshot);snapshot.ownerId=personName(people,snapshot.ownerId);return `<li>Version ${h.version}${display(snapshot)}</li>`}).join('')}</ol></details>`
  const facts=[...who,c.status==='open'?'Open':'Closed',personName(people,c.owner_id),...(c.due_at?['Due '+time(c.due_at)]:[])]
- return page(c.title,`<p class="hs-sub hs-dots">${facts.map(f=>`<span>${e(f)}</span>`).join('')}</p>${c.promise?`<p class="hs-notice" data-tone="grey">Due work: ${e(c.promise)}</p>`:''}${history}<div class="hs-disclosures">${edit}${raw}${versions}</div>`,status)
+ return page(c.title,`<p class="hs-sub hs-dots"><span>${facts.map(f=>`<span>${e(f)}</span>`).join('')}</span></p>${c.promise?`<p class="hs-notice" data-tone="grey">Due work: ${e(c.promise)}</p>`:''}${history}<div class="hs-disclosures">${edit}${raw}${versions}</div>`,status)
 }
 export async function recordForm(caseId:string,records:RecordRow[],kind:Kind,visibleKinds:readonly Kind[]=kinds){
  const definition=definitions[kind],fields=[...definition.required,...(definition.optional??[])]
