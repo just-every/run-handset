@@ -428,7 +428,7 @@
       "executable": false
     },
     "docs/RECOVERY.md": {
-      "sha256": "d9bdac06e34364f60d9adbea0c141f9a1611ce6bf9c351fa268f7d37bf63e309",
+      "sha256": "834cbbc00c85e3cf84c9d0656a61a08ddd76b7eb83fec7b9927aabae971ce6ea",
       "executable": false
     },
     "docs/RULES.md": {
@@ -460,7 +460,7 @@
       "executable": false
     },
     "management/integration/deployment-spec.json": {
-      "sha256": "5f98209bd475c02810dc4c25870b2837f3d1191dec27c1826d95f99ecb202b79",
+      "sha256": "18457d25d1bdd0a7ab03dfe9a36898807f1de08d262ca66c27cc9038bc3cdcfb",
       "executable": false
     },
     "migrations/core/0001_owner.sql": {
@@ -4120,7 +4120,7 @@
       "executable": false
     },
     "tests/handset-console-browser.mjs": {
-      "sha256": "e5259e9620ce959b81a2f66826a6ab147cf7f796e690abf2d1510ab01a268bab",
+      "sha256": "6c3ca33ff2112abb6a40c7958b4474e13ebc0e720c8312da11ff71a292d47f90",
       "executable": false
     },
     "tests/handset-import.mjs": {
@@ -4152,7 +4152,7 @@
       "executable": false
     },
     "tests/handset-recovery.mjs": {
-      "sha256": "8b09b9e71b4cf39a1c275221c7ebb2e5110b0bba4b39b65c554372dcb3a269ae",
+      "sha256": "ca5df7d7d925ad4419dc227b1e3f2ed6f0f09590f162b6c6e6379fc655e1da04",
       "executable": false
     },
     "tests/handset-reporting.mjs": {
@@ -4309,6 +4309,10 @@
     },
     "tests/journeys/handset-export-mail.mjs": {
       "sha256": "ac7c71ae6f5185c239cb1507fb9bc8f31d06cfe5f3f79e34afc60099ea954f3c",
+      "executable": false
+    },
+    "tests/journeys/handset-recovery-intake-timing.mjs": {
+      "sha256": "21fcdc6e5a0661dc11ea62ced0aa500dbc81eae231fa70b2b628b9b1b8160070",
       "executable": false
     },
     "tests/runtime.mjs": {

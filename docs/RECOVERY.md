@@ -36,3 +36,47 @@ a newer revision. The screen discloses its 200-case window.
 HND-017 adds owner-approved virtual hold and callbacks on top of these recoveries;
 see docs/CALLBACKS.md. A recovery resolves from a callback only after the carrier's
 own staff-leg readback shows a conversation.
+
+## Reviewed automatic task intake
+
+At `/app/recovery`, expand **Settings: missed-call intake** and approve the exact
+source, IANA timezone and weekly local hours. The approving current native owner
+receives new tasks. The API is `POST /api/handset/recovery/policies`, with
+`sourceId`, the expected `revision`, `timezone`, `hours` in the existing weekly
+window format and `confirm` set to `approve owned missed-call intake`.
+`POST /api/handset/recovery/policies/revoke` takes `sourceId` and `revision`.
+Approvals and revocations append versions; an older approval never becomes current
+again. The native form preserves submitted values when a timezone or hours review
+is refused. All configured windows are shown before replacement approval.
+
+Without that current approval, canonical records and manual recovery still work,
+but automatic intake is off. Intake evaluates the final provider timestamp in the
+reviewed timezone, including the opening instant and excluding closing. Older
+missed outcomes are not backfilled by a new approval. Twilio timestamps have
+whole-second precision. Source withdrawal, a number correction, a newer policy or
+an owner authority change fences the same transaction that creates the task.
+
+The canonical event door, terminal queue offer readback and terminal queue voice
+door all use the same intake. It independently reads the exact inbound parent and
+the complete child list, then reads each child. A failed staff offer while the
+parent remains active creates nothing. A completed staff conversation, a live or
+unavailable child, ambiguous listing, foreign identity or missing final timestamp
+cannot be labelled an unanswered call. Provider retry after an interrupted
+readback can finish intake without creating a second task. Retained queue place
+is copied into a new recovery; an existing recovery keeps its owner, due time,
+queue evidence and human or terminal decision. Each newly observed call retains
+its own missed evidence even when it shares the existing need.
+
+This approval grants no contact permission: it creates neither a text permission
+nor a callback attempt, and cannot enroll marketing. STOP or DNC remains visible
+on held work. HND-089 keeps the separate one-reply consent path; HND-017 keeps its
+explicitly requested callback path. Automatic task ownership does not qualify a
+real carrier callback or handset receipt. Fresh needs after a terminal recovery
+still require explicit case work; automatic separation of those needs remains
+unproved under HND-017 and HND-073. HND-047 retains accountable evidence and
+HND-065 and HND-066 retain complete archive and erasure composition.
+
+Conservative task-intake default ADOPTED pending ct: exact-source weekly hours,
+current owner approval and ownership, no automatic contact, and no automatic
+reopening or reassignment of an existing human decision. This is additional to
+the separately adopted caller-requested callback default. HND-017 stays PARTIAL.

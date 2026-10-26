@@ -86,7 +86,7 @@ test('Final queue outcomes create owned missed-call work with retained place whi
   await edge.callback({...call,CallStatus:'completed'})
   response=await f.source.callback({...call,CallStatus:'completed',SequenceNumber:'1',Timestamp:new Date().toISOString()});assert.equal(response.status,200,await response.clone().text())
   assert.equal((await f.get()).cases.length,1,'queue and canonical doors share the same owned task')
-  await q.presence(q.english,'unavailable')
+  await q.presence(q.english,'away')
   const waiting=edge.resource(81,{parent_call_sid:null})
   response=await edge.callback(waiting);assert.equal(response.status,200,await response.clone().text())
   state=await q.read();place=state.entries.find(r=>r.id!==task.queue_entry_id)

@@ -214,6 +214,7 @@ for (const width of [1440, 390]) for (const domain of ['rules', 'followups', 're
   assert.equal(await page.locator('button, a, summary').evaluateAll(controls => controls.every(c => c.textContent.trim().length > 2)), true, 'Every control has a visible label; no icon-only control needs a tooltip')
   assert.match(await page.locator('main').ariaSnapshot(), /heading/)
   await page.screenshot({ path: `${directory}/${width}-${name}.png`, fullPage: true })
+  if (name.startsWith('recovery-intake')) await page.getByText('Settings: missed-call intake', { exact: true }).locator('..').screenshot({ path: `${directory}/${width}-${name}-settings.png` })
  }
  try {
   await authenticate(f.headers.cookie)
