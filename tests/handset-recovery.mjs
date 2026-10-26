@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { post } from './helpers/handset-auth.mjs'
+import { post, signIn } from './helpers/handset-auth.mjs'
 import { receptionistFixture } from './helpers/handset-receptionist.mjs'
 import { sourceFixture } from './helpers/handset-sources.mjs'
 import { intakeFixture, intakeTime } from './helpers/handset-recovery-intake.mjs'
@@ -29,6 +29,10 @@ test('Reviewed business hours admit one owned task from final carrier readback w
   assert.equal(stale.status,409)
   const unauthorized=await post(f.runtime,f.base+'/policies',{sourceId:f.source.source.id,revision:1,timezone:'UTC',hours:{weekly:[]},confirm:'approve owned missed-call intake'},{authorization:'Bearer synthetic-handset-1001'})
   assert.equal(unauthorized.status,401)
+  assert.equal((await post(f.runtime,'/auth/operator/status',{operatorId:'synthetic-handset-2',status:'active'},f.source.headers)).status,200)
+  const member=await signIn({...f.runtime,ownerEmail:'synthetic-handset-2@example.test'}),memberHeaders={cookie:member.cookie}
+  assert.equal((await post(f.runtime,f.base+'/policies',{sourceId:f.source.source.id,revision:1,timezone:'UTC',hours:{weekly:[]},confirm:'approve owned missed-call intake'},memberHeaders)).status,403)
+  assert.equal((await post(f.runtime,f.base+'/policies/revoke',{sourceId:f.source.source.id,revision:1},memberHeaders)).status,403)
   assert.equal((await unapproved.send()).status,200);assert.equal((await f.get()).cases.length,0,'approval never backfills an older missed outcome')
   const call=f.call(2),response=await call.send();assert.equal(response.status,200,await response.clone().text())
   const observed=await response.json(),task=(await f.get()).cases[0]
