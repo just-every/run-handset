@@ -20,3 +20,7 @@
 @media (min-width: 1024px) {
   .s-follow .number-figure { right: calc(var(--edge) + 100 * var(--u)); }
 }
+
+@media (max-width: 599.98px) {
+  .s-surge .heading, .s-numbers .heading { font-size: clamp(40px, 11.5cqi, 76px); }
+}

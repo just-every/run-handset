@@ -8,6 +8,7 @@
 .specimen .tag .group { display: block; }
 
 @media (min-width: 1024px) {
+  .s-closing .heading .line:last-child { transform: scaleX(.93); transform-origin: left; }
   .statement { margin-top: calc(40 * var(--u)); font-size: calc(30 * var(--u)); line-height: 1.3; }
   .s-closing .cta-row { margin-top: calc(44 * var(--u)); gap: calc(16 * var(--u)) calc(30 * var(--u)); font-size: calc(25 * var(--u)); }
   .s-closing .run-button { min-height: calc(62 * var(--u)); padding: 0 calc(28 * var(--u)); font-weight: 500; }
