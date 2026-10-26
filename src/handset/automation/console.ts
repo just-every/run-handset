@@ -83,7 +83,7 @@ export async function workConsole(request: Request, env: Bindings, actor: Sessio
   const current = await door(new Request(new URL('/api/handset/recovery', url)), env, actor)
   if (!current) throw new Fault('not_found', 404)
   if (!current.ok) return current
-  const page = await render({ ...await current.json() as Snapshot, intakeDraft: raw, intakeError: intakeErrorMessage(error) })
+  const page = await render({ ...await current.json() as Snapshot, intakeDraft: raw, intakeError: intakeErrorMessage(error) }, url, request, env, actor)
   return new Response(page.body, { status: error.status, headers: page.headers })
  }
  if (!response) throw new Fault('not_found', 404)

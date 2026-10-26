@@ -1516,7 +1516,7 @@
       "executable": false
     },
     "src/handset/automation/console.ts": {
-      "sha256": "fb9f9c866d765a9bc6fd159b180e464a797cc1d34c99a23865639f99849009a0",
+      "sha256": "2a5fef687eb1487417d71104f4c4ec95271a1e659c38001090843f93cae8c9c4",
       "executable": false
     },
     "src/handset/automation/doors.ts": {
