@@ -10,7 +10,7 @@ export type CaseDetail = { current: CaseRow; history: unknown[]; records: Record
 
 /** Reads each case through the records door, so every case shown is authorized and audited as a case read. */
 export async function caseDetails(request: Request, env: Bindings, actor: Session, ids: string[]) {
- const headers = new Headers(['cookie', 'host'].flatMap(name => request.headers.has(name) ? [[name, request.headers.get(name)!]] : [])), found = new Map<string, CaseDetail>()
+ const headers = new Headers(['cookie', 'host'].flatMap((name): [string, string][] => request.headers.has(name) ? [[name, request.headers.get(name)!]] : [])), found = new Map<string, CaseDetail>()
  for (const caseId of [...new Set(ids)]) {
   try {
    const response = await recordsDoor(new Request(new URL('/api/handset/cases/' + encodeURIComponent(caseId), request.url), { headers }), env, actor)
