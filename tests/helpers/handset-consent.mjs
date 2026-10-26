@@ -77,6 +77,7 @@ export async function oneReplyJourney(f) {
 }
 
 export async function surveyJourney(f) {
+ assert.equal((await f.runtime.request('/api/handset/surveys')).status,401,'the survey report requires native authentication')
  const calls=[]
  for(let n=40;n<50;n++)calls.push(await f.start(n))
  const operators=await f.get('/auth/operators'),casesBefore=await f.get('/api/handset/cases')
