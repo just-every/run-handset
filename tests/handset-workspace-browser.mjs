@@ -172,7 +172,7 @@ for(const width of [1440,390])test(`Explicit executive delegation and owner-atte
   await page.goto(runtime.origin+'/app/recordings');await proof('recording-no-implicit-grant')
   assert.ok((await page.locator('main').innerText()).includes('No current recording approvals'))
   await as(f.cookie);await page.goto(runtime.origin+'/app/recordings');await proof('owner-recording-consent')
-  await page.getByLabel('Provider recording',{exact:true}).selectOption(media.recordingId)
+  await page.getByText('Approve playback for a person',{exact:true}).click();await page.getByLabel('Provider recording',{exact:true}).selectOption(media.recordingId)
   await page.getByLabel('Exact approved person',{exact:true}).selectOption('synthetic-handset-2')
   await page.getByLabel('Recording approval expiry (UTC)',{exact:true}).fill(new Date(Date.now()+1800000).toISOString().slice(0,16))
   await page.getByRole('checkbox',{name:'I attest participant consent and approve playback for this exact person',exact:true}).check()
@@ -267,6 +267,7 @@ for(const width of [1440,390])test(`Executive inbound routing and suspended sour
   const continued=await f.callback({...f.root,CallSid:'synthetic-handset-799'})
   assert.equal(continued.status,200);assert.equal((await continued.json()).caseId,original.record.case_id)
   await page.goto(runtime.origin+'/app/cases/'+original.record.case_id);await proof('reconsent-retained-case')
+  await page.getByText('All record fields and timestamps',{exact:true}).click()
   assert.ok((await page.locator('main').innerText()).includes(f.root.CallSid));assert.ok((await page.locator('main').innerText()).includes('synthetic-handset-799'))
  }finally{await context.close();await browser.close();await runtime.close()}
 })

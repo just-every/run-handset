@@ -5,7 +5,7 @@ import { queueFixture } from './handset-queues.mjs'
 export async function flowJourney({runtime,page,proof,cookie}){
  const f=await queueFixture(runtime,cookie),base='/api/handset/flows'
  const click=async name=>{await page.getByRole('button',{name,exact:true}).click();await page.waitForLoadState('load')}
- await page.goto(runtime.origin+'/app/queues');await proof('flows-queue-entry')
+ await page.goto(runtime.origin+'/app/queues/settings');await proof('flows-queue-entry')
  await page.getByRole('link',{name:'Call-flow settings',exact:true}).click();await proof('flows-empty-builder')
  await click('Add another step');assert.equal(await page.getByLabel('Step ID 5',{exact:true}).inputValue(),'step-5');await proof('flows-added-step-preview')
  await click('Remove step 5');assert.equal(await page.getByLabel('Step ID 5',{exact:true}).count(),0)

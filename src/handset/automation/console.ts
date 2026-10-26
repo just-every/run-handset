@@ -71,5 +71,7 @@ export async function workConsole(request: Request, env: Bindings, actor: Sessio
   ['Matched source', raw.sampleRecordId], ['Action', result.action], ['Exact message', result.message],
   ['Recipient', result.recipient ?? 'No customer recipient authorized'], ['Expires at', when(result.expiresAt)],
  ]) + '<p>Preview sent nothing. Customer contact and unqualified receivers remain held. Publication approves only this exact preview.</p>' + form(base + '/publish', 'Publish exact tested rule', hidden('previewId', result.previewId) + approval('publish exact tested rule', 'I approve this exact tested rule')))
- return new Response(null, { status: 303, headers: { location: base, 'cache-control': 'no-store' } })
+ // A follow-up action returns to that same follow-up.
+ const acted = root === 'followups' ? suffix.match(/^\/([0-9a-f-]{36})\//) : null
+ return new Response(null, { status: 303, headers: { location: acted ? `${base}?followup=${acted[1]}#detail` : base, 'cache-control': 'no-store' } })
 }
