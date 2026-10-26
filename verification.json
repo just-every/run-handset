@@ -73,6 +73,33 @@
         "node --test --test-concurrency=1 tests/handset-recovery.mjs tests/handset-prompts.mjs tests/handset-callbacks.mjs",
         "node --test --test-concurrency=1 tests/handset-receptionist-browser.mjs"
       ]
+    },
+    {
+      "name": "handset-media-browser",
+      "browser": true,
+      "hosted": false,
+      "commands": [
+        "pnpm run build",
+        "node --test --test-concurrency=1 tests/handset-media-privacy.mjs tests/handset-workspace-browser.mjs"
+      ]
+    },
+    {
+      "name": "handset-queues",
+      "browser": false,
+      "hosted": false,
+      "commands": [
+        "pnpm run build",
+        "node --test --test-concurrency=1 tests/handset-queues.mjs"
+      ]
+    },
+    {
+      "name": "handset-communications",
+      "browser": false,
+      "hosted": false,
+      "commands": [
+        "pnpm run build",
+        "node --test --test-concurrency=1 tests/handset-outbound.mjs tests/handset-agent-outcomes.mjs tests/handset-automation.mjs tests/handset-transports.mjs"
+      ]
     }
   ],
   "nightly": []

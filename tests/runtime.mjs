@@ -17,18 +17,3 @@ test('Emitted Worker serves health and public Lobby with honest missing routes',
     for (const path of ['/api', '/api/missing']) assert.equal((await runtime.request(path)).status, 401, path)
   } finally { await runtime.close() }
 })
-
-await import('./handset-auth.mjs')
-await import('./handset-auth-browser.mjs')
-await import('./handset-records.mjs')
-await import('./handset-media-privacy.mjs')
-await import('./handset-workspace-browser.mjs')
-await import('./handset-authority.mjs')
-await import('./handset-admin.mjs')
-await import('./handset-queues.mjs')
-await import('./handset-import.mjs')
-await import('./handset-outbound.mjs')
-await import('./handset-agent-outcomes.mjs')
-await import('./handset-automation.mjs')
-await import('./handset-transports.mjs')
-await import('./handset-console-browser.mjs')

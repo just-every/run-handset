@@ -4292,7 +4292,7 @@
       "executable": false
     },
     "tests/runtime.mjs": {
-      "sha256": "6b25f42d9e0ced12b747a6abae4575e99ab5aa85790913c953e8de8c0cbe7ba8",
+      "sha256": "5217a3a2a794ef4151106e28e80a1dfdcace6b0a176fd70513c3597e842891eb",
       "executable": false
     },
     "tests/site/site.test.mjs": {
@@ -4308,7 +4308,7 @@
       "executable": false
     },
     "verification.json": {
-      "sha256": "d24d40206f60b7b4b093878d8d31c982d493698a2da83c6936d738f3d3cb9bc6",
+      "sha256": "e432eccfdeae007034297153bec2024829d84fc4b43bccd02bf013db85211161",
       "executable": false
     },
     "VERIFY-WORKFLOW.md": {
