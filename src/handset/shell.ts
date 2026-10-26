@@ -44,7 +44,7 @@ export async function markCurrent(path: string, response: Response): Promise<Res
  if (tab) html = html.replace(`<a href="${tab[0]}">`, `<a href="${tab[0]}" aria-current="page">`)
  else if (setting) html = html.replace('<summary>Settings</summary>', '<summary data-current>Settings</summary>').replace(`<a href="${setting[0]}">`, `<a href="${setting[0]}" aria-current="page">`)
  // A page's own section tabs mark the link to this exact page too.
- const main = html.indexOf('<main')
- if (main > 0) html = html.slice(0, main) + html.slice(main).replaceAll(`<a href="${path}">`, `<a href="${path}" aria-current="page">`)
+ const main = html.indexOf('<main'), own = `<a href="${path}">`
+ if (main > 0) html = html.slice(0, main) + html.slice(main).replaceAll(own, () => `<a href="${path}" aria-current="page">`)
  return new Response(html, { status: response.status, statusText: response.statusText, headers: response.headers })
 }
