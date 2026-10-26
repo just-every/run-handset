@@ -3964,7 +3964,7 @@
       "executable": false
     },
     "src/site/landing/sections/FollowUps.tsx": {
-      "sha256": "2497e8f440103b797863364d298dcf98ba68e2d61320c73ef39bca014ecb6928",
+      "sha256": "440fd47de7f0ce908483099f8e38eeeb9bc235d81cc0e408730bb5d96979f614",
       "executable": false
     },
     "src/site/landing/sections/Interlude.tsx": {
@@ -4024,7 +4024,7 @@
       "executable": false
     },
     "src/site/styles/landing.css": {
-      "sha256": "8db17e3c5882e6515791ab777cf85600ad08eb0563f58ce6bef41fccfa7b8fc2",
+      "sha256": "2f6b28588f4294c76eaae48213318b421edce9491641f7883193e9e9f2778091",
       "executable": false
     },
     "src/site/styles/sections/burst.css": {
@@ -4048,7 +4048,7 @@
       "executable": false
     },
     "src/site/styles/sections/numbers-screens.css": {
-      "sha256": "30eba5ecb2ef06cb74e6c73b051dcdc6b27aedc446d0674f29d71588182fbe70",
+      "sha256": "b828f24323ad2a07d176dafcd1eb14689fe5c9fa04313818ffa96f02aeaaeab6",
       "executable": false
     },
     "src/site/styles/sections/numbers.css": {
