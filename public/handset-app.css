@@ -227,6 +227,10 @@
 
 /* Settings forms: ordinary labelled fields, side by side where they fit. */
 .hs-main form.hs-limits { max-width: 1040px; }
+/* Facts in one line with dots between; a dot that would start a wrapped line falls outside and is clipped. */
+.hs-dots { display: flex; flex-wrap: wrap; overflow: hidden; }
+.hs-dots > span { margin-left: -1.1em; white-space: nowrap; }
+.hs-dots > span::before { content: "·"; display: inline-block; width: 1.1em; text-align: center; }
 .hs-field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 14px 18px; }
 .hs-main .hs-row-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr)); gap: 10px 14px; margin: 0 0 14px; padding: 12px 16px 16px; }
 .hs-field-grid > .hs-row-fields { margin: 0; }
