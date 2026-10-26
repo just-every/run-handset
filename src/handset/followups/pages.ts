@@ -36,6 +36,6 @@ export function followupsPage(snapshot: Snapshot, url?: URL) {
   ? `<ol class="hs-rows">${rows.map(r => `<li><a class="hs-row" href="/app/followups?followup=${e(r.id)}"${r === chosen ? ' aria-current="true"' : ''}><span><span class="hs-row-name">${e(r.obligation)}</span><span class="hs-row-meta">${e(r.status)} · ${e(r.delivery)}</span></span><time class="hs-mono" datetime="${e(when(r.created_at))}">${e(clock(r.created_at))}</time>${rowChip(r, now)}</a></li>`).join('')}</ol>`
   : '<p class="hs-empty">No promises yet.</p>') + '</section>'
  const head = bounds(`${counts.confirmed} confirmed · ${counts.due} due · ${counts.open} open · ${counts.declined} declined. ${snapshot.truncated ? 'The 200-record window is full; older records may be omitted.' : 'All follow-ups shown, up to 200 records.'}`) + nav + '<p>Review the cited obligation and exact internal handoff. A delivery receipt does not complete a promise. Customer messages remain held.</p>'
- if (!chosen) return consolePage('Promised follow-ups', head + list + create)
+ if (!chosen) return consolePage('Promised follow-ups', head + `<div class="hs-split"><div>${list}</div><div class="hs-pane">${create}</div></div>`)
  return consolePage('Promised follow-ups', head + `<div class="hs-split"><div>${list}${create}</div><div class="hs-pane">${[chosen, ...rows.filter(r => r !== chosen)].map(r => card(r, now)).join('')}</div></div>`)
 }
