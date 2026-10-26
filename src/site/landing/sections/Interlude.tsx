@@ -7,7 +7,7 @@ export function Interlude() {
   const { date, closing } = day
   return <Screen id="after-hours" className="s-interlude" label="Mon Oct 26, 6:00 pm PT">
     <div className="desk-phone">
-      <Plate className="art interlude-art" name="interlude" widths={[345, 690]} width={690} height={690} sizes="(max-width: 1023.98px) 92vw, calc(min(100vw, 1600px) * 0.449)" />
+      <Plate className="art interlude-art" name="interlude" widths={[345, 690, 1380]} width={672} height={680} sizes="(max-width: 1023.98px) 92vw, calc(min(100vw, 1600px) * 0.4375)" />
       <p className="display"><span>{closing.display[0]}</span> <span>{closing.display[1]}</span></p>
     </div>
     <p className="tag interlude-tag"><Groups groups={[[date, closing.at], ['the last of nine front desks closes']]} /></p>

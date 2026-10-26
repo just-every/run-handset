@@ -991,20 +991,28 @@
       "sha256": "272e5e566e43067c8b7ef82484071257abd64a7d6f832896ce5ea8dafad2b360",
       "executable": false
     },
+    "public/site/interlude-1380.avif": {
+      "sha256": "e3ede9216daff8088846694fa3d32e5188cfb0ffe6c1ccc4f2b77d375ab1ca3d",
+      "executable": false
+    },
+    "public/site/interlude-1380.webp": {
+      "sha256": "dd8d56eb6053a8a23edc20f7af567e98abcb6932806492cf4c9cb469c7200383",
+      "executable": false
+    },
     "public/site/interlude-345.avif": {
-      "sha256": "8e5961a5b1857904a4c4847579057bd69e7e5732582e179854e81124ee237103",
+      "sha256": "5d7eb7334ab89a132185056089bf6d0e0b56cb8e5d0c73b8237204300fc4de56",
       "executable": false
     },
     "public/site/interlude-345.webp": {
-      "sha256": "e93555b919267da39ee87859efa0c15c9f55c694b58b5def0e20436f58e1d4bc",
+      "sha256": "ba76c1e9ecb8163083dbac9a9d3c09c81805edce6d8f592a4674cc235cbe143d",
       "executable": false
     },
     "public/site/interlude-690.avif": {
-      "sha256": "72add778523972b9cb7c629219de26b2d1b7954980490c72b82535a93bb6f29a",
+      "sha256": "7da16aca7597853b628cce4c02938e7e5d7c46ceb0dc24840a7cb78e53bce252",
       "executable": false
     },
     "public/site/interlude-690.webp": {
-      "sha256": "1bc39b72281da5721d0072081fdf29b0e6def7d38616bfa585244d523203887c",
+      "sha256": "d46e07456585c68e1d0473c626f8580cb8022d7f0dc8557421ffa441a9f55354",
       "executable": false
     },
     "public/site/numbers-334.avif": {
@@ -3960,7 +3968,7 @@
       "executable": false
     },
     "src/site/landing/sections/Interlude.tsx": {
-      "sha256": "3a4c60686f6bdc7a4facb0b1bc819c3da05c8451bd1e9a20d63b29fd177af72c",
+      "sha256": "ba00d444ca4ed8d6c0bce7c564454bad8b70c2a6df7a232a6be925c50cc54ae9",
       "executable": false
     },
     "src/site/landing/sections/NameBack.tsx": {
@@ -4032,7 +4040,7 @@
       "executable": false
     },
     "src/site/styles/sections/interlude.css": {
-      "sha256": "c149e953503603a512e1f3691ad844e744770f3fca655f376b77026c4a5a85dc",
+      "sha256": "b9275ba2bccd23abd27d858d9d07a6068f9bf393ef92e2fc04dd92c10a012124",
       "executable": false
     },
     "src/site/styles/sections/name.css": {
@@ -4048,7 +4056,7 @@
       "executable": false
     },
     "src/site/styles/sections/press.css": {
-      "sha256": "ddb981fc1f3e4ab232eafbdaf6929f96e07d2c380a2a2ba3b01260032314cae6",
+      "sha256": "06f6a3bcbf40148b9a0e0215aeac87d0a95acd5fc4aa600d88a1a31598cb9338",
       "executable": false
     },
     "src/site/styles/site.css": {

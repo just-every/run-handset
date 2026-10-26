@@ -2,13 +2,12 @@
    its display reads as type; one tag sits alone at the lower left. */
 /* --dw is the drawn phone's width; the display's two lines are set from it, so they stay inside the LCD at any size. */
 .desk-phone { position: relative; width: var(--dw); }
-.display { position: absolute; left: 66.6%; color: #e6ece8; font-family: var(--font-mono); font-weight: 500; letter-spacing: .02em; font-size: max(13px, calc(var(--dw) * .026)); line-height: 1.47; }
+.display { position: absolute; left: 66.369%; top: 11.471%; color: #e6ece8; font-family: var(--font-mono); font-weight: 500; letter-spacing: .02em; font-size: max(13px, calc(var(--dw) * .026)); line-height: 1.47; }
 .display span { display: block; white-space: nowrap; }
 .interlude-tag { color: var(--white); }
 
 @media (min-width: 1024px) {
-  .desk-phone { --dw: calc(647 * var(--u)); position: absolute; top: 0; right: 0; }
-  .display { top: calc(70 * var(--u)); }
+  .desk-phone { --dw: calc(630 * var(--u)); position: absolute; top: 0; right: 0; }
   .interlude-tag { position: absolute; left: calc(var(--edge) + 128 * var(--u)); top: calc(814.5 * var(--u)); white-space: nowrap; }
 }
 
@@ -16,7 +15,6 @@
   .s-interlude .stage { padding-top: 0; }
   /* Wide enough that the display reads at 13 px or more: the phone keeps the window's right edge and its cord is cropped at the left. */
   .desk-phone { --dw: max(440px, min(100cqi, 600px)); left: calc(100cqi - 2 * var(--gutter) - var(--dw) + var(--gutter)); }
-  .display { top: 10.15%; }
   .interlude-tag { margin-top: 48px; }
 }
 /* The tag fits on one line from 780 px; narrower, the time and then the closing. */

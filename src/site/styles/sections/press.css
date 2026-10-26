@@ -8,7 +8,7 @@
   .node-wrap { position: absolute; left: calc(var(--edge) + 128 * var(--u)); top: calc(340 * var(--u)); width: calc(613 * var(--u)); }
   .node { border-width: max(1.5px, calc(2 * var(--u))); border-radius: calc(24 * var(--u)); padding: calc(45 * var(--u)) calc(33.75 * var(--u)) calc(44.0625 * var(--u)); }
   .node-route { font-size: calc(39.375 * var(--u)); line-height: 1.19; }
-  .node-day { margin-top: calc(11.25 * var(--u)); font-size: calc(27.1875 * var(--u)); line-height: 1.1724; white-space: nowrap; }
+  .node-day { margin-top: calc(11.25 * var(--u)); font-size: calc(27.1875 * var(--u)); line-height: 1.1724; letter-spacing: -.015em; white-space: nowrap; }
   .press-cord { width: calc(90 * var(--u)); margin-left: calc(270 * var(--u)); margin-top: max(-1px, calc(-1 * var(--u))); }
 }
 
