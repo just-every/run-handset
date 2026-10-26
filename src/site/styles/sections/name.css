@@ -17,3 +17,10 @@
   .name-log .what { display: block; }
   .stamp { display: block; width: max-content; margin: 12px 0 0; font-size: .95em; }
 }
+
+/* The picked phone plan keeps the phone number whole and sets the sentence at its
+   original reading size, above the evenly spaced case entries. */
+@media (max-width: 599.98px) {
+  .s-name .heading { font-size: clamp(44px, 13.33cqi, 76px); }
+  .s-name .sentence { margin-top: 30px; font-size: 22px; line-height: 1.25; }
+}

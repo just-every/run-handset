@@ -4028,7 +4028,7 @@
       "executable": false
     },
     "src/site/styles/sections/burst.css": {
-      "sha256": "4ca39c9d0e90c895081a36dfa2f47fe996c80e316642db920987a34af8b83a85",
+      "sha256": "219f0800700187ce47d848c1f81909124e047b4a70692310c23c297ea7976837",
       "executable": false
     },
     "src/site/styles/sections/closing.css": {
@@ -4044,7 +4044,7 @@
       "executable": false
     },
     "src/site/styles/sections/name.css": {
-      "sha256": "0109f5cd8dbc8776fa549514d80731427eb11f0115e0c69b842e2655e0f43915",
+      "sha256": "88bf8ab12b4ee728dfb0161a6f05d85dc05121c9212c9a94a704aaab90953020",
       "executable": false
     },
     "src/site/styles/sections/numbers-screens.css": {

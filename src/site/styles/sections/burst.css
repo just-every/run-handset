@@ -39,7 +39,7 @@
 @media (max-width: 599.98px) {
   .s-burst .stage { display: block; min-height: 1050px; padding: 96px 24px; }
   .s-burst .heading { max-width: 342px; }
-  .s-burst .sentence { margin-left: 80px; max-width: 260px; font-size: 18px; line-height: 1.2; }
+  .s-burst .sentence { margin-left: 80px; max-width: 230px; font-size: 18px; line-height: 1.2; }
   .s-burst .burst-art { position: absolute; top: 250px; left: 0; width: 74px; margin: 0; }
   .burst-log { position: absolute; top: 445px; left: 74px; right: 24px; height: 510px; margin: 0; font-size: 13px; }
   .burst-log li { left: 5px; padding: 0; }
