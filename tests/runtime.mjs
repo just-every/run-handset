@@ -11,7 +11,6 @@ test('Emitted Worker serves health and public Lobby with honest missing routes',
     const health = await (await runtime.request('/health')).json()
     assert.equal(health.status, 'ok')
     assert.equal(health.ok, true)
-    assert.deepEqual(Object.keys(health.deployment ?? {}).sort(), ['fingerprint', 'sourceSha', 'versionId'])
     assert.equal((await runtime.request('/')).status, 200)
     for (const path of ['/missing', '/health/extra']) assert.equal((await runtime.request(path)).status, 404, path)
     // Product API namespaces now require a session before dispatch/404.

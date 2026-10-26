@@ -74,6 +74,11 @@ export async function surveyJourney(f) {
  const calls=[]
  for(let n=40;n<50;n++)calls.push(await f.start(n))
  const operators=await f.get('/auth/operators'),casesBefore=await f.get('/api/handset/cases')
+ const sentimentSid='synthetic-handset-survey-sentiment'
+ f.source.resource('Recordings',sentimentSid,{call_sid:calls[7].sid,start_time:new Date().toUTCString(),status:'completed',duration:'20',channels:2})
+ const audio=await f.source.callback({RecordingSid:sentimentSid,CallSid:calls[7].sid,RecordingStatus:'completed',From:'',To:''});assert.equal(audio.status,200)
+ const supplied=await f.write('/api/handset/transcripts',{recordingId:(await audio.json()).recordId,durationMs:20000,state:'supplied',segments:[{id:'synthetic-handset-sentiment-moment',speaker:'Caller',language:'en',startMs:1000,endMs:2000,text:'The furnace works now.',confidence:1}],confirm:'authorize supplied transcript for my exact identity'})
+ await f.write('/api/handset/transcripts/'+supplied.transcriptId+'/annotations',{segmentId:'synthetic-handset-sentiment-moment',kind:'sentiment',text:'Inferred positive sentiment; predicted satisfaction 5. This is not a customer rating.'})
  async function invite(call,channel) {return f.write('/api/handset/surveys',{callRecordId:call.canonical.recordId,channel,confirm:'approve this post-call survey'})}
  async function voice(invite,call,action='',digits) {const r=await f.signed(invite.providerPath+action,{...call.fields,...(digits?{Digits:digits}:{})});assert.equal(r.status,200,await r.clone().text());return r.text()}
  const ivr=await invite(calls[0],'ivr'),sms=await invite(calls[1],'sms'),declined=await invite(calls[2],'ivr'),stopped=await invite(calls[3],'sms'),silent=await invite(calls[4],'ivr')

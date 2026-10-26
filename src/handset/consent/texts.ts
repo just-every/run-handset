@@ -20,7 +20,7 @@ export async function enqueueText(env:Bindings,permissionId:string,body:string,d
  await append(env,source.id,'consent.enqueue',row.id,'completed',[...fences,guard(env,"SELECT count(*) FROM hnd_text_permissions WHERE id=? AND state='granted'",permissionId),env.DB.prepare('INSERT INTO hnd_care_texts(id,permission_id,body,state,provider_sid,reason,created_at,accepted_at,delivered_at,deadline_at) VALUES (?,?,?,?,?,?,?,?,?,?)').bind(...Object.values(row))],null,sourcePolicy(source))
  return row
 }
-const stopQuery="SELECT count(*) FROM hnd_protection_stops WHERE recipient=? AND channel IN ('sms','all')"
+const stopQuery="SELECT count(*) FROM hnd_protection_stops WHERE recipient=? AND (channel IN ('sms','all') OR reason='dnc')"
 export async function dispatchText(env:Bindings,key:string):Promise<CareText> {
  const row=await getText(env,key)
  if(row.state!=='pending')return row
@@ -45,6 +45,10 @@ export async function dispatchText(env:Bindings,key:string):Promise<CareText> {
   // Repeat authority after network readback. A claimed or uncertain request is
   // never automatically retried: Twilio message creation has no replay key.
   const fresh=await policyAuthority(env,policy)
+  const freshParts=new Intl.DateTimeFormat('en-US',{timeZone:recipient.timezone,hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date())
+  const freshMinute=Number(freshParts.find(p=>p.type==='hour')?.value)*60+Number(freshParts.find(p=>p.type==='minute')?.value)
+  if(freshMinute<recipient.start_minute||freshMinute>=recipient.end_minute)throw new Fault('recipient_quiet_hours',409)
+  if(row.deadline_at!==null&&Date.now()>row.deadline_at)throw new Fault('one_reply_deadline_expired',409)
   await append(env,source.id,'consent.send',row.id,'uncertain',[...fresh.fences,
    guard(env,"SELECT count(*) FROM hnd_care_texts WHERE id=? AND state='pending'",key),
    guard(env,"SELECT count(*) FROM hnd_text_permissions WHERE id=? AND state='granted'",permission.id),
