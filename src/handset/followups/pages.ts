@@ -40,14 +40,14 @@ function actions(r: Row) {
 
 function detail(r: Row, c: CaseDetail | undefined, now: number) {
  const who = caller(c, String(r.case_id)), left = Number(r.due_at) - now, open = r.status === 'open'
- const contact = [who.number && `<span class="hs-mono">${e(who.number)}</span>`, who.line && `${e(who.line)} line`, c && `<a href="/app/cases/${e(r.case_id)}">${e(who.title)}</a>`].filter(Boolean).join('<span aria-hidden="true">·</span>')
+ const contact = [who.number && `<span class="hs-mono">${e(who.number)}</span>`, who.line && `<span>${e(who.line)}\u00a0line</span>`].filter(Boolean).join('<span aria-hidden="true">·</span>')
  const events = recent(c)
  const timeline = events.length ? `<ol class="hs-timeline" aria-label="Recent events">${events.map(x => `<li><time class="hs-mono" datetime="${e(when(x.at))}">${e(clock(x.at))}</time><span>${e(x.text)}</span></li>`).join('')}</ol>` : '<p class="hs-hint">No events on this case yet.</p>'
  const notice = open
   ? `<p class="hs-notice"${soon(r, now) ? '' : ' data-tone="grey"'}><span>Due ${e(clock(r.due_at))}</span><span>${left >= 0 ? span(left) + ' left' : span(left) + ' overdue'}</span><span>${e(r.reason || next[String(r.delivery)] || 'Awaiting review')}</span></p>`
   : `<p class="hs-notice" data-tone="grey"><span>${e(settled[String(r.status)]?.[0] ?? r.status)}</span>${r.reason ? `<span>${e(r.reason)}</span>` : ''}</p>`
  const evidence = r.readback ? `<details><summary>What Orbit reported</summary><pre>${e(r.readback)}</pre></details>` : ''
- return `<article id="followup-${e(r.id)}" aria-labelledby="followup-name"><h2 id="followup-name">${e(who.name)}</h2>${contact ? `<p class="hs-contact">${contact}</p>` : ''}${timeline}<hr class="hs-cord">`
+ return `<article id="followup-${e(r.id)}" aria-labelledby="followup-name"><h2 id="followup-name">${e(who.name)}</h2>${contact ? `<p class="hs-contact">${contact}</p>` : ''}${timeline}${c ? `<p class="hs-history-link"><a href="/app/cases/${e(r.case_id)}">Full history: ${e(who.title)}</a></p>` : ''}<hr class="hs-cord">`
   + `<div class="hs-note"><img src="/brand/mark.svg" alt="" width="22" height="22"><p>${e(r.draft)}</p></div>${notice}${open ? actions(r) : ''}`
   + `<details class="hs-facts"><summary>Details</summary>${details([['Promise quoted', r.obligation], ['Promise', r.status], ['Handoff', r.delivery], ['Due at', when(r.due_at)], ['Completed when', r.confirmation_basis], ['Orbit handoff', r.target], ['Cited source', r.source_id], ['Case', r.case_id], ['Owner', r.owner_id]])}${evidence}</details></article>`
 }
