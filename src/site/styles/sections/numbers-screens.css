@@ -13,10 +13,10 @@
 
 /* The picked 21 has a broad 2 and a narrow 1. Optical widths preserve the same
    Archivo face, cap height and baseline as 20, with a 20 px ink gap at 1440. */
-.s-follow .numeral { position: relative; width: 1.30em; height: .96em; letter-spacing: 0; }
-.s-follow .digit { position: absolute; top: 0; transform-origin: left top; white-space: nowrap; }
-.s-follow .digit-two { left: 0; transform: scaleX(1.145); }
-.s-follow .digit-one { left: .755em; transform: scaleX(.85); }
+.s-follow .numeral { position: relative; width: 1.30em; height: .96em; letter-spacing: 0; white-space: nowrap; }
+.s-follow .digit { display: inline-block; position: relative; top: 0; transform-origin: left top; white-space: nowrap; }
+.s-follow .digit-two { margin-right: calc(.726em - 1ch); transform: scaleX(1.294); }
+.s-follow .digit-one { margin-right: calc(1.30em - .726em - 1ch); transform: scaleX(.85); }
 @media (min-width: 1024px) {
-  .s-follow .number-figure { right: calc(var(--edge) + 96 * var(--u)); }
+  .s-follow .number-figure { right: calc(var(--edge) + 100 * var(--u)); }
 }
