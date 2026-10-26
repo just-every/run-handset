@@ -23,22 +23,43 @@
  }
  const start = form.querySelector('[data-record-start]'), stop = form.querySelector('[data-record-stop]'), preview = form.querySelector('[data-record-preview]')
  let session = null
+ // Frames come straight from the microphone track where the browser exposes them, which does not depend on an audio
+ // output device; other browsers fall back to a script processor.
+ async function capture(stream) {
+  const chunks = [], track = stream.getAudioTracks()[0]
+  if (window.MediaStreamTrackProcessor) {
+   const reader = new MediaStreamTrackProcessor({ track }).readable.getReader(), state = { rate: 0 }
+   const pump = (async () => {
+    for (;;) {
+     const { value, done } = await reader.read()
+     if (done) return
+     const frame = new Float32Array(value.numberOfFrames)
+     value.copyTo(frame, { planeIndex: 0, format: 'f32-planar' }); state.rate = value.sampleRate; value.close(); chunks.push(frame)
+    }
+   })()
+   return { chunks, rate: () => state.rate, stop: async () => { await reader.cancel(); track.stop(); await pump.catch(() => {}) } }
+  }
+  const context = new AudioContext(), input = context.createMediaStreamSource(stream), tap = context.createScriptProcessor(4096, 1, 1)
+  tap.onaudioprocess = e => chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)))
+  input.connect(tap); tap.connect(context.destination)
+  return { chunks, rate: () => context.sampleRate, stop: async () => { tap.disconnect(); input.disconnect(); track.stop(); await context.close() } }
+ }
  start.addEventListener('click', async () => {
   try {
-   const stream = await navigator.mediaDevices.getUserMedia({ audio: true }), context = new AudioContext(), input = context.createMediaStreamSource(stream), tap = context.createScriptProcessor(4096, 1, 1), chunks = []
-   tap.onaudioprocess = e => chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)))
-   input.connect(tap); tap.connect(context.destination)
-   session = { stream, context, input, tap, chunks }
+   const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+   session = await capture(stream)
    start.disabled = true; stop.disabled = false; status.textContent = 'Recording from the microphone.'
   } catch { status.textContent = 'The microphone is not available.' }
  })
  stop.addEventListener('click', async () => {
   if (!session) return
-  const { stream, context, input, tap, chunks } = session; session = null
-  tap.disconnect(); input.disconnect(); stream.getTracks().forEach(t => t.stop())
-  const bytes = wav(chunks, context.sampleRate); await context.close()
+  const { chunks, rate, stop: finish } = session; session = null
+  await finish()
+  start.disabled = false; stop.disabled = true
+  if (!chunks.some(c => c.length)) { field.value = ''; status.textContent = 'No audio was captured. Check the microphone and record again.'; return }
+  const bytes = wav(chunks, rate() || 48000)
   field.value = base64(bytes)
   preview.src = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' })); preview.hidden = false
-  start.disabled = false; stop.disabled = true; status.textContent = 'Recording ready. Preview it, then add the version.'
+  status.textContent = 'Recording ready. Preview it, then add the version.'
  })
 })()
