@@ -10,7 +10,8 @@ export type Refusal = { code: string; status: number; values: Record<string, unk
 
 const views = [['open', 'Needs follow-up'], ['handed', 'Handed off'], ['done', 'Done']] as const
 type View = typeof views[number][0]
-const viewOf = (r: Row): View => r.status !== 'open' ? 'done' : r.delivery === 'received' ? 'handed' : 'open'
+// Orbit holds a received handoff until it is due; then it needs a person's follow-up again.
+const viewOf = (r: Row, now: number): View => r.status !== 'open' ? 'done' : r.delivery === 'received' && Number(r.due_at) > now ? 'handed' : 'open'
 const chip = (label: string, tone = '') => `<span class="hs-chip"${tone ? ` data-tone="${tone}"` : ''}>${e(label)}</span>`
 const span = (ms: number) => { const minutes = Math.max(1, Math.round(Math.abs(ms) / 60000)); return minutes < 120 ? `${minutes} min` : `${Math.round(minutes / 60)} h` }
 const settled: Record<string, [string, string]> = { confirmed: ['Confirmed', ''], canceled: ['Canceled', ''], declined: ['Declined', 'red'], escalated: ['Escalated', 'red'] }
@@ -20,7 +21,7 @@ const soon = (r: Row, now: number) => Number(r.due_at) - now <= 900000
 function rowChip(r: Row, now: number) {
  if (r.status !== 'open') { const [label, tone] = settled[String(r.status)] ?? [String(r.status), '']; return chip(label, tone) }
  if (r.delivery === 'approved') return chip('Approved', 'blue')
- if (r.delivery === 'received') return chip('Handed off', 'blue')
+ if (r.delivery === 'received') return Number(r.due_at) <= now ? chip('Check Orbit', 'amber') : chip('Handed off', 'blue')
  if (r.delivery === 'held') return chip('Held', 'amber')
  if (r.delivery === 'sending' || r.delivery === 'uncertain') return chip('Check Orbit', 'amber')
  return chip('Due ' + clock(r.due_at), soon(r, now) ? 'amber' : '')
@@ -66,8 +67,8 @@ const refusals: Record<string, [string, string]> = {
 function createForm(refusal: Refusal | undefined, c: CaseDetail | undefined) {
  const v = refusal?.values ?? {}, [bad, why] = refusal ? refusals[refusal.code] ?? ['', 'The follow-up wasn’t created. Check the entries below.'] : ['', '']
  const value = (name: string) => typeof v[name] === 'string' ? String(v[name]) : ''
- const problem = (name: string) => name === bad ? ` aria-invalid="true" aria-describedby="create-problem" autofocus` : ''
- const input = (label: string, name: string, type = 'text', hint = '') => `<label>${e(label)}${hint ? `<span class="hs-hint">${e(hint)}</span>` : ''}<input name="${name}" type="${type}" value="${e(value(name))}" required${problem(name)}></label>`
+ const problem = (name: string, hint = false) => name === bad ? ` aria-invalid="true" aria-describedby="create-problem${hint ? ' hint-' + name : ''}" autofocus` : hint ? ` aria-describedby="hint-${name}"` : ''
+ const input = (label: string, name: string, type = 'text', hint = '') => `<label>${e(label)}<input name="${name}" type="${type}" value="${e(value(name))}" required${problem(name, !!hint)}></label>${hint ? `<p class="hs-hint" id="hint-${name}">${e(hint)}</p>` : ''}`
  const text = (label: string, name: string) => `<label>${e(label)}<textarea name="${name}" rows="3" required${problem(name)}>${e(value(name))}</textarea></label>`
  const sources = citable(c)
  const source = bad === 'sourceId' && sources.length
@@ -85,10 +86,12 @@ const today = (now: number) => new Intl.DateTimeFormat('en-US', { weekday: 'shor
 
 export async function followupsPage(snapshot: Snapshot, url: URL, request: Request, env: Bindings, actor: Session, refusal?: Refusal) {
  const rows = snapshot.followups as Row[], now = Date.now()
- const view = (views.find(([key]) => key === url.searchParams.get('view'))?.[0] ?? 'open') as View
- const shown = rows.filter(r => viewOf(r) === view), chosen = shown.find(r => r.id === url.searchParams.get('followup')) ?? shown[0]
+ // A named follow-up opens in its own filter unless another filter was chosen.
+ const named = rows.find(r => r.id === url.searchParams.get('followup'))
+ const view = (views.find(([key]) => key === url.searchParams.get('view'))?.[0] ?? (named ? viewOf(named, now) : 'open')) as View
+ const shown = rows.filter(r => viewOf(r, now) === view), chosen = shown.find(r => r.id === url.searchParams.get('followup')) ?? shown[0]
  const cases = await caseDetails(request, env, actor, [...shown.map(r => String(r.case_id)), ...(typeof refusal?.values.caseId === 'string' ? [refusal.values.caseId] : [])])
- const tabs = `<nav class="hs-filters" aria-label="Follow-up filters">${views.map(([key, label]) => `<a href="/app/followups?view=${key}"${key === view ? ' aria-current="page"' : ''}>${label}<span class="hs-count">${rows.filter(r => viewOf(r) === key).length}</span></a>`).join('')}</nav>`
+ const tabs = `<nav class="hs-filters" aria-label="Follow-up filters">${views.map(([key, label]) => `<a href="/app/followups?view=${key}"${key === view ? ' aria-current="page"' : ''}>${label}<span class="hs-count">${rows.filter(r => viewOf(r, now) === key).length}</span></a>`).join('')}</nav>`
  const list = shown.length ? `<ol class="hs-rows">${shown.map(r => {
   const c = cases.get(String(r.case_id)), who = caller(c, String(r.case_id)), cited = c?.records.find(x => x.id === r.source_id)
   const at = cited?.occurred_at ?? Number(r.created_at)

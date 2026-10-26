@@ -69,7 +69,8 @@ function policyFields(data: ObjectValue) {
  return {
   businessName: value('businessName'), timezone: value('timezone'), hours, callbackMinutes: Number(value('callbackMinutes')), exceptionOwnerId: value('exceptionOwnerId'), orbitTarget: value('orbitTarget'),
   maxDepositCents: cents('maxDeposit'), maxDiscountCents: cents('maxDiscount'), maxRefundCents: cents('maxRefund'),
-  services: rows('services', ['id', 'name', 'eventTypeId', 'bookingPage', 'minutes', 'deposit']).map(s => ({ id: s.id, name: s.name, eventTypeId: s.eventTypeId, bookingPage: s.bookingPage, minutes: Number(s.minutes), depositCents: s.deposit === '' ? 0 : Math.round(Number(s.deposit) * 100) })),
+  // The prefilled minutes and deposit alone don't make the empty "Add a service" row a service.
+  services: rows('services', ['id', 'name', 'eventTypeId', 'bookingPage', 'minutes', 'deposit']).filter(s => s.id || s.name || s.eventTypeId || s.bookingPage).map(s => ({ id: s.id, name: s.name, eventTypeId: s.eventTypeId, bookingPage: s.bookingPage, minutes: Number(s.minutes), depositCents: s.deposit === '' ? 0 : Math.round(Number(s.deposit) * 100) })),
   knowledge: rows('knowledge', ['topic', 'value', 'version']), supportConversations: rows('support', ['caseId', 'conversationId']),
  }
 }

@@ -223,6 +223,14 @@
 .hs-create { margin: 0 !important; padding: 20px 28px 24px; border-top: 1px solid var(--hs-rule); }
 .hs-create > summary { display: inline-flex; align-items: center; min-height: 42px; padding: 8px 16px; border: 1px solid var(--hs-field); border-radius: var(--hs-field-radius); color: var(--hs-ink); font-weight: 600; list-style: none; }
 .hs-create form { max-width: none; }
+.hs-create form p.hs-hint { margin: -10px 0 0; }
+
+/* Settings forms: ordinary labelled fields, side by side where they fit. */
+.hs-main form.hs-limits { max-width: 1040px; }
+.hs-field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 14px 18px; }
+.hs-main .hs-row-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr)); gap: 10px 14px; margin: 0 0 14px; padding: 12px 16px 16px; }
+.hs-field-grid > .hs-row-fields { margin: 0; }
+.hs-row-fields > legend { padding: 0 6px; }
 .hs-problem { margin: 0 0 18px; padding: 14px 16px; border-radius: var(--hs-field-radius); background: var(--hs-red); color: var(--hs-on-red); }
 .hs-problem p { margin: 0 0 6px !important; font-weight: 500; }
 .hs-problem summary { color: var(--hs-on-red); font-size: 14px; }
