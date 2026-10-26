@@ -49,7 +49,13 @@ export async function consentFixture() {
   }
   async function stop(call) { const r=await source.callback({MessageSid:'synthetic-handset-stop-'+call.sid,From:call.caller,MessageStatus:'received',Body:'STOP',Timestamp:new Date().toISOString()});assert.equal(r.status,200,await r.clone().text()) }
   async function delivered(index=receiver.sent.length-1) { const m=receiver.sent[index];m.message.status='delivered';source.resource('Messages',m.message.sid,m.message);const r=await signed(new URL(m.form.StatusCallback).pathname,{MessageSid:m.message.sid,MessageStatus:'delivered',From:business,To:m.message.to});assert.equal(r.status,200,await r.clone().text());return r.json() }
-  return {runtime,source,base,business,staff,configured,registration,receiver,write,get,signed,recipient,start,stop,delivered}
+  async function finishStaff(call) {
+   const legSid='synthetic-handset-completed-'+call.sid
+   source.resource('Calls',legSid,{parent_call_sid:call.sid,from:business,to:staff,direction:'outbound-dial',status:'completed',duration:'20',end_time:new Date().toUTCString()})
+   const r=await signed(`/providers/twilio/consent/calls/${call.call.id}/outcome`,{...call.fields,DialCallSid:legSid,DialCallStatus:'completed'})
+   assert.equal(r.status,200,await r.clone().text());return r.text()
+  }
+  return {runtime,source,base,business,staff,configured,registration,receiver,write,get,signed,recipient,start,stop,delivered,finishStaff}
  } catch(error) { await runtime.close();throw error }
 }
 export async function oneReplyJourney(f) {
@@ -83,6 +89,7 @@ export async function surveyJourney(f) {
  async function voice(invite,call,action='',digits) {const r=await f.signed(invite.providerPath+action,{...call.fields,...(digits?{Digits:digits}:{})});assert.equal(r.status,200,await r.clone().text());return r.text()}
  const ivr=await invite(calls[0],'ivr'),sms=await invite(calls[1],'sms'),declined=await invite(calls[2],'ivr'),stopped=await invite(calls[3],'sms'),silent=await invite(calls[4],'ivr')
  await calls[0].decision('1')
+ for(const call of calls){if(call!==calls[0])await call.decision('2');const end=await f.finishStaff(call);if(call===calls[0])assert.match(end,/surveys\//)}
  let state=await f.get('/api/handset/surveys');assert.equal(state.denominators.responses,0)
  assert.equal((await f.get()).permissions.find(p=>p.call_id===calls[0].call.id).purpose,'one_reply','care permission grants no survey')
  assert.match(await voice(ivr,calls[0]),/optional feedback/);assert.match(await voice(ivr,calls[0],'/consent','1'),/rate your experience from 1 to 5/)

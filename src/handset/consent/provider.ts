@@ -10,7 +10,7 @@ import { missedCall } from './outcomes'
 
 const root='/providers/twilio/consent'
 function ring(env:Bindings,p:ConsentPolicy,call:ConsentCall) {
- return `<Dial timeout="20" action="${e(env.AUTH_ORIGIN+root+'/calls/'+call.id+'/outcome')}" method="POST"><Number>${e(p.staff_target)}</Number></Dial>`
+ return `<Dial timeLimit="3600" timeout="20" action="${e(env.AUTH_ORIGIN+root+'/calls/'+call.id+'/outcome')}" method="POST"><Number>${e(p.staff_target)}</Number></Dial>`
 }
 async function verifyCall(env:Bindings,call:ConsentCall,p:URLSearchParams) {
  if(p.get('CallSid')!==call.call_sid||p.get('From')!==call.caller||p.get('To')!==call.business)throw new Fault('consent_call_identity_mismatch',403)
@@ -53,7 +53,14 @@ export async function consentProviderResponse(request:Request,original:Bindings)
   const [parent,child]=await Promise.all([readTwilio(env,source,callUrl(source,call.call_sid)),readTwilio(env,source,callUrl(source,sid))])
   if(parent.sid!==call.call_sid||parent.account_sid!==source.account_id||parent.from!==call.caller||parent.to!==call.business||parent.direction!=='inbound'||child.sid!==sid||child.account_sid!==source.account_id||child.parent_call_sid!==call.call_sid||child.from!==call.business||child.to!==policy.staff_target||child.status!==status)throw new Fault('missed_leg_readback_mismatch',502)
   if(!['no-answer','busy','failed','canceled'].includes(status)) {
-   if(status!=='completed')throw new Fault('call_outcome_not_terminal',409)
+   if(status!=='completed'||!/^\d+$/.test(String(child.duration))||Number(child.duration)<1)throw new Fault('completed_staff_conversation_required',409)
+   const conversation=await env.DB.prepare('SELECT call_id FROM hnd_consent_conversations WHERE call_id=?').bind(call.id).first()
+   if(!conversation) {
+    const native=await env.DB.prepare('SELECT record_id,case_id FROM hnd_source_objects WHERE source_id=? AND external_id=?').bind(source.id,call.call_sid).first<{record_id:string;case_id:string}>()
+    const completedAt=Date.parse(String(child.end_time)),recordId=id(),{fences}=await policyAuthority(env,policy)
+    if(!native||!Number.isFinite(completedAt)||completedAt>Date.now()+1000)throw new Fault('verified_conversation_completion_required',409)
+    await append(env,source.id,'consent.outcome',call.id,'completed',[...fences,env.DB.prepare('INSERT INTO hnd_records VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(recordId,'provider_attempt','native','consent-conversation:'+call.id,completedAt,Date.now(),native.case_id,native.record_id,null,JSON.stringify({objectKind:'call_leg',providerStatus:'completed',direction:'inbound',from:call.caller,to:call.business,callSid:call.call_sid,legSid:sid,customerOutcome:'unconfirmed'}),source.id),env.DB.prepare('INSERT INTO hnd_record_sources VALUES (?,?,?,?)').bind(recordId,source.id,'twilio','consent-conversation:'+sid),env.DB.prepare('INSERT INTO hnd_consent_conversations VALUES (?,?,?,?)').bind(call.id,sid,completedAt,recordId)],null,sourcePolicy(source))
+   }
    const invitation=await env.DB.prepare('SELECT id FROM hnd_survey_invitations WHERE call_id=? AND expires_at>? AND suppressed_at IS NULL').bind(call.id,Date.now()).first<{id:string}>()
    return invitation?xml(`<Redirect method="POST">${e(env.AUTH_ORIGIN+'/providers/twilio/surveys/'+invitation.id)}</Redirect>`):xml('<Hangup/>')
   }

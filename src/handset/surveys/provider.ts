@@ -37,6 +37,7 @@ export async function surveyProviderResponse(request:Request,original:Bindings):
    return xml('')
   }
   if(p.get('CallSid')!==c.call.call_sid||p.has('MessageSid'))throw new Fault('survey_voice_identity_mismatch',403)
+  if(!await sql(env,'SELECT call_id FROM hnd_consent_conversations WHERE call_id=?',c.call.id).first())throw new Fault('post_call_conversation_required',409)
   const verified=await ensureCall(env,c.source.id,p)
   if(verified.id!==c.call.id)throw new Fault('survey_call_context_mismatch',403)
   if(i.expires_at<=Date.now()||i.suppressed_at)return done()

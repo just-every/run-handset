@@ -36,3 +36,7 @@ CREATE TABLE hnd_verbal_recording_permissions (
  id TEXT PRIMARY KEY, call_id TEXT NOT NULL REFERENCES hnd_consent_calls(id), evidence TEXT NOT NULL,
  approved_by TEXT NOT NULL, owner_version INTEGER NOT NULL, created_at INTEGER NOT NULL, revoked_at INTEGER
 );
+CREATE TABLE hnd_consent_conversations (
+ call_id TEXT PRIMARY KEY REFERENCES hnd_consent_calls(id), leg_sid TEXT NOT NULL,
+ completed_at INTEGER NOT NULL, record_id TEXT NOT NULL REFERENCES hnd_records(id)
+);

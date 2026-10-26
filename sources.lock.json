@@ -680,7 +680,7 @@
       "executable": false
     },
     "migrations/core/0059_handset_consent.sql": {
-      "sha256": "561a40ee41654e162db8901d854b6b8f04ad3bd7a67e722e6e1ef57a845905e8",
+      "sha256": "96bfb68ec21e2f734b1f85aeecae88e597617a82bebb9801fed252a9d334a27a",
       "executable": false
     },
     "migrations/core/0060_handset_surveys.sql": {
@@ -1456,7 +1456,7 @@
       "executable": false
     },
     "src/handset/consent/provider.ts": {
-      "sha256": "7cd3c7a133e8f0f4810b6ce07c85b1c6f7e98b0d3f072b48dccd2650aee13ef9",
+      "sha256": "c759e20115d5858d250d8bbc0c367b31b8bbb7a8d3a42675df4ba08d7e6530d7",
       "executable": false
     },
     "src/handset/consent/store.ts": {
@@ -1976,7 +1976,7 @@
       "executable": false
     },
     "src/handset/surveys/provider.ts": {
-      "sha256": "c751f842111599e85da48d1476ac1d8260ff4410b628f4e30cb9cfe9d8747516",
+      "sha256": "0c0073ade0725fc36b105788bfb0a9d11c6dd2be409f3635b839b6f849dad917",
       "executable": false
     },
     "src/handset/surveys/store.ts": {
@@ -3996,7 +3996,7 @@
       "executable": false
     },
     "tests/helpers/handset-consent.mjs": {
-      "sha256": "4d905dd2aa62ae404f47ec76e05866519e8142cc400742390bcef76dcd203d21",
+      "sha256": "72001453dac2c1088ed32be565d99afac3db1fbe2bd2b27e5c790fb241cd9318",
       "executable": false
     },
     "tests/helpers/handset-delegation.mjs": {
