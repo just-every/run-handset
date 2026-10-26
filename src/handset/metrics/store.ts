@@ -3,6 +3,7 @@ import type { Session } from '../../modules/operator-auth/index.mjs'
 import { commit } from '../audit/store'
 import { digest, Fault, id } from '../core'
 import { calculate } from './formulas'
+import { nativeAnalytics } from './native'
 import { parseConfig, parseDataset, validateCorrelation, type Config, type Entry, type Segment } from './model'
 
 export async function datasets(db:D1Database) {
@@ -38,8 +39,8 @@ export async function liveReport(env:Bindings,config:Config) {
   for(const s of source.dataset.agents){const value=JSON.stringify(s),prior=segmentValues.get(s.id);if(prior!==undefined&&prior!==value)throw new Fault('source_segment_conflict',409);if(prior===undefined){segmentValues.set(s.id,value);segments.push(s)}}
  }
  validateCorrelation(entries,segments)
- const report=calculate(entries,segments,config)
- return {...report,erasureEpoch:epoch,sourceRevisions:sources.map(s=>({id:s.id,revision:s.revision})),sourceHash:await digest(sources),source:'reviewed native datasets; source observations retain their supplied identities'}
+ const report=calculate(entries,segments,config),native=await nativeAnalytics(env,config)
+ return {...report,native,erasureEpoch:epoch,sourceRevisions:sources.map(s=>({id:s.id,revision:s.revision})),sourceHash:await digest({sources,native:{...native,capturedAt:0}}),source:'reviewed native datasets; source observations retain their supplied identities'}
 }
 export async function saveReport(env:Bindings,actor:Session,config:Config) {
  const report=await liveReport(env,config)

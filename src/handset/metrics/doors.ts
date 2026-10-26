@@ -2,6 +2,7 @@ import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { escape as e, Fault, integer, json, keys, consolePage as page, text, type ObjectValue } from '../core'
 import { commit } from '../audit/store'
+import { analyticsCsv } from './native'
 import { configForm, reportBody, reportPage } from './pages'
 import { configure, configs, currentConfig, datasets, liveReport, saveReport, erasureEpoch, reportFence } from './store'
 import { listSchedules, runDueReports, scheduleReport } from './schedules'
@@ -21,9 +22,10 @@ export async function metricsDoor(request:Request,env:Bindings,actor:Session,dat
    await commit(env,actor,'metrics.read','installation','completed',[reportFence(db,epoch)])
    return json({datasets:rows})
   }
-  if(action==='/live'){
+  if(action==='/live'||action==='/csv'){
    const config=await currentConfig(db,text(url.searchParams.get('queueId'),'queueId')),report=await liveReport(env,config)
    await commit(env,actor,'metrics.read','installation','completed',[reportFence(db,report.erasureEpoch)])
+   if(action==='/csv')return new Response(analyticsCsv(report.native),{headers:{'content-type':'text/csv; charset=utf-8','content-disposition':'attachment; filename=handset-report.csv','cache-control':'no-store'}})
    return html?reportPage(report,actor.operator.email):json(report)
   }
   if(action.startsWith('/history/')){
@@ -36,7 +38,7 @@ export async function metricsDoor(request:Request,env:Bindings,actor:Session,dat
  }
  if(request.method!=='POST'||!data)throw new Fault('method_not_allowed',405)
  if(html){
-  for(const name of ['revision','targetSeconds','shortSeconds','configRevision'])if(typeof data[name]==='string')data[name]=Number(data[name])
+  for(const name of ['revision','targetSeconds','shortSeconds','configRevision','repeatWindowHours'])if(typeof data[name]==='string')data[name]=Number(data[name])
   for(const name of ['startAt','endAt','dueAt'])if(typeof data[name]==='string')data[name]=Date.parse(data[name]+'Z')
   if(data.excludeShort!==undefined)data.excludeShort=data.excludeShort==='exclude'
  }

@@ -5,6 +5,7 @@ import { post, signIn } from './helpers/handset-auth.mjs'
 import { metricDataset,metricConfig } from './helpers/handset-metrics.mjs'
 import { exportFixture, archiveEdge, sftpEdge, range, encryptionKey, sha } from './helpers/handset-exports.mjs'
 import { runSftp } from '../src/handset/exports/sftp.mjs'
+import { analyticsFixture,analyticsStart,analyticsEnd,analyticsNow } from './helpers/handset-analytics.mjs'
 import { importDataset } from './helpers/handset-import.mjs'
 
 test('Reviewed queue observations reconcile exact service levels, agent durations, historical snapshots and scheduled report contents',async()=>{
@@ -212,4 +213,40 @@ test('Buyer OpenSSH SFTP pins the approved host key, independently reads encrypt
    const next=await f.archive(connector.id);await f.write('/connectors/'+connector.id+'/revoke',{},200)
    await assert.rejects(runSftp({...config,jobId:next.id},f.cookie,network),/approve the exact archive/);assert.equal(edge.writes.length,writes)
  }finally{await f.runtime.close();await edge.close()}
+})
+
+
+test('Known-week customer reports reconcile canonical calls, missed DST hours, case owners, recovery outcomes, CSV and one owner-only scheduled snapshot',async()=>{
+ const runtime=await openHandset({twilio:true,clockTime:analyticsNow})
+ try{
+  const {source,calls,recoveries}=await analyticsFixture(runtime),headers=source.headers
+  const configured=await post(runtime,'/api/handset/metrics/config',metricConfig('*',0,{startAt:analyticsStart,endAt:analyticsEnd}),headers);assert.equal(configured.status,201,await configured.clone().text());const config=await configured.json()
+  const response=await runtime.request('/api/handset/metrics/live?queueId=*',{headers});assert.equal(response.status,200);const report=await response.json(),n=report.native
+  assert.deepEqual(n.totals,{volume:6,answered:1,missed:5,unknown:0,legs:1})
+  assert.deepEqual(n.sourceCalls.map(c=>c.id),calls.slice(0,6).map(c=>c.recordId))
+  assert.deepEqual(n.byPerson,[{label:'synthetic-handset-1',volume:6,answered:1,missed:5,sourceCallIds:calls.slice(0,6).map(c=>c.recordId)}])
+  assert.deepEqual(n.byHour.map(h=>[h.volume,h.missed]),[[1,1],[1,1],[1,0],[1,1],[1,1],[1,1]])
+  assert.match(n.byHour[0].label,/01.*GMT-05:00/);assert.match(n.byHour[1].label,/01.*GMT-06:00/)
+  assert.deepEqual(n.byNumber.map(r=>[r.label,r.volume,r.missed]),[['+15125550125',6,5]])
+  assert.equal(n.recovery.cases,2);assert.equal(n.recovery.confirmed,0);assert.deepEqual(n.recovery.confirmedCaseIds,[])
+  assert.deepEqual(new Set(n.recovery.caseIds),new Set(recoveries.map(r=>r.case_id)))
+  assert.deepEqual([n.fcr.numerator,n.fcr.denominator,n.fcr.value],[0,2,0]);assert.deepEqual(n.fcr.eligibleCallIds,calls.slice(0,2).map(c=>c.recordId));assert.deepEqual(n.fcr.repeatCallIds,[calls[0].recordId]);assert.deepEqual(n.fcr.excluded,{immature:3,unknownIdentity:0,repeatContact:1})
+  assert.equal(n.csat.responseRate,null);assert.equal(n.csat.mean,null)
+  const csvResponse=await runtime.request('/api/handset/metrics/csv?queueId=*',{headers});assert.equal(csvResponse.status,200);const csv=await csvResponse.text()
+  assert.equal(csv.trim().split('\r\n').length,7);for(const c of calls.slice(0,6))assert.ok(csv.includes(c.recordId));assert.ok(!csv.includes(calls[6].recordId));assert.ok(csv.includes('GMT-05:00'));assert.ok(csv.includes('GMT-06:00'))
+  const schedule={queueId:'*',configRevision:config.revision,recipient:runtime.ownerEmail,dueAt:analyticsNow,confirm:'schedule this owner report'}
+  assert.equal((await post(runtime,'/api/handset/metrics/schedule',{...schedule,recipient:'synthetic-handset-restricted@example.test'},headers)).status,403)
+  assert.equal((await post(runtime,'/api/handset/metrics/schedule',schedule,headers)).status,201)
+  const before=runtime.mails.length;await runtime.scheduled();await runtime.scheduled();assert.equal(runtime.mails.length,before+1)
+  const received=JSON.parse(runtime.mails.at(-1).content.find(p=>p.type==='text/plain').value)
+  assert.deepEqual(received.native,n);assert.equal(received.config.timezone,'America/Chicago')
+  const finalResponse=await post(runtime,'/api/handset/metrics/finalize',{queueId:'*',configRevision:config.revision},headers);assert.equal(finalResponse.status,201);const final=await finalResponse.json()
+  const history=await (await runtime.request('/api/handset/metrics/history/'+final.id,{headers})).json();assert.deepEqual(history.native,n)
+  await post(runtime,'/api/handset/metrics/config',metricConfig('synthetic-handset-foreign',0,{startAt:analyticsStart,endAt:analyticsEnd}),headers)
+  assert.equal((await (await runtime.request('/api/handset/metrics/live?queueId=synthetic-handset-foreign',{headers})).json()).native.totals.volume,0)
+  assert.equal((await runtime.request('/api/handset/metrics/csv?queueId=*')).status,401)
+  await post(runtime,'/auth/operator/status',{operatorId:'synthetic-handset-2',status:'active'},headers)
+  const member=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'})
+  for(const path of ['/api/handset/metrics/live?queueId=*','/api/handset/metrics/csv?queueId=*','/app/reports/queues/live?queueId=*'])assert.equal((await runtime.request(path,{headers:{cookie:member.cookie}})).status,403)
+ }finally{await runtime.close()}
 })

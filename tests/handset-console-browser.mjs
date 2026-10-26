@@ -13,11 +13,12 @@ import { callbackJourney } from './helpers/handset-callbacks-browser.mjs'
 import { queueMediaJourney } from './helpers/handset-queue-browser.mjs'
 import { queueFixture } from './helpers/handset-queues.mjs'
 import { protectionFixture } from './helpers/handset-protection.mjs'
+import { analyticsFixture,analyticsStart,analyticsEnd,analyticsNow } from './helpers/handset-analytics.mjs'
 import { metricDataset,metricStart,metricConfig } from './helpers/handset-metrics.mjs'
 import { importDataset } from './helpers/handset-import.mjs'
 
 for(const width of [1440,390])for(const domain of ['administration','queues','queue-media','flows','prompts','callbacks','metrics','protection','dialer'])test(`${domain} console at ${width}`,async()=>{
- const runtime=await openHandset({twilio:true,callingClock:domain==='dialer',...(domain==='prompts'?{ttsEdge:speechEdge}:{})}),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic',...(domain==='prompts'?['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']:[])]})
+ const runtime=await openHandset({twilio:true,callingClock:domain==='dialer',...(domain==='metrics'?{clockTime:analyticsNow}:{}),...(domain==='prompts'?{ttsEdge:speechEdge}:{})}),browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic',...(domain==='prompts'?['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']:[])]})
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage()
  page.setDefaultTimeout(10000)
  const directory=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-console'
@@ -110,6 +111,19 @@ for(const width of [1440,390])for(const domain of ['administration','queues','qu
   if(domain==='queue-media')await queueMediaJourney({runtime,page,proof,cookie})
   if(domain==='dialer')await dialerJourney({runtime,page,proof})
   if(domain==='metrics'){
+  const analytics=await analyticsFixture(runtime)
+  const configResponse=await post(runtime,'/api/handset/metrics/config',metricConfig('*',0,{startAt:analyticsStart,endAt:analyticsEnd}),{cookie});assert.equal(configResponse.status,201)
+  await page.goto(runtime.origin+'/app/reports/queues/live?queueId=*')
+  const nativeText=await page.locator('main').innerText()
+  assert.ok(nativeText.includes('6 calls; 1 answered; 5 missed'))
+  assert.ok(nativeText.includes('GMT-05:00'));assert.ok(nativeText.includes('GMT-06:00'))
+  assert.ok(nativeText.includes('0 of 2'));assert.ok(nativeText.includes('AI sentiment and silence are excluded'))
+  await page.getByText('Source calls and recovery cases',{exact:true}).click()
+  for(const c of analytics.calls.slice(0,6))assert.equal(await page.getByRole('link',{name:c.recordId,exact:true}).count(),1)
+  assert.equal(await page.getByRole('link',{name:analytics.calls[6].recordId,exact:true}).count(),0)
+  await proof('customer-report-week')
+  await click('Save final report');assert.ok((await page.locator('main').innerText()).includes('6 calls; 1 answered; 5 missed'));await proof('customer-report-history')
+
   await page.goto(runtime.origin+'/app/import');await proof('import-empty')
   await page.getByLabel('Source JSON',{exact:true}).fill(JSON.stringify(metricDataset()))
   await click('Upload and review plan');await page.getByRole('heading',{name:'Review exact import plan',exact:true}).waitFor();await proof('import-plan')
@@ -134,10 +148,10 @@ for(const width of [1440,390])for(const domain of ['administration','queues','qu
   await page.getByLabel('Short-abandon threshold S (seconds)',{exact:true}).fill('0')
   await page.getByLabel('Service-level method',{exact:true}).selectOption('include-abandons');await click('Save versioned formula')
   assert.ok((await page.locator('main').innerText()).includes('66.67%'));await proof('metrics-changed-thresholds')
-  await page.getByLabel('Send at (UTC)',{exact:true}).fill(localDateTime(Date.now()+60000))
+  await page.getByLabel('Send at (UTC)',{exact:true}).fill(localDateTime(domain==='metrics'?analyticsNow+60000:Date.now()+60000))
   await page.getByRole('checkbox',{name:'I consent to this exact scheduled report and recipient',exact:true}).check();await click('Schedule report');await page.waitForURL(runtime.origin+'/app/reports/queues');await proof('report-scheduled')
   await click('Run due reports');assert.ok(!(await page.locator('main').innerText()).includes('accepted'))
-  await runtime.scheduled(Date.now()+120000);await page.reload();assert.ok((await page.locator('main').innerText()).includes('accepted'));await proof('report-accepted')
+  await runtime.scheduled(analyticsNow+120000);await page.reload();assert.ok((await page.locator('main').innerText()).includes('accepted'));await proof('report-accepted')
   const partial=metricDataset();delete partial.entries[0].closedAt;await importDataset(runtime,cookie,partial,true)
   await page.goto(runtime.origin+'/app/reports/queues/live?queueId=queue-A');assert.equal(await page.getByRole('button',{name:'Save final report',exact:true}).isDisabled(),true);await proof('metrics-provisional')
   assert.equal((await post(runtime,'/api/handset/metrics/config',metricConfig('queue-empty'),{cookie})).status,201)
@@ -230,7 +244,7 @@ for (const width of [1440, 390]) for (const domain of ['rules', 'followups', 're
 
 for(const width of [1440,390])test(`Owner dataset erasure settings and committed refusal states at ${width}`,async()=>{
  const {minimalDataset}=await import('./helpers/handset-import.mjs')
- const runtime=await openHandset(),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const runtime=await openHandset(),browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage()
  const directory=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-console'
  await mkdir(directory,{recursive:true})

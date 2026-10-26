@@ -9,7 +9,7 @@ export interface Entry {
 }
 export interface Segment { id:string; agentId:string; startAt:number; endAt:number; state:typeof agentStates[number]; offerOutcome?:'answered'|'missed' }
 export interface Dataset { id:string; name:string; entries:Entry[]; agents:Segment[] }
-export interface Config { queueId:string; revision:number; targetSeconds:number; shortSeconds:number; method:'exclude-abandons'|'include-abandons'; excludeShort:boolean; startAt:number; endAt:number; timezone:string }
+export interface Config { repeatWindowHours:number; queueId:string; revision:number; targetSeconds:number; shortSeconds:number; method:'exclude-abandons'|'include-abandons'; excludeShort:boolean; startAt:number; endAt:number; timezone:string }
 const list=(value:unknown,name:string,max:number)=>{if(!Array.isArray(value)||value.length>max)throw new Fault('invalid_'+name);return value}
 export function parseEntry(value:unknown):Entry {
  const v=object(value)
@@ -47,11 +47,11 @@ export function parseDataset(value:unknown):Dataset {
  return dataset
 }
 export function parseConfig(value:unknown):Config {
- const v=object(value);keys(v,['queueId','revision','targetSeconds','shortSeconds','method','excludeShort','startAt','endAt','timezone'])
+ const v=object(value);keys(v,['queueId','revision','targetSeconds','shortSeconds','method','excludeShort','startAt','endAt','timezone','repeatWindowHours'])
  const timezone=text(v.timezone,'timezone',100)
  try{new Intl.DateTimeFormat('en-US',{timeZone:timezone}).format(0)}catch{throw new Fault('invalid_timezone')}
  if(typeof v.excludeShort!=='boolean')throw new Fault('invalid_excludeShort')
- const config:Config={queueId:text(v.queueId,'queueId'),revision:integer(v.revision??0,'revision'),targetSeconds:integer(v.targetSeconds,'targetSeconds',0,86400),shortSeconds:integer(v.shortSeconds,'shortSeconds',0,86400),method:choice(v.method,['exclude-abandons','include-abandons'],'method'),excludeShort:v.excludeShort,startAt:timestamp(v.startAt,'startAt'),endAt:timestamp(v.endAt,'endAt'),timezone}
+ const config:Config={repeatWindowHours:integer(v.repeatWindowHours??168,'repeatWindowHours',1,720),queueId:text(v.queueId,'queueId'),revision:integer(v.revision??0,'revision'),targetSeconds:integer(v.targetSeconds,'targetSeconds',0,86400),shortSeconds:integer(v.shortSeconds,'shortSeconds',0,86400),method:choice(v.method,['exclude-abandons','include-abandons'],'method'),excludeShort:v.excludeShort,startAt:timestamp(v.startAt,'startAt'),endAt:timestamp(v.endAt,'endAt'),timezone}
  if(config.endAt<=config.startAt)throw new Fault('invalid_report_interval')
  return config
 }

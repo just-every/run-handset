@@ -3,10 +3,11 @@ import { test } from 'node:test'
 import { post, signIn } from './helpers/handset-auth.mjs'
 import { receptionistFixture } from './helpers/handset-receptionist.mjs'
 import { sourceFixture } from './helpers/handset-sources.mjs'
+import { metricConfig } from './helpers/handset-metrics.mjs'
 import { intakeFixture, intakeTime } from './helpers/handset-recovery-intake.mjs'
 
 async function setup() {
- const f = await receptionistFixture(), source = await sourceFixture(f.runtime)
+ const f = await receptionistFixture({clockTime:Date.parse('2026-10-26T18:00:00Z')}), source = await sourceFixture(f.runtime)
  const missed = async (n, peer = n) => {
   const response = await source.callback({ From: `+1512555${String(1000 + peer)}`, CallSid: `synthetic-handset-missed-${n}`, CallStatus: 'no-answer', SequenceNumber: '0', Timestamp: new Date().toISOString() })
   assert.equal(response.status, 200, await response.clone().text()); return response.json()
@@ -159,6 +160,14 @@ test('Recovery closes only on a same-case confirmed booking or explicit decline 
   assert.equal(booking.step.state, 'confirmed'); assert.equal(f.edges.bookings.size, 1)
   assert.equal((await post(f.runtime, `/api/handset/recovery/${declined.id}/resolve`, { revision: declined.revision, outcomeId: opened.outcome.id }, f.headers)).status, 409, 'another customer cannot borrow the booking')
   booked = await f.action(booked, 'resolve', { outcomeId: opened.outcome.id }); assert.equal(booked.state, 'resolved')
+  const reportStart=Date.now()-86400000,reportEnd=Date.now()+86400000
+  await f.runtime.setTime(Date.now()+8*86400000)
+  f.headers.cookie=(await signIn(f.runtime)).cookie
+  const configResponse=await post(f.runtime,'/api/handset/metrics/config',metricConfig('*',0,{startAt:reportStart,endAt:reportEnd}),f.headers);assert.equal(configResponse.status,201)
+  const analytics=(await (await f.runtime.request('/api/handset/metrics/live?queueId=*',{headers:f.headers})).json()).native
+  assert.equal(analytics.recovery.cases,3);assert.equal(analytics.recovery.confirmed,1);assert.deepEqual(analytics.recovery.confirmedCaseIds,[calls[0].caseId]);assert.deepEqual([analytics.fcr.numerator,analytics.fcr.denominator,analytics.fcr.value],[1,3,1/3]);assert.deepEqual(analytics.fcr.resolvedCallIds,[calls[0].recordId])
+
+  await f.runtime.setTime(reportStart+86400000);f.headers.cookie=(await signIn(f.runtime)).cookie
   declined = await f.action(declined, 'decline', { note: 'Customer explicitly declined the visit' })
   unreachable = await f.action(unreachable, 'callback-proposal', { timezone: 'America/Chicago', dueAt: Date.now() - 1000 })
   assert.match(unreachable.reason, /No dial started/)
@@ -267,5 +276,10 @@ test('Post-call IVR and separately consented SMS keep real ratings and reconcile
   await f.runtime.setTime(consentTime+8*86400000)
   const {signIn}=await import('./helpers/handset-auth.mjs');f.source.headers.cookie=(await signIn(f.runtime)).cookie
   const report=await f.get('/api/handset/surveys');assert.equal(report.denominators.noResponse,1);assert.equal(report.denominators.averageRating,3.5)
+  const configured=await post(f.runtime,'/api/handset/metrics/config',metricConfig('*',0,{startAt:consentTime-86400000,endAt:consentTime+86400000}),f.source.headers);assert.equal(configured.status,201)
+  const analytics=(await (await f.runtime.request('/api/handset/metrics/live?queueId=*',{headers:f.source.headers})).json()).native
+  assert.equal(analytics.csat.responses,2);assert.equal(analytics.csat.mean,3.5);assert.equal(analytics.csat.eligibleDelivered,report.denominators.eligibleDelivered);assert.equal(analytics.csat.responseRate,2/report.denominators.eligibleDelivered)
+  assert.match(analytics.csat.basis,/AI sentiment and silence are excluded/)
+
  } finally {await f.runtime.close()}
 })
