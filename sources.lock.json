@@ -1476,11 +1476,11 @@
       "executable": false
     },
     "src/handset/callbacks/dial.ts": {
-      "sha256": "96de71b454cf0d27b3f8954a5cd0403996dc7717bfad6894b85e3806e3103dce",
+      "sha256": "8929db048c3fdedbbfdcfbbe5181bf472b456f5c612e0b6ffa7ad296068d2bea",
       "executable": false
     },
     "src/handset/callbacks/doors.ts": {
-      "sha256": "b695c37e6bb0e099e9a493e0d000f709edb1d1addfc449d21b954db8560b6a5a",
+      "sha256": "80b02b1c18e776e857fe04ef1f162032d869bcb04a45634b6e96b3680c33f6c0",
       "executable": false
     },
     "src/handset/callbacks/hold.ts": {

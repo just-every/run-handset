@@ -61,7 +61,7 @@ export async function callbackDoor(request: Request, env: Bindings, actor: Sessi
  if (path !== base && !path.startsWith(base + '/')) return null
  owner(actor)
  if (path === base && request.method === 'GET') {
-  const callbacks = (await sql(env, "SELECT c.*,(SELECT count(*) FROM hnd_callbacks o WHERE o.source_id=c.source_id AND o.state='waiting' AND (o.priority>c.priority OR (o.priority=c.priority AND (o.queued_at<c.queued_at OR (o.queued_at=c.queued_at AND o.id<c.id))))) AS ahead FROM hnd_callbacks c ORDER BY c.priority DESC,c.queued_at,c.id LIMIT 200").all()).results
+  const callbacks = (await sql(env, "SELECT c.*,(SELECT count(*) FROM hnd_callbacks o WHERE o.source_id=c.source_id AND o.state='waiting' AND (o.priority>c.priority OR (o.priority=c.priority AND (o.queued_at<c.queued_at OR (o.queued_at=c.queued_at AND o.rowid<c.rowid))))) AS ahead FROM hnd_callbacks c ORDER BY c.priority DESC,c.queued_at,c.rowid LIMIT 200").all()).results
   return json({ policies: (await sql(env, 'SELECT * FROM hnd_callback_policies ORDER BY created_at LIMIT 50').all()).results, callbacks,
    attempts: (await sql(env, 'SELECT * FROM hnd_callback_attempts ORDER BY claimed_at DESC LIMIT 400').all()).results,
    events: (await sql(env, 'SELECT * FROM hnd_callback_events ORDER BY occurred_at DESC LIMIT 400').all()).results,

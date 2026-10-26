@@ -81,7 +81,7 @@ export async function tickCallbacks(env: Bindings, at = Date.now()) {
   const source = await activeSourceById(env, p.source_id) as ActiveSource | null
   if (!source) continue
   let slots = await freeAgents(env, p.queue_id, source.id, at)
-  const waiting = (await env.DB.prepare("SELECT c.* FROM hnd_callbacks c JOIN hnd_recovery r ON r.id=c.recovery_id WHERE c.source_id=? AND c.state='waiting' AND c.due_at<=? AND r.state='open' ORDER BY c.priority DESC,c.queued_at,c.id LIMIT 50").bind(source.id, at).all<Callback>()).results
+  const waiting = (await env.DB.prepare("SELECT c.* FROM hnd_callbacks c JOIN hnd_recovery r ON r.id=c.recovery_id WHERE c.source_id=? AND c.state='waiting' AND c.due_at<=? AND r.state='open' ORDER BY c.priority DESC,c.queued_at,c.rowid LIMIT 50").bind(source.id, at).all<Callback>()).results
   for (const cb of waiting) {
    if (await isStopped(env, cb.recipient, source.number_id)) {
     await append(env, source.id, 'callback.change', cb.id, 'refused', [sourceFence(env, source), callbackFence(env, cb), env.DB.prepare("UPDATE hnd_callbacks SET state='cancelled',reason='Current opt-out or DNC suppresses contact',revision=revision+1,updated_at=? WHERE id=?").bind(at, cb.id), env.DB.prepare("UPDATE hnd_recovery SET state='stopped',reason='Current opt-out or DNC suppresses contact',revision=revision+1,updated_at=? WHERE id=? AND state='open'").bind(at, cb.recovery_id), event(env, cb.id, 'suppressed', { reason: 'stop_or_dnc' }, at)], null, sourcePolicy(source))
