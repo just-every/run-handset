@@ -57,7 +57,7 @@ export async function ensureCall(env:Bindings,sourceId:string,p:URLSearchParams)
  // calling-number confidence qualifies automatic contact; unknown stays held.
  const identity=p.get('StirVerstat')==='TN-Validation-Passed'&&/^\+[1-9]\d{7,14}$/.test(caller)?'provider_validated_number':'unverified_observed_number'
  const row:ConsentCall={id:id(),source_id:sourceId,policy_id:latest.id,call_sid:sid,leg_sid:sid,caller,business,identity,created_at:Date.now()}
- const statements=[...fences,env.DB.prepare('INSERT INTO hnd_consent_calls VALUES (?,?,?,?,?,?,?,?,?,?)').bind(...Object.values(row))]
+ const statements=[...fences,env.DB.prepare('INSERT INTO hnd_consent_calls VALUES (?,?,?,?,?,?,?,?,?)').bind(...Object.values(row))]
  const existing=await env.DB.prepare('SELECT record_id FROM hnd_source_objects WHERE source_id=? AND external_id=?').bind(source.id,sid).first()
  if(!existing) {
   const correlation=await digest([source.account_id,source.number_id,business,caller])
