@@ -8,7 +8,7 @@ export async function callbackJourney({ runtime, page, proof, cookie }) {
  const click = async name => { await page.getByRole('button', { name, exact: true }).first().click(); await page.waitForLoadState('load') }
  await page.goto(runtime.origin + '/app/callbacks'); await proof('callbacks-empty')
  assert.match(await page.locator('main').innerText(), /Callers hear no virtual hold offer/)
- await page.getByText('Approve or change the callback policy', { exact: true }).click()
+ await page.goto(runtime.origin + '/app/callbacks/settings')
  await page.getByLabel('Staff number to ring', { exact: true }).fill('+15125550777'); await page.getByLabel('Business name spoken to callers', { exact: true }).fill('Cedar Creek Heating')
  await page.getByLabel('Queue', { exact: true }).selectOption({ label: 'Sales / Ventas' })
  await page.getByRole('checkbox', { name: /I approve calling back/ }).check(); await click('Save callback policy')

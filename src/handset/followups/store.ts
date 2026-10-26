@@ -49,6 +49,13 @@ async function update(env: Bindings, actor: Session, row: Followup, patch: Parti
  return get(env.DB, row.id)
 }
 export async function create(env: Bindings, actor: Session, v: ObjectValue) {
+ const made = await prepare(env, actor.operator, v)
+ if (made.replay) return made
+ await commit(env, actor, 'followup.create', made.followup.id, 'completed', made.statements)
+ return { followup: made.followup, replay: false }
+}
+/** The checks and writes of a new cited follow-up, for the native API above and the demo's own samples. */
+export async function prepare(env: Bindings, owner: { id: string; version: number }, v: ObjectValue): Promise<{ followup: Followup; replay: true } | { followup: Followup; replay: false; statements: D1PreparedStatement[] }> {
  keys(v, ['caseId','sourceId','obligation','dueAt','confirmationBasis','target','draft'])
  const caseId = text(v.caseId, 'caseId'), s = await source(env, text(v.sourceId, 'sourceId'), caseId)
  const obligation = text(v.obligation, 'obligation', 2000), draft = text(v.draft, 'draft', 4000)
@@ -66,14 +73,13 @@ export async function create(env: Bindings, actor: Session, v: ObjectValue) {
  if (!c) throw new Fault('case_not_found', 404)
  const now = Date.now(), followupId = id(), operationKey = id()
  const row: Followup = { id: followupId, case_id: caseId, source_id: s.id, source_hash: await sourceHash(s), case_version: c.version,
-  owner_id: actor.operator.id, owner_version: actor.operator.version, obligation, due_at: due, confirmation_basis: basis,
+  owner_id: owner.id, owner_version: owner.version, obligation, due_at: due, confirmation_basis: basis,
   target, draft, revision: 1, approved_revision: null, approved_by: null, approved_owner_version: null, status: 'open',
   delivery: 'draft', operation_key: operationKey, readback: null, reason: '', next_due_at: due, created_at: now, updated_at: now }
- await commit(env, actor, 'followup.create', row.id, 'completed', [sourceFence(env, row),
+ return { followup: row, replay: false, statements: [sourceFence(env, row),
   env.DB.prepare(`INSERT INTO hnd_followups(${Object.keys(row).join(',')}) VALUES (${Object.keys(row).map(() => '?').join(',')})`).bind(...Object.values(row)),
-  env.DB.prepare('INSERT INTO hnd_followup_history VALUES (?,?,?,?,?)').bind(row.id, 1, JSON.stringify(row), actor.operator.id, now),
- ])
- return { followup: row, replay: false }
+  env.DB.prepare('INSERT INTO hnd_followup_history VALUES (?,?,?,?,?)').bind(row.id, 1, JSON.stringify(row), owner.id, now),
+ ] }
 }
 export async function action(env: Bindings, actor: Session, row: Followup, op: string, v: ObjectValue) {
  if (integer(v.revision, 'revision', 1) !== row.revision) throw new Fault('followup_revision_conflict', 409)

@@ -85,7 +85,9 @@ export async function workJourney({ f, page, proof, domain }) {
    const response = await source.callback({ From: '+1512555240' + n, CallSid: 'synthetic-handset-console-missed-' + n, CallStatus: 'no-answer', SequenceNumber: '0', Timestamp: new Date().toISOString() })
    assert.equal(response.status, 200); calls.push(await response.json())
    await page.goto(runtime.origin + root)
-   await fill(page.locator('form').first(), { 'Verified missed-call record ID': calls[n].recordId, 'Due at (UTC)': utc(Date.now() + 3600000), 'Maximum attempts (1 to 3)': 2 })
+   const opening = page.locator('details').filter({ has: page.locator('summary', { hasText: 'Open a recovery' }) })
+   await opening.locator('summary').click()
+   await fill(opening.locator('form'), { 'Verified missed-call record ID': calls[n].recordId, 'Due at (UTC)': utc(Date.now() + 3600000), 'Maximum attempts (1 to 3)': 2 })
    await click(page, 'Open owned recovery')
   }
   const rows = (await read()).cases, first = rows.find(r => r.call_record_id === calls[0].recordId), second = rows.find(r => r.call_record_id === calls[1].recordId)
