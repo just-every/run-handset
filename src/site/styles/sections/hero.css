@@ -7,7 +7,7 @@
 .home-hero { position: relative; background: var(--ground); overflow: hidden; }
 .hero-plate { display: block; }
 .hero-plate img { display: block; width: 100%; height: auto; mix-blend-mode: lighten; }
-.home-hero h1 { line-height: .76; letter-spacing: -.055em; word-spacing: .14em; }
+.home-hero h1 { padding-bottom: .17em; margin-bottom: -.17em; line-height: .76; letter-spacing: -.055em; word-spacing: .14em; }
 .home-hero h1 .line { display: block; white-space: nowrap; }
 .hero-day { font-family: var(--font-mono); color: var(--white); }
 .hero-alt { font-family: var(--font-sans); color: var(--white); text-wrap: pretty; }

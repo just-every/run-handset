@@ -1,6 +1,6 @@
 /* 05: the page's one failure and recovery. A three-line case log low on the right at double spacing: "Spam Likely" is
    the page's only solid white label, and the mint stamp CLEARED, a fully outlined rounded rectangle, closes it. */
-.name-log li { color: var(--white); }
+.name-log li { color: var(--white); padding-bottom: .22em; margin-bottom: -.22em; }
 .label { display: inline-block; padding: 0 .4em; background: var(--white); color: var(--ink); }
 .stamp { display: inline-block; margin-left: .55em; padding: .05em .45em; border: 2px solid var(--mint); border-radius: .3em; color: var(--mint); font-weight: 500; text-transform: uppercase; letter-spacing: .04em; transform: rotate(-5deg); transform-origin: 30% 60%; }
 
@@ -21,6 +21,8 @@
 /* The picked phone plan keeps the phone number whole and sets the sentence at its
    original reading size, above the evenly spaced case entries. */
 @media (max-width: 599.98px) {
-  .s-name .heading { font-size: clamp(44px, 13.33cqi, 76px); }
-  .s-name .sentence { margin-top: 30px; font-size: 22px; line-height: 1.25; }
+  .s-name .heading { font-size: clamp(42px, 13cqi, 76px); }
+  .name-log li:nth-child(2) .what, .name-log li:nth-child(2) .sep { display: inline; }
+  .case-action, .case-object { display: block; }
+  .s-name .sentence { margin-top: 30px; font-size: 22px; line-height: 1.25; max-width: 300px; }
 }

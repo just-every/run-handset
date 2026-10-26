@@ -9,12 +9,15 @@
   --gutter: clamp(24px, 6.25cqi, 64px);
 }
 .screen { position: relative; overflow: hidden; background: var(--ground); }
-.heading { line-height: .92; letter-spacing: -.04em; word-spacing: .125em; }
+.heading { padding-bottom: .1em; margin-bottom: -.1em; line-height: .92; letter-spacing: -.04em; word-spacing: .125em; }
 .sentence, .statement { font-family: var(--font-sans); font-weight: 400; text-wrap: pretty; }
 .log, .tag, .caption { font-family: var(--font-mono); font-weight: 400; }
 .art { display: block; }
 .art img { display: block; width: 100%; height: auto; mix-blend-mode: lighten; }
 .log .when, .group { white-space: nowrap; }
+.phone-break { display: none; }
+.numeral { padding-bottom: .16em; margin-bottom: -.16em; }
+@media (max-width: 599.98px) { .phone-break { display: block; } }
 
 @media (min-width: 1024px) {
   .screen { height: calc(var(--screen-h, 960) * var(--u)); }

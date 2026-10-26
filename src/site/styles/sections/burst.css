@@ -48,4 +48,5 @@
   .burst-log li:nth-child(1)::before { left: -33px; width: 29px; }
   .burst-log li:nth-child(2) { top: 223px; }
   .burst-log li:nth-child(3) { top: 389px; }
+  .burst-log .call-detail { display: block; }
 }

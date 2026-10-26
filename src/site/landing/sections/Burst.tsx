@@ -8,7 +8,7 @@ export function Burst() {
   const { date, rivera } = day
   return <Screen id="burst" className="s-burst">
     <div className="screen-copy">
-      <Heading id="burst-title" lines={['The burst pipe', 'goes to Luis.']} />
+      <Heading id="burst-title" lines={['The burst pipe', 'goes to Luis.']} phoneLines={['The burst', 'pipe goes', 'to Luis.']} />
       <Sentence lines={['Before Rivera Plumbing', 'opened, the AI receptionist', 'answered and warm\u2011transferred', 'the caller to the on\u2011call plumber.']} />
     </div>
     <Plate className="art burst-art" name="burst" widths={[720, 1080, 1440, 2304, 3072]} width={1420} height={204} sizes="(max-width: 1023.98px) 1px, calc(min(100vw, 1600px) * 0.925)"
@@ -16,8 +16,8 @@ export function Burst() {
     <span className="burst-wire" aria-hidden="true" />
     <ol className="log burst-log">
       <li><Rec className="when" parts={[date, `${rivera.answered}`]} /><span className="sep">{' · '}</span><span className="what">AI receptionist answers</span></li>
-      <li><span className="when nw">{rivera.luis}</span><span className="sep">{' · '}</span><span className="what">Luis answers, hears the brief</span></li>
-      <li><span className="when nw">{rivera.connected}</span><span className="sep">{' · '}</span><span className="what">caller connected, {rivera.seconds}&nbsp;s after hello</span></li>
+      <li><span className="when nw">{rivera.luis}</span><span className="sep">{' · '}</span><span className="what">Luis answers, <span className="call-detail">hears the brief</span></span></li>
+      <li><span className="when nw">{rivera.connected}</span><span className="sep">{' · '}</span><span className="what">caller connected, <span className="call-detail">{rivera.seconds}&nbsp;s after hello</span></span></li>
     </ol>
   </Screen>
 }
