@@ -164,3 +164,14 @@ test('A native human can attest a permitted same-call verbal moment but missing 
   assert.equal((await post(f.runtime,f.base+'/verbal',{...verbal,transcriptId:transcript.transcriptId,recordingPermissionId:recordingPermission.id},{authorization:'Bearer synthetic-handset-model-assertion'})).status,401)
  } finally {await f.runtime.close()}
 })
+
+test('Post-call IVR and separately consented SMS keep real ratings and reconcile delivery denominators',async()=>{
+ const {consentFixture,surveyJourney,consentTime}=await import('./helpers/handset-consent.mjs'),f=await consentFixture()
+ try {
+  const {state}=await surveyJourney(f)
+  assert.equal(state.invitations.filter(i=>i.rating!==null).length,2)
+  await f.runtime.setTime(consentTime+8*86400000)
+  const {signIn}=await import('./helpers/handset-auth.mjs');f.source.headers.cookie=(await signIn(f.runtime)).cookie
+  const report=await f.get('/api/handset/surveys');assert.equal(report.denominators.noResponse,1);assert.equal(report.denominators.averageRating,3.5)
+ } finally {await f.runtime.close()}
+})

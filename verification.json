@@ -71,7 +71,7 @@
       "commands": [
         "pnpm run build",
         "node --test --test-concurrency=1 tests/handset-recovery.mjs",
-        "node --test --test-concurrency=1 tests/handset-consent-browser.mjs"
+        "node --test --test-concurrency=1 tests/handset-receptionist-browser.mjs"
       ]
     }
   ],

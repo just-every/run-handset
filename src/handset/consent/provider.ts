@@ -51,7 +51,8 @@ export async function consentProviderResponse(request:Request,original:Bindings)
   if(parent.sid!==call.call_sid||parent.account_sid!==source.account_id||parent.from!==call.caller||parent.to!==call.business||parent.direction!=='inbound'||child.sid!==sid||child.account_sid!==source.account_id||child.parent_call_sid!==call.call_sid||child.from!==call.business||child.to!==policy.staff_target||child.status!==status)throw new Fault('missed_leg_readback_mismatch',502)
   if(!['no-answer','busy','failed','canceled'].includes(status)) {
    if(status!=='completed')throw new Fault('call_outcome_not_terminal',409)
-   return xml('<Hangup/>')
+   const invitation=await env.DB.prepare('SELECT id FROM hnd_survey_invitations WHERE call_id=? AND expires_at>? AND suppressed_at IS NULL').bind(call.id,Date.now()).first<{id:string}>()
+   return invitation?xml(`<Redirect method="POST">${e(env.AUTH_ORIGIN+'/providers/twilio/surveys/'+invitation.id)}</Redirect>`):xml('<Hangup/>')
   }
   const existing=await env.DB.prepare('SELECT call_record_id FROM hnd_consent_outcomes WHERE call_id=?').bind(call.id).first<{call_record_id:string}>()
   if(existing)return xml('<Hangup/>')

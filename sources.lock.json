@@ -679,6 +679,14 @@
       "sha256": "1ad8747f7379f8fb4f33780d9eb5e3dbba3e53fc2c805f1d94485a0e391f8dbb",
       "executable": false
     },
+    "migrations/core/0059_handset_consent.sql": {
+      "sha256": "561a40ee41654e162db8901d854b6b8f04ad3bd7a67e722e6e1ef57a845905e8",
+      "executable": false
+    },
+    "migrations/core/0060_handset_surveys.sql": {
+      "sha256": "c7cf2213bbc67a800825026060806ee27737dc39614e6878c5b1ecb6fe9448f7",
+      "executable": false
+    },
     "ONBOARDING.md": {
       "sha256": "4d2223ee9e22ba7315d6a6d36b2fc3d18b0ad5cb6b30e3a5d7a8946560a8c809",
       "executable": false
@@ -1439,6 +1447,26 @@
       "sha256": "d21538c7347150d6e10b0efa7fd6c5c80effd641b1f455a6fbd6edad683f04c8",
       "executable": false
     },
+    "src/handset/consent/doors.ts": {
+      "sha256": "1bedeeac74b9ba8b7d389199215e7a5788794507bb57ed9c7c14ea91342c33e2",
+      "executable": false
+    },
+    "src/handset/consent/outcomes.ts": {
+      "sha256": "49a20ce96e797eb59a3d94d93cb32488d2a55b2b5ff43fb550785998898651df",
+      "executable": false
+    },
+    "src/handset/consent/provider.ts": {
+      "sha256": "36a282af9a445c297fe6ea18f8d537d739fd85465fac67e0e81bee41de1ecf64",
+      "executable": false
+    },
+    "src/handset/consent/store.ts": {
+      "sha256": "fecce0203f2dacb285bbdd0cb945b82af51c81116789367afea5322fd93be0c1",
+      "executable": false
+    },
+    "src/handset/consent/texts.ts": {
+      "sha256": "0d825e0c43ffb26dd45fe7943dc298fbc8076e66e653f4a5296dbf6bcf899ae4",
+      "executable": false
+    },
     "src/handset/core.ts": {
       "sha256": "7dc087abf7b808340ccbd8592e998433f3c9a10bcb4c99b53309cf32f02008f7",
       "executable": false
@@ -1748,7 +1776,7 @@
       "executable": false
     },
     "src/handset/providers/twilio.ts": {
-      "sha256": "8d03008c434415c40f3641b95a23e4563d0310d79fc7e8473bb063bbb518da69",
+      "sha256": "a0f60e6477d498a3f1bffdbe0fde41e7e3811bdb15d89ac19def7c143c1d012c",
       "executable": false
     },
     "src/handset/quality/doors.ts": {
@@ -1941,6 +1969,18 @@
     },
     "src/handset/recovery/pages.ts": {
       "sha256": "6e6bbdb97df50cca600a2ac9b8b6703b93fca725fc64889bf53b4a3832c62c33",
+      "executable": false
+    },
+    "src/handset/surveys/doors.ts": {
+      "sha256": "90e89fcc2a87b1cf5026d8392ae35a4d7e51f6ef877f31c91f2d7f37c7da89c6",
+      "executable": false
+    },
+    "src/handset/surveys/provider.ts": {
+      "sha256": "c751f842111599e85da48d1476ac1d8260ff4410b628f4e30cb9cfe9d8747516",
+      "executable": false
+    },
+    "src/handset/surveys/store.ts": {
+      "sha256": "edd5f59a1650d8fad249ac6715946f7eb35eb93bae27180f3f7ad05394973d7d",
       "executable": false
     },
     "src/handset/transcripts/doors.ts": {
@@ -3908,7 +3948,7 @@
       "executable": false
     },
     "tests/handset-receptionist-browser.mjs": {
-      "sha256": "7b25457982a7db4f018d223f6aa0e4dd66e3f92324b9ed50005708c37f8d3a52",
+      "sha256": "bc7bd39ede0554d8ff635b063e73a7b363a07c5fd036d0c0e6ecd35bcf9ebc8e",
       "executable": false
     },
     "tests/handset-records.mjs": {
@@ -3916,7 +3956,7 @@
       "executable": false
     },
     "tests/handset-recovery.mjs": {
-      "sha256": "5ba6c722129c1bab06c8c9d28b19c63b3346da1402e6472006f4566ffa57b87a",
+      "sha256": "0591a2696a26f133c83037d788c5b5b296810112a40dbf896b5e33ba7823fadc",
       "executable": false
     },
     "tests/handset-reporting.mjs": {
@@ -3949,6 +3989,10 @@
     },
     "tests/helpers/handset-clock.mjs": {
       "sha256": "38db0806957449f641d4ccf389cf455aa5bdb9b2a1ba6e70de16d2695294d6fd",
+      "executable": false
+    },
+    "tests/helpers/handset-consent.mjs": {
+      "sha256": "17455451d4e6e12832283bbd469dd18180c0aef00cee779acee11dc9049862de",
       "executable": false
     },
     "tests/helpers/handset-delegation.mjs": {
@@ -4036,7 +4080,7 @@
       "executable": false
     },
     "tests/runtime.mjs": {
-      "sha256": "efa2c78f1786b5ed90b2b20147a00871d85b8468f7cb99d8bd148822fcf8a36c",
+      "sha256": "b159f250a01655178761a89727b59af727d35d6ec51832d33364548e445c8546",
       "executable": false
     },
     "tests/site/site.test.mjs": {
@@ -4052,7 +4096,7 @@
       "executable": false
     },
     "verification.json": {
-      "sha256": "3da00c9f8968f754c08c898b43a0d1a9dede179e9d9a23a33d2975dff85dce84",
+      "sha256": "d6fa6e7de25a045f088ffdc4c94958c62da12b35fafb689a0f5c6a75ac95c52a",
       "executable": false
     },
     "VERIFY-WORKFLOW.md": {

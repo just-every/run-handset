@@ -1,3 +1,4 @@
+import { surveyIncoming } from '../surveys/provider'
 import { runtimeBindings, type Bindings } from '../../auth.server'
 import { append } from '../audit/store'
 import { sourcePolicy } from '../audit/policy'
@@ -188,6 +189,7 @@ export async function twilioResponse(request:Request,original:Bindings):Promise<
    const pending=(await env.DB.prepare('SELECT * FROM hnd_source_pending WHERE source_id=? AND parent_external_id=? ORDER BY received_at LIMIT 100').bind(source.id,event.externalId).all<{parameters:string;body_hash:string;received_at:number}>()).results
    for(const item of pending)await ingest(env,source,await sourceTimestamp(env,normalize(new URLSearchParams(item.parameters))),item.body_hash,item.parameters,item.received_at)
   }
+  if(!result.held&&event.kind==='message'&&['received','receiving'].includes(event.state))await surveyIncoming(env,source.id,p)
   return json({...result,customerOutcome:'unconfirmed',externalEffectOccurred:false},result.held?202:200)
  }catch(error){
   if(error instanceof Fault){if(knownSource)await append(env,knownSource.id,'source.refuse','installation','refused',[],null,sourcePolicy(knownSource));return json({error:error.code},error.status)}

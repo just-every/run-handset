@@ -71,3 +71,20 @@ export async function surveyProviderResponse(request:Request,original:Bindings):
   return json({error:'survey_unavailable',effectOccurred:false},503)
  }
 }
+
+/** Called only after canonical signed ingress has validated and stored the
+ * message. Shared-number replies are correlated without changing webhook URLs
+ * for each invitation; ambiguous outstanding surveys refuse a rating. */
+export async function surveyIncoming(env:Bindings,sourceId:string,p:URLSearchParams) {
+ const sid=p.get('MessageSid'),from=p.get('From'),to=p.get('To'),body=p.get('Body')??''
+ if(!sid||!/^\s*[1-5](?:\s|$)/.test(body))return
+ const replay=await sql(env,'SELECT invitation_id FROM hnd_survey_responses WHERE provider_event=?','sms:'+sid).first<{invitation_id:string}>()
+ const rows=replay?[{id:replay.invitation_id}]:(await sql(env,`SELECT i.id FROM hnd_survey_invitations i JOIN hnd_consent_calls c ON c.id=i.call_id WHERE i.source_id=? AND i.channel='sms' AND c.caller=? AND c.business=? AND i.expires_at>? AND i.permission_id IS NOT NULL AND i.suppressed_at IS NULL AND NOT EXISTS(SELECT 1 FROM hnd_survey_responses r WHERE r.invitation_id=i.id)`,sourceId,from,to,Date.now()).all<{id:string}>()).results
+ if(rows.length!==1)return
+ const c=await context(env,rows[0].id)
+ const receipt=await readTwilio(env,c.source,`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(c.source.account_id)}/Messages/${encodeURIComponent(sid)}.json`)
+ if(receipt.sid!==sid||receipt.account_sid!==c.source.account_id||receipt.from!==from||receipt.to!==to||receipt.direction!=='inbound'||receipt.body!==body||!['received','receiving'].includes(String(receipt.status)))throw new Fault('survey_reply_readback_mismatch',403)
+ await syncDelivery(env,c)
+ const accepted=body.trim().match(/^([1-5])(?:\s+([\s\S]{1,1000}))?$/)
+ if(accepted)await response(env,c,Number(accepted[1]),accepted[2]?.trim()??'','sms:'+sid)
+}

@@ -78,3 +78,8 @@ for (const width of [1440, 390]) test(`Connector repair keeps lost effects uncer
   assert.equal((await f.runtime.request('/api/handset/delivery', { headers })).status, 401)
  } finally { await context.close(); await browser.close(); await f.runtime.close() }
 })
+
+for(const width of [1440,390])for(const domain of ['consent','surveys'])test(`${domain} owner workflow at ${width}`,async()=>{
+ const {consentBrowserJourney}=await import('./helpers/handset-consent-browser.mjs')
+ await consentBrowserJourney(width,domain)
+})

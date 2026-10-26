@@ -69,3 +69,33 @@ export async function oneReplyJourney(f) {
  assert.equal(f.receiver.sent.length,1);report=await f.get();assert.equal(report.outcomes.length,1);assert.equal(report.permissions.length,1)
  return {call,elapsed}
 }
+
+export async function surveyJourney(f) {
+ const calls=[]
+ for(let n=40;n<50;n++)calls.push(await f.start(n))
+ const operators=await f.get('/auth/operators'),casesBefore=await f.get('/api/handset/cases')
+ async function invite(call,channel) {return f.write('/api/handset/surveys',{callRecordId:call.canonical.recordId,channel,confirm:'approve this post-call survey'})}
+ async function voice(invite,call,action='',digits) {const r=await f.signed(invite.providerPath+action,{...call.fields,...(digits?{Digits:digits}:{})});assert.equal(r.status,200,await r.clone().text());return r.text()}
+ const ivr=await invite(calls[0],'ivr'),sms=await invite(calls[1],'sms'),declined=await invite(calls[2],'ivr'),stopped=await invite(calls[3],'sms'),silent=await invite(calls[4],'ivr')
+ await calls[0].decision('1')
+ let state=await f.get('/api/handset/surveys');assert.equal(state.denominators.responses,0)
+ assert.equal((await f.get()).permissions.find(p=>p.call_id===calls[0].call.id).purpose,'one_reply','care permission grants no survey')
+ assert.match(await voice(ivr,calls[0]),/optional feedback/);assert.match(await voice(ivr,calls[0],'/consent','1'),/rate your experience from 1 to 5/)
+ await voice(ivr,calls[0],'/rating','2');await voice(ivr,calls[0],'/rating','5')
+ await voice(sms,calls[1]);await voice(sms,calls[1],'/consent','1')
+ await voice(declined,calls[2],'/consent','2');await voice(stopped,calls[3],'/consent','1');await f.stop(calls[3])
+ await voice(silent,calls[4],'/consent','1')
+ await f.runtime.scheduled();assert.equal(f.receiver.sent.length,1)
+ state=await f.get('/api/handset/surveys');assert.equal(state.denominators.eligibleDelivered,2,'accepted SMS has no delivery eligibility');assert.equal(state.denominators.responses,1)
+ await f.delivered();await f.runtime.scheduled()
+ const replySid='synthetic-handset-survey-reply',body='5 Very helpful, thank you'
+ f.source.resource('Messages',replySid,{from:calls[1].caller,to:f.business,body,direction:'inbound',status:'received',date_created:new Date().toUTCString()})
+ for(let n=0;n<2;n++) { const r=await f.source.callback({MessageSid:replySid,From:calls[1].caller,To:f.business,Body:body,MessageStatus:'received',Timestamp:new Date().toISOString()});assert.equal(r.status,200,await r.clone().text()) }
+ state=await f.get('/api/handset/surveys')
+ assert.equal(state.denominators.invitations,5);assert.equal(state.denominators.eligibleDelivered,3);assert.equal(state.denominators.responses,2);assert.equal(state.denominators.averageRating,3.5);assert.equal(state.denominators.responseRate,2/3);assert.equal(state.denominators.declined,1);assert.equal(state.denominators.suppressed,1)
+ assert.equal(state.invitations.find(i=>i.id===ivr.invitation.id).rating,2);assert.equal(state.invitations.find(i=>i.id===sms.invitation.id).comment,'Very helpful, thank you')
+ assert.deepEqual(await f.get('/auth/operators'),operators,'surveys do not change staff status');assert.deepEqual(await f.get('/api/handset/cases'),casesBefore,'surveys do not close or change call cases')
+ for(const call of calls) {const r=await f.source.callback({CallSid:call.sid,From:call.caller,CallStatus:'completed',SequenceNumber:'1',Timestamp:new Date().toISOString()});assert.equal(r.status,200,await r.clone().text())}
+ const care=await f.get();assert.equal(care.calls.length,10);assert.equal(care.outcomes.length,0,'surveys did not invent a missed outcome');assert.ok(care.permissions.every(p=>JSON.parse(p.event).marketingEnrollment===false))
+ return {calls,ivr,sms,declined,stopped,silent,state}
+}
