@@ -23,7 +23,7 @@ import '../styles/sections/closing.css'
 import '../styles/base-pages.css'
 
 /**
- * run-handset.com's homepage, built from the desk's page round 2 (page-s1/STRUCTURE.md): nine US businesses on Handset
+ * run-handset.com's homepage, built from the desk's page round 2 (page-s2/STRUCTURE.md): nine US businesses on Handset
  * through one Monday, Mon Oct 26, in nine calm screens with one point each. The owner's photogram hero; the burst pipe;
  * press 2; the surge; the spam label and its recovery; the interlude at 6:00 pm; the follow-ups (the one paper-white
  * band); the move off RingCentral; Thanksgiving with the footer. The x-ray photogram is the only picture medium, at

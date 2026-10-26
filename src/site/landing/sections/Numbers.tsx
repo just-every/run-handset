@@ -6,7 +6,7 @@ export function Numbers() {
   const { hartwell: h } = day
   return <Screen id="numbers" className="s-numbers">
     <div className="screen-copy">
-      <Heading id="numbers-title" lines={['Your numbers', 'come with you.']} />
+      <Heading id="numbers-title" lines={['Your numbers', 'come with you.']} phoneLines={['Your numbers', 'come with you.']} />
       <Sentence lines={['Hartwell Auto Service kept its', 'numbers, desk phones and call', 'flows when it left RingCentral.']} />
     </div>
     <Plate className="art numbers-art" name="numbers" widths={[334, 668]} width={668} height={445} sizes="(max-width: 1023.98px) 80vw, calc(min(100vw, 1600px) * 0.4347)" />

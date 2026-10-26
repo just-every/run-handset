@@ -1,17 +1,19 @@
-/* 01: the photogram with its strings set as type. Wide, the plate is the 1536 x 1024 drawing scaled to the window (up
+/* 12ui page-s2/page-01 conversion: the editable baseline positions the offer at 64.19% / 7.52%,
+   the headline at the lower left and the stats below it. Native clean plate: telephone-scene.png.
+   01: the photogram with its strings set as type. Wide, the plate is the 1536 x 1024 drawing scaled to the window (up
    to 1920 px, then centred with its side edges fading into the ground) and every string sits where the desk put it.
    Narrow, the phone order: a crop of the plate under the header, the headline, the day's line, the alternative line,
    Run Handset, then the two links. */
 .home-hero { position: relative; background: var(--ground); overflow: hidden; }
 .hero-plate { display: block; }
 .hero-plate img { display: block; width: 100%; height: auto; mix-blend-mode: lighten; }
-.home-hero h1 { line-height: .76; letter-spacing: -.055em; word-spacing: .14em; }
+.home-hero h1 { padding-bottom: .17em; margin-bottom: -.17em; line-height: .76; letter-spacing: -.055em; word-spacing: .14em; }
 .home-hero h1 .line { display: block; white-space: nowrap; }
 .hero-day { font-family: var(--font-mono); color: var(--white); }
 .hero-alt { font-family: var(--font-sans); color: var(--white); text-wrap: pretty; }
 .hero-alt b { font-weight: 600; white-space: nowrap; }
-/* The day's line fits on one line from 1080 px; narrower it takes two, one group each, and drops the separator between them. */
-@media (max-width: 1079.98px) {
+/* The day's line fits on one line from 1200 px; narrower it takes two, one group each, and drops the separator between them. */
+@media (max-width: 1199.98px) {
   .hero-day .sep { display: none; }
   .hero-day .group { display: block; }
 }
@@ -22,7 +24,7 @@
   .hero-head, .hero-offer { position: absolute; }
   .hero-head { left: calc(50% - 768 * var(--h) + 29 * var(--h)); top: calc(634.35 * var(--h)); }
   .home-hero h1 { font-size: calc(190 * var(--h)); --stroke: max(1.5px, calc(3 * var(--h))); }
-  .hero-day { margin-top: calc(31.4 * var(--h)); margin-left: calc(14 * var(--h)); max-width: calc(820 * var(--h)); font-size: max(11.5px, calc(16.1 * var(--h))); line-height: 1.4; }
+  .hero-day { margin-top: calc(31.4 * var(--h)); margin-left: calc(14 * var(--h)); max-width: calc(820 * var(--h)); font-size: max(13px, calc(16.1 * var(--h))); line-height: 1.4; }
   .hero-offer { left: calc(50% - 768 * var(--h) + 986 * var(--h)); top: calc(76 * var(--h)); width: calc(530 * var(--h)); }
   /* The offer scales with the plate but never below the header's 15 px type and a 44 px button. */
   .hero-alt { font-size: max(15px, calc(17.6 * var(--h))); line-height: 1.33; max-width: calc(530 * var(--h)); }
@@ -46,7 +48,7 @@
   .hero-head { margin-top: 28px; }
   .home-hero h1 { font-size: clamp(56px, 20.4cqi, 132px); --stroke: 1.5px; }
   /* Never wider than the column: the longer group is 40 characters, 24 em. */
-  .hero-day { margin-top: 18px; font-size: clamp(11px, min(3.6cqi, (100cqi - 2 * var(--gutter)) / 24.2), 17px); line-height: 1.6; }
+  .hero-day { margin-top: 18px; font-size: clamp(13px, min(3.6cqi, (100cqi - 2 * var(--gutter)) / 24.2), 17px); line-height: 1.6; }
   .hero-offer { margin-top: 22px; }
   .hero-alt { font-size: clamp(16px, 4.2cqi, 19px); line-height: 1.45; }
   .home-hero .cta-row { margin-top: 22px; gap: 18px 28px; font-size: 17px; }

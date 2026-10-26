@@ -14,9 +14,18 @@ const served = path => [path, `${path}.html`, join(path, 'index.html')].some(can
 const attrs = (html, name) => [...html.matchAll(new RegExp(`\\s${name}="([^"]*)"`, 'gi'))].map(match => match[1].replaceAll('&amp;', '&'))
 const anchors = html => [...html.matchAll(/<a\b[^>]*\shref="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g)].map(([, href, inner]) => ({ href, text: inner.replace(/<[^>]+>/g, '').replace(/&nbsp;|\s+/g, ' ').trim() }))
 
-test('the run site builds, its Run Handset actions open /run, and every link and file it names resolves', () => {
+test('the run site builds with named story proofs, its Run Handset actions open /run, and every link and file resolves', () => {
   execFileSync(join(root, 'node_modules/.bin/rer'), ['build', '--site'], { cwd: root, stdio: 'pipe' })
   const home = readFileSync(join(site, 'index.html'), 'utf8')
+  // A visitor using the document outline can identify each story and read its proof as text.
+  // This follows the rendered public page without pinning section names, order or marketing copy.
+  for (const [, attrs, content] of home.matchAll(/<section\b([^>]*)>([\s\S]*?)<\/section>/g)) {
+    const label = attrs.match(/aria-label="([^"]+)"/)
+    const labelledBy = attrs.match(/aria-labelledby="([^"]+)"/)
+    assert.ok(label || labelledBy, 'every homepage story has an accessible name')
+    if (labelledBy) assert.ok(content.includes(`id="${labelledBy[1]}"`), 'the story heading is present in its document region')
+    assert.ok(content.replace(/<[^>]+>/g, '').trim(), 'the story proof is readable without loading an image')
+  }
   const runs = anchors(home).filter(a => /^Run Handset\b/.test(a.text))
   assert.ok(runs.length > 0, 'the homepage leads with Run Handset')
   for (const action of runs) assert.equal(action.href, '/run', `"${action.text}" opens /run`)

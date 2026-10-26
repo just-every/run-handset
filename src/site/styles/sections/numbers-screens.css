@@ -1,13 +1,33 @@
-/* 04 and 07: one number each, in the wide outline numerals, "20" and "21" on one shared baseline. Both screens are
-   shortened (744 and 664 at 1440) so the empty ground sits evenly above and below. 07 is the page's one paper-white
+/* 04 and 07: one number each, in the wide outline numerals, "20" and "21" on one shared baseline. Both screens keep the
+   full 960 px stage at 1440, preserving page-s2’s calm ground. 07 is the page's one paper-white
    band, the photogram's negative: black ink only. */
-.s-surge { --screen-h: 744; }
-.s-follow { --screen-h: 664; background: var(--paper); color: var(--ink); --outline-ink: var(--ink); }
+.s-follow { background: var(--paper); color: var(--ink); --outline-ink: var(--ink); }
 .s-follow .sentence, .s-follow .caption { color: var(--ink); }
 .s-follow :focus-visible { outline-color: var(--ink); }
 .s-number .caption { color: inherit; }
 
+@media (min-width: 1024px) {
+  .s-surge { --copy-top: 126.8; --copy-left: 122; }
+  .s-follow { --copy-top: 135.2; --copy-left: 111.6; }
+  .s-number .number-figure { top: calc(120.8 * var(--u)); }
+  .s-surge .number-figure { right: calc(var(--edge) + 119 * var(--u)); }
+}
+
 @media (max-width: 1023.98px) {
   .s-surge .numeral { font-size: min(280px, 70cqi); }
-  .s-follow .numeral { font-size: min(172px, 44cqi); }
+  .s-follow .numeral { font-size: min(280px, 70cqi); }
+}
+
+/* The picked 21 has a broad 2 and a narrow 1. Optical widths preserve the same
+   Archivo face, cap height and baseline as 20, with the picked narrow gap between the two digits. */
+.s-follow .numeral { position: relative; width: 1.30em; height: .96em; letter-spacing: 0; white-space: nowrap; }
+.s-follow .digit { display: inline-block; position: relative; top: 0; transform-origin: left top; white-space: nowrap; }
+.s-follow .digit-two { margin-right: calc(.726em - 1ch); transform: scaleX(1.294); }
+.s-follow .digit-one { margin-right: calc(1.30em - .726em - 1ch); transform: scaleX(.85); }
+@media (min-width: 1024px) {
+  .s-follow .number-figure { right: calc(var(--edge) + 100 * var(--u)); }
+}
+
+@media (max-width: 599.98px) {
+  .s-surge .heading, .s-numbers .heading { font-size: clamp(40px, 11.5cqi, 76px); }
 }

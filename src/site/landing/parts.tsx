@@ -33,8 +33,15 @@ export function Screen({ id, className, label, children }: { id: string; classNa
 }
 
 /** The outline heading every screen opens with: lines as the desk set them, words never run together. */
-export const Heading = ({ id, lines }: { id: string; lines: string[] }) =>
-  <h2 id={id} className="outline heading">{lines.map((line, index) => <span className="line" key={index}>{line} </span>)}</h2>
+export function Heading({ id, lines, phoneLines }: { id: string; lines: string[]; phoneLines?: string[] }) {
+  const breaks = new Set<number>()
+  let end = 0
+  phoneLines?.slice(0, -1).forEach(line => { end += line.split(' ').length; breaks.add(end) })
+  let word = 0
+  return <h2 id={id} className="outline heading">{lines.map((line, index) => <span className="line" key={index}>
+    {line.split(' ').map((text, i) => { word += 1; return <Fragment key={i}>{text}{' '}{breaks.has(word) && <br className="phone-break" />}</Fragment> })}
+  </span>)}</h2>
+}
 
 /** The screen's one sentence, broken where the desk's plate breaks it on wide screens and wrapping freely on phones. */
 export const Sentence = ({ lines }: { lines: string[] }) =>

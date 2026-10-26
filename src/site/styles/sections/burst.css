@@ -5,9 +5,10 @@
 .burst-log li { color: var(--white); }
 
 @media (min-width: 1024px) {
-  .s-burst .burst-art { position: absolute; left: var(--edge); top: calc(600 * var(--u)); width: calc(1350 * var(--u)); }
-  .burst-wire { position: absolute; left: calc(var(--edge) + 700 * var(--u)); top: calc(593 * var(--u)); width: max(1px, var(--u)); height: calc(150 * var(--u)); }
-  .burst-log { position: absolute; left: calc(var(--edge) + 718 * var(--u)); top: calc(583.5 * var(--u)); }
+  .s-burst { --copy-top: 139; --copy-left: 148; }
+  .s-burst .burst-art { position: absolute; left: var(--edge); top: calc(628.125 * var(--u)); width: calc(1331.25 * var(--u)); }
+  .burst-wire { position: absolute; left: calc(var(--edge) + 728.4375 * var(--u)); top: calc(593 * var(--u)); width: max(1px, var(--u)); height: calc(150 * var(--u)); }
+  .burst-log { position: absolute; left: calc(var(--edge) + 741.5625 * var(--u)); top: calc(593.4375 * var(--u)); font-size: max(13px, calc(18.75 * var(--u))); }
 }
 /* Past the stage the receiver's cropped end fades into the ground instead of stopping short of the window's edge. The
    mask sits on the image itself, so its lighten blend still meets the page's black without a seam. */
@@ -32,4 +33,21 @@
   .burst-log li:nth-child(3) { top: calc(8.16 * var(--strip) - .8em); }
   .burst-log li:first-child .sep { display: none; }
   .burst-log li:first-child .what { display: block; }
+}
+
+/* The picked 390 plan: the upright receiver beside the sentence, three whole log entries
+   ticked onto its vertical cord, and the plug below the last entry. */
+@media (max-width: 599.98px) {
+  .s-burst .stage { display: block; min-height: 1050px; padding: 96px 24px; }
+  .s-burst .heading { max-width: 342px; }
+  .s-burst .sentence { margin-left: 80px; max-width: 230px; font-size: 18px; line-height: 1.2; }
+  .s-burst .burst-art { position: absolute; top: 250px; left: 0; width: 74px; margin: 0; }
+  .burst-log { position: absolute; top: 445px; left: 74px; right: 24px; height: 510px; margin: 0; font-size: 13px; }
+  .burst-log li { left: 5px; padding: 0; }
+  .burst-log li::before { left: -39px; width: 35px; }
+  .burst-log li:nth-child(1) { top: 0; left: 31px; }
+  .burst-log li:nth-child(1)::before { left: -33px; width: 29px; }
+  .burst-log li:nth-child(2) { top: 223px; }
+  .burst-log li:nth-child(3) { top: 389px; }
+  .burst-log .call-detail { display: block; }
 }

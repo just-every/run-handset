@@ -1,15 +1,17 @@
 /* 03: the call-flow node, a white-outlined rounded rectangle, with the x-ray cord dropping from its bottom edge out
    of the frame; the heading and sentence right-aligned at the top right. */
 .node { border: 2px solid var(--white); color: var(--white); font-family: var(--font-mono); }
-.node-route { white-space: nowrap; }
+.node-route { white-space: nowrap; padding-bottom: .06em; margin-bottom: -.06em; }
+.node-day { padding-bottom: .08em; margin-bottom: -.08em; }
 .press-cord { display: block; }
 
 @media (min-width: 1024px) {
-  .node-wrap { position: absolute; left: calc(var(--edge) + 128 * var(--u)); top: calc(368 * var(--u)); width: calc(613 * var(--u)); }
-  .node { border-width: max(1.5px, calc(2 * var(--u))); border-radius: calc(24 * var(--u)); padding: calc(33 * var(--u)) calc(35 * var(--u)) calc(37 * var(--u)); }
-  .node-route { font-size: calc(35 * var(--u)); line-height: 1.25; }
-  .node-day { margin-top: calc(12 * var(--u)); font-size: calc(24 * var(--u)); line-height: 1.3; white-space: nowrap; }
-  .press-cord { width: calc(122 * var(--u)); margin-left: calc(257 * var(--u)); margin-top: max(-1px, calc(-1 * var(--u))); }
+  .s-press { --copy-top: 105.2; --copy-right: 104; }
+  .node-wrap { position: absolute; left: calc(var(--edge) + 122.8 * var(--u)); top: calc(296.25 * var(--u)); width: calc(613 * var(--u)); }
+  .node { border-width: max(1.5px, calc(2 * var(--u))); border-radius: calc(24 * var(--u)); padding: calc(45 * var(--u)) calc(33.75 * var(--u)) calc(44.0625 * var(--u)); }
+  .node-route { font-size: calc(39.375 * var(--u)); line-height: 1.19; }
+  .node-day { margin-top: calc(11.25 * var(--u)); font-size: calc(26 * var(--u)); line-height: 1.1724; letter-spacing: -.015em; white-space: nowrap; }
+  .press-cord { width: calc(90 * var(--u)); margin-left: calc(270 * var(--u)); margin-top: max(-1px, calc(-1 * var(--u))); }
 }
 
 @media (max-width: 1023.98px) {

@@ -6,7 +6,7 @@ export function Surge() {
   const { date, mesaRidge } = day
   return <Screen id="surge" className="s-surge s-number">
     <div className="screen-copy">
-      <Heading id="surge-title" lines={['Twenty callers,', 'each told', 'their place.']} />
+      <Heading id="surge-title" lines={['Twenty callers,', 'each told', 'their place.']} phoneLines={['Twenty callers,', 'each told', 'their place.']} />
       <Sentence lines={['A fiber cut sent Mesa Ridge Internet’s', 'customers to the support line at once,', 'and nobody gave up.']} />
     </div>
     <figure className="number-figure">

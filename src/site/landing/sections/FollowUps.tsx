@@ -10,7 +10,7 @@ export function FollowUps() {
       <Sentence lines={['After each call, Handset writes down', 'every promise and chases it until', 'the customer’s side is done.']} />
     </div>
     <figure className="number-figure">
-      <p className="outline numeral" aria-label={`${f.done} of ${f.promised}`}>{f.done}</p>
+      <p className="outline numeral" aria-label={`${f.done} of ${f.promised}`}><span className="digit digit-two">{String(f.done)[0]}</span><span className="digit digit-one">{String(f.done)[1]}</span></p>
       <figcaption className="caption">
         <span className="nw">of {f.promised} promised</span> <span className="nw">follow&#8209;ups done</span><br />
         <Rec parts={[f.on, `${f.due} due today`]} />
