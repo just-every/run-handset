@@ -11,7 +11,7 @@
   .statement { margin-top: calc(40 * var(--u)); font-size: calc(30 * var(--u)); line-height: 1.3; }
   .s-closing .cta-row { margin-top: calc(44 * var(--u)); gap: calc(16 * var(--u)) calc(30 * var(--u)); font-size: calc(25 * var(--u)); }
   .s-closing .run-button { min-height: calc(62 * var(--u)); padding: 0 calc(28 * var(--u)); font-weight: 500; }
-  .specimen { position: absolute; top: calc(210.75 * var(--u)); right: calc(var(--edge) + 128 * var(--u)); width: calc(413 * var(--u)); }
+  .specimen { position: absolute; top: calc(210.75 * var(--u)); right: calc(var(--edge) + 128 * var(--u)); width: calc(515.625 * var(--u)); }
   .specimen .tag { position: absolute; left: 0; top: 100%; margin-top: calc(22 * var(--u)); }
 }
 

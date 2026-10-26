@@ -11,7 +11,7 @@ export function Burst() {
       <Heading id="burst-title" lines={['The burst pipe', 'goes to Luis.']} />
       <Sentence lines={['Before Rivera Plumbing', 'opened, the AI receptionist', 'answered and warm\u2011transferred', 'the caller to the on\u2011call plumber.']} />
     </div>
-    <Plate className="art burst-art" name="burst" widths={[720, 1080, 1440]} width={1440} height={245} sizes="(max-width: 1023.98px) 1px, calc(min(100vw, 1600px) * 0.9375)"
+    <Plate className="art burst-art" name="burst" widths={[720, 1080, 1440, 2304, 3072]} width={1420} height={204} sizes="(max-width: 1023.98px) 1px, calc(min(100vw, 1600px) * 0.925)"
       phone={{ name: 'burst-phone', widths: [95, 190], media: '(max-width: 1023.98px)', sizes: 'clamp(74px, 19vw, 120px)' }} />
     <span className="burst-wire" aria-hidden="true" />
     <ol className="log burst-log">

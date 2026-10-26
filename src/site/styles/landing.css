@@ -21,7 +21,7 @@
   .screen-copy { position: absolute; top: calc(148.7 * var(--u)); left: calc(var(--edge) + 128 * var(--u)); width: calc(800 * var(--u)); }
   .heading { font-size: calc(104 * var(--u)); --stroke: max(1.25px, calc(2 * var(--u))); }
   .heading .line, .sentence .line { display: block; white-space: nowrap; }
-  .sentence { margin-top: calc(40 * var(--u)); max-width: calc(470 * var(--u)); font-size: calc(26 * var(--u)); line-height: 1.4; }
+  .sentence { margin-top: calc(40 * var(--u)); max-width: calc(650 * var(--u)); font-size: calc(32 * var(--u)); line-height: 1.28; }
   .log, .tag, .caption { font-size: calc(20 * var(--u)); line-height: 1.6; }
   .log li, .tag-line { display: block; white-space: nowrap; }
   .log .sep { white-space: pre; }

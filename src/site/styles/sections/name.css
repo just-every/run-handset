@@ -5,9 +5,9 @@
 .stamp { display: inline-block; margin-left: .55em; padding: .05em .45em; border: 2px solid var(--mint); border-radius: .3em; color: var(--mint); font-weight: 500; text-transform: uppercase; letter-spacing: .04em; transform: rotate(-5deg); transform-origin: 30% 60%; }
 
 @media (min-width: 1024px) {
-  .name-log { position: absolute; right: calc(var(--edge) + 128 * var(--u)); top: calc(664.5 * var(--u)); }
+  .name-log { position: absolute; right: calc(var(--edge) + 128 * var(--u)); top: calc(664.5 * var(--u)); font-size: calc(22.5 * var(--u)); }
   .name-log li + li { margin-top: calc(14 * var(--u)); }
-  .stamp { border-width: max(1.5px, calc(2 * var(--u))); font-size: calc(18 * var(--u)); }
+  .stamp { border-width: max(1.5px, calc(2 * var(--u))); font-size: max(13px, calc(18 * var(--u))); }
 }
 
 @media (max-width: 1023.98px) {

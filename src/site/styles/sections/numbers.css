@@ -3,8 +3,8 @@
 .numbers-tag { color: var(--white); }
 
 @media (min-width: 1024px) {
-  .s-numbers .numbers-art { position: absolute; left: 0; top: calc(459 * var(--u)); width: calc(626 * var(--u)); }
-  .numbers-tag { position: absolute; left: calc(641 * var(--u)); top: calc(739.5 * var(--u)); }
+  .s-numbers .numbers-art { position: absolute; left: 0; top: calc(464.0625 * var(--u)); width: calc(628.125 * var(--u)); }
+  .numbers-tag { position: absolute; left: calc(645.9375 * var(--u)); top: calc(750.9375 * var(--u)); }
 }
 
 @media (max-width: 1023.98px) {

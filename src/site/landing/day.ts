@@ -1,5 +1,5 @@
 // One Monday, Mon Oct 26, 2026, on nine US businesses' Handset: every figure the homepage prints, in one place, so the
-// hero, the screens and the closing read the same records (desk page round 2, page-s1/STRUCTURE.md "Records").
+// hero, the screens and the closing read the same records (desk page round 2, page-s2/STRUCTURE.md "Records").
 // Times are each business's own zone. People appear only as names.
 export const day = {
   date: 'Mon Oct 26',

@@ -7,7 +7,7 @@ import { Groups, Plate } from './parts'
 export function Hero() {
   const { date, businesses, calls } = day
   return <section className="home-hero" aria-labelledby="hero-title">
-    <Plate className="hero-plate" name="hero" widths={[768, 1152, 1536]} width={1536} height={1024} sizes="min(100vw, 1920px)" eager
+    <Plate className="hero-plate" name="hero" widths={[768, 1152, 1536, 2304, 3072]} width={1536} height={1024} sizes="min(100vw, 1920px)" eager
       phone={{ name: 'hero-phone', widths: [390, 780, 976], media: '(max-width: 1023.98px)', sizes: '100vw' }} />
     <div className="hero-head">
       <h1 id="hero-title" className="outline"><span className="line">Handset </span><span className="line">picks up.</span></h1>
