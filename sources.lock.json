@@ -836,7 +836,7 @@
       "executable": false
     },
     "public/handset-app.css": {
-      "sha256": "5be0d7c1cdd7f18531e83c5edefbee1d012f91cfe0c8973ecc951b341015d545",
+      "sha256": "6e48c8e23a3518e5251a638a51aba079c5495d007a625103d490e16acb8d6f69",
       "executable": false
     },
     "public/handset-cord.svg": {
@@ -1508,7 +1508,7 @@
       "executable": false
     },
     "src/handset/automation/console.ts": {
-      "sha256": "1ef29ed8503066592734f78b7b9020bb84dc38ba5e4d633e65f2d9d1e5a53baa",
+      "sha256": "c2ac70f679791a4e70b012763f2d9a2b9e6914829d104abd5a4e226a0ea287b6",
       "executable": false
     },
     "src/handset/automation/doors.ts": {
@@ -1540,7 +1540,7 @@
       "executable": false
     },
     "src/handset/callbacks/pages.ts": {
-      "sha256": "6e96d7df425663abddb4f06f95de313ffd24489d9e5b0a60e2c4164e876f36c9",
+      "sha256": "fdff9728651e685ad50b975f4bba804efc86b7206959a0375b10053c4fc5a3c3",
       "executable": false
     },
     "src/handset/callbacks/provider.ts": {
@@ -1584,7 +1584,7 @@
       "executable": false
     },
     "src/handset/delegation/doors.ts": {
-      "sha256": "25aa3363e26cbfde91183900418ab389fd62ce9b335301a312dd97d029dd0286",
+      "sha256": "54bf9cf52b116a4664d2fc6fb80cdcd15d63cdb3fa4d44cdb82e5a7cba3ae8a8",
       "executable": false
     },
     "src/handset/delegation/inbound-answer.ts": {
@@ -1600,7 +1600,7 @@
       "executable": false
     },
     "src/handset/delegation/pages.ts": {
-      "sha256": "31596c103b86f08904bd51ca89dfc4f0791e011250333655bde5857df3b65927",
+      "sha256": "3fa1c0c5f163055db51b42b7d752bd8b3d9bf417e74ab91477c7e574a77523e4",
       "executable": false
     },
     "src/handset/delegation/routing-page.ts": {
@@ -1968,7 +1968,7 @@
       "executable": false
     },
     "src/handset/queues/doors.ts": {
-      "sha256": "363a3b47982c8872977b57e91caae9bd1bcb943cb5c8b668e0fad328c7a69c71",
+      "sha256": "eef34556fefdd62cb3d1d504c8b9c2a0b6313340ce3a5e4e51d9b9468495050e",
       "executable": false
     },
     "src/handset/queues/entries.ts": {
@@ -2004,7 +2004,7 @@
       "executable": false
     },
     "src/handset/queues/pages.ts": {
-      "sha256": "64e467f9ed1f4a47aaf5301f3e60ed527588f774ba578822118ce02205d06375",
+      "sha256": "e263714bad79842810ab4b2069f0dad5b7ab293c1b8cb4993b2da3712c9c5458",
       "executable": false
     },
     "src/handset/queues/provider-api.ts": {
@@ -2064,7 +2064,7 @@
       "executable": false
     },
     "src/handset/receptionist/doors.ts": {
-      "sha256": "0a26eaaacac971d9608ba130178af33652441feae7c5f5b58146b8bae9f984d8",
+      "sha256": "8d32c93a2d6f949eda8ea1cc5f13d50c196548e2a9156772e91af17e686fd570",
       "executable": false
     },
     "src/handset/receptionist/edge.ts": {
@@ -2092,7 +2092,7 @@
       "executable": false
     },
     "src/handset/receptionist/pages.ts": {
-      "sha256": "30cc03ecbf00dd84bd2ffd72061933bed3e25098a58ff04825a579fbbf895eff",
+      "sha256": "66664e7062a8dfcba3e1735ef9a28b293759a6ed3bc9d92df874acdc591ca48e",
       "executable": false
     },
     "src/handset/receptionist/say.ts": {
@@ -2153,6 +2153,10 @@
     },
     "src/handset/recovery/pages.ts": {
       "sha256": "5268057987eee49f00167b4a23c7348bbca46fa73ca0bf1e860a3b2d7f5f9847",
+      "executable": false
+    },
+    "src/handset/refusal.ts": {
+      "sha256": "508d4c7038fc58040dabc71d1da9cec05f0c4cbb0e295366c2b066f7a7296c38",
       "executable": false
     },
     "src/handset/shell.ts": {
