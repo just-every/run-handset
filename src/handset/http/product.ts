@@ -127,7 +127,7 @@ async function route(request: Request, original: Bindings): Promise<Response|nul
  } catch(error) {
   if(error instanceof Fault){
    if(auth && error.status<500 && error.code!=='owner_required')await denied(auth.env,auth.session,'product.request')
-   return html?page(error.code,`<p role="alert">${error.code.replaceAll('_',' ')}</p><a href="/app/cases">Return to cases</a>`,error.status):json({error:error.code,...(error.detail?{detail:error.detail}:{})},error.status)
+   return html?page(error.code,`<p role="alert">${error.code.replaceAll('_',' ')}</p>${path.startsWith('/app/numbers')?'<a href="/app/numbers">Review current numbers and approvals</a>':'<a href="/app/cases">Return to cases</a>'}`,error.status):json({error:error.code,...(error.detail?{detail:error.detail}:{})},error.status)
   }
   console.error('Handset product request failed',error instanceof Error?error.name:'unknown')
   return html?page('Temporarily unavailable','<p role="alert">No completion is claimed. Retry or reload the current record.</p>',503):json({error:'store_unavailable'},503)

@@ -28,6 +28,7 @@ for(const width of [1440,390])for(const domain of ['numbers','administration','q
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name+' fits viewport')
   assert.equal(await page.locator('h1').count(),1,name+' has a single page heading')
   await page.screenshot({path:`${directory}/${width}-${name}.png`,fullPage:true})
+  if(domain==='numbers')await page.screenshot({path:`${directory}/${width}-${name}-viewport.png`})
   if(domain==='flows')await page.screenshot({path:`${directory}/${width}-${name}-viewport.png`})
   if(focus)await focus.screenshot({path:`${directory}/${width}-${name}-focus.png`})
   const tree=await page.locator('main').ariaSnapshot()
@@ -209,7 +210,7 @@ for(const width of [1440,390])for(const domain of ['numbers','administration','q
   await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
   const member=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'}),[memberName,...memberValue]=member.cookie.split('=')
   await context.clearCookies();await context.addCookies([{name:memberName,value:memberValue.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
-  const privatePaths={flows:[['/app/flows','flows']],administration:[['/app/admin/bulk','bulk'],['/app/admin/templates','template']],queues:[['/app/queues','queue']],'queue-media':[['/app/queues/media','queue-media']],metrics:[['/app/reports/queues','report'],['/app/import','import']],protection:[['/app/protection','protection']],dialer:[['/app/dialer','dialer']],prompts:[['/app/prompts','prompts']],callbacks:[['/app/callbacks','callbacks']]}
+  const privatePaths={numbers:[['/app/numbers','numbers']],flows:[['/app/flows','flows']],administration:[['/app/admin/bulk','bulk'],['/app/admin/templates','template']],queues:[['/app/queues','queue']],'queue-media':[['/app/queues/media','queue-media']],metrics:[['/app/reports/queues','report'],['/app/import','import']],protection:[['/app/protection','protection']],dialer:[['/app/dialer','dialer']],prompts:[['/app/prompts','prompts']],callbacks:[['/app/callbacks','callbacks']]}
   for(const [path,name] of privatePaths[domain]){
    await page.goto(runtime.origin+path);await page.getByRole('alert').waitFor();await proof(name+'-permission-denied')
   }

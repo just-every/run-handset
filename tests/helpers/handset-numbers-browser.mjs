@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict'
 import { numberFixture } from './handset-numbers.mjs'
-import { signIn } from './handset-auth.mjs'
 
-export async function numbersJourney({runtime,page,context,cookie,proof,click}){
+export async function numbersJourney({runtime,page,cookie,proof,click}){
  const f=await numberFixture(runtime,cookie),url=runtime.origin+'/app/numbers'
  async function search(kind='local'){
   await page.goto(url);await page.getByLabel('Twilio account SID',{exact:true}).fill(f.account)
@@ -46,8 +45,4 @@ export async function numbersJourney({runtime,page,context,cookie,proof,click}){
  assert.equal(f.calls.filter(c=>c.method==='DELETE').length,1)
  await page.goto(url);await page.getByLabel('Twilio account SID',{exact:true}).fill('synthetic-handset-7999');await click('Search numbers')
  assert.match(await page.getByRole('alert').innerText(),/carrier readback unavailable/);await proof('numbers-provider-failed')
- await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
- const member=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'}),[name,...value]=member.cookie.split('=')
- await context.clearCookies();await context.addCookies([{name,value:value.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
- await page.goto(url);assert.match(await page.getByRole('alert').innerText(),/owner required/);await proof('numbers-permission-denied')
 }

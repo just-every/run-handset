@@ -1800,7 +1800,7 @@
       "executable": false
     },
     "src/handset/http/product.ts": {
-      "sha256": "dfaed8300863a5647ff8a0e1d5a7a90bc4e211f2cd83bb8934df942d6e36287c",
+      "sha256": "e042324cfaa02ec216e2d3ce2f0c29dcb0b83b4bbd0d51e61d7fbc8edf291dcd",
       "executable": false
     },
     "src/handset/import/bridge.ts": {
@@ -4188,7 +4188,7 @@
       "executable": false
     },
     "tests/handset-console-browser.mjs": {
-      "sha256": "698bffde6d249f46780ce6a3135468fcd11641de175ca70d3a6ba568199d5774",
+      "sha256": "63a8a587b1dd809d1ee78423a21eadfcd75c114e39195b1ddd18fb5f88652eff",
       "executable": false
     },
     "tests/handset-import.mjs": {
@@ -4316,7 +4316,7 @@
       "executable": false
     },
     "tests/helpers/handset-numbers-browser.mjs": {
-      "sha256": "bac746cbb12f8cc376eba576b0aa0e0674328b78a316e154900420561789e96f",
+      "sha256": "163c7fd1399ad727cd5b47308714efef7681b465210156feb63616926fc3527a",
       "executable": false
     },
     "tests/helpers/handset-numbers.mjs": {
