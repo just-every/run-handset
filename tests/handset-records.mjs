@@ -1155,6 +1155,22 @@ test('Shared voicemail races one claimant and preserves handled history across n
   assert.equal((await f.read('/api/handset/voicemail/boxes/'+box.id)).due.length,2)
   assert.equal((await f.write('/api/handset/voicemail/boxes/'+box.id+'/observations',observation)).replay,true)
   await f.write('/api/handset/voicemail/boxes/'+box.id+'/observations',{...observation,text:'Changed'},f.ownerHeaders,409)
+  const duplicateObservation={sourceId:'synthetic-handset-948',text:'An observation arriving concurrently',language:'en'},duplicateId=crypto.randomUUID()
+  await runtime.sql(`CREATE TRIGGER synthetic_handset_observation_arrival BEFORE INSERT ON hnd_actor_refs WHEN NEW.operator_id='synthetic-handset-1' BEGIN INSERT INTO hnd_voicemail_items VALUES ('${duplicateId}','${box.id}','${duplicateObservation.sourceId}','${duplicateObservation.text}','en',NULL,'open',1); INSERT INTO hnd_voicemail_history VALUES ('${crypto.randomUUID()}','${duplicateId}','synthetic-handset-1','observed',1,${Date.now()},''); END`)
+  const duplicateArrival=await post(runtime,'/api/handset/voicemail/boxes/'+box.id+'/observations',duplicateObservation,f.ownerHeaders)
+  await runtime.sql('DROP TRIGGER synthetic_handset_observation_arrival')
+  const duplicateReplay=await f.write('/api/handset/voicemail/boxes/'+box.id+'/observations',duplicateObservation)
+  assert.equal(duplicateReplay.replay,true);assert.equal(duplicateReplay.item.id,duplicateId)
+  const replayBefore=await f.read('/api/handset/voicemail/boxes/'+box.id)
+  await runtime.sql(`CREATE TRIGGER synthetic_handset_replay_change BEFORE INSERT ON hnd_actor_refs WHEN NEW.operator_id='synthetic-handset-1' BEGIN UPDATE hnd_voicemail_items SET state='handled',revision=revision+1 WHERE id='${item.id}'; END`)
+  const changedReplay=await post(runtime,'/api/handset/voicemail/boxes/'+box.id+'/observations',observation,f.ownerHeaders)
+  await runtime.sql('DROP TRIGGER synthetic_handset_replay_change')
+  const replayAfter=await f.read('/api/handset/voicemail/boxes/'+box.id)
+  assert.equal(replayAfter.items.find(i=>i.id===item.id).revision,replayBefore.items.find(i=>i.id===item.id).revision+1)
+  assert.deepEqual(replayAfter.history,replayBefore.history,'a stale replay cannot append item history')
+  assert.equal(replayAfter.items.filter(i=>i.source_id===duplicateObservation.sourceId).length,1)
+  assert.equal(replayAfter.history.filter(h=>h.item_id===duplicateId).length,1)
+  assert.deepEqual([duplicateArrival.status,changedReplay.status],[409,409],'concurrent observation arrival and changed replay both require a fresh request')
   await assert.rejects(runtime.sql("DELETE FROM hnd_voicemail_history WHERE item_id=?",item.id),/append_only/)
   assert.deepEqual(runtime.sourceRequests,[])
   assert.equal((await runtime.sql('SELECT count(*) AS n FROM hnd_text_permissions')).results[0].n,0)
@@ -1185,6 +1201,28 @@ test('Voicemail privacy and live membership refuse unauthorized handling reopeni
   await f.read(path,f.memberHeaders,403)
   await f.write(target+'/reopen',{revision:3},f.memberHeaders,403)
   await f.write(path+'/members',{revision:3,personId:'synthetic-handset-2',enabled:1})
+  const ownershipRaces=[]
+  for(const operation of ['observations','handle','reopen']){
+   const changing=(await f.write('/api/handset/voicemail/boxes',{name:'Ownership admission',kind:'shared'},f.ownerHeaders,201)).box
+   const changingPath='/api/handset/voicemail/boxes/'+changing.id
+   await f.write(changingPath+'/members',{revision:1,personId:'synthetic-handset-2',enabled:1})
+   await f.write(changingPath+'/owner',{revision:2,personId:'synthetic-handset-2'})
+   const changingObservation={sourceId:'synthetic-handset-946',text:'Ownership must stay current',language:'en'}
+   const changingItem=(await f.write(changingPath+'/observations',changingObservation,f.memberHeaders,201)).item
+   const changingTarget=changingPath+'/items/'+changingItem.id
+   await f.write(changingTarget+'/claim',{revision:1})
+   if(operation==='reopen')await f.write(changingTarget+'/handle',{revision:2})
+   const before=await f.read(changingPath)
+   await runtime.sql(`CREATE TRIGGER synthetic_handset_box_owner_change BEFORE INSERT ON hnd_actor_refs WHEN NEW.operator_id='synthetic-handset-2' BEGIN UPDATE hnd_mailboxes SET owner_id='synthetic-handset-1',revision=revision+1 WHERE id='${changing.id}'; END`)
+   const requestPath=operation==='observations'?changingPath+'/observations':changingTarget+'/'+operation
+   const input=operation==='observations'?{...changingObservation,sourceId:'synthetic-handset-947'}:{revision:before.items[0].revision}
+   const response=await post(runtime,requestPath,input,f.memberHeaders)
+   await runtime.sql('DROP TRIGGER synthetic_handset_box_owner_change')
+   const after=await f.read(changingPath)
+   assert.equal(after.box.owner_id,'synthetic-handset-1')
+   ownershipRaces.push({operation,status:response.status,itemsUnchanged:JSON.stringify(after.items)===JSON.stringify(before.items),historyUnchanged:JSON.stringify(after.history)===JSON.stringify(before.history)})
+  }
+  assert.deepEqual(ownershipRaces,['observations','handle','reopen'].map(operation=>({operation,status:409,itemsUnchanged:true,historyUnchanged:true})))
   await runtime.sql("CREATE TRIGGER synthetic_handset_mailbox_loss BEFORE INSERT ON hnd_actor_refs WHEN NEW.operator_id='synthetic-handset-1' BEGIN UPDATE oa_operators SET role='member' WHERE id='synthetic-handset-1'; END")
   await f.write(path+'/observations',{sourceId:'synthetic-handset-943',text:'Must not persist after authority loss',language:'en'},f.ownerHeaders,409)
   assert.equal((await runtime.sql('SELECT count(*) AS n FROM hnd_voicemail_items WHERE source_id=?','synthetic-handset-943')).results[0].n,0)
