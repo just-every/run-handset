@@ -1,6 +1,7 @@
 import type { Bindings } from '../../auth.server'
 import { aiConfig } from '../../modules/ai/index.mjs'
 import { Fault } from '../core'
+import { readPromptAudio } from './media'
 
 const model = 'gpt-4o-mini-tts'
 const voices = { en: 'alloy', es: 'alloy' } as const
@@ -12,7 +13,7 @@ export async function synthesize(env: Bindings, language: 'en' | 'es', script: s
  const selected = aiConfig({ ...env }).direct
  let origin: URL
  try { origin = new URL(selected?.baseUrl ?? '') } catch { throw new Fault('tts_unavailable', 503) }
- if (!aiConfig({ ...env }).enabled || !selected?.apiKey || /\s/.test(selected.apiKey) || origin.protocol !== 'https:' || origin.username || origin.search || origin.hash) throw new Fault('tts_unavailable', 503)
+ if (!aiConfig({ ...env }).enabled || !selected?.apiKey || /\s/.test(selected.apiKey) || origin.protocol !== 'https:' || origin.username || origin.password || origin.search || origin.hash) throw new Fault('tts_unavailable', 503)
  let response: Response
  try {
   response = await fetch(origin.href.replace(/\/+$/, '') + '/audio/speech', {
@@ -21,6 +22,5 @@ export async function synthesize(env: Bindings, language: 'en' | 'es', script: s
    body: JSON.stringify({ model, input: script, voice: voices[language], instructions: styles[language], response_format: 'wav' }),
   })
  } catch { throw new Fault('tts_unavailable', 503) }
- if (response.status !== 200 || !(response.headers.get('content-type') ?? '').startsWith('audio/')) throw new Fault('tts_unavailable', 502)
- return new Uint8Array(await response.arrayBuffer())
+ return readPromptAudio(response)
 }

@@ -23,7 +23,7 @@ function mulawDecode(byte: number) {
 }
 function header(bytes: number) {
  const out = new Uint8Array(58), view = new DataView(out.buffer), put = (at: number, text: string) => [...text].forEach((c, i) => { out[at + i] = c.charCodeAt(0) })
- put(0, 'RIFF'); view.setUint32(4, 50 + bytes, true); put(8, 'WAVE'); put(12, 'fmt ')
+ put(0, 'RIFF'); view.setUint32(4, 50 + bytes + (bytes & 1), true); put(8, 'WAVE'); put(12, 'fmt ')
  view.setUint32(16, 18, true); view.setUint16(20, 7, true); view.setUint16(22, 1, true); view.setUint32(24, 8000, true)
  view.setUint32(28, 8000, true); view.setUint16(32, 1, true); view.setUint16(34, 8, true); view.setUint16(36, 0, true)
  put(38, 'fact'); view.setUint32(42, 4, true); view.setUint32(46, bytes, true); put(50, 'data'); view.setUint32(54, bytes, true)
@@ -34,19 +34,24 @@ export function normalizeAudio(input: Uint8Array): Normalized {
  if (input.length < 44 || input.length > maxUploadBytes) throw new Fault('invalid_audio_file', 422)
  if (tag(input, 0) !== 'RIFF' || tag(input, 8) !== 'WAVE') throw new Fault('unsupported_audio_format', 422)
  const view = new DataView(input.buffer, input.byteOffset, input.byteLength)
- let at = 12, format = 0, channels = 0, rate = 0, bits = 0, data: Uint8Array | null = null
+ if(view.getUint32(4,true)!==input.length-8)throw new Fault('invalid_audio_file',422)
+ let at = 12, format = 0, channels = 0, rate = 0, bits = 0, alignment=0, byteRate=0,formatSeen=false, data: Uint8Array | null = null
  while (at + 8 <= input.length) {
   const name = tag(input, at), size = view.getUint32(at + 4, true), body = at + 8
-  if (body + size > input.length) { if (name === 'data') { data = input.subarray(body); break } throw new Fault('invalid_audio_file', 422) }
+  if (body + size + (size & 1) > input.length) throw new Fault('invalid_audio_file', 422)
   if (name === 'fmt ') {
-   if (size < 16) throw new Fault('invalid_audio_file', 422)
+   if (size < 16 || formatSeen) throw new Fault('invalid_audio_file', 422)
+   formatSeen=true
    format = view.getUint16(body, true); channels = view.getUint16(body + 2, true); rate = view.getUint32(body + 4, true); bits = view.getUint16(body + 14, true)
-  } else if (name === 'data') { data = input.subarray(body, body + size); break }
+   alignment=view.getUint16(body+12,true);byteRate=view.getUint32(body+8,true)
+  } else if (name === 'data') { if(data)throw new Fault('invalid_audio_file',422);data = input.subarray(body, body + size) }
   at = body + size + (size & 1)
  }
+ if(at!==input.length)throw new Fault('invalid_audio_file',422)
  const pcm = format === 1 && bits === 16, law = format === 7 && bits === 8
  if (!data || !(pcm || law) || channels < 1 || channels > 2 || rate < 8000 || rate > 48000) throw new Fault('unsupported_audio_format', 422)
- const frame = (pcm ? 2 : 1) * channels, frames = Math.floor(data.length / frame)
+ const frame = (pcm ? 2 : 1) * channels, frames = data.length / frame
+ if(alignment!==frame||byteRate!==rate*frame||!Number.isInteger(frames))throw new Fault('invalid_audio_file',422)
  if (!frames) throw new Fault('invalid_audio_file', 422)
  const sampleAt = (index: number) => {
   let sum = 0
@@ -66,7 +71,7 @@ export function normalizeAudio(input: Uint8Array): Normalized {
   for (let j = from; j < to && j < frames; j++) sum += sampleAt(j)
   out[i] = mulaw(Math.round(sum / (Math.min(to, frames) - from)))
  }
- const wav = new Uint8Array(58 + count)
+ const wav = new Uint8Array(58 + count + (count & 1))
  wav.set(header(count)); wav.set(out, 58)
  return { wav, durationMs, original: `${pcm ? 'pcm16' : 'mulaw'}-${rate}-${channels}ch` }
 }

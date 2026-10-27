@@ -19,13 +19,18 @@ export function wavBytes({ rate = 44100, channels = 1, seconds = 1, freq = 440 }
 export const b64 = bytes => Buffer.from(bytes).toString('base64')
 
 export async function promptFixture() {
- const speech = []
+ const speech = [],speechResponses=[],redirectRequests=[]
  const runtime = await openHandset({
+  captureLogs:true,
   twilio: true,
   ttsEdge: async (request, Response) => {
    const body = await request.json()
    speech.push({ headers: Object.fromEntries(request.headers), body })
+   if(speechResponses.length)return speechResponses.shift()(request,Response)
    return new Response(wavBytes({ rate: 24000, seconds: 1.5, freq: body.input.includes('Hola') || body.input.includes('cerrado') ? 330 : 520 }), { status: 200, headers: { 'content-type': 'audio/wav' } })
+  },
+  knowledgeEdge:async(request,Response)=>{
+   if(request.url.startsWith('https://handset-redirect.example.test/')){redirectRequests.push(request.url);return new Response('refused redirect target',{status:403})}
   },
  })
  try {
@@ -46,7 +51,7 @@ export async function promptFixture() {
    for (const key of Object.keys(data).sort()) payload += key + data[key]
    return runtime.request(path, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', ...(signature ? { 'x-twilio-signature': createHmac('sha1', 'synthetic-handset-500').update(payload).digest('base64') } : {}) }, body: new URLSearchParams(data).toString() })
   }
-  return { runtime, source, headers, speech, ok, refused, signed }
+  return { runtime, source, headers, speech, speechResponses, redirectRequests, ok, refused, signed }
  } catch (error) { await runtime.close(); throw error }
 }
 export async function newPrompt(f, name, purpose, shared = false) { return f.ok('POST', '/api/handset/prompts', { name, purpose, shared }, 201) }

@@ -32,10 +32,21 @@ export function choice<T extends string>(value: unknown, choices: readonly T[], 
  if (typeof value !== 'string' || !choices.includes(value as T)) throw new Fault(`invalid_${name}`)
  return value as T
 }
+/** Bound both declared and streamed bytes before parsing or retaining a body. */
+export async function boundedBody(body:Request|Response,limit:number,code='body_too_large'):Promise<Uint8Array<ArrayBuffer>>{
+ const reader=body.body?.getReader(),length=body.headers.get('content-length'),chunks:Uint8Array[]=[]
+ let size=0
+ try{
+  if(length!==null&&(!/^\d+$/.test(length)||Number(length)>limit))throw new Fault(code,413)
+  if(reader)while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>limit)throw new Fault(code,413);chunks.push(part.value)}
+  if(length!==null&&size!==Number(length))throw new Fault(code,413)
+  const bytes=new Uint8Array(size);let offset=0
+  for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length}
+  return bytes
+ }finally{try{await reader?.cancel()}catch{ /* Preserve the original refusal or transport error. */ }}
+}
 export async function input(request: Request, limit = 65536): Promise<ObjectValue> {
- if (Number(request.headers.get('content-length') ?? 0) > limit) throw new Fault('body_too_large', 413)
- const raw = await request.text()
- if (new TextEncoder().encode(raw).length > limit) throw new Fault('body_too_large', 413)
+ const raw = new TextDecoder().decode(await boundedBody(request,limit))
  try {
   if (request.headers.get('content-type')?.startsWith('application/x-www-form-urlencoded')) return Object.fromEntries(new URLSearchParams(raw))
   if (!request.headers.get('content-type')?.startsWith('application/json')) throw new Fault('json_required', 415)

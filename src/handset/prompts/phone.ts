@@ -2,14 +2,16 @@ import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { append, commit } from '../audit/store'
 import { sourcePolicy } from '../audit/policy'
-import { escape as e, Fault, choice, id, keys, text, type ObjectValue } from '../core'
+import { boundedBody, escape as e, Fault, choice, id, keys, text, type ObjectValue } from '../core'
 import { guard, sql } from '../delegation/store'
 import { activeSourceById, sourceFence } from '../providers/sources'
 import { normalizeAudio } from './audio'
 import { attemptsPerStep, pinHash, root, variants, type Language, type Variant } from './model'
 import { versionInsert } from './store'
+import { readPromptAudio } from './media'
+import { checkRecordingAuthority, recordingFences } from './recording-access'
 
-interface Recording { id: string; prompt_id: string; source_id: string; language: Language; variant: Variant; author_id: string; destination: string; pin_hash: string; state: string; call_sid: string | null; attempts: number; expires_at: number }
+interface Recording { id: string; prompt_id: string; source_id: string; language: Language; variant: Variant; author_id: string; author_version:number; destination: string; pin_hash: string; state: string; call_sid: string | null; attempts: number; expires_at: number }
 const say = (body: string) => `<Say>${e(body)}</Say>`
 
 /** An authorized author asks for a recording callback. The destination must be an active extension that the
@@ -26,7 +28,7 @@ export async function requestPhoneRecording(env: Bindings, actor: Session, promp
  const target = id(), pin = String(crypto.getRandomValues(new Uint32Array(1))[0] % 900000 + 100000), now = Date.now()
  await commit(env, actor, 'prompt.phone', target, 'completed', [sourceFence(env, source),
   guard(env, 'SELECT count(*) FROM hnd_extensions WHERE operator_id=? AND destination=? AND active=1', actor.operator.id, destination),
-  sql(env, "INSERT INTO hnd_prompt_recordings(id,prompt_id,source_id,language,variant,author_id,destination,pin_hash,state,expires_at,created_at) VALUES (?,?,?,?,?,?,?,?,'awaiting_call',?,?)", target, promptId, source.id, language, variant, actor.operator.id, destination, await pinHash(env, target, pin), now + 900000, now)])
+  sql(env, "INSERT INTO hnd_prompt_recordings(id,prompt_id,source_id,language,variant,author_id,author_version,destination,pin_hash,state,expires_at,created_at) VALUES (?,?,?,?,?,?,?,?,?,'awaiting_call',?,?)", target, promptId, source.id, language, variant, actor.operator.id,actor.operator.version, destination, await pinHash(env, target, pin), now + 900000, now)])
  return { id: target, pin, providerPath: `${root}/recordings/${target}`, destination, placement: 'held: no callback is placed by this server; the carrier route answers the signed door below', expiresAt: now + 900000, note: 'The one-time code is shown once.' }
 }
 async function load(env: Bindings, key: string, p: URLSearchParams) {
@@ -38,11 +40,12 @@ async function load(env: Bindings, key: string, p: URLSearchParams) {
  if (rec.expires_at <= Date.now() || ['recorded', 'refused'].includes(rec.state)) throw new Fault('recording_request_closed', 409)
  const sid = text(p.get('CallSid'), 'CallSid', 64)
  if (rec.call_sid && rec.call_sid !== sid) throw new Fault('recording_call_identity_mismatch', 403)
+ await checkRecordingAuthority(env,source,rec)
  return { rec, source, sid }
 }
 const gather = (key: string, origin: string, prompt: string) => `<Gather input="dtmf" numDigits="6" timeout="8" actionOnEmptyResult="true" action="${e(`${origin}${root}/recordings/${key}/pin`)}" method="POST">${say(prompt)}</Gather>`
 export async function phoneRecordingResponse(env: Bindings, key: string, step: string, p: URLSearchParams): Promise<string> {
- const { rec, source, sid } = await load(env, key, p), fences = [sourceFence(env, source)]
+ const { rec, source, sid } = await load(env, key, p), fences = recordingFences(env,source,rec)
  if (step === '') {
   if (!rec.call_sid) await append(env, source.id, 'prompt.phone', rec.id, 'completed', [...fences, sql(env, 'UPDATE hnd_prompt_recordings SET call_sid=? WHERE id=? AND call_sid IS NULL', sid, rec.id)], null, sourcePolicy(source))
   return gather(rec.id, env.AUTH_ORIGIN, 'Enter your six digit recording code.')
@@ -66,13 +69,16 @@ export async function phoneRecordingResponse(env: Bindings, key: string, step: s
   let meta: Response, media: Response
   try {
    meta = await fetch(base + '.json', { headers: auth, redirect: 'manual', signal: AbortSignal.timeout(5000) })
-   if (meta.status !== 200) throw new Fault('recording_provider_unavailable', 503)
-   const info = await meta.json() as { call_sid?: string; account_sid?: string; status?: string }
+   if (meta.status !== 200) { await meta.body?.cancel();throw new Fault('recording_provider_unavailable', 503) }
+   const info = JSON.parse(new TextDecoder().decode(await boundedBody(meta,65536,'recording_metadata_too_large'))) as { call_sid?: string; account_sid?: string; status?: string }
    if (info.call_sid !== sid || info.account_sid !== source.account_id || info.status !== 'completed') throw new Fault('recording_not_from_this_call', 409)
+   await checkRecordingAuthority(env,source,rec)
    media = await fetch(base + '.wav', { headers: auth, redirect: 'manual', signal: AbortSignal.timeout(8000) })
   } catch (error) { throw error instanceof Fault ? error : new Fault('recording_provider_unavailable', 503) }
-  if (media.status !== 200) throw new Fault('recording_provider_unavailable', 503)
-  const normalized = normalizeAudio(new Uint8Array(await media.arrayBuffer()))
+  if (media.status !== 200) { await media.body?.cancel();throw new Fault('recording_provider_unavailable', 503) }
+  const bytes=await readPromptAudio(media)
+  await checkRecordingAuthority(env,source,rec)
+  const normalized = normalizeAudio(bytes)
   const { target, statements } = await versionInsert(env, rec.author_id, rec.prompt_id, { source: 'phone_recording', language: rec.language, variant: rec.variant, schedule: {}, audio: normalized.wav, original: normalized.original, durationMs: normalized.durationMs })
   await append(env, source.id, 'prompt.phone', target, 'completed', [...fences, guard(env, "SELECT count(*) FROM hnd_prompt_recordings WHERE id=? AND state='authenticated'", rec.id), ...statements, sql(env, "UPDATE hnd_prompt_recordings SET state='recorded',version_id=? WHERE id=?", target, rec.id)], null, sourcePolicy(source))
   return say('Your greeting was saved as a draft. Goodbye.') + '<Hangup/>'

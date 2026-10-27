@@ -4,7 +4,7 @@ import { observeConsentDisconnect } from '../consent/outcomes'
 import { runtimeBindings, type Bindings } from '../../auth.server'
 import { append } from '../audit/store'
 import { sourcePolicy } from '../audit/policy'
-import { Fault, json, text, id, digest, integer } from '../core'
+import { boundedBody, Fault, json, text, id, digest, integer } from '../core'
 
 import { activeSources, sourceFence, type Source } from './sources'
 export { sourceDoor } from './sources'
@@ -40,7 +40,7 @@ function normalize(p:URLSearchParams){
   const count=integer(Number(p.get('NumMedia')??0),'NumMedia',0,10)
   const media=[]
   for(let index=0;index<count;index++){
-   const address=new URL(get('MediaUrl'+index));if(address.protocol!=='https:'||address.hostname!=='api.twilio.com'||address.username||address.password||address.search||address.hash)throw new Fault('invalid_media_reference')
+   const address=new URL(get('MediaUrl'+index));if(address.protocol!=='https:'||address.hostname!=='api.twilio.com'||address.port||address.username||address.password||address.search||address.hash)throw new Fault('invalid_media_reference')
    media.push({providerUrl:address.href,mime:get('MediaContentType'+index)})
   }
   return {account,externalId:get('MessageSid'),parent:'',eventId:`message:${get('MessageSid')}:${state}`,occurredAt,from,to,kind:'message',state,data:{channel:count?'mms':'sms',providerStatus:state,from,to,text:sourceText(p.get('Body')??''),media,capture:'metadata only; media not fetched'}}
@@ -179,7 +179,7 @@ export async function twilioResponse(request:Request,original:Bindings):Promise<
   if(url.origin!==env.AUTH_ORIGIN||url.search||request.headers.has('host')&&request.headers.get('host')?.toLowerCase()!==url.host.toLowerCase())throw new Fault('invalid_source_proof',403)
   if(request.method!=='POST')throw new Fault('method_not_allowed',405)
   if(!request.headers.get('content-type')?.startsWith('application/x-www-form-urlencoded'))throw new Fault('invalid_source_content_type',415)
-  const body=await request.text();if(new TextEncoder().encode(body).length>65536)throw new Fault('body_too_large',413)
+  const body=new TextDecoder().decode(await boundedBody(request,65536))
   const p=new URLSearchParams(body)
   await verify(request,env,p)
   let event:Event=normalize(p)

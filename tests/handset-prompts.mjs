@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { post, signIn } from './helpers/handset-auth.mjs'
+import { phoneSecurity, promptSecurity } from './helpers/handset-prompt-security.mjs'
 import { approve, authoredFlow, b64, business, coverage, flowDefinition, instants, newPrompt, people, promptFixture, publishFlow, queueId, registerPeople, wavBytes } from './helpers/handset-prompts.mjs'
 
 const versionPath = (id, tail) => `/api/handset/prompts/versions/${id}/${tail}`
@@ -77,6 +78,14 @@ test('Uploaded, browser-recorded, phone-recorded and Spanish speech prompts are 
   await f.refused(versions, { source: 'upload', language: 'en', variant: 'business_hours', audioBase64: b64(Buffer.alloc(300, 7)) }, 422, 'unsupported_audio_format')
   await f.refused(versions, { source: 'upload', language: 'en', variant: 'business_hours', audioBase64: b64(wavBytes().subarray(0, 30)) }, 422, 'invalid_audio_file')
   await f.refused(versions, { source: 'upload', language: 'en', variant: 'business_hours', audioBase64: b64(wavBytes({ seconds: 0.05 })) }, 422, 'audio_duration_out_of_range')
+  const malformed=[]
+  const truncatedData=wavBytes();truncatedData.writeUInt32LE(truncatedData.length,40);malformed.push(truncatedData)
+  const incorrectRiff=wavBytes();incorrectRiff.writeUInt32LE(incorrectRiff.length+40,4);malformed.push(incorrectRiff)
+  const incompleteFrame=wavBytes().subarray(0,-1);incompleteFrame.writeUInt32LE(incompleteFrame.length-8,4);incompleteFrame.writeUInt32LE(incompleteFrame.length-44,40);malformed.push(incompleteFrame)
+  const wrongAlignment=wavBytes();wrongAlignment.writeUInt16LE(1,32);malformed.push(wrongAlignment)
+  const duplicateFormat=Buffer.concat([wavBytes().subarray(0,36),wavBytes().subarray(12)]);duplicateFormat.writeUInt32LE(duplicateFormat.length-8,4);malformed.push(duplicateFormat)
+  for(const bytes of malformed)await f.refused(versions,{source:'upload',language:'en',variant:'always',audioBase64:b64(bytes)},422,'invalid_audio_file')
+  await f.refused(versions,{source:'upload',language:'en',variant:'always',audioBase64:'!not-base64'},422,'invalid_audio_file')
   assert.equal((await listing(f)).versions.length, 0)
   const upload = await f.ok('POST', versions, { source: 'upload', language: 'en', variant: 'business_hours', schedule: { effectiveFrom: '2026-11-01', note: 'Weekday greeting' }, audioBase64: b64(wavBytes({ rate: 44100, channels: 2, seconds: 1.2 })) }, 201)
   assert.deepEqual([upload.source, upload.language, upload.variant, upload.author_name, upload.state, upload.version, upload.original_format], ['upload', 'en', 'business_hours', 'Mara Patel', 'draft', 1, 'pcm16-44100-2ch'])
@@ -160,8 +169,10 @@ test('Uploaded, browser-recorded, phone-recorded and Spanish speech prompts are 
   assert.equal((await listing(f)).versions.filter(v => v.prompt_id === greeting.id).length, 2)
   const evaluated = await f.ok('POST', `/api/handset/flows/${first.id}/evaluate`, { instant: instants.closed })
   assert.deepEqual(evaluated.prompts, [{ nodeId: 'closed', ...full.closed }])
-  // Authoring is owner-only.
+  // A native human session is required; custom roles never grant anonymous access.
   assert.equal((await f.runtime.request('/api/handset/prompts')).status, 401)
+  await promptSecurity(f,greeting)
+  await phoneSecurity(f)
  } finally { await f.runtime.close() }
 })
 

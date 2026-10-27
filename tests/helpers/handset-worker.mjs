@@ -11,7 +11,7 @@ import { unstable_splitSqlQuery as splitSql } from 'wrangler'
 // Use the exact runtime and HTTP client installed with this checkout's Wrangler.
 const require = createRequire(import.meta.url)
 const runtimeRequire = createRequire(require.resolve('wrangler/package.json'))
-const { Miniflare, Response: WorkerResponse, convertV4MiniflareOptions } = runtimeRequire('miniflare')
+const { Miniflare, Response: WorkerResponse, convertV4MiniflareOptions, Log, LogLevel } = runtimeRequire('miniflare')
 const { Agent, fetch: transportFetch } = createRequire(runtimeRequire.resolve('miniflare'))('undici')
 const root = fileURLToPath(new URL('../../', import.meta.url))
 
@@ -80,7 +80,7 @@ async function seed(db, ownerEmail) {
  * launch headless with --use-mock-keychain and --password-store=basic, real HOME.
  * mails contains raw SendGrid JSON, without transport headers or credentials.
  */
-export async function openHandset({ liveMail = false, twilio = false, edges = null, callingClock: useCallingClock = false, knowledgeEdge = null, modelEdge = null, ttsEdge = null, clockTime } = {}) {
+export async function openHandset({ liveMail = false, twilio = false, edges = null, callingClock: useCallingClock = false, knowledgeEdge = null, modelEdge = null, ttsEdge = null, clockTime,captureLogs=false } = {}) {
   if (liveMail && ['MAIL_TO', 'MAIL_FROM', 'MAIL_API_KEY'].some(name => !process.env[name])) {
     throw new Error('Live mail requires MAIL_TO, MAIL_FROM and MAIL_API_KEY')
   }
@@ -95,7 +95,8 @@ export async function openHandset({ liveMail = false, twilio = false, edges = nu
   const clock = useCallingClock || Number.isSafeInteger(clockTime) ? callingClock(clockTime) : null
   // TLS trust is scoped to this client's loopback requests, never process-wide.
   let dispatcher = new Agent({ connect: { rejectUnauthorized: false } })
-  const mails = [], mailResponses = [], twilioResources = new Map(), sourceRequests = []
+  const mails = [], mailResponses = [], twilioResources = new Map(), sourceRequests = [],logs=[]
+  class CapturedLog extends Log {log(message){logs.push(message)}}
   let runtime, options, db, mailFailure = false, closing
   const close = () => closing ??= (async () => {
     try { await runtime?.dispose() }
@@ -114,9 +115,9 @@ export async function openHandset({ liveMail = false, twilio = false, edges = nu
       const mapped=twilioResources.get(request.url)
       const response=Array.isArray(mapped?.__responses)?mapped.__responses.shift():mapped
       const payload=typeof response==='function'?await response(request):response
-      if(payload?.__audio){const bytes=new Uint8Array(payload.__audio);return new WorkerResponse(bytes,{status:payload.__httpStatus??200,headers:{'content-type':payload.__mime??'audio/wav','content-length':String(bytes.length)}})}
-      const {__httpStatus=200,...body}=payload??{}
-      return new WorkerResponse(__httpStatus===204?null:JSON.stringify(payload?body:{code:20404,message:'Synthetic resource not found'}),{status:payload?__httpStatus:404,headers:{'content-type':'application/json'}})
+      if(payload?.__audio){const bytes=new Uint8Array(payload.__audio);return new WorkerResponse(bytes,{status:payload.__httpStatus??200,headers:{'content-type':payload.__mime??'audio/wav','content-length':String(bytes.length),...payload.__headers}})}
+      const {__httpStatus=200,__headers={},...body}=payload??{}
+      return new WorkerResponse(__httpStatus===204?null:JSON.stringify(payload?body:{code:20404,message:'Synthetic resource not found'}),{status:payload?__httpStatus:404,headers:{'content-type':'application/json',...__headers}})
     }
     const isMail = request.url === 'https://api.sendgrid.com/v3/mail/send'
     if (isMail) {
@@ -150,6 +151,7 @@ export async function openHandset({ liveMail = false, twilio = false, edges = nu
   try {
     options = convertV4MiniflareOptions({
       name: config.name,
+      ...(captureLogs?{log:new CapturedLog(LogLevel.DEBUG)}:{}),
       ...(clock ? { inspectorPort: 0 } : {}),
       rootPath: base,
       modules, modulesRoot: base,
@@ -190,7 +192,7 @@ export async function openHandset({ liveMail = false, twilio = false, edges = nu
     await migrate(db)
     await seed(db, ownerEmail)
     return {
-      origin, ownerEmail, mails, mailResponses, get db() { return db }, close, twilioResources, sourceRequests,
+      origin, ownerEmail, mails, mailResponses, get db() { return db }, close, twilioResources, sourceRequests,logs,
       async restart() {
         await runtime.dispose()
         await dispatcher.close()

@@ -1,5 +1,5 @@
 import { runtimeBindings, type Bindings } from '../../auth.server'
-import { Fault, headers, json } from '../core'
+import { boundedBody, Fault, headers, json } from '../core'
 import { verifyCarrierSignature } from '../protection/carrier-proof'
 import { xml } from '../protection/twiml'
 import { sql } from '../delegation/store'
@@ -25,8 +25,7 @@ export async function promptProviderResponse(request: Request, original: Binding
   }
   if (request.method !== 'POST') throw new Fault('method_not_allowed', 405)
   if (!request.headers.get('content-type')?.startsWith('application/x-www-form-urlencoded')) throw new Fault('invalid_source_content_type', 415)
-  const raw = await request.text()
-  if (new TextEncoder().encode(raw).length > 16384) throw new Fault('body_too_large', 413)
+  const raw = new TextDecoder().decode(await boundedBody(request,16384))
   const p = new URLSearchParams(raw)
   await verifyCarrierSignature(request, env, p)
   const recording = path.match(/^\/providers\/twilio\/prompts\/recordings\/([0-9a-f-]{36})(?:\/(pin|recorded))?$/)
