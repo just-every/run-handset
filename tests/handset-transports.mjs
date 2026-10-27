@@ -288,10 +288,10 @@ test('Exact reviewed snippets send MMS once and keep provider acceptance distinc
   assert.equal(queued.state,'queued');assert.equal(queued.body,draft.body)
   assert.equal((await post(runtime,f.base+'/threads/'+t.id+'/schedule',{revision:t.revision,snippetId:draft.snippet_id,snippetRevision:1,dueAt:messageNow,permissionId:draft.permission_id,media:[{url,mime:'image/png',bytes:5000001}]},f.headers)).status,400)
   assert.equal((await post(runtime,f.base+'/threads/'+t.id+'/schedule',{revision:t.revision,snippetId:draft.snippet_id,snippetRevision:1,dueAt:messageNow,permissionId:draft.permission_id,participants:[f.recipient,'+15125550127']},f.headers)).status,409)
-  // Measure the body even when length headers are absent or understate it.
+  // Refuse incorrect approvals with and without a provider length header.
   for(const sample of [
    {bytes:1025,headers:{},claimed:1024},
-   {bytes:1025,headers:{'content-length':'1024'},claimed:1024},
+   {bytes:1025,headers:{'content-length':'1025'},claimed:1024},
    {bytes:1023,headers:{},claimed:1024},
    {bytes:5000001,headers:{},claimed:1},
    {bytes:1024,headers:{location:'https://example.invalid/synthetic-handset-1822'},status:302,claimed:1024},
@@ -299,7 +299,7 @@ test('Exact reviewed snippets send MMS once and keep provider acceptance distinc
    mediaBytes=sample.bytes;mediaHeaders=sample.headers;mediaStatus=sample.status??200
    const rejected=await f.queued({media:[{url,mime:'image/png',bytes:sample.claimed}]})
    const result=(await f.write('/jobs/'+rejected.id+'/dispatch',{revision:rejected.revision},200)).job
-   assert.equal(result.state,'suppressed','Unverified attachment bytes must be refused before submission')
+   assert.equal(result.state,'suppressed','Unverified attachment bytes must be refused before submission: '+JSON.stringify(sample))
    assert.match(result.reason,/provider_media_(size_mismatch|unavailable)/)
    assert.equal(f.receiver.sent.length,0,'A rejected attachment must never create a provider message')
    assert.equal(result.provider_sid,null)
