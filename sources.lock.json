@@ -4284,7 +4284,7 @@
       "executable": false
     },
     "tests/handset-media-privacy.mjs": {
-      "sha256": "7cdddbd77ec9242aead71bf31b317aa1e96054f78cb438cc291f6dae4f768477",
+      "sha256": "6aacb548c28d678cc657b8828b9add110626550ede8c76b8ad8f0d6b701836f2",
       "executable": false
     },
     "tests/handset-outbound.mjs": {
@@ -4352,7 +4352,7 @@
       "executable": false
     },
     "tests/helpers/handset-capture.mjs": {
-      "sha256": "d711b949b854f971f91b46396034d95ce389ada7a3b1bc576413f4791b30934c",
+      "sha256": "62d27eda1fbb8d083380705a98a2ab844c65b91f9e821f7ecd7719b7f7f30c87",
       "executable": false
     },
     "tests/helpers/handset-clock.mjs": {

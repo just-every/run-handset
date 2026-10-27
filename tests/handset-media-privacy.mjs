@@ -156,7 +156,7 @@ test('Recording capture requires exact participant consent and announcement revi
 })
 
 test('Paused capture withholds direct audio and transcript release and reviewed retention enforces a legal hold before exact erasure',async()=>{
- const {captureFixture,startCapture,announceCapture}=await import('./helpers/handset-capture.mjs')
+ const {captureFixture,startCapture,announceCapture,captureArchive}=await import('./helpers/handset-capture.mjs')
  const f=await captureFixture()
  try{
   await f.create();await startCapture(f)
@@ -173,11 +173,15 @@ test('Paused capture withholds direct audio and transcript release and reviewed 
   const refused=await post(f.runtime,'/api/handset/transcripts',planted,f.headers);assert.equal(refused.status,403)
   const absent=await f.runtime.sql('SELECT count(*) AS n FROM hnd_transcripts WHERE recording_id=?',recordingId);assert.equal(absent.results[0].n,0)
   assert.equal(f.runtime.sourceRequests.filter(r=>r.url.endsWith('.wav')).length,reads)
+  const pausedArchive=await captureArchive(f);assert.deepEqual(pausedArchive.job.files.map(x=>x.kind).sort(),['audio','manifest','transcript'])
+  assert.equal((await pausedArchive.download(recordingId)).status,409)
+  assert.equal(f.runtime.sourceRequests.filter(r=>r.url.endsWith('.wav')).length,reads)
   await announceCapture(f);await f.act('resume',{confirm:'start this consented recording'})
   assert.equal((await post(f.runtime,'/api/handset/transcripts',input,f.headers)).status,403)
   await f.act('stop')
   let transcript=await post(f.runtime,'/api/handset/transcripts',input,f.headers);assert.equal(transcript.status,201,await transcript.clone().text());const transcriptId=(await transcript.json()).transcriptId
   assert.equal((await f.runtime.request('/api/handset/recordings/'+recordingId+'/playback',{headers:f.headers})).status,200)
+  const stoppedArchive=await captureArchive(f);assert.equal((await stoppedArchive.download(recordingId)).status,200)
   assert.equal((await f.runtime.request('/media/recordings/'+recordingId,{headers:f.headers})).status,404)
   await f.act('retention',{retainUntil:Date.now()+86400000,hold:true,confirm:'review this exact retention and hold'})
   await f.act('erase',{confirm:'erase this exact recording and supplied text'},409)
@@ -194,5 +198,13 @@ test('Paused capture withholds direct audio and transcript release and reviewed 
   await f.runtime.restart();assert.equal((await f.get()).state,'erased')
   assert.equal((await f.runtime.request('/api/handset/transcripts/'+transcriptId,{headers:f.headers})).status,403)
   assert.equal((await f.runtime.request('/api/handset/recordings/'+recordingId+'/playback',{headers:f.headers})).status,403)
+  await f.create();await announceCapture(f)
+  const writes=f.runtime.sourceRequests.filter(r=>r.method==='POST').length
+  f.runtime.twilioResources.set(`https://api.twilio.com/2010-04-01/Accounts/${f.account}/Calls/${f.callSid}.json`,async()=>{
+   assert.equal((await post(f.runtime,'/api/handset/sources/revoke',{sourceId:f.source.id},f.headers)).status,200)
+   return {sid:f.callSid,account_sid:f.account,status:'in-progress'}
+  })
+  await f.act('start',{confirm:'start this consented recording'},409)
+  assert.equal(f.runtime.sourceRequests.filter(r=>r.method==='POST').length,writes,'withdrawal during call readback prevents capture POST')
  }finally{await f.runtime.close()}
 })

@@ -28,3 +28,14 @@ export async function captureFixture(){
 }
 export const announceCapture=f=>f.act('announcement',{confirm:'I heard the announcement finish for these exact participants'})
 export const startCapture=async f=>{await announceCapture(f);return f.act('start',{confirm:'start this consented recording'})}
+
+export async function captureArchive(f){
+ const {createHash}=await import('node:crypto'),base='/api/handset/exports'
+ const key=createHash('sha256').update('synthetic-handset-120').digest('hex')
+ const connector=await post(f.runtime,base+'/connectors',{provider:'sftp',destination:{folder:'/archive',host:'synthetic-handset-archive.example.test',port:22,user:'buyer',hostKey:'SHA256:'+createHash('sha256').update('synthetic-handset-121').digest('base64').replace(/=+$/,'')},retentionDays:30,confirm:'approve scoped destination and separate external custody'},f.headers)
+ assert.equal(connector.status,201,await connector.clone().text())
+ const planned=await post(f.runtime,base+'/jobs',{connectorId:(await connector.json()).id,encryptionKey:key,from:Date.parse('2026-10-27T00:00:00Z'),to:Date.parse('2026-10-28T00:00:00Z'),timezone:'America/Chicago',confirm:'prepare this exact recording archive'},f.headers)
+ assert.equal(planned.status,201,await planned.clone().text());const job=await planned.json()
+ assert.equal((await post(f.runtime,base+'/jobs/'+job.id+'/approve',{previewHash:job.previewHash,confirm:'approve exact archive and separate external custody'},f.headers)).status,200)
+ return {job,download:recordingId=>post(f.runtime,base+'/jobs/'+job.id+'/files/audio-'+recordingId,{encryptionKey:key},f.headers)}
+}
