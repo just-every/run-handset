@@ -59,7 +59,7 @@ export async function voicemailDoor(request:Request,env:Bindings,actor:Session,d
   if(v.confirm!=='record supplied text without capture qualification')throw new Fault('supplied_text_confirmation_required')
   const sourceId=text(v.sourceId,'sourceId'),transcript=text(v.transcript,'transcript',20000),language=choice(v.language,['en','es'] as const,'language')
   const existing=await db.prepare('SELECT * FROM hnd_voicemail_items WHERE box_id=? AND source_id=?').bind(b.id,sourceId).first<Item>()
-  if(existing){if(existing.transcript!==transcript||existing.language!==language)throw new Fault('source_conflict',409);return json({item:existing,replay:true,captureQualified:false},200)}
+  if(existing){if(existing.transcript!==transcript||existing.language!==language)throw new Fault('source_conflict',409);return json({item:existing,replay:true,captureQualified:false,transcriptionQualified:false},200)}
   const itemId=id()
   await commit(env,actor,'voicemail.observe',itemId,'completed',[accessFence(env,actor,b.id),db.prepare("INSERT INTO hnd_voicemail_items VALUES(?,?,?,?,?,NULL,'open',1,?,?)").bind(itemId,b.id,sourceId,transcript,language,actor.operator.id,Date.now())])
   return json({item:await db.prepare('SELECT * FROM hnd_voicemail_items WHERE id=?').bind(itemId).first<Item>(),captureQualified:false,transcriptionQualified:false},201)
