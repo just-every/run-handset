@@ -4228,7 +4228,7 @@
       "executable": false
     },
     "tests/handset-prompts.mjs": {
-      "sha256": "5ee2ce12d13d09a0012d27ff56349d3a592670eee443327651d8df53940dc060",
+      "sha256": "2992abefbeb2469fffaf1473d5c68ac5c55ac2c8bed3e2bd47bf06b1600938fc",
       "executable": false
     },
     "tests/handset-queues.mjs": {

@@ -102,7 +102,7 @@ test('Uploaded, browser-recorded, phone-recorded and Spanish speech prompts are 
   assert.equal(f.speech.length, 1)
   assert.deepEqual([f.speech[0].body.model, f.speech[0].body.input, f.speech[0].body.response_format], ['gpt-4o-mini-tts', speech.script, 'wav'])
   assert.match(f.speech[0].body.instructions, /español/); assert.ok(f.speech[0].body.voice); assert.match(f.speech[0].headers.authorization, /^Bearer /)
-  await f.refused(`/api/handset/prompts/${closed.id}/versions`, { source: 'tts', language: 'es', variant: 'after_hours', script: 'x', audioBase64: b64(wavBytes({rate:8000})) }, 400, 'tts_takes_script_only')
+  await f.refused(`/api/handset/prompts/${closed.id}/versions`, { source: 'tts', language: 'es', variant: 'after_hours', script: 'x', audioBase64: b64(wavBytes()) }, 400, 'tts_takes_script_only')
   const holiday = await newPrompt(f, 'Holiday', 'holiday')
   // Record by phone: only the author's own registered number, only through the signed door.
   const phone = `/api/handset/prompts/${holiday.id}/phone-recordings`, mara = people[0].destination
