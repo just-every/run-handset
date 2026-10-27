@@ -48,21 +48,29 @@ async function read(env:Bindings,actor:Session,contactId?:string){
  const c=current(actor),args=actor.operator.role==='owner'?[actor.operator.id]:[actor.operator.id,actor.operator.id]
  return (await env.DB.prepare(`SELECT * FROM hnd_contacts WHERE merged_into IS NULL AND ${visible(actor)} AND ${c.sql}${contactId?' AND id=?':''} ORDER BY id`).bind(...args,...c.args,...(contactId?[contactId]:[])).all<Row>()).results
 }
+async function release(env:Bindings,actor:Session,rows:Row[]) {
+ const c=current(actor),args=actor.operator.role==='owner'?[actor.operator.id]:[actor.operator.id,actor.operator.id]
+ const fences=[env.DB.prepare(`INSERT INTO hnd_guard(ok) SELECT CASE WHEN ${c.sql} THEN 1 ELSE 0 END`).bind(...c.args)]
+ for(const r of rows)fences.push(env.DB.prepare(`INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_contacts WHERE id=? AND revision=? AND value=? AND merged_into IS NULL AND ${visible(actor)}`).bind(r.id,r.revision,r.value,...args))
+ await commit(env,actor,'directory.read','installation','completed',fences,false)
+}
 export async function directoryDoor(request:Request,env:Bindings,actor:Session,data?:ObjectValue):Promise<Response>{
  const url=new URL(request.url),tail=url.pathname.slice('/api/handset/directory'.length),db=env.DB
  if(request.method==='GET'){
   if(tail===''||tail==='/export'){
    if(tail==='/export')owner(actor)
-   return json({contacts:(await read(env,actor)).map(native),callerAuthentication:false,messageConsentGranted:false})
+   const rows=await read(env,actor);await release(env,actor,rows)
+   return json({contacts:rows.map(native),callerAuthentication:false,messageConsentGranted:false})
   }
   if(tail==='/match'){
    const number=phone({number:url.searchParams.get('number'),callingCode:url.searchParams.get('callingCode')??undefined}).number
    const matches=(await read(env,actor)).filter(r=>(JSON.parse(r.value) as Contact).phones.some(p=>p.number===number))
+   await release(env,actor,matches)
    // An ambiguous number returns no names, IDs or customer records.
    return json({state:matches.length>1?'ambiguous':matches.length===1?'context':'unknown',callerAuthenticated:false,...(matches.length===1?{contact:native(matches[0])}:{})})
   }
   const match=tail.match(/^\/([^/]+)$/)
-  if(match){const rows=await read(env,actor,match[1]);if(!rows.length)throw new Fault('contact_not_found',404);return json({contact:native(rows[0])})}
+  if(match){const rows=await read(env,actor,match[1]);if(!rows.length)throw new Fault('contact_not_found',404);await release(env,actor,rows);return json({contact:native(rows[0])})}
   throw new Fault('not_found',404)
  }
  if(request.method!=='POST')throw new Fault('method_not_allowed',405)
@@ -99,6 +107,7 @@ export async function directoryDoor(request:Request,env:Bindings,actor:Session,d
   const second=JSON.parse(other.value) as Contact
   const next:Contact={...old,stopped:old.stopped||second.stopped,held:old.held||second.held,timezone:old.timezone||second.timezone,
    phones:[...new Map([...old.phones,...second.phones].map(p=>[JSON.stringify(p),p])).values()],tags:[...new Set([...old.tags,...second.tags])].sort(),consentReferences:[...new Set([...old.consentReferences,...second.consentReferences])].sort(),sourceIds:[...new Map([...old.sourceIds,...second.sourceIds].map(s=>[JSON.stringify(s),s])).values()]}
+  parse(next)
   await commit(env,actor,'directory.merge',r.id,'completed',[check(env,r),check(env,other),db.prepare('UPDATE hnd_contacts SET revision=revision+1,value=? WHERE id=?').bind(JSON.stringify(next),r.id),db.prepare('UPDATE hnd_contacts SET revision=revision+1,merged_into=? WHERE id=?').bind(r.id,other.id),db.prepare('DELETE FROM hnd_contact_grants WHERE contact_id IN (?,?)').bind(r.id,other.id)])
  }
  return json({contact:native(await row(env,r.id))})

@@ -1,3 +1,4 @@
+import { voicemailDoor } from '../voicemail/doors'
 import { directoryDoor } from '../directory/doors'
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
@@ -50,6 +51,7 @@ async function route(request: Request, original: Bindings): Promise<Response|nul
  try {
   auth = await session(request,original)
   const {env,session:actor} = auth, db=env.DB
+  if(path==='/api/handset/voicemail'||path.startsWith('/api/handset/voicemail/'))return await voicemailDoor(request,env,actor,request.method==='GET'?undefined:await input(request))
   if(path==='/api/handset/directory'||path.startsWith('/api/handset/directory/'))return await directoryDoor(request,env,actor,request.method==='GET'?undefined:await input(request))
   for(const [root,door] of [['consent',consentDoor],['surveys',surveyDoor],['exports',exportDoor]] as const) {
    if(path==='/api/handset/'+root||path.startsWith('/api/handset/'+root+'/')||path==='/app/'+root||path.startsWith('/app/'+root+'/'))return await door(request,env,actor,request.method==='GET'?undefined:await input(request))
