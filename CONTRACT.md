@@ -1,6 +1,6 @@
 # Product contract — Handset
 
-Target edition: **20 October 2026**. Handset is the complete business phone system and SMB cloud contact center a US business buys instead of RingCentral, Dialpad, Aircall or Zoom Phone, and a credible destination for Quo, CloudTalk, JustCall, Newo, Phonely and Beside Phone buyers. The 5–100 seat contact-center buyer may also switch from Talkdesk or Five9 for the voice job. Current Status rows record **5 done, 28 partial and 67 missing** clauses; the remaining target obligations require their stated acceptance evidence. A provider-schema fake proves protocol handling, never real carrier activation, emergency delivery, app-store distribution, a real account migration or a human receiving a call.
+Target edition: **20 October 2026**. Handset is the complete business phone system and SMB cloud contact center a US business buys instead of RingCentral, Dialpad, Aircall or Zoom Phone, and a credible destination for Quo, CloudTalk, JustCall, Newo, Phonely and Beside Phone buyers. The 5–100 seat contact-center buyer may also switch from Talkdesk or Five9 for the voice job. Current Status rows record **5 done, 30 partial and 65 missing** clauses; the remaining target obligations require their stated acceptance evidence. A provider-schema fake proves protocol handling, never real carrier activation, emergency delivery, app-store distribution, a real account migration or a human receiving a call.
 
 The job is to own business numbers, make the right person or approved receptionist answer, preserve what was said under consent, and finish the customer’s requested work. US-first means USD, a 5–200 person US first buyer, US and Canada calling and numbers, US timezones and law-aware policies. Difficulty in carrier relationships, filings, regulated payment capture, native apps, model evaluation or independent routes is engineering work required by named clauses, never a reason to narrow the destination. Partner-controlled outcomes and unsupported source fields remain visible until resolved; an honest state is not permission to omit the promised capability.
 
@@ -379,13 +379,13 @@ The managed RunEditRun carrier, billing and staffed-support offer requires an ac
 
 ## Status
 
-Judged from the code and tests at commit `8ae96673514f5150b5ea4a01fd20e3bed559e1e7` (27 October 2026). HND-033 and HND-010 remain partial; no new DONE judgment is claimed.
+Judged from the code and tests at commit `8ae96673514f5150b5ea4a01fd20e3bed559e1e7` (27 October 2026). Reconciled with current main while preserving its clause statuses. HND-033 and HND-010 remain partial; no new DONE judgment is claimed.
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 3 | 0 | 0 | 3 |
-| Target and push further | 2 | 28 | 67 | 97 |
-| All | 5 | 28 | 67 | 100 |
+| Target and push further | 2 | 30 | 65 | 97 |
+| All | 5 | 30 | 65 | 100 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
