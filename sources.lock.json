@@ -336,7 +336,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "fe4085fb7248e06bf03c2b3e818746dcc3112b43b30d4ae8a164942bc4e28902",
+      "sha256": "4b60a8dc25c387c89e9008e270a95202fc9ba6fde617cc987eb5189e14d5c6c7",
       "executable": false
     },
     "deploy-demo.json": {
@@ -417,6 +417,10 @@
     },
     "docs/NUMBER-COMPLIANCE.md": {
       "sha256": "bf576c0308333de7644af2961bbc07a8786569f3d956d251d5cb711d8e23dcf2",
+      "executable": false
+    },
+    "docs/NUMBER-LIFECYCLE.md": {
+      "sha256": "eed6becc2b539fa57970777ba7c063ac8e42ce444e51699dbcddf1e9521ed5f9",
       "executable": false
     },
     "docs/OPERATIONS.md": {
