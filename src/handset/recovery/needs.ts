@@ -25,5 +25,5 @@ export async function recoveryNeed(env:Bindings,caseId:string,recordId:string) {
  return {id:needId,existing,fences:[
   ...(latest?[guard(env,'SELECT count(*) FROM hnd_recovery WHERE id=? AND revision=?',latest.id,latest.revision)]:[guard(env,'SELECT CASE WHEN EXISTS(SELECT 1 FROM hnd_recovery WHERE case_id=?) THEN 0 ELSE 1 END',caseId)]),
   guard(env,'SELECT CASE WHEN EXISTS(SELECT 1 FROM hnd_recovery_calls WHERE call_id=?) THEN 0 ELSE 1 END',call.id),
- ],mapping:[sql(env,'INSERT INTO hnd_recovery_calls VALUES (?,?)',call.id,needId)]}
+ ],mapping:[sql(env,'INSERT INTO hnd_recovery_calls VALUES (?,?)',call.id,needId),...(!existing&&latest?[sql(env,'INSERT INTO hnd_recovery_links VALUES (?,?)',needId,latest.id)]:[])]}
 }
