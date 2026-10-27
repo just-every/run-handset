@@ -8,17 +8,18 @@ export async function mediaSecurity() {
  const f = await promptFixture({ knowledgeEdge: async (request, Response) => {
   if (!request.url.startsWith('https://api.twilio.com/2010-04-01/Accounts/')) return null
   requests.push({ url: request.url, authorization: request.headers.get('authorization') })
+  if (mode === 'exception') throw new Error('synthetic-handset-500')
   if (mode === 'revoke' && request.url.endsWith('.json')) await revoke()
   if (mode === 'redirect-meta' || mode === 'redirect-audio' && request.url.endsWith('.wav')) return new Response(null, { status: 302, headers: { location: 'https://example.invalid/collect' } })
   if (request.url.endsWith('.json')) return Response.json({ account_sid: 'synthetic-handset-502', call_sid: callSid, status: 'completed' })
-  const bytes = mode === 'malformed' ? wavBytes().subarray(0, -2) : wavBytes()
+  const bytes = mode === 'malformed' ? wavBytes().subarray(0, -2) : mode === 'oversize' ? Buffer.alloc(3 * 1024 * 1024 + 1) : wavBytes()
   return new Response(bytes, { headers: { 'content-type': mode === 'mime' ? 'text/html' : 'audio/wav' } })
  } })
  try {
   await registerPeople(f)
   const prompt = await newPrompt(f, 'Reception security check', 'main_attendant')
   const base = `/api/handset/prompts/${prompt.id}`, versions = base + '/versions'
-  const upload = { source: 'upload', language: 'en', variant: 'always', audioBase64: b64(wavBytes()) }
+  const upload = { source: 'upload', language: 'en', variant: 'always', audioBase64: b64(wavBytes({ rate: 8000 })) }
   // A valid current owner still saves a draft; a hostile browser cannot borrow that session.
   const valid = await f.ok('POST', versions, upload, 201)
   for (const [path, body] of [[versions, upload], ['/api/handset/sources/revoke', { sourceId: f.source.source.id }], ['/app/sources/revoke', { sourceId: f.source.source.id }]]) {
@@ -30,7 +31,7 @@ export async function mediaSecurity() {
   assert.equal((await f.ok('GET', '/api/handset/prompts')).versions.length, 1)
   assert.equal((await f.ok('GET', '/api/handset/sources')).sources[0].status, 'active')
   let n = 0
-  for (const scenario of ['redirect-meta', 'redirect-audio', 'mime', 'malformed', 'valid', 'revoke']) {
+  for (const scenario of ['redirect-meta', 'redirect-audio', 'exception', 'mime', 'oversize', 'malformed', 'valid', 'revoke']) {
    const recording = await f.ok('POST', base + '/phone-recordings', { sourceId: f.source.source.id, destination: people[0].destination, language: 'en', variant: 'always' }, 201)
    callSid = 'synthetic-handset-security-' + ++n
    const fields = { CallSid: callSid, From: business, To: people[0].destination }
@@ -40,10 +41,10 @@ export async function mediaSecurity() {
    revoke = () => f.ok('POST', '/api/handset/sources/revoke', { sourceId: f.source.source.id })
    const before = requests.length
    const response = await f.signed(recording.providerPath + '/recorded', { ...fields, RecordingSid: 'synthetic-handset-981', RecordingUrl: 'https://example.invalid/collect' })
-   assert.equal(response.status, ({ valid: 200, malformed: 422, mime: 502, revoke: 409 })[scenario] ?? 503, scenario)
+   assert.equal(response.status, ({ valid: 200, malformed: 422, mime: 502, oversize: 502, revoke: 409 })[scenario] ?? 503, scenario)
    bodies.push(await response.text())
    const attempted = requests.slice(before)
-   assert.equal(attempted.length, ['redirect-meta', 'revoke'].includes(scenario) ? 1 : 2, scenario + ' sends no follow-up after refusal')
+   assert.equal(attempted.length, ['redirect-meta', 'exception', 'revoke'].includes(scenario) ? 1 : 2, scenario + ' sends no follow-up after refusal')
    assert.ok(attempted.every(r => new URL(r.url).origin === 'https://api.twilio.com'))
    assert.ok(attempted.every(r => r.authorization === 'Basic ' + Buffer.from(f.source.account + ':synthetic-handset-500').toString('base64')))
   }

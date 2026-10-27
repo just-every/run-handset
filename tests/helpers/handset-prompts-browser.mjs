@@ -8,7 +8,7 @@ export const speechEdge = async (request, Response) => new Response(wavBytes({ r
 export async function promptJourney({ runtime, page, proof, cookie }) {
  const author = page.locator('form[data-prompt-author]'), phone = page.locator('form[action="/app/prompts/phone-recordings"]')
  const click = async name => { await page.getByRole('button', { name, exact: true }).first().click(); await page.waitForLoadState('load') }
- await sourceFixture(runtime, { e164: business })
+ const source = await sourceFixture(runtime, { e164: business })
  await page.goto(runtime.origin + '/app/prompts'); await proof('prompts-empty')
  for (const [name, use] of [['Main greeting', 'main attendant'], ['Queue wait', 'queue']]) {
   const form = page.locator('form[action="/app/prompts"]')
@@ -24,6 +24,8 @@ export async function promptJourney({ runtime, page, proof, cookie }) {
  await author.getByLabel('Prompt', { exact: true }).selectOption({ label: 'Main greeting' }); await author.getByLabel('Source', { exact: true }).selectOption('upload')
  await author.getByLabel('Audio file', { exact: true }).setInputFiles({ name: 'broken.wav', mimeType: 'audio/wav', buffer: Buffer.alloc(300, 7) }); await click('Add version')
  await page.getByRole('alert').waitFor(); assert.match(await page.getByRole('alert').innerText(), /unsupported audio format/); await proof('prompts-invalid-file-refused')
+ await author.getByLabel('Audio file', { exact: true }).setInputFiles({ name: 'truncated.wav', mimeType: 'audio/wav', buffer: wavBytes().subarray(0, -2) }); await click('Add version')
+ await page.getByRole('alert').waitFor(); assert.match(await page.getByRole('alert').innerText(), /invalid audio file/); await proof('prompts-truncated-file-refused')
  await author.getByLabel('Prompt', { exact: true }).selectOption({ label: 'Main greeting' }); await author.getByLabel('Source', { exact: true }).selectOption('upload')
  await author.getByLabel('Schedule variant', { exact: true }).selectOption({ label: 'business hours' })
  await author.getByLabel('Audio file', { exact: true }).setInputFiles({ name: 'greeting.wav', mimeType: 'audio/wav', buffer: wavBytes({ rate: 44100, channels: 2, seconds: 1 }) }); await click('Add version')
@@ -51,4 +53,16 @@ export async function promptJourney({ runtime, page, proof, cookie }) {
  assert.deepEqual(listing.versions.map(v => v.source).sort(), ['browser_recording', 'tts', 'upload'])
  assert.equal(listing.recordings.length, 1)
  await greetingRoleJourney({runtime,page,proof,cookie})
+ await page.goto(runtime.origin + '/app/sources'); await proof('media-source-active')
+ const refused = await contextRequest(page, runtime.origin + '/api/handset/sources/revoke', { sourceId: source.source.id })
+ assert.equal(refused, 403)
+ assert.equal((await (await runtime.request('/api/handset/sources', { headers: { cookie } })).json()).sources[0].status, 'active')
+ await page.getByRole('button', { name: 'Revoke source ' + source.source.id, exact: true }).click()
+ assert.match(await page.locator('main').innerText(), /Further source events are refused/); await proof('media-source-revoked')
+ await page.goto(runtime.origin + '/app/sources'); assert.match(await page.locator('main').innerText(), /Revoked/); await proof('media-source-revoked-history')
+}
+
+async function contextRequest(page, url, body) {
+ const response = await page.request.post(url, { headers: { origin: 'https://example.invalid' }, data: body })
+ return response.status()
 }

@@ -2,13 +2,14 @@ import { runtimeBindings, type Bindings } from '../../auth.server'
 import { Fault, headers, json } from '../core'
 import { verifyCarrierSignature } from '../protection/carrier-proof'
 import { xml } from '../protection/twiml'
-import { sql } from '../delegation/store'
+import { guard, sql } from '../delegation/store'
 import { storedAudio } from './audio'
 import { audioToken, root } from './model'
 import { phoneRecordingResponse } from './phone'
 import { testCallResponse } from './test-calls'
 import { activeSourceById, sourceFence } from '../providers/sources'
 import { append } from '../audit/store'
+import { sourcePolicy } from '../audit/policy'
 
 /** Signed carrier doors for prompt authoring: audio fetch for Play, the record-by-phone call and the test-call Gather door. */
 export async function promptProviderResponse(request: Request, original: Bindings): Promise<Response | null> {
@@ -25,7 +26,7 @@ export async function promptProviderResponse(request: Request, original: Binding
    const row = await sql(env, "SELECT audio FROM hnd_prompt_versions WHERE id=? AND state='approved'", audio[2]).first<{ audio: string }>()
    if (!source || !row || await audioToken(env, audio[2], audio[1]) !== audio[3]) throw new Fault('not_found', 404)
    const bytes = storedAudio(row.audio)
-   await append(env, source.id, 'prompt.play', audio[2], 'completed', [sourceFence(env, source)], null)
+   await append(env, source.id, 'prompt.read', audio[2], 'completed', [sourceFence(env, source), guard(env, 'SELECT count(*) FROM hnd_prompt_tests WHERE id=? AND expires_at>?', audio[1], Date.now()), guard(env, "SELECT count(*) FROM hnd_prompt_versions WHERE id=? AND state='approved'", audio[2])], null, sourcePolicy(source))
    return new Response(bytes, { headers: { ...headers, 'content-type': 'audio/wav', 'content-length': String(bytes.length), 'cache-control': 'private, no-store' } })
   }
   if (request.method !== 'POST') throw new Fault('method_not_allowed', 405)
