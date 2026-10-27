@@ -24,7 +24,7 @@ export async function messagesFixture(runtime,{business='+18335550125',recipient
  const receiver={sent:[],drop:false,hook:null}
  runtime.twilioResources.set(`https://api.twilio.com/2010-04-01/Accounts/${source.account}/Messages.json`,async request=>{
   const form=new URLSearchParams(await request.text()),sid='synthetic-handset-1802-'+(receiver.sent.length+1)
-  const message={sid,account_sid:source.account,from:form.get('From'),to:form.get('To'),body:form.get('Body'),num_media:form.getAll('MediaUrl').length,direction:'outbound-api',status:'queued',date_created:new Date(now).toUTCString()}
+  const message={sid,account_sid:source.account,from:form.get('From'),to:form.get('To'),body:form.get('Body'),num_media:form.getAll('MediaUrl').length,direction:'outbound-api',status:'queued',date_created:new Date().toUTCString()}
   receiver.sent.push({form,message});source.resource('Messages',sid,message)
   if(receiver.drop){receiver.drop=false;throw new Error('synthetic-handset-lost-response')}
   return {...message,__httpStatus:201}

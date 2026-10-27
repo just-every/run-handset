@@ -62,12 +62,14 @@ export async function refreshMessage(env:Bindings,key:string) {
  if(!j.provider_sid||!['sending','uncertain','accepted','delivered','failed'].includes(j.state))throw new Fault('message_has_no_provider_identity',409)
  const r=await readTwilio(env,source,`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(source.account_id)}/Messages/${encodeURIComponent(j.provider_sid)}.json`)
  if(r.sid!==j.provider_sid||r.account_sid!==source.account_id||r.from!==t.business||r.to!==t.peer||r.body!==j.body||r.direction!=='outbound-api'||Number(r.num_media??0)!==(JSON.parse(j.media) as Media[]).length)throw new Fault('message_readback_identity_mismatch',502)
+ const occurredAt=Date.parse(String(r.date_created))
+ if(!Number.isFinite(occurredAt)||occurredAt>Date.now()+1000)throw new Fault('provider_time_unavailable',503)
  const statuses=['accepted','queued','sending','sent','delivered','undelivered','failed']
  if(!statuses.includes(String(r.status)))throw new Fault('message_readback_unconfirmed',409)
  const oldRank=statuses.indexOf(j.provider_state),newRank=statuses.indexOf(String(r.status))
  if(['delivered','failed','undelivered'].includes(j.provider_state)&&r.status!==j.provider_state||newRank<oldRank)return j
  const carrier=r.status==='delivered'?'delivered':['failed','undelivered'].includes(String(r.status))?'failed':'unconfirmed',state=carrier==='delivered'?'delivered':carrier==='failed'?'failed':'accepted'
- await append(env,source.id,'message.receipt',key,'completed',[sourceFence(env,source),guard(env,'SELECT count(*) FROM hnd_message_jobs WHERE id=? AND revision=?',j.id,j.revision),env.DB.prepare('UPDATE hnd_message_jobs SET state=?,provider_state=?,carrier_state=?,reason=?,revision=revision+1 WHERE id=?').bind(state,String(r.status),carrier,'Independent provider readback; no read receipt',key),env.DB.prepare(`INSERT INTO hnd_inbox_messages VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(thread_id,provider_sid) DO UPDATE SET provider_state=excluded.provider_state,carrier_state=excluded.carrier_state`).bind(id(),t.id,j.provider_sid,'outbound',j.body,j.media,JSON.stringify([t.business,t.peer]),String(r.status),carrier,j.created_at)],null,sourcePolicy(source))
+ await append(env,source.id,'message.receipt',key,'completed',[sourceFence(env,source),guard(env,'SELECT count(*) FROM hnd_message_jobs WHERE id=? AND revision=?',j.id,j.revision),env.DB.prepare('UPDATE hnd_message_jobs SET state=?,provider_state=?,carrier_state=?,reason=?,revision=revision+1 WHERE id=?').bind(state,String(r.status),carrier,'Independent provider readback; no read receipt',key),env.DB.prepare(`INSERT INTO hnd_inbox_messages VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(thread_id,provider_sid) DO UPDATE SET provider_state=excluded.provider_state,carrier_state=excluded.carrier_state`).bind(id(),t.id,j.provider_sid,'outbound',j.body,j.media,JSON.stringify([t.business,t.peer]),String(r.status),carrier,occurredAt)],null,sourcePolicy(source))
  return job(env,key)
 }
 export async function observeMessageStatus(env:Bindings,p:URLSearchParams) {
