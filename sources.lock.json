@@ -4396,7 +4396,7 @@
       "executable": false
     },
     "tests/handset-reporting.mjs": {
-      "sha256": "533a0f56d5769041d1cb1f1271a7f6167951f38be25510ab8438f66ab8fba293",
+      "sha256": "2369d99dd788187299a6bb1474ce5265d404dff24e95955b12eaa45fdaba2abf",
       "executable": false
     },
     "tests/handset-transports.mjs": {
@@ -4428,7 +4428,7 @@
       "executable": false
     },
     "tests/helpers/handset-call-reports-browser.mjs": {
-      "sha256": "158373e445fff57ca689d6b0fa4201ec2221328a31201a6f23493526acf5369b",
+      "sha256": "50a81fefa8365151c6e01762d8fa5d32cee78e8059d54339a83c6cc522c250c0",
       "executable": false
     },
     "tests/helpers/handset-call-reports.mjs": {

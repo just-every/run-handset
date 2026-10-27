@@ -390,10 +390,13 @@ test('Call-bound reports attribute verified handlers and reconcile booking conta
   assert.deepEqual((await live('queueId=*&receptionistState=rejected')).native.sourceCalls.map(c=>c.id),[calls[4].recordId])
   assert.equal((await live('queueId=*&receptionistState=unstarted')).native.totals.volume,0)
   assert.equal((await runtime.request('/api/handset/metrics/live?queueId=*&receptionistState=done',{headers})).status,400)
+  const pendingCsv=await (await runtime.request('/api/handset/metrics/csv?queueId=*&receptionistState=pending',{headers})).text()
+  assert.equal(pendingCsv.trim().split('\r\n').length,2);assert.ok(pendingCsv.includes(calls[3].recordId));assert.ok(pendingCsv.includes(f.uncertain.step.id));assert.ok(!pendingCsv.includes(f.crm.step.id));assert.ok(!pendingCsv.includes(f.rejected.step.id))
 
   assert.deepEqual([n.conversion.numerator,n.conversion.denominator,n.conversion.value],[3,6,0.5])
   assert.deepEqual(n.conversion.convertedCallIds,[calls[1],calls[2],calls[4]].map(c=>c.recordId));assert.deepEqual(n.conversion.eligibleCallIds,calls.map(c=>c.recordId))
   assert.deepEqual(n.byTrackingSource.map(g=>[g.label,g.volume,g.contained,g.converted]),[['Winter repairs',6,1,3]])
+  assert.deepEqual(n.byTrackingSource.map(g=>[g.label,g.handoffs,g.pendingWork]),[['Winter repairs',1,1]])
   assert.deepEqual((await live('queueId=*&handlingUser='+handler)).native.sourceCalls.map(c=>c.id),[calls[0].recordId])
   assert.equal((await live('queueId=*&handlingUser=synthetic-handset-1')).native.totals.volume,0,'case owner never becomes a handler')
   assert.deepEqual((await live('queueId=*&trackingSource=Winter+repairs&outcome=missed')).native.sourceCalls.map(c=>c.id),calls.slice(4).map(c=>c.recordId))
@@ -433,6 +436,6 @@ test('Call-bound reports attribute verified handlers and reconcile booking conta
   assert.deepEqual(history.native.conversion,n.conversion);assert.deepEqual(history.native.byHandlingUser,n.byHandlingUser);assert.deepEqual(history.native.receptionist,n.receptionist)
   await post(runtime,'/auth/operator/status',{operatorId:'synthetic-handset-2',status:'active'},headers)
   const member=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'})
-  for(const path of ['live?queueId=*&handlingUser='+handler,'dashboards/'+dashboard.id,'dashboards/'+dashboard.id+'/csv','history/'+saved.id])assert.equal((await runtime.request('/api/handset/metrics/'+path,{headers:{cookie:member.cookie}})).status,403)
+  for(const path of ['live?queueId=*&handlingUser='+handler,'live?queueId=*&receptionistState=confirmed','csv?queueId=*&receptionistState=pending','dashboards/'+dashboard.id,'dashboards/'+dashboard.id+'/csv','history/'+saved.id])assert.equal((await runtime.request('/api/handset/metrics/'+path,{headers:{cookie:member.cookie}})).status,403)
  }finally{await runtime.close()}
 })
