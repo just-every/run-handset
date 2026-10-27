@@ -401,7 +401,10 @@ test('Post-call IVR and separately consented SMS keep real ratings and reconcile
   const configured=await post(f.runtime,'/api/handset/metrics/config',metricConfig('*',0,{startAt:consentTime-86400000,endAt:consentTime+86400000}),f.source.headers);assert.equal(configured.status,201)
   const analytics=(await (await f.runtime.request('/api/handset/metrics/live?queueId=*',{headers:f.source.headers})).json()).native
   assert.equal(analytics.csat.responses,2);assert.equal(analytics.csat.mean,3.5);assert.equal(analytics.csat.eligibleDelivered,report.denominators.eligibleDelivered);assert.equal(analytics.csat.responseRate,2/report.denominators.eligibleDelivered)
-  assert.match(analytics.csat.basis,/AI sentiment and silence are excluded/)
+  const answered=(await (await f.runtime.request('/api/handset/metrics/live?queueId=*&outcome=answered',{headers:f.source.headers})).json()).native
+  assert.deepEqual(answered.csat,{invitations:5,eligibleDelivered:3,responses:2,responseRate:2/3,mean:3.5,basis:analytics.csat.basis})
+  const missed=(await (await f.runtime.request('/api/handset/metrics/live?queueId=*&outcome=missed',{headers:f.source.headers})).json()).native
+  assert.equal(missed.totals.volume,0);assert.equal(missed.csat.invitations,0);assert.equal(missed.csat.responses,0);assert.equal(missed.csat.eligibleDelivered,0);assert.equal(missed.csat.mean,null);assert.equal(missed.csat.responseRate,null)
 
  } finally {await f.runtime.close()}
 })

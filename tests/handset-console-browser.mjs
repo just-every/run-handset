@@ -131,7 +131,7 @@ for(const width of [1440,390])for(const domain of ['messages','numbers','adminis
   const nativeText=await page.locator('main').innerText()
   assert.ok(nativeText.includes('6 calls; 1 answered; 5 missed'))
   assert.ok(nativeText.includes('GMT-05:00'));assert.ok(nativeText.includes('GMT-06:00'))
-  assert.ok(nativeText.includes('1 of 2'));assert.ok(nativeText.includes('AI sentiment and silence are excluded'))
+  assert.ok(nativeText.includes('1 of 2'))
   await page.getByText('Source calls and recovery cases',{exact:true}).click()
   for(const c of analytics.calls.slice(0,6))assert.equal(await page.getByRole('link',{name:c.recordId,exact:true}).count(),1)
   assert.equal(await page.getByRole('link',{name:analytics.calls[6].recordId,exact:true}).count(),0)

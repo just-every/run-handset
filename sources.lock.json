@@ -4332,7 +4332,7 @@
       "executable": false
     },
     "tests/handset-console-browser.mjs": {
-      "sha256": "d4d4c237d43897baf7140b7869b75cc5b61b41f2ee60d3df2c58ed6d0e17fb88",
+      "sha256": "4ec07fee7b5b7c77c79724321e6dc95a72fd7dac1bb8bdf1b1052130a0eaf636",
       "executable": false
     },
     "tests/handset-import.mjs": {
@@ -4364,7 +4364,7 @@
       "executable": false
     },
     "tests/handset-recovery.mjs": {
-      "sha256": "d0135866287ae186b3d2935544aeaeb0e1b1ebfd0b80915f56c2d2f616b87e14",
+      "sha256": "f3d423f41370c82f85d7ba1616d7fd59a62718818084dd463a7ac5b03649b99b",
       "executable": false
     },
     "tests/handset-reporting.mjs": {
