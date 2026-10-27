@@ -116,7 +116,7 @@ export async function openHandset({ liveMail = false, twilio = false, edges = nu
       const payload=typeof response==='function'?await response(request):response
       if(payload?.__audio){const bytes=new Uint8Array(payload.__audio);return new WorkerResponse(bytes,{status:payload.__httpStatus??200,headers:{'content-type':payload.__mime??'audio/wav','content-length':String(bytes.length)}})}
       const {__httpStatus=200,...body}=payload??{}
-      return new WorkerResponse(JSON.stringify(payload?body:{code:20404,message:'Synthetic resource not found'}),{status:payload?__httpStatus:404,headers:{'content-type':'application/json'}})
+      return new WorkerResponse(__httpStatus===204?null:JSON.stringify(payload?body:{code:20404,message:'Synthetic resource not found'}),{status:payload?__httpStatus:404,headers:{'content-type':'application/json'}})
     }
     const isMail = request.url === 'https://api.sendgrid.com/v3/mail/send'
     if (isMail) {
