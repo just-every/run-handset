@@ -316,7 +316,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "6b74ce4587b786425b2b9897f77a0372f9f98f3ba8b22a858d68beba435efc54",
+      "sha256": "dbacef93728e5fd96ab31b47006e3dbd0d9d5d8cb29ec1450652788d911c93fd",
       "executable": false
     },
     "AGENTS.md": {
@@ -336,7 +336,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "a3f850c48d5adfc9d1fcb44443743c2069812f610edf24520e27b986fd6181de",
+      "sha256": "a65c00efedddde328b174c58aaf6e578a1b50052dfcba632bab9dcb8b04fbb90",
       "executable": false
     },
     "deploy-demo.json": {
@@ -408,11 +408,15 @@
       "executable": false
     },
     "docs/HTTP-DOORS.md": {
-      "sha256": "aaae2655ba9283397c8e36e12a94f48fa61f577e566fad832842cd2e20febee9",
+      "sha256": "04810900e4c1c2e73272cd8b75b0a7244c4b62ad2650c1090871452c182c0980",
       "executable": false
     },
     "docs/KNOWLEDGE.md": {
       "sha256": "c49db99f90cb21ad92bece7cf2772aa82f585ef875f29e0a78e4836e80aebd31",
+      "executable": false
+    },
+    "docs/MEDIA-SECURITY.md": {
+      "sha256": "823cfa654e4ade60ef7ce97a244536a46011c5ef52384da012d74a9e739fd481",
       "executable": false
     },
     "docs/NUMBER-COMPLIANCE.md": {
@@ -428,7 +432,7 @@
       "executable": false
     },
     "docs/PROMPTS.md": {
-      "sha256": "528bfe5b4ae5671f3d24b6c530fb2b90b398578bc6193c3aee57db03f499b044",
+      "sha256": "b95a113fa41dc82832ccab093184afcfdcb3b29fc4821dfb75f7b5ea10a1a867",
       "executable": false
     },
     "docs/QUALITY.md": {
@@ -4232,7 +4236,7 @@
       "executable": false
     },
     "tests/handset-prompts.mjs": {
-      "sha256": "e76cfd67112f9e901c8746662d0cb1fd4716223f42412314360f3c498dba2983",
+      "sha256": "adb7d5ea18475525a86d4f31ebb6cdd96b63a68c79c4cf6a545b59810f8e0493",
       "executable": false
     },
     "tests/handset-queues.mjs": {
@@ -4344,7 +4348,7 @@
       "executable": false
     },
     "tests/helpers/handset-media-security.mjs": {
-      "sha256": "95dbe48f9a794668cda4174bf16ae6a2277b2acafc650c12e857419a4b8625ba",
+      "sha256": "329d39c330a1d814dc0b1b7f0ae3ea0b969c7ff171f9d57d14a98c5924246ba0",
       "executable": false
     },
     "tests/helpers/handset-metrics.mjs": {

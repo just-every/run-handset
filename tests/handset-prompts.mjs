@@ -233,8 +233,9 @@ test('A signed Gather test call plays each pinned variant and dials an extension
   assert.match((await f.runtime.request(audioPath(after.twiml))).headers.get('cache-control'), /no-store/)
   await f.ok('POST', '/api/handset/sources/revoke', { sourceId: f.source.source.id })
   assert.equal((await f.runtime.request(audioPath(after.twiml))).status, 404, 'source revocation withdraws previously issued playback addresses')
-  await f.ok('POST', '/api/handset/sources', { accountId: f.source.account, numberId: f.source.numberId, confirm: 'authorize signed inbound records' }, 201)
+  const replacementSource = await f.ok('POST', '/api/handset/sources', { accountId: f.source.account, numberId: f.source.numberId, confirm: 'authorize signed inbound records' }, 201)
   assert.equal((await f.runtime.request(audioPath(after.twiml))).status, 404, 'new consent never revives an old playback capability')
+  f.source.source.id = replacementSource.id
   await f.runtime.restart()
   assert.equal((await f.signed((await open(instants.open, 9)).made.providerPath, { ...business1.fields, CallSid: 'synthetic-handset-test-9' })).status, 200, 'authored state survives restart')
  } finally { await f.runtime.close() }
