@@ -34,20 +34,26 @@ export function normalizeAudio(input: Uint8Array): Normalized {
  if (input.length < 44 || input.length > maxUploadBytes) throw new Fault('invalid_audio_file', 422)
  if (tag(input, 0) !== 'RIFF' || tag(input, 8) !== 'WAVE') throw new Fault('unsupported_audio_format', 422)
  const view = new DataView(input.buffer, input.byteOffset, input.byteLength)
- let at = 12, format = 0, channels = 0, rate = 0, bits = 0, data: Uint8Array | null = null
+ if (view.getUint32(4, true) !== input.length - 8) throw new Fault('invalid_audio_file', 422)
+ let at = 12, format = 0, channels = 0, rate = 0, bits = 0, block = 0, bytesPerSecond = 0, data: Uint8Array | null = null
  while (at + 8 <= input.length) {
   const name = tag(input, at), size = view.getUint32(at + 4, true), body = at + 8
-  if (body + size > input.length) { if (name === 'data') { data = input.subarray(body); break } throw new Fault('invalid_audio_file', 422) }
+  if (body + size > input.length) throw new Fault('invalid_audio_file', 422)
   if (name === 'fmt ') {
-   if (size < 16) throw new Fault('invalid_audio_file', 422)
+   if (size < 16 || format) throw new Fault('invalid_audio_file', 422)
    format = view.getUint16(body, true); channels = view.getUint16(body + 2, true); rate = view.getUint32(body + 4, true); bits = view.getUint16(body + 14, true)
-  } else if (name === 'data') { data = input.subarray(body, body + size); break }
+   bytesPerSecond = view.getUint32(body + 8, true); block = view.getUint16(body + 12, true)
+  } else if (name === 'data') {
+   if (data) throw new Fault('invalid_audio_file', 422)
+   data = input.subarray(body, body + size)
+  }
   at = body + size + (size & 1)
  }
+ if (at !== input.length && at !== input.length + 1) throw new Fault('invalid_audio_file', 422)
  const pcm = format === 1 && bits === 16, law = format === 7 && bits === 8
  if (!data || !(pcm || law) || channels < 1 || channels > 2 || rate < 8000 || rate > 48000) throw new Fault('unsupported_audio_format', 422)
  const frame = (pcm ? 2 : 1) * channels, frames = Math.floor(data.length / frame)
- if (!frames) throw new Fault('invalid_audio_file', 422)
+ if (!frames || data.length % frame || block !== frame || bytesPerSecond !== rate * frame) throw new Fault('invalid_audio_file', 422)
  const sampleAt = (index: number) => {
   let sum = 0
   for (let c = 0; c < channels; c++) {

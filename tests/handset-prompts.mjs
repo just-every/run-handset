@@ -77,6 +77,11 @@ test('Uploaded, browser-recorded, phone-recorded and Spanish speech prompts are 
   await f.refused(versions, { source: 'upload', language: 'en', variant: 'business_hours', audioBase64: b64(Buffer.alloc(300, 7)) }, 422, 'unsupported_audio_format')
   await f.refused(versions, { source: 'upload', language: 'en', variant: 'business_hours', audioBase64: b64(wavBytes().subarray(0, 30)) }, 422, 'invalid_audio_file')
   await f.refused(versions, { source: 'upload', language: 'en', variant: 'business_hours', audioBase64: b64(wavBytes({ seconds: 0.05 })) }, 422, 'audio_duration_out_of_range')
+  const malformed = [wavBytes().subarray(0, -2), Buffer.from(wavBytes()), Buffer.from(wavBytes()), Buffer.from(wavBytes())]
+  malformed[1].writeUInt32LE(malformed[1].length, 40)
+  malformed[2].writeUInt16LE(4, 32)
+  malformed[3].writeUInt32LE(1, 28)
+  for (const bytes of malformed) await f.refused(versions, { source: 'upload', language: 'en', variant: 'business_hours', audioBase64: b64(bytes) }, 422, 'invalid_audio_file')
   assert.equal((await listing(f)).versions.length, 0)
   const upload = await f.ok('POST', versions, { source: 'upload', language: 'en', variant: 'business_hours', schedule: { effectiveFrom: '2026-11-01', note: 'Weekday greeting' }, audioBase64: b64(wavBytes({ rate: 44100, channels: 2, seconds: 1.2 })) }, 201)
   assert.deepEqual([upload.source, upload.language, upload.variant, upload.author_name, upload.state, upload.version, upload.original_format], ['upload', 'en', 'business_hours', 'Mara Patel', 'draft', 1, 'pcm16-44100-2ch'])
@@ -223,6 +228,13 @@ test('A signed Gather test call plays each pinned variant and dials an extension
   assert.equal((await f.signed(path, { ...business1.fields, CallSid: 'synthetic-handset-test-other' })).status, 403)
   await f.runtime.sql('UPDATE hnd_prompt_tests SET expires_at=? WHERE id=?', Date.now() - 1, business1.made.id)
   assert.equal((await f.signed(path, business1.fields)).status, 409)
+  const audioPath = twiml => new URL(twiml.match(/<Play>([^<]+)<\/Play>/)[1]).pathname
+  assert.equal((await f.runtime.request(audioPath(business1.twiml))).status, 404, 'expired requests release no prompt bytes')
+  assert.match((await f.runtime.request(audioPath(after.twiml))).headers.get('cache-control'), /no-store/)
+  await f.ok('POST', '/api/handset/sources/revoke', { sourceId: f.source.source.id })
+  assert.equal((await f.runtime.request(audioPath(after.twiml))).status, 404, 'source revocation withdraws previously issued playback addresses')
+  await f.ok('POST', '/api/handset/sources', { accountId: f.source.account, numberId: f.source.numberId, confirm: 'authorize signed inbound records' }, 201)
+  assert.equal((await f.runtime.request(audioPath(after.twiml))).status, 404, 'new consent never revives an old playback capability')
   await f.runtime.restart()
   assert.equal((await f.signed((await open(instants.open, 9)).made.providerPath, { ...business1.fields, CallSid: 'synthetic-handset-test-9' })).status, 200, 'authored state survives restart')
  } finally { await f.runtime.close() }

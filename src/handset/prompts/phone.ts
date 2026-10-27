@@ -6,6 +6,7 @@ import { escape as e, Fault, choice, id, keys, text, type ObjectValue } from '..
 import { guard, sql } from '../delegation/store'
 import { activeSourceById, sourceFence } from '../providers/sources'
 import { normalizeAudio } from './audio'
+import { audioResponse } from './media'
 import { attemptsPerStep, pinHash, root, variants, type Language, type Variant } from './model'
 import { versionInsert } from './store'
 
@@ -69,10 +70,13 @@ export async function phoneRecordingResponse(env: Bindings, key: string, step: s
    if (meta.status !== 200) throw new Fault('recording_provider_unavailable', 503)
    const info = await meta.json() as { call_sid?: string; account_sid?: string; status?: string }
    if (info.call_sid !== sid || info.account_sid !== source.account_id || info.status !== 'completed') throw new Fault('recording_not_from_this_call', 409)
+   // A source revoked while metadata was in flight must send no subsequent request.
+   await load(env, key, p)
    media = await fetch(base + '.wav', { headers: auth, redirect: 'manual', signal: AbortSignal.timeout(8000) })
   } catch (error) { throw error instanceof Fault ? error : new Fault('recording_provider_unavailable', 503) }
   if (media.status !== 200) throw new Fault('recording_provider_unavailable', 503)
-  const normalized = normalizeAudio(new Uint8Array(await media.arrayBuffer()))
+  const normalized = normalizeAudio(await audioResponse(media))
+  await load(env, key, p)
   const { target, statements } = await versionInsert(env, rec.author_id, rec.prompt_id, { source: 'phone_recording', language: rec.language, variant: rec.variant, schedule: {}, audio: normalized.wav, original: normalized.original, durationMs: normalized.durationMs })
   await append(env, source.id, 'prompt.phone', target, 'completed', [...fences, guard(env, "SELECT count(*) FROM hnd_prompt_recordings WHERE id=? AND state='authenticated'", rec.id), ...statements, sql(env, "UPDATE hnd_prompt_recordings SET state='recorded',version_id=? WHERE id=?", target, rec.id)], null, sourcePolicy(source))
   return say('Your greeting was saved as a draft. Goodbye.') + '<Hangup/>'

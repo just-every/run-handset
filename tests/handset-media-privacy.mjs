@@ -2,6 +2,9 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { transcriptFixture } from './helpers/handset-transcripts.mjs'
 import { post, signIn } from './helpers/handset-auth.mjs'
+import { mediaSecurity } from './helpers/handset-media-security.mjs'
+
+test('Prompt media refuses hostile redirects and cross-origin writes without leaking private bindings or reading audio after revocation', mediaSecurity)
 
 
 test('Supplied bilingual transcript moments retain originals and attributed corrections with stale-write refusal',async()=>{

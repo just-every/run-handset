@@ -18,7 +18,7 @@ export function wavBytes({ rate = 44100, channels = 1, seconds = 1, freq = 440 }
 }
 export const b64 = bytes => Buffer.from(bytes).toString('base64')
 
-export async function promptFixture() {
+export async function promptFixture(options = {}) {
  const speech = []
  const runtime = await openHandset({
   twilio: true,
@@ -27,6 +27,7 @@ export async function promptFixture() {
    speech.push({ headers: Object.fromEntries(request.headers), body })
    return new Response(wavBytes({ rate: 24000, seconds: 1.5, freq: body.input.includes('Hola') || body.input.includes('cerrado') ? 330 : 520 }), { status: 200, headers: { 'content-type': 'audio/wav' } })
   },
+  ...options,
  })
  try {
   const source = await sourceFixture(runtime, { e164: business }), headers = source.headers

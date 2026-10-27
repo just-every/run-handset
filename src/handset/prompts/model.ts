@@ -15,6 +15,6 @@ async function hmac(env: Bindings, message: string) {
  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.INSTALLATION_KEY ?? ''), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
  return [...new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message)))].map(b => b.toString(16).padStart(2, '0')).join('')
 }
-/** Carrier-fetchable audio needs an unguessable address: only approved versions are ever served. */
-export const audioToken = async (env: Bindings, versionId: string) => (await hmac(env, 'prompt-audio:' + versionId)).slice(0, 40)
+/** Carrier playback is bound to one expiring, revocable test request and exact approved version. */
+export const audioToken = async (env: Bindings, versionId: string, testId: string) => (await hmac(env, `prompt-audio:${testId}:${versionId}`)).slice(0, 40)
 export const pinHash = (env: Bindings, recordingId: string, pin: string) => hmac(env, `prompt-pin:${recordingId}:${pin}`)

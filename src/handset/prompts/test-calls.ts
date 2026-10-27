@@ -32,14 +32,14 @@ function landing(d: FlowDefinition, instant: string, from: string, first: boolea
 }
 const voice = (language: string) => language === 'es' ? 'language="es-MX"' : 'language="en-US"'
 
-async function pinned(env: Bindings, node: FlowNode) {
+async function pinned(env: Bindings, node: FlowNode, test: Test) {
  if (!node.prompt) return null
  const row = await sql(env, "SELECT id,language FROM hnd_prompt_versions WHERE id=? AND prompt_id=? AND state='approved'", node.prompt.versionId, node.prompt.promptId).first<{ id: string; language: string }>()
  if (!row) throw new Fault('pinned_prompt_unavailable', 409)
- return { ...row, url: `${env.AUTH_ORIGIN}${root}/audio/${row.id}/${await audioToken(env, row.id)}.wav` }
+ return { ...row, url: `${env.AUTH_ORIGIN}${root}/audio/${test.id}/${row.id}/${await audioToken(env, row.id, test.id)}.wav` }
 }
 async function render(env: Bindings, test: Test, d: FlowDefinition, node: FlowNode, attempt: number, notice = '') {
- const prompt = await pinned(env, node), language = prompt?.language ?? node.language ?? 'en'
+ const prompt = await pinned(env, node, test), language = prompt?.language ?? node.language ?? 'en'
  const action = `${env.AUTH_ORIGIN}${root}/tests/${test.id}/node/${encodeURIComponent(node.id)}/digits/${attempt}`
  const speak = notice ? `<Say ${voice(language)}>${e(notice)}</Say>` : ''
  const body = `${speak}${prompt ? `<Play>${e(prompt.url)}</Play>` : ''}`
@@ -74,7 +74,7 @@ export async function testCallResponse(env: Bindings, testId: string, rest: stri
  }
  const m = rest.match(/^\/node\/([^/]+)\/digits\/(\d)$/)
  if (m) {
-  const node = nodeOf(d, decodeURIComponent(m[1])), attempt = Number(m[2]), digits = p.get('Digits') ?? '', lang = (await pinned(env, node))?.language ?? node.language ?? 'en'
+  const node = nodeOf(d, decodeURIComponent(m[1])), attempt = Number(m[2]), digits = p.get('Digits') ?? '', lang = (await pinned(env, node, test))?.language ?? node.language ?? 'en'
   const again = async (notice: string, why: string) => {
    if (attempt + 1 >= attemptsPerStep) return finish(node.id, { kind: 'hangup', detail: { reason: why, digits } }, '<Hangup/>')
    const out = await render(env, test, d, node, attempt + 1, notice)
@@ -106,7 +106,7 @@ export async function testCallResponse(env: Bindings, testId: string, rest: stri
  }
  const dir = rest.match(/^\/node\/([^/]+)\/directory$/)
  if (dir) {
-  const node = nodeOf(d, decodeURIComponent(dir[1])), lang = (await pinned(env, node))?.language ?? node.language ?? 'en', digits = p.get('Digits') ?? ''
+  const node = nodeOf(d, decodeURIComponent(dir[1])), lang = (await pinned(env, node, test))?.language ?? node.language ?? 'en', digits = p.get('Digits') ?? ''
   const again = async (notice: string, why: string) => { const out = await render(env, test, d, node, 0, notice); return finish(node.id, { kind: why, detail: { digits } }, out.twiml) }
   if (!/^\d{3,9}$/.test(digits)) return again('That name was not recognized.', 'invalid_directory_entry')
   return directoryResult(env, test, d, node, lang, digits, finish, again)

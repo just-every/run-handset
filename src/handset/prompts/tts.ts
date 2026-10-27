@@ -1,6 +1,7 @@
 import type { Bindings } from '../../auth.server'
 import { aiConfig } from '../../modules/ai/index.mjs'
 import { Fault } from '../core'
+import { audioResponse } from './media'
 
 const model = 'gpt-4o-mini-tts'
 const voices = { en: 'alloy', es: 'alloy' } as const
@@ -22,5 +23,5 @@ export async function synthesize(env: Bindings, language: 'en' | 'es', script: s
   })
  } catch { throw new Fault('tts_unavailable', 503) }
  if (response.status !== 200 || !(response.headers.get('content-type') ?? '').startsWith('audio/')) throw new Fault('tts_unavailable', 502)
- return new Uint8Array(await response.arrayBuffer())
+ return audioResponse(response)
 }

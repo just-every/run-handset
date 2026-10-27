@@ -40,7 +40,9 @@ function normalize(p:URLSearchParams){
   const count=integer(Number(p.get('NumMedia')??0),'NumMedia',0,10)
   const media=[]
   for(let index=0;index<count;index++){
-   const address=new URL(get('MediaUrl'+index));if(address.protocol!=='https:'||address.hostname!=='api.twilio.com'||address.username||address.password||address.search||address.hash)throw new Fault('invalid_media_reference')
+   let address:URL
+   try{address=new URL(get('MediaUrl'+index))}catch{throw new Fault('invalid_media_reference')}
+   if(address.origin!=='https://api.twilio.com'||address.username||address.password||address.search||address.hash)throw new Fault('invalid_media_reference')
    media.push({providerUrl:address.href,mime:get('MediaContentType'+index)})
   }
   return {account,externalId:get('MessageSid'),parent:'',eventId:`message:${get('MessageSid')}:${state}`,occurredAt,from,to,kind:'message',state,data:{channel:count?'mms':'sms',providerStatus:state,from,to,text:sourceText(p.get('Body')??''),media,capture:'metadata only; media not fetched'}}
