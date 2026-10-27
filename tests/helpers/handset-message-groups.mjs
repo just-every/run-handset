@@ -2,10 +2,11 @@ import assert from 'node:assert/strict'
 import { createHmac } from 'node:crypto'
 import { sourceFixture } from './handset-sources.mjs'
 import { post } from './handset-auth.mjs'
-export async function groupsFixture(runtime) {
+export async function groupsFixture(runtime,{authorize=true}={}) {
  const source=await sourceFixture(runtime,{e164:'+15125550145',sourceId:'synthetic-handset-1870'}),service='synthetic-handset-1871',conversation='synthetic-handset-1872',sid='synthetic-handset-1873'
- const response=await post(runtime,'/api/handset/messages/group-routes',{sourceId:source.source.id,serviceSid:service,conversationSid:conversation,confirm:'authorize exact group metadata only'},source.headers)
- assert.equal(response.status,201,await response.clone().text());const binding=await response.json()
+ let binding={providerPath:'/providers/twilio/messages/groups'}
+ if(authorize){const response=await post(runtime,'/api/handset/messages/group-routes',{sourceId:source.source.id,serviceSid:service,conversationSid:conversation,confirm:'authorize exact group metadata only'},source.headers)
+ assert.equal(response.status,201,await response.clone().text());binding=await response.json()}
  const base=`https://conversations.twilio.com/v1/Services/${service}/Conversations/${conversation}`
  const resource={sid:conversation,account_sid:source.account,chat_service_sid:service,state:'active'}
  const members={meta:{next_page_url:null},participants:[

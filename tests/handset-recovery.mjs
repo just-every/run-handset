@@ -415,5 +415,7 @@ test('Queued inbox work and scoped connected attempts share durable STOP across 
   assert.equal(after.state,'suppressed');assert.equal(other.receiver.sent.length,0,'STOP during provider preflight receives no POST')
   const foreign=await runtime.request('/api/handset/v1/cases/'+(await other.current()).id+'/message-suppression',{headers:auth})
   assert.equal(foreign.status,403)
+  await a.write('/api/handset/grants/'+issued.grant.id+'/revoke',{},200)
+  assert.equal((await check()).status,401,'current revocation fences the connected suppression check')
  }finally{await runtime.close()}
 })

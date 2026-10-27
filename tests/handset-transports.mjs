@@ -255,6 +255,7 @@ test('Signed inbox MMS retains shared history and exactly one claim while unsupp
   assert.equal((await post(runtime,f.base+'/threads/'+groupId+'/schedule',{revision:1},f.headers)).status,409,'group sends remain refused without a qualified long-code route')
   assert.equal((await post(runtime,f.base+'/group-routes/'+grouped.binding.id+'/revoke',{},f.headers)).status,200)
   assert.equal((await grouped.receive()).status,403)
+  assert.equal((await runtime.request(f.base+'/threads/'+groupId,{headers:f.headers})).status,403)
   await runtime.restart();assert.deepEqual((await f.get('/threads/'+t.id)).messages,detail.messages)
   assert.equal((await runtime.request(f.base)).status,401)
   await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")

@@ -336,7 +336,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "edcb1f6d1ead5256e4a76d09f0be8477f9842c14c471a36a652e3414e4c48f21",
+      "sha256": "f13606c46acf13bb4f1ff6e0dbade5ea119bf7a8374dd111b9e791d8e674f10a",
       "executable": false
     },
     "deploy-demo.json": {
@@ -1920,7 +1920,7 @@
       "executable": false
     },
     "src/handset/messages/pages.ts": {
-      "sha256": "838dcdfa4dcc845e550775332106d5fcc154cc43607d8730bc03aff7aa131085",
+      "sha256": "fcf0c81a357373cb6bd17fa9588481ce78e373426403a71134b6714da203a19d",
       "executable": false
     },
     "src/handset/messages/provider.ts": {
@@ -4328,7 +4328,7 @@
       "executable": false
     },
     "tests/handset-recovery.mjs": {
-      "sha256": "820ea801baa9c6177f4fa32b5dee261a5d0dffa51ec28f9de5dddd514673f784",
+      "sha256": "3999b725bca2b1bb46042edefc09af6b0352ab9e031a1100215f37fc9f8abf14",
       "executable": false
     },
     "tests/handset-reporting.mjs": {
@@ -4336,7 +4336,7 @@
       "executable": false
     },
     "tests/handset-transports.mjs": {
-      "sha256": "9bcaf8cbfceb06f9ddd4d04dde8d2ca2a556a356b761c43fe0f8bd6c8cb061c8",
+      "sha256": "752147426bf119d4b8c864698160dd92a04e315cb76f22182d86a780f3e15fdf",
       "executable": false
     },
     "tests/handset-workspace-browser.mjs": {
@@ -4428,11 +4428,11 @@
       "executable": false
     },
     "tests/helpers/handset-message-groups.mjs": {
-      "sha256": "96afb47f23827e9b54ed77c9570d3fa82ec86f0f0600a13fdae9c75805477976",
+      "sha256": "fcf9c2af90a96ba534373d697e6a874ab8fa4a574565395d8ecee52ffd4db90a",
       "executable": false
     },
     "tests/helpers/handset-messages-browser.mjs": {
-      "sha256": "47e16770bdbafe92524be845f643bf9dd731fbaa9fa86c125550c52312cff7d0",
+      "sha256": "dad0f985fa56f59a152b78b1eeb3f1e0496a3497be326125e8601792e65161c9",
       "executable": false
     },
     "tests/helpers/handset-messages.mjs": {
