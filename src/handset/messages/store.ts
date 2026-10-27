@@ -3,9 +3,12 @@ import { Fault } from '../core'
 import { activeSourceById, sourceFence } from '../providers/sources'
 import { guard } from '../consent/store'
 import type { Thread, MessageJob } from './model'
+export const groupThreadQuery=`SELECT t.id FROM hnd_message_threads t WHERE t.id=? AND (t.route_kind='programmable' OR EXISTS(SELECT 1 FROM hnd_message_group_routes g JOIN oa_operators o ON o.id=g.approved_by WHERE g.source_id=t.source_id AND t.peer='group:'||g.conversation_sid AND g.revoked_at IS NULL AND o.role='owner' AND o.status='active' AND o.version=g.owner_version))`
+export const groupThreadFence=(env:Bindings,key:string)=>guard(env,'SELECT count(*) FROM ('+groupThreadQuery+')',key)
 export async function thread(env:Bindings,key:string) {
  const row=await env.DB.prepare('SELECT * FROM hnd_message_threads WHERE id=?').bind(key).first<Thread>()
  if(!row)throw new Fault('thread_not_found',404)
+ if(row.route_kind==='conversations'&&!await env.DB.prepare(groupThreadQuery).bind(row.id).first())throw new Fault('group_source_not_authorized',403)
  const source=await activeSourceById(env,row.source_id)
  if(!source||source.e164!==row.business)throw new Fault('message_source_inactive',409)
  return {row,source}

@@ -1,5 +1,5 @@
 import { Fault, integer, keys, object, text } from '../core'
-export interface Thread {id:string;source_id:string;business:string;peer:string;owner_id:string|null;revision:number;custody:'handset'|'happytohelp';updated_at:number}
+export interface Thread {route_kind:string;participants:string;id:string;source_id:string;business:string;peer:string;owner_id:string|null;revision:number;custody:'handset'|'happytohelp';updated_at:number}
 export interface InboxMessage {id:string;thread_id:string;provider_sid:string;direction:string;body:string;media:string;participants:string;provider_state:string;carrier_state:string;occurred_at:number}
 export interface Media {url:string;mime:string;bytes:number}
 export interface MessageJob {id:string;thread_id:string;permission_id:string;snippet_id:string;body:string;media:string;due_at:number;state:string;reason:string;provider_state:string;carrier_state:string;provider_sid:string|null;revision:number;created_by:string;owner_version:number;thread_revision:number;policy_id:string|null;approved_at:number|null;created_at:number}

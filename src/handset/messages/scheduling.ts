@@ -10,6 +10,7 @@ export async function schedule(env:Bindings,actor:Session,key:string,v:ObjectVal
  keys(v,['revision','snippetId','snippetRevision','dueAt','permissionId','media','participants'])
  if(v.participants!==undefined)throw new Fault('group_route_unqualified',409)
  const {row:t,source}=await thread(env,key)
+ if(t.route_kind!=='programmable')throw new Fault('group_send_registration_unqualified',409)
  if(t.revision!==v.revision||t.owner_id!==actor.operator.id||t.custody!=='handset')throw new Fault('thread_custody_changed',409)
  const snippet=await env.DB.prepare('SELECT * FROM hnd_message_snippets WHERE id=? AND revision=?').bind(v.snippetId as string,v.snippetRevision as number).first<{id:string;body:string}>()
  if(!snippet)throw new Fault('snippet_revision_changed',409)

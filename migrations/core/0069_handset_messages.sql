@@ -43,3 +43,13 @@ CREATE TRIGGER hnd_message_stop AFTER INSERT ON hnd_protection_stops
  UPDATE hnd_message_jobs SET state='suppressed',reason='Company-wide STOP or DNC',revision=revision+1
  WHERE state IN ('draft','queued') AND thread_id IN (SELECT id FROM hnd_message_threads WHERE peer=NEW.recipient);
  END;
+ALTER TABLE hnd_message_threads ADD COLUMN route_kind TEXT NOT NULL DEFAULT 'programmable';
+ALTER TABLE hnd_message_threads ADD COLUMN participants TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(participants));
+CREATE TABLE hnd_message_group_routes (
+ id TEXT PRIMARY KEY, source_id TEXT NOT NULL REFERENCES hnd_sources(id),
+ service_sid TEXT NOT NULL, conversation_sid TEXT NOT NULL, approved_by TEXT NOT NULL, owner_version INTEGER NOT NULL,
+ created_at INTEGER NOT NULL, revoked_at INTEGER
+);
+CREATE UNIQUE INDEX hnd_group_route_current ON hnd_message_group_routes(service_sid,conversation_sid) WHERE revoked_at IS NULL;
+CREATE TRIGGER hnd_message_history_no_update BEFORE UPDATE ON hnd_message_history BEGIN SELECT RAISE(ABORT,'append_only'); END;
+CREATE TRIGGER hnd_message_history_no_delete BEFORE DELETE ON hnd_message_history BEGIN SELECT RAISE(ABORT,'append_only'); END;

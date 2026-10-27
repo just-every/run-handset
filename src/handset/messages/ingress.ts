@@ -22,7 +22,7 @@ export async function observeMessage(env:Bindings,source:Source&{e164:string},p:
  const key=t?.id??id(),now=Date.now(),media=[]
  for(let n=0;n<Number(p.get('NumMedia')??0);n++)media.push({providerUrl:p.get('MediaUrl'+n),mime:p.get('MediaContentType'+n),content:'metadata only; not fetched'})
  const statements=[sourceFence(env,source)]
- if(!t)statements.push(env.DB.prepare('INSERT INTO hnd_message_threads VALUES (?,?,?,?,NULL,1,\'handset\',?)').bind(key,source.id,source.e164,peer,now))
+ if(!t)statements.push(env.DB.prepare('INSERT INTO hnd_message_threads(id,source_id,business,peer,owner_id,revision,custody,updated_at) VALUES (?,?,?,?,NULL,1,\'handset\',?)').bind(key,source.id,source.e164,peer,now))
  statements.push(env.DB.prepare('INSERT INTO hnd_inbox_messages VALUES (?,?,?,?,?,?,?,?,?,?)').bind(id(),key,sid,inbound?'inbound':'outbound',p.get('Body')??'',JSON.stringify(media),JSON.stringify([source.e164,peer]),'received','not applicable',occurredAt))
  statements.push(env.DB.prepare('UPDATE hnd_message_threads SET updated_at=? WHERE id=?').bind(now,key),env.DB.prepare('INSERT INTO hnd_message_history VALUES (?,?,?,NULL,?)').bind(id(),key,'Inbound message received',now))
  await append(env,source.id,'message.receive',key,'completed',statements,null,sourcePolicy(source))

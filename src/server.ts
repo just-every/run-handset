@@ -1,3 +1,4 @@
+import { groupProviderResponse } from './handset/messages/groups'
 import { withDemo } from './modules/demo/index.mjs'
 import { seedDemo } from './demo'
 import { rejectedResponse } from './base/rejected-response'
@@ -52,6 +53,8 @@ function noTransform(response: Response): Response {
 export default withDemo<Bindings, ExportedHandler<Bindings>>({
   async fetch(request, env, execution) {
     return observeProduct(request,env,async()=>{
+    const groups = await groupProviderResponse(request,env)
+    if (groups) return groups
     const consent = await consentProviderResponse(request, env)
     if (consent) return consent
     const callbacks = await callbackProviderResponse(request, env)

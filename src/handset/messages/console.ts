@@ -14,6 +14,7 @@ function formValue(suffix:string,raw:ObjectValue):ObjectValue {
  if(suffix.endsWith('/handoff'))return {revision:Number(raw.revision),custody:raw.custody}
  if(suffix.endsWith('/approve'))return {revision:Number(raw.revision),confirm:raw.confirm}
  if(suffix.endsWith('/refresh')||suffix.endsWith('/revoke'))return {}
+ if(suffix==='/group-routes')return {sourceId:raw.sourceId,serviceSid:raw.serviceSid,conversationSid:raw.conversationSid,confirm:raw.confirm}
  if(suffix==='/snippets')return {name:raw.name,body:raw.body}
  if(suffix==='/permissions')return {recipient:raw.recipient,purpose:'customer-care',evidence:raw.evidence,expiresAt:utc(raw.expiresAt,'expiresAt'),confirm:raw.confirm}
  if(suffix.endsWith('/schedule')) {
@@ -38,7 +39,7 @@ export async function messageConsole(request:Request,env:Bindings,actor:Session,
  const render=async(data:MessageSnapshot,threadId:string|null,refusal?:Refusal) => {
   if(!threadId)return messagesPage(data,undefined,undefined,refusal)
   const detail=await (await api('/threads/'+encodeURIComponent(threadId))).json() as Detail
-  const suppression=await (await api('/suppression?recipient='+encodeURIComponent(detail.thread.peer))).json() as {suppressed:boolean}
+  const suppression=await (await api('/thread-suppression?threadId='+encodeURIComponent(detail.thread.id))).json() as {suppressed:boolean}
   return messagesPage(data,detail,suppression.suppressed,refusal)
  }
  if(request.method==='GET') {
@@ -49,7 +50,7 @@ export async function messageConsole(request:Request,env:Bindings,actor:Session,
  if(request.method!=='POST'||!raw)throw new Fault('method_not_allowed',405)
  const before=await snapshot(),threadMatch=suffix.match(/^\/threads\/([^/]+)\//),jobMatch=suffix.match(/^\/jobs\/([^/]+)\//)
  const threadId=threadMatch?decodeURIComponent(threadMatch[1]):jobMatch?before.jobs.find(j=>j.id===decodeURIComponent(jobMatch[1]))?.thread_id??null:null
- const settings=suffix==='/snippets'||suffix==='/permissions'||suffix.startsWith('/permissions/')
+ const settings=suffix.startsWith('/group-routes')||suffix==='/snippets'||suffix==='/permissions'||suffix.startsWith('/permissions/')
  try {
   await api(suffix,formValue(suffix,raw))
   return new Response(null,{status:303,headers:{location:settings?base+'/settings':threadId?base+'?thread='+encodeURIComponent(threadId):base,'cache-control':'no-store'}})
