@@ -1099,3 +1099,72 @@ test('Directory grants expose only current authorized contacts and withdrawal st
   assert.equal((await runtime.request(base+'/'+shared.id,{headers:mh})).status,401)
  }finally{await runtime.close()}
 })
+
+test('Shared voicemail claims have one owner across concurrent clients and handled work survives reload and reopening',async()=>{
+ const runtime=await openHandset()
+ try{
+  const {cookie}=await signIn(runtime),h={cookie},base='/api/handset/voicemail'
+  await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
+  const second=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'}),sh={cookie:second.cookie}
+  const created=await post(runtime,base,{name:'Support',kind:'shared'},h);assert.equal(created.status,201,await created.clone().text());const box=(await created.json()).box
+  const root=base+'/'+box.id
+  assert.equal((await post(runtime,root+'/members',{operatorId:'synthetic-handset-2',active:true},h)).status,200)
+  const observation={sourceId:'synthetic-handset-10010',transcript:'Texto suministrado para devolver la llamada.',language:'es',confirm:'record supplied text without capture qualification'}
+  const observed=await post(runtime,root+'/observations',observation,h);assert.equal(observed.status,201,await observed.clone().text());const result=await observed.json(),item=result.item
+  assert.equal(result.captureQualified,false);assert.equal(result.transcriptionQualified,false)
+  const itemRoot=root+'/items/'+item.id
+  const claims=await Promise.all([post(runtime,itemRoot+'/claim',{revision:1},h),post(runtime,itemRoot+'/claim',{revision:1},sh)])
+  assert.deepEqual(claims.map(r=>r.status).sort(),[200,409])
+  const winner=(await claims.find(r=>r.status===200).json()).item
+  assert.ok(['synthetic-handset-1','synthetic-handset-2'].includes(winner.assigned_to))
+  const winningHeaders=winner.assigned_to==='synthetic-handset-1'?h:sh
+  const handled=await post(runtime,itemRoot+'/handled',{revision:2},winningHeaders)
+  assert.equal(handled.status,200,await handled.clone().text())
+  for(const headers of [h,sh]){
+   const state=await (await runtime.request(root,{headers})).json()
+   assert.deepEqual(state.due,[]);assert.equal(state.items[0].state,'handled');assert.equal(state.items[0].assigned_to,winner.assigned_to)
+  }
+  await runtime.restart()
+  const retained=await (await runtime.request(itemRoot,{headers:h})).json()
+  assert.deepEqual(retained.history.map(i=>i.state),['open','open','handled'])
+  assert.equal(retained.history[1].assigned_to,winner.assigned_to)
+  assert.equal((await post(runtime,itemRoot+'/reopen',{revision:3},winningHeaders)).status,200)
+  for(const headers of [h,sh])assert.deepEqual((await (await runtime.request(root,{headers})).json()).due,[item.id])
+  const replay=await post(runtime,root+'/observations',observation,h);assert.equal(replay.status,200);assert.equal((await replay.json()).item.id,item.id)
+  assert.equal((await post(runtime,root+'/observations',{...observation,transcript:'Changed replay'},h)).status,409)
+  const another=await post(runtime,root+'/observations',{...observation,sourceId:'synthetic-handset-10011',transcript:'New supplied observation',language:'en'},h)
+  assert.equal(another.status,201)
+  const state=await (await runtime.request(root,{headers:h})).json();assert.equal(state.items.length,2);assert.equal(state.due.length,2)
+  assert.equal((await (await runtime.request(itemRoot,{headers:h})).json()).history.length,4)
+  await assert.rejects(runtime.sql('DELETE FROM hnd_voicemail_history WHERE item_id=?',item.id),/append_only/)
+ }finally{await runtime.close()}
+})
+
+test('Voicemail private boxes and withdrawn membership refuse direct cached reads claims and supplied capture assertions',async()=>{
+ const runtime=await openHandset()
+ try{
+  const {cookie}=await signIn(runtime),h={cookie},base='/api/handset/voicemail'
+  await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
+  const second=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'}),sh={cookie:second.cookie}
+  assert.equal((await post(runtime,base,{name:'No session',kind:'shared'})).status,401)
+  assert.equal((await post(runtime,base,{name:'Cross origin',kind:'shared'},{...h,origin:'https://foreign.example.test'})).status,403)
+  assert.equal((await post(runtime,base,{name:'Member cannot manage',kind:'shared'},sh)).status,403)
+  const create=async kind=>{const r=await post(runtime,base,{name:kind,kind},h);assert.equal(r.status,201);return (await r.json()).box}
+  const personal=await create('personal'),shared=await create('shared'),root=base+'/'+shared.id
+  assert.equal((await post(runtime,base+'/'+personal.id+'/members',{operatorId:'synthetic-handset-2',active:true},h)).status,403)
+  assert.equal((await runtime.request(base+'/'+personal.id,{headers:sh})).status,404)
+  const observation={sourceId:'synthetic-handset-10020',transcript:'Supplied English text',language:'en',confirm:'record supplied text without capture qualification'}
+  const created=await post(runtime,root+'/observations',observation,h);assert.equal(created.status,201);const item=(await created.json()).item,itemRoot=root+'/items/'+item.id
+  assert.equal((await post(runtime,root+'/observations',{...observation,sourceId:'synthetic-handset-10021',captureQualified:true},h)).status,400)
+  assert.equal((await runtime.request(itemRoot,{headers:sh})).status,404)
+  assert.equal((await post(runtime,root+'/members',{operatorId:'synthetic-handset-2',active:true},h)).status,200)
+  const read=await runtime.request(itemRoot,{headers:sh});assert.equal(read.status,200);assert.equal(read.headers.get('cache-control'),'no-store')
+  assert.equal((await post(runtime,root+'/members',{operatorId:'synthetic-handset-2',active:false},h)).status,200)
+  for(const path of [root,itemRoot])assert.equal((await runtime.request(path,{headers:sh})).status,404)
+  assert.equal((await post(runtime,itemRoot+'/claim',{revision:1},sh)).status,404)
+  assert.deepEqual((await (await runtime.request(base,{headers:sh})).json()).boxes,[])
+  const claimed=await post(runtime,itemRoot+'/claim',{revision:1},h);assert.equal(claimed.status,200)
+  assert.equal((await post(runtime,root+'/members',{operatorId:'synthetic-handset-2',active:true},h)).status,200)
+  assert.equal((await post(runtime,itemRoot+'/handled',{revision:2},sh)).status,403)
+ }finally{await runtime.close()}
+})
