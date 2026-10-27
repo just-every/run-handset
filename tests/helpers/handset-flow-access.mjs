@@ -9,7 +9,7 @@ export async function flowRoleFixture(runtime,q){
  const member=await signIn({...runtime,ownerEmail:personId+'@example.test'}),headers={cookie:member.cookie}
  const definition={name:'Austin reception access',entry:'sales',timezone:'America/Chicago',overrides:[],nodes:[{id:'sales',kind:'queue',next:[],queueId:q.sales.id,group:{strategy:'simultaneous',members:[q.spanish]}}]}
  const allowed=await ownerPost(base,{definition},201)
- const foreign=await ownerPost(base,{definition:{...definition,name:'Private support flow',nodes:[{id:'support',kind:'queue',next:[],queueId:q.support.id,group:{strategy:'simultaneous',members:[q.english]}}]}},201)
+ const foreign=await ownerPost(base,{definition:{...definition,name:'Private support flow',entry:'support',nodes:[{id:'support',kind:'queue',next:[],queueId:q.support.id,group:{strategy:'simultaneous',members:[q.english]}}]}},201)
  await ownerPost(`${base}/${foreign.id}/test`,{path:['support']})
  await ownerPost(`${base}/${foreign.id}/publish`,{revision:0,confirm:'approve this exact tested flow version'})
  const roleInput={name:'Austin flow preparers',revision:0,capabilities:['flow.read','flow.draft','flow.test'],promptIds:[],flowIds:[allowed.flowId],confirm:'approve exact custom role'}
