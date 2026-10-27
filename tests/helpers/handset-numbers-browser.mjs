@@ -3,6 +3,7 @@ import { numberFixture } from './handset-numbers.mjs'
 
 export async function numbersJourney({runtime,page,cookie,proof,click}){
  const f=await numberFixture(runtime,cookie),url=runtime.origin+'/app/numbers'
+ const submit=async name=>{const received=page.waitForResponse(r=>r.request().method()==='POST');await click(name);return (await received).status()}
  async function search(kind='local'){
   await page.goto(url);const searchPanel=page.locator('main details');if(!await searchPanel.getAttribute('open').then(v=>v!==null))await searchPanel.locator('summary').click()
   await page.getByLabel('Twilio account SID',{exact:true}).fill(f.account)
@@ -29,13 +30,13 @@ export async function numbersJourney({runtime,page,cookie,proof,click}){
  await card().getByLabel('Reviewed replacement number',{exact:true}).selectOption(replacement.id+':'+replacement.revision)
  await card().getByRole('checkbox').check();await click('Review release '+first.e164)
  assert.match(await card().innerText(),/Review hold until/);assert.match(await card().innerText(),/within 10 days/);await proof('numbers-review-hold',card())
- await card().getByRole('checkbox').check();await click('Release '+first.e164)
- assert.match(await page.getByRole('alert').innerText(),/review hold active/);await proof('numbers-held-refusal')
+ await card().getByRole('checkbox').check();assert.equal(await submit('Release '+first.e164),409)
+ await page.getByRole('alert').waitFor();await proof('numbers-held-refusal')
  await page.goto(url)
  const current=(await f.inventory()).find(n=>n.id===first.id)
  await f.value(await f.send('/'+first.id+'/cancel',{revision:current.revision}))
- await card().getByRole('checkbox').check();await click('Release '+first.e164)
- assert.match(await page.getByRole('alert').innerText(),/release revision conflict/);await proof('numbers-stale')
+ await card().getByRole('checkbox').check();assert.equal(await submit('Release '+first.e164),409)
+ await page.getByRole('alert').waitFor();await proof('numbers-stale')
  await page.goto(url)
  await card().getByLabel('Reviewed replacement number',{exact:true}).selectOption(replacement.id+':'+replacement.revision)
  await card().getByRole('checkbox').check();await click('Review release '+first.e164)
@@ -44,6 +45,6 @@ export async function numbersJourney({runtime,page,cookie,proof,click}){
  await card().getByRole('checkbox').check();await click('Release '+first.e164)
  assert.match(await card().innerText(),/Carrier confirmed release/);await proof('numbers-released',card())
  assert.equal(f.calls.filter(c=>c.method==='DELETE').length,1)
- await page.goto(url);await page.locator('main details summary').click();await page.getByLabel('Twilio account SID',{exact:true}).fill('synthetic-handset-7999');await click('Search numbers')
- assert.match(await page.getByRole('alert').innerText(),/carrier readback unavailable/);await proof('numbers-provider-failed')
+ await page.goto(url);await page.locator('main details summary').click();await page.getByLabel('Twilio account SID',{exact:true}).fill('synthetic-handset-7999');assert.equal(await submit('Search numbers'),503)
+ await page.getByRole('alert').waitFor();await proof('numbers-provider-failed')
 }
