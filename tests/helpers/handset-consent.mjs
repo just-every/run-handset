@@ -29,8 +29,8 @@ export async function consentFixture() {
    return runtime.request(path,{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded',...(signature?{'x-twilio-signature':createHmac('sha1','synthetic-handset-500').update(payload).digest('base64')}:{})},body:p.toString()})
   }
   async function recipient(caller,timezone='America/Chicago') { return write(base+'/recipients',{recipient:caller,timezone,startMinute:480,endMinute:1260,expiresAt:Date.now()+3600000,confirm:'approve recipient timezone and hours'}) }
-  async function start(n,{identity='TN-Validation-Passed',configureRecipient=true}={}) {
-   const sid=`synthetic-handset-call-${n}`,caller=`+1512555${String(1000+n).padStart(4,'0')}`
+  async function start(n,{identity='TN-Validation-Passed',configureRecipient=true,caller:requestedCaller}={}) {
+   const sid=`synthetic-handset-call-${n}`,caller=requestedCaller??`+1512555${String(1000+n).padStart(4,'0')}`
    const fields={CallSid:sid,From:caller,To:business,CallStatus:'in-progress',Direction:'inbound',StirVerstat:identity}
    source.resource('Calls',sid,{from:caller,to:business,direction:'inbound',status:'in-progress',date_created:new Date().toUTCString(),start_time:new Date().toUTCString(),parent_call_sid:null})
    const received=await source.callback({CallSid:sid,From:caller,CallStatus:'in-progress',SequenceNumber:'0',Timestamp:new Date().toISOString()})
@@ -42,6 +42,7 @@ export async function consentFixture() {
    const missed=async()=>{
     const legSid=`synthetic-handset-leg-${n}`
     source.resource('Calls',legSid,{parent_call_sid:sid,from:business,to:staff,direction:'outbound-dial',status:'no-answer',end_time:new Date().toUTCString()})
+    runtime.twilioResources.set(`https://api.twilio.com/2010-04-01/Accounts/${source.account}/Calls.json?ParentCallSid=${sid}&PageSize=100`,{calls:[{sid:legSid,account_sid:source.account,parent_call_sid:sid}],next_page_uri:null})
     const r=await signed(`/providers/twilio/consent/calls/${call.id}/outcome`,{...fields,DialCallSid:legSid,DialCallStatus:'no-answer'})
     assert.equal(r.status,200,await r.clone().text());return r.text()
    }

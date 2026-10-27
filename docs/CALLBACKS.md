@@ -62,3 +62,26 @@ Real carrier callbacks to real receivers, the toll-free verified text receipt fo
 the same call, and personal ring rules (HND-078) for the staff leg need a carrier
 and receivers. HND-089 keeps the in-call text consent; this slice records its own
 callback consent and never infers one from the other.
+
+## Missed staff outcomes
+
+A signed consent outcome must name a staff leg included in the complete carrier
+child list. Each child is independently read back with the same account, parent
+and identity. Pagination, duplicated children, a missing triggering leg, a live
+child or an unknown completed duration holds the outcome. Any completed staff
+conversation prevents a missed-call task or customer-care text. A failed offer
+alone cannot prove that staff missed the customer. Replaying the qualified
+outcome after restart still creates only one task and one permitted reply.
+
+A later verified inbound call starts separate owned work in the same customer
+case after the previous need is resolved, declined or stopped. The previous
+need, resolution, queue evidence and callback receipts remain intact. Each call
+is durably bound to its need, so old status retries cannot attach to new work.
+Calls that occurred before the terminal decision do not create a fresh need.
+An active need retains its current owner and human decisions. New work remains
+subject to current source and intake approval, opt-outs and independent callback
+or text permission; a prior customer request grants no new contact authority.
+
+A confirmed booking must postdate the new need and cannot already be the
+resolution of an earlier need. Sharing a customer case never makes an old
+booking a resolution of fresh missed work.

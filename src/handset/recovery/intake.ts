@@ -2,9 +2,11 @@ import type { Bindings } from '../../auth.server'
 import { append } from '../audit/store'
 import { sourcePolicy } from '../audit/policy'
 import { callUrl, readTwilio } from '../consent/store'
-import { Fault, id, text } from '../core'
+import { Fault, text } from '../core'
 import { guard, sql } from '../delegation/store'
 import { activeSourceById, sourceFence, type Source } from '../providers/sources'
+import { recoveryNeed } from './needs'
+import { answeredStaff } from './staff-outcomes'
 import { intakeAuthority, intakeFence, intakePolicy, withinIntakeHours } from './intake-policy'
 
 interface CallRecord {id:string;kind:string;parent_id:string|null;case_id:string|null;data:string}
@@ -23,28 +25,6 @@ async function customerCall(env:Bindings, source:Source, recordId:string) {
   current=row.parent_id
  }
  throw new Fault('recovery_call_ancestry_uncertain',409)
-}
-async function answered(env:Bindings, source:Source, sid:string, caller:string, business:string) {
- const list=await readTwilio(env,source,`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(source.account_id)}/Calls.json?ParentCallSid=${encodeURIComponent(sid)}&PageSize=100`)
- if(!Array.isArray(list.calls)||list.calls.length>100||list.next_page_uri)throw new Fault('recovery_staff_readback_incomplete',409)
- // Re-read each child independently. A failed offer while the caller is still
- // waiting, a live child or an unknown duration never proves an unanswered call.
- for(let start=0;start<list.calls.length;start+=4) {
-  const children=await Promise.all(list.calls.slice(start,start+4).map(async raw=>{
-   const child=raw as Record<string,unknown>
-   if(child.account_sid!==source.account_id||child.parent_call_sid!==sid)throw new Fault('recovery_child_identity_mismatch',502)
-   return readTwilio(env,source,callUrl(source,text(child.sid,'childSid')))
-  }))
-  for(const child of children) {
-   if(child.account_sid!==source.account_id||child.parent_call_sid!==sid||child.direction!=='outbound-dial'||![caller,business].includes(String(child.from)))throw new Fault('recovery_child_identity_mismatch',502)
-   if(!terminal.includes(String(child.status)))throw new Fault('recovery_staff_outcome_uncertain',409)
-   if(child.status==='completed') {
-    if(!/^\d+$/.test(String(child.duration)))throw new Fault('recovery_staff_duration_required',409)
-    if(Number(child.duration)>0)return true
-   }
-  }
- }
- return false
 }
 
 /** A current owner policy permits task intake only. It cannot mint contact
@@ -68,13 +48,14 @@ export async function observeUnansweredCall(env:Bindings, sourceId:string, recor
  // The carrier reports whole seconds. Approval and the outcome must share at
  // least that second; an older missed call is never backfilled by a new policy.
  if(missedAt<Math.floor(policy.created_at/1000)*1000||!withinIntakeHours(policy,missedAt))return
- if(await answered(env,source,call.sid,String(parent.from),source.e164))return
+ if(await answeredStaff(env,source,call.sid,String(parent.from),source.e164))return
  const queue=(await sql(env,'SELECT id,queue_id,origin_queue_id,queued_at,priority,current_visit_id FROM hnd_queue_entries WHERE call_id=? ORDER BY queued_at LIMIT 1',call.row.id).first<{id:string}>())
  const stop=await sql(env,"SELECT id FROM hnd_protection_stops WHERE recipient=? AND (number_id=? OR reason='dnc') AND channel IN ('voice','all') LIMIT 1",String(parent.from),source.number_id).first()
- const now=Date.now(),taskId=id(),reason=stop?'Current opt-out or DNC; owned task only, no customer contact':'Owned missed-call task; this intake grants no text or calling permission'
+ const need=await recoveryNeed(env,call.row.case_id,call.row.id)
+ const now=Date.now(),taskId=need.id,reason=stop?'Current opt-out or DNC; owned task only, no customer contact':'Owned missed-call task; this intake grants no text or calling permission'
  await append(env,source.id,'recovery.intake',call.row.case_id,'completed',[
-  sourceFence(env,source),intakeFence(env,policy),guard(env,'SELECT count(*) FROM hnd_records WHERE id=? AND case_id=?',call.row.id,call.row.case_id),
-  sql(env,'INSERT INTO hnd_recovery VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(case_id) DO NOTHING',taskId,call.row.case_id,source.id,recordId,queue?.id??null,JSON.stringify(queue??{}),String(parent.from),policy.approved_by,policy.owner_version,stop?'stopped':'open',missedAt+60000,1,reason,null,1,now,now),
-  sql(env,`INSERT INTO hnd_recovery_events SELECT ?,r.id,'missed_observed',?,?,? FROM hnd_recovery r WHERE r.case_id=? ON CONFLICT(id) DO NOTHING`,eventId,JSON.stringify({callRecordId:recordId,customerCallId:call.row.id,callSid:call.sid,missedAt,observedAt:now,policyRevision:policy.revision,intakeGrantsContact:false,marketingEnrollment:false}),source.id,now,call.row.case_id),
+  sourceFence(env,source),intakeFence(env,policy),...need.fences,guard(env,'SELECT count(*) FROM hnd_records WHERE id=? AND case_id=?',call.row.id,call.row.case_id),
+  ...(need.existing?[]:[sql(env,'INSERT INTO hnd_recovery VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',taskId,call.row.case_id,source.id,recordId,queue?.id??null,JSON.stringify(queue??{}),String(parent.from),policy.approved_by,policy.owner_version,stop?'stopped':'open',missedAt+60000,1,reason,null,1,now,now)]),...need.mapping,
+  sql(env,`INSERT INTO hnd_recovery_events SELECT ?,r.id,'missed_observed',?,?,? FROM hnd_recovery r WHERE r.id=? ON CONFLICT(id) DO NOTHING`,eventId,JSON.stringify({callRecordId:recordId,customerCallId:call.row.id,callSid:call.sid,missedAt,observedAt:now,policyRevision:policy.revision,intakeGrantsContact:false,marketingEnrollment:false}),source.id,now,need.id),
  ],null,{...sourcePolicy(source),...intakeAuthority(policy)})
 }

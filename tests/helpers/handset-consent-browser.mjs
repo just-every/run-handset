@@ -5,7 +5,7 @@ import { consentFixture,oneReplyJourney,surveyJourney,consentTime } from './hand
 import { signIn } from './handset-auth.mjs'
 
 export async function consentBrowserJourney(width,domain) {
- const f=await consentFixture(),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const f=await consentFixture(),browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage()
  const directory=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-consent'
  await mkdir(directory,{recursive:true});page.setDefaultTimeout(10000)

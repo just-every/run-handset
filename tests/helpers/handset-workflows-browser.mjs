@@ -136,6 +136,23 @@ export async function workJourney({ f, page, proof, domain }) {
   assert.equal((await read()).cases.find(r => r.id === second.id).state, 'declined')
   assert.equal(runtime.sourceRequests.filter(r => r.method === 'POST').length, 0)
   await proof('recovery-overdue-after-restart')
+  const terminal=(await read()).cases.find(r=>r.id===second.id)
+  await runtime.setTime(Date.now()+1000)
+  const later=await source.callback({From:'+15125552401',CallSid:'synthetic-handset-console-fresh-need',CallStatus:'no-answer',SequenceNumber:'0',Timestamp:new Date().toISOString()})
+  assert.equal(later.status,200);const fresh=await later.json();assert.equal(fresh.caseId,second.case_id)
+  await page.goto(runtime.origin+root)
+  const opening=page.locator('details').filter({has:page.locator('summary',{hasText:'Open a recovery'})})
+  await opening.locator('summary').click()
+  await fill(opening.locator('form'),{'Verified missed-call record ID':fresh.recordId,'Due at (UTC)':utc(Date.now()+3600000),'Maximum attempts (1 to 3)':1})
+  await click(page,'Open owned recovery')
+  const needs=(await read()).cases.filter(r=>r.case_id===second.case_id)
+  assert.equal(needs.length,2);assert.deepEqual(needs.find(r=>r.id===second.id),terminal)
+  const newNeed=needs.find(r=>r.id!==second.id)
+  assert.equal(newNeed.state,'open');assert.equal(newNeed.owner_id,'synthetic-handset-1')
+  assert.equal(await page.locator('#recovery-'+second.id).count(),1)
+  assert.equal(await page.locator('#recovery-'+newNeed.id).count(),1)
+  await proof('recovery-fresh-need-preserves-decline')
+
  }
  if (domain === 'operations') {
   await f.savePolicy(); const source = await sourceFixture(runtime)

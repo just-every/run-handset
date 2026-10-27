@@ -4,6 +4,7 @@ import { actorRef, append, commit } from '../audit/store'
 import { Fault, id, integer, json, keys, owner, text, timestamp, type ObjectValue } from '../core'
 import { activeSourceById, sourceFence } from '../providers/sources'
 import type { RecordRow } from '../records/model'
+import { recoveryNeed } from './needs'
 import { configureIntake, intakeSnapshot, revokeIntake } from './intake-policy'
 
 interface Recovery {
@@ -30,8 +31,11 @@ async function create(env: Bindings, actor: Session, v: ObjectValue) {
  if (!source) throw new Fault('source_inactive', 409)
  const recipient = text(data.from, 'recipient', 30)
  if (!/^\+[1-9]\d{7,14}$/.test(recipient)) throw new Fault('recipient_unknown', 409)
- const old = await env.DB.prepare('SELECT * FROM hnd_recovery WHERE case_id=?').bind(record.case_id).first<Recovery>()
- if (old) return { recovery: old, replay: true, launched: 0 }
+ const need=await recoveryNeed(env,record.case_id,callId)
+ if(need.existing) {
+  if(need.mapping.length)await commit(env,actor,'recovery.create',need.id,'completed',[sourceFence(env,source),...need.fences,...need.mapping])
+  return {recovery:await get(env,need.id),replay:true,launched:0}
+ }
  const dueAt = timestamp(v.dueAt, 'dueAt'), max = integer(v.maxAttempts ?? 1, 'maxAttempts', 1, 3)
  let place: unknown = {}, queueEntryId: string | null = null
  if (v.queueEntryId) {
@@ -41,12 +45,12 @@ async function create(env: Bindings, actor: Session, v: ObjectValue) {
   place = entry
  }
  const stopped = await env.DB.prepare("SELECT id FROM hnd_protection_stops WHERE recipient=? AND (number_id=? OR reason='dnc') AND channel IN ('voice','all') LIMIT 1").bind(recipient, source.number_id).first()
- const now = Date.now(), key = id()
+ const now = Date.now(), key = need.id
  const row: Recovery = { id: key, case_id: record.case_id, source_id: source.id, call_record_id: callId, queue_entry_id: queueEntryId,
   queue_place: JSON.stringify(place), recipient, owner_id: actor.operator.id, owner_version: actor.operator.version,
   state: stopped ? 'stopped' : 'open', due_at: dueAt, max_attempts: max, reason: stopped ? 'Current opt-out or DNC suppresses contact' : 'Owned recovery; text and callback await qualified authority', resolution: null, revision: 1, created_at: now, updated_at: now }
- await commit(env, actor, 'recovery.create', key, 'completed', [sourceFence(env, source),
-  env.DB.prepare(`INSERT INTO hnd_recovery(${Object.keys(row).join(',')}) VALUES (${Object.keys(row).map(() => '?').join(',')})`).bind(...Object.values(row)), event(env, actor, key, 'opened', { callRecordId: callId, queuePlace: place, suppressed: !!stopped }),
+ await commit(env, actor, 'recovery.create', key, 'completed', [sourceFence(env, source), ...need.fences,
+  env.DB.prepare(`INSERT INTO hnd_recovery(${Object.keys(row).join(',')}) VALUES (${Object.keys(row).map(() => '?').join(',')})`).bind(...Object.values(row)), ...need.mapping, event(env, actor, key, 'opened', { callRecordId: callId, queuePlace: place, suppressed: !!stopped }),
  ])
  return { recovery: row, replay: false, launched: 0 }
 }
@@ -58,7 +62,7 @@ async function act(env: Bindings, actor: Session, row: Recovery, op: string, v: 
  if (op === 'resolve') {
   keys(v, ['revision','outcomeId'])
   const outcomeId = text(v.outcomeId, 'outcomeId')
-  const booking = await env.DB.prepare("SELECT s.id,s.external_id,s.readback FROM hnd_rx_steps s JOIN hnd_rx_outcomes o ON o.id=s.outcome_id WHERE o.id=? AND o.case_id=? AND s.kind='booking' AND s.state='confirmed'").bind(outcomeId, row.case_id).first<{id: string; external_id: string; readback: string}>()
+  const booking = await env.DB.prepare("SELECT s.id,s.external_id,s.readback FROM hnd_rx_steps s JOIN hnd_rx_outcomes o ON o.id=s.outcome_id WHERE o.id=? AND o.case_id=? AND s.kind='booking' AND s.state='confirmed' AND s.updated_at>=? AND NOT EXISTS(SELECT 1 FROM hnd_recovery prior WHERE prior.id<>? AND json_extract(prior.resolution,'$.stepId')=s.id)").bind(outcomeId, row.case_id, row.created_at, row.id).first<{id: string; external_id: string; readback: string}>()
   if (!booking) throw new Fault('confirmed_same_case_booking_required', 409)
   // No arbitrary done flag: only the outcome runtime's independently read-back booking.
   state = 'resolved'; reason = 'Confirmed booking from the same customer case'; resolution = JSON.stringify({ outcomeId, stepId: booking.id, externalId: booking.external_id, readback: JSON.parse(booking.readback) })

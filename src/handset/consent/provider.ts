@@ -7,6 +7,7 @@ import { xml } from '../protection/twiml'
 import { callUrl, capturePermission, carePrompt, ensureCall, getCall, getPolicy, policyAuthority, readTwilio, type ConsentCall, type ConsentPolicy } from './store'
 import { confirmText } from './texts'
 import { missedCall } from './outcomes'
+import { answeredStaff } from '../recovery/staff-outcomes'
 
 const root='/providers/twilio/consent'
 function ring(env:Bindings,p:ConsentPolicy,call:ConsentCall) {
@@ -51,7 +52,7 @@ export async function consentProviderResponse(request:Request,original:Bindings)
   }
   const sid=text(p.get('DialCallSid'),'DialCallSid'),status=text(p.get('DialCallStatus'),'DialCallStatus')
   const [parent,child]=await Promise.all([readTwilio(env,source,callUrl(source,call.call_sid)),readTwilio(env,source,callUrl(source,sid))])
-  if(parent.sid!==call.call_sid||parent.account_sid!==source.account_id||parent.from!==call.caller||parent.to!==call.business||parent.direction!=='inbound'||child.sid!==sid||child.account_sid!==source.account_id||child.parent_call_sid!==call.call_sid||child.from!==call.business||child.to!==policy.staff_target||child.status!==status)throw new Fault('missed_leg_readback_mismatch',502)
+  if(parent.sid!==call.call_sid||parent.account_sid!==source.account_id||parent.from!==call.caller||parent.to!==call.business||parent.direction!=='inbound'||parent.parent_call_sid!==null||child.direction!=='outbound-dial'||child.sid!==sid||child.account_sid!==source.account_id||child.parent_call_sid!==call.call_sid||child.from!==call.business||child.to!==policy.staff_target||child.status!==status)throw new Fault('missed_leg_readback_mismatch',502)
   if(!['no-answer','busy','failed','canceled'].includes(status)) {
    if(status!=='completed'||!/^\d+$/.test(String(child.duration))||Number(child.duration)<1)throw new Fault('completed_staff_conversation_required',409)
    const conversation=await env.DB.prepare('SELECT call_id FROM hnd_consent_conversations WHERE call_id=?').bind(call.id).first()
@@ -64,6 +65,9 @@ export async function consentProviderResponse(request:Request,original:Bindings)
    const invitation=await env.DB.prepare('SELECT id FROM hnd_survey_invitations WHERE call_id=? AND expires_at>? AND suppressed_at IS NULL').bind(call.id,Date.now()).first<{id:string}>()
    return invitation?xml(`<Redirect method="POST">${e(env.AUTH_ORIGIN+'/providers/twilio/surveys/'+invitation.id)}</Redirect>`):xml('<Hangup/>')
   }
+  // A failed offer alone is not a missed customer call. Reconcile every staff
+  // child before creating work or authorizing the one consented text.
+  if(await answeredStaff(env,source,call.call_sid,call.caller,call.business,sid))throw new Fault('staff_conversation_not_missed',409)
   const existing=await env.DB.prepare('SELECT call_record_id FROM hnd_consent_outcomes WHERE call_id=?').bind(call.id).first<{call_record_id:string}>()
   if(existing){await missedCall(env,call,existing.call_record_id,Date.parse(String(child.end_time)));return xml('<Hangup/>')}
   const native=await env.DB.prepare('SELECT record_id,case_id FROM hnd_source_objects WHERE source_id=? AND external_id=?').bind(source.id,call.call_sid).first<{record_id:string;case_id:string}>()

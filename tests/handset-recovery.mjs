@@ -69,13 +69,28 @@ test('Reviewed business hours admit one owned task from final carrier readback w
   assert.equal((await f.get('/api/handset/consent')).permissions.length,0)
   assert.equal((await f.get('/api/handset/callbacks')).callbacks.length,0)
   await f.runtime.setTime(intakeTime+1000)
+  // A genuinely later call is separately owned; the prior decision stays final.
+  const delayed=f.call(11,{caller:call.caller})
+  const human=(await f.get()).cases.find(r=>r.id===task.id)
+  const final=await f.write(f.base+'/'+human.id+'/decline',{revision:human.revision,note:'Customer declined this need'},200)
+  await f.runtime.setTime(intakeTime+2000)
+  const fresh=f.call(10,{caller:call.caller});assert.equal((await fresh.send()).status,200)
+  const needs=(await f.get()).cases.filter(r=>r.recipient===call.caller)
+  assert.equal(needs.length,2);assert.deepEqual(needs.find(r=>r.id===task.id),final.recovery)
+  const newNeed=needs.find(r=>r.id!==task.id)
+  assert.equal(newNeed.state,'open');assert.equal(newNeed.owner_id,'synthetic-handset-1')
+  assert.notEqual(newNeed.call_record_id,task.call_record_id)
+  await f.runtime.restart();await call.send();await fresh.send();await delayed.send()
+  assert.equal((await f.get()).cases.length,4)
+  assert.deepEqual((await f.get()).cases.find(r=>r.id===task.id),final.recovery)
+  assert.deepEqual((await f.get()).cases.find(r=>r.id===newNeed.id),newNeed,'a late old call cannot change the fresh need')
   const withdrawn=f.call(9)
   f.runtime.twilioResources.set(withdrawn.url,async()=>{
    await f.write('/api/handset/sources/revoke',{sourceId:f.source.source.id},200)
    return withdrawn.resource
   })
   assert.equal((await withdrawn.send()).status,409)
-  assert.equal((await f.get()).cases.length,3,'source withdrawal during readback cannot create owned work')
+  assert.equal((await f.get()).cases.length,4,'source withdrawal during readback cannot create owned work')
   assert.equal(f.runtime.sourceRequests.filter(r=>r.method==='POST').length,0)
  }finally{await f.runtime.close()}
 })
@@ -180,6 +195,14 @@ test('Recovery closes only on a same-case confirmed booking or explicit decline 
   assert.equal(f.runtime.sourceRequests.filter(r => r.method === 'POST').length, 0)
   await f.runtime.scheduled()
   assert.equal((await f.runtime.sql("SELECT count(*) AS n FROM hnd_recovery_events WHERE recovery_id=? AND kind='overdue'", unreachable.id)).results[0].n, 1)
+  await f.runtime.setTime(Date.now()+1000)
+  const later=await f.missed(13,10),newNeed=await f.open(later)
+  assert.equal(later.caseId,calls[0].caseId);assert.notEqual(newNeed.id,booked.id)
+  const reused=await post(f.runtime,`/api/handset/recovery/${newNeed.id}/resolve`,{revision:newNeed.revision,outcomeId:opened.outcome.id},f.headers)
+  assert.equal(reused.status,409,'a prior need booking cannot resolve new missed work in the same case')
+  assert.equal((await f.open(calls[0],{},200)).id,booked.id,'old call replays stay on their resolved need')
+  assert.equal((await (await f.runtime.request('/api/handset/recovery',{headers:f.headers})).json()).cases.find(r=>r.id===newNeed.id).state,'open')
+
  } finally { await f.runtime.close() }
 })
 
@@ -223,6 +246,49 @@ test('Explicit caller permission produces one missed-call reply and owned task t
  const {consentFixture,oneReplyJourney,ownedTaskWithinMinute}=await import('./helpers/handset-consent.mjs'),f=await consentFixture()
  try {
   await oneReplyJourney(f)
+  { const isolated=await consentFixture();try {
+  // The failed offer must be part of a complete independently read-back set.
+  const guarded=await isolated.start(90);await guarded.decision('1')
+  const legSid='synthetic-handset-leg-90',otherSid='synthetic-handset-other-staff-90'
+  const leg={sid:legSid,account_sid:isolated.source.account,parent_call_sid:guarded.sid,from:isolated.business,to:isolated.staff,direction:'outbound-dial',status:'no-answer',end_time:new Date().toUTCString()}
+  const other={...leg,sid:otherSid,status:'completed',duration:'20'}
+  const listUrl=`https://api.twilio.com/2010-04-01/Accounts/${isolated.source.account}/Calls.json?ParentCallSid=${guarded.sid}&PageSize=100`
+  isolated.source.resource('Calls',legSid,leg)
+  const list={calls:[leg,other],next_page_uri:null};isolated.runtime.twilioResources.set(listUrl,list)
+  const outcome=()=>isolated.signed(`/providers/twilio/consent/calls/${guarded.call.id}/outcome`,{...guarded.fields,DialCallSid:legSid,DialCallStatus:'no-answer'})
+  const before=await isolated.get(),tasksBefore=(await isolated.get('/api/handset/recovery')).cases
+  for(const [change,status,code] of [
+   [()=>{list.next_page_uri='/next'},409,'recovery_staff_readback_incomplete'],
+   [()=>{list.next_page_uri=null;list.calls=[other]},409,'recovery_staff_readback_incomplete'],
+   [()=>{list.calls=[leg,leg]},409,'recovery_staff_readback_incomplete'],
+   [()=>{list.calls=[leg,other];other.status='in-progress'},409,'recovery_staff_outcome_uncertain'],
+   [()=>{other.status='completed';other.duration='unknown'},409,'recovery_staff_duration_required'],
+   [()=>{other.duration='20'},409,'staff_conversation_not_missed'],
+   [()=>{other.sid='synthetic-handset-wrong-readback'},502,'recovery_child_identity_mismatch'],
+  ]) {
+   change();isolated.source.resource('Calls',otherSid,other)
+   // Keep the listed identity fixed while independently changing its resource.
+   list.calls=list.calls.map(row=>row===other?{...other,sid:otherSid}:row)
+   const refused=await outcome();assert.equal(refused.status,status,await refused.clone().text());assert.equal((await refused.json()).error,code)
+   assert.deepEqual((await isolated.get('/api/handset/recovery')).cases,tasksBefore)
+   const report=await isolated.get();assert.deepEqual(report.outcomes,before.outcomes);assert.deepEqual(report.texts,before.texts)
+   assert.equal(isolated.receiver.sent.length,0,'an unsafe staff outcome never contacts the customer')
+  }
+  list.calls=[leg];await isolated.runtime.restart()
+  assert.equal((await outcome()).status,200);await outcome()
+  assert.equal(isolated.receiver.sent.length,1,'the complete unanswered set permits exactly one reply')
+  const old=(await isolated.get('/api/handset/recovery')).cases[0]
+  const declined=await isolated.write('/api/handset/recovery/'+old.id+'/decline',{revision:old.revision,note:'The customer declined the previous need'},200)
+  await isolated.runtime.setTime(Date.now()+1000)
+  const fresh=await isolated.start(91,{caller:guarded.caller});await fresh.decision('1');await fresh.missed()
+  const distinct=(await isolated.get('/api/handset/recovery')).cases
+  assert.equal(distinct.length,2);assert.deepEqual(distinct.find(r=>r.id===old.id),declined.recovery)
+  assert.equal(distinct.find(r=>r.id!==old.id).state,'open')
+  await outcome();await fresh.missed();await isolated.runtime.restart();await outcome()
+  assert.equal((await isolated.get('/api/handset/recovery')).cases.length,2)
+  assert.equal(isolated.receiver.sent.length,2,'each explicitly consented new call permits one reply, never a replay')
+
+  } finally {await isolated.runtime.close()} }
   const declined=await f.start(2),yes=await (await f.start(3)).decision('1'),no=await declined.decision('2')
   assert.equal(no.replaceAll(declined.call.id,'call'),yes.replace(/calls\/[0-9a-f-]+\//,'calls/call/'),'decline keeps the exact staff ringing instructions')
   const timeout=await f.start(4);await timeout.decision(null)
