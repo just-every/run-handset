@@ -33,7 +33,8 @@ export async function dispatchMessage(env:Bindings,key:string) {
   if(registration.sid!==first.p.registration_id||registration.account_sid!==first.source.account_id||registration.tollfree_phone_number!==first.t.business||registration.status!=='TWILIO_APPROVED')throw new Fault('tollfree_registration_not_approved',409)
   for(const media of JSON.parse(j.media) as Media[]) {
    const metadata=await readTwilio(env,first.source,media.url+'.json')
-   if(metadata.account_sid!==first.source.account_id||metadata.content_type!==media.mime||Number(metadata.size)!==media.bytes)throw new Fault('provider_media_metadata_mismatch',409)
+   const parts=new URL(media.url).pathname.split('/')
+   if(metadata.account_sid!==first.source.account_id||metadata.content_type!==media.mime||metadata.parent_sid!==parts[5]||metadata.sid!==parts[7]||metadata.uri!==new URL(media.url).pathname+'.json')throw new Fault('provider_media_metadata_mismatch',409)
   }
   // Recheck all mutable authority after every provider preflight and claim once.
   const fresh=await authority(env,j)
@@ -50,10 +51,10 @@ export async function dispatchMessage(env:Bindings,key:string) {
   return await refreshMessage(env,key)
  } catch(error) {
   const current=await job(env,key)
-  if(!['queued','sending'].includes(current.state))return current
+  if(!['queued','sending'].includes(current.state)||!claimed&&current.state!=='queued')return current
   const reason=error instanceof Fault?error.code:'message_transport_uncertain'
   const stopped=reason==='recipient_STOP_or_DNC',state=claimed&&!stopped?'uncertain':'suppressed'
-  await append(env,j.created_by,'message.send',key,state==='suppressed'?'refused':'uncertain',[env.DB.prepare('UPDATE hnd_message_jobs SET state=?,provider_state=?,reason=?,revision=revision+1 WHERE id=? AND state=?').bind(state,state==='uncertain'?'unknown':'not submitted',reason,key,current.state)])
+  await append(env,j.created_by,'message.send',key,state==='suppressed'?'refused':'uncertain',[env.DB.prepare('UPDATE hnd_message_jobs SET state=?,provider_state=?,reason=?,revision=revision+1 WHERE id=? AND state=? AND revision=?').bind(state,state==='uncertain'?'unknown':'not submitted',reason,key,current.state,claimed?current.revision:j.revision)])
   return job(env,key)
  }
 }

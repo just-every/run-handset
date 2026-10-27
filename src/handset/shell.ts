@@ -8,7 +8,7 @@ const escape = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, c => 
 
 // Daily work stays in the bar; configuration and oversight live under Settings.
 export const work = [
- ['/app/followups', 'Follow-ups'], ['/app/cases', 'Cases'], ['/app/recovery', 'Recovery'], ['/app/callbacks', 'Callbacks'],
+ ['/app/followups', 'Follow-ups'], ['/app/cases', 'Cases'], ['/app/messages', 'Messages'], ['/app/recovery', 'Recovery'], ['/app/callbacks', 'Callbacks'],
  ['/app/queues', 'Queues'], ['/app/front-desk', 'Front desk'], ['/app/recordings', 'Recordings'], ['/app/receptionist', 'Caller outcomes'],
 ] as const
 export const settings = [

@@ -3,7 +3,7 @@ import { post } from './handset-auth.mjs'
 import { messagesFixture } from './handset-messages.mjs'
 
 export async function messageJourney({runtime,page,context,cookie,proof,click}) {
- await page.goto(runtime.origin+'/app/messages'); await proof('messages-empty')
+ await page.goto(runtime.origin+'/app/cases');await page.getByRole('navigation',{name:'Handset',exact:true}).getByRole('link',{name:'Messages',exact:true}).click(); await proof('messages-empty')
  assert.match(await page.locator('main').innerText(),/No conversations yet/)
  const f=await messagesFixture(runtime),headers={cookie}
  await f.incoming('Please help with my order',{NumMedia:'1',MediaUrl0:`https://api.twilio.com/2010-04-01/Accounts/${f.source.account}/Messages/synthetic-handset-1880/Media/synthetic-handset-1881`,MediaContentType0:'image/jpeg'})
@@ -55,6 +55,10 @@ export async function messageJourney({runtime,page,context,cookie,proof,click}) 
  await f.incoming('STOP')
  await page.goto(runtime.origin+'/app/messages?thread='+encodeURIComponent(thread.id)); await proof('messages-suppressed')
  assert.match(await page.locator('main').innerText(),/Suppressed/)
+ for(let i=0;i<201;i++)await f.incoming('Order progress '+i,{Timestamp:new Date(f.now+i).toISOString()})
+ await page.reload();assert.match(await page.locator('main').innerText(),/Order progress 200/);await proof('messages-latest-history')
+ await page.getByRole('link',{name:'Older messages',exact:true}).click()
+ assert.match(await page.locator('main').innerText(),/Order progress 0/);await proof('messages-older-history')
  const {groupsFixture}=await import('./handset-message-groups.mjs'),grouped=await groupsFixture(runtime,{authorize:false})
  const [groupCookieName,...groupCookieValue]=grouped.source.cookie.split('=')
  await context.clearCookies();await context.addCookies([{name:groupCookieName,value:groupCookieValue.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
