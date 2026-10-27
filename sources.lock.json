@@ -316,7 +316,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "d777540fa51cd556b378c66267241c514b35e2140972e43c6f1e8f5f1e6528e1",
+      "sha256": "f8f6003333b663d82882bd55b583ced90649650d98ca1160a298c0423b64ca95",
       "executable": false
     },
     "AGENTS.md": {
@@ -336,7 +336,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "6298e827527c1b20d609e4dd3ae1ff8346e5fb2424299472575db500fdae6ce4",
+      "sha256": "92bada26153bc160aa99aa0c193bbee198e19eebdbad2811c649405ad1e62890",
       "executable": false
     },
     "deploy-demo.json": {
@@ -1912,11 +1912,11 @@
       "executable": false
     },
     "src/handset/messages/console.ts": {
-      "sha256": "d08c548d142253b23bf8de46c91fc19708b328c3f3719f318e06bc25f651f408",
+      "sha256": "2aae7a0d81bf1a1d4857ae4e43ac6b36d7150531437acb13ee0619efb1460ac2",
       "executable": false
     },
     "src/handset/messages/doors.ts": {
-      "sha256": "3d6ced257c64c801d0d2c202f941ea72014e6e211ce0661cad9a9e07846f0cbf",
+      "sha256": "cfeb90167ea348e896d18fb5d199b3fabb1eab9dd99c44ecce70daba423de6a0",
       "executable": false
     },
     "src/handset/messages/groups.ts": {
@@ -1924,7 +1924,7 @@
       "executable": false
     },
     "src/handset/messages/ingress.ts": {
-      "sha256": "f5fd0f6526d89f85a6ba27c38a9b15f1d80a7882ed86fe95a6e33397624398f0",
+      "sha256": "153337b0e0c6397a1f97f6a173b390788b8283bba1f0c0ff8836e843925b7eb4",
       "executable": false
     },
     "src/handset/messages/model.ts": {
@@ -1932,11 +1932,11 @@
       "executable": false
     },
     "src/handset/messages/pages.ts": {
-      "sha256": "fcf0c81a357373cb6bd17fa9588481ce78e373426403a71134b6714da203a19d",
+      "sha256": "b9b196b7a1bb1bcb2335b74cf6d904f9916f36c7b754627c0627d55254b0c122",
       "executable": false
     },
     "src/handset/messages/provider.ts": {
-      "sha256": "422dfbda964f8983c07aa7a02e3ce9798628baa3860dff68216976528f8618bd",
+      "sha256": "94ceae932827fcb17f8105c1c2120180ccd6be4fb376d72db3403564fc443afd",
       "executable": false
     },
     "src/handset/messages/scheduling.ts": {
@@ -1944,7 +1944,7 @@
       "executable": false
     },
     "src/handset/messages/store.ts": {
-      "sha256": "db364e34f8e3b754b5c08aa6153e39a378eea6f5ffa1bf1476c5fe6e232f6e90",
+      "sha256": "7531829ec267d8ce4ee6e9d1f1aaa94088c74b9573279652b973c0a2522361f1",
       "executable": false
     },
     "src/handset/messages/suppression.ts": {
@@ -2136,7 +2136,7 @@
       "executable": false
     },
     "src/handset/providers/twilio.ts": {
-      "sha256": "8c0c4fccba685af402c6e36ee1155da407679fa835d90ff68a784710f5ebecfe",
+      "sha256": "4147466822e28392c170e3c9efb0131e37101daf6eb380184913ef08953730af",
       "executable": false
     },
     "src/handset/quality/doors.ts": {
@@ -2364,7 +2364,7 @@
       "executable": false
     },
     "src/handset/shell.ts": {
-      "sha256": "a32ae60ce7be690a5b1aa55c30e00bde61c1091b091d057b789202df1284cfe3",
+      "sha256": "f918df10dbba0f8564201c83700640f6e6932f1912000527221cd6ef3ba18ac5",
       "executable": false
     },
     "src/handset/surveys/doors.ts": {
@@ -4372,7 +4372,7 @@
       "executable": false
     },
     "tests/handset-transports.mjs": {
-      "sha256": "f6d4e2686318f997a63f95a73abb6224ba4dcbe32304c7a6c88b5f4bb7d491e1",
+      "sha256": "266c47f215053441d327fc10853dc157551d03b53aa80698325e903bcd13ff30",
       "executable": false
     },
     "tests/handset-workspace-browser.mjs": {
@@ -4468,7 +4468,7 @@
       "executable": false
     },
     "tests/helpers/handset-messages-browser.mjs": {
-      "sha256": "3b2182849bd51b77a5001f47f418e63b2826c4a031e3146f9b2a5fc7efe9c389",
+      "sha256": "96d0e73eee56d51b0618c71615f918ad14322619f9a68f444a662878e604c0fe",
       "executable": false
     },
     "tests/helpers/handset-messages.mjs": {
