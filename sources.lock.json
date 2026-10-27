@@ -336,7 +336,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "d99e67f851d649f82dc70b2bf31348c45b67ffc62d081857b11ab3ff199f7bd5",
+      "sha256": "54231ea1ccd744bfb848867768b4fbc5dc6c24ba7779e916a71271d39db4a231",
       "executable": false
     },
     "deploy-demo.json": {
@@ -2008,7 +2008,7 @@
       "executable": false
     },
     "src/handset/metrics/receptionist-pages.ts": {
-      "sha256": "d2f624ca880a262995e61136bf76d75169e815869bc57d3b6ac7e90414aa7e0a",
+      "sha256": "6f332886e1116ec63382cac0d06e2ac63e0cfb39ed3caba8b20c2996e8003570",
       "executable": false
     },
     "src/handset/metrics/receptionist.ts": {
@@ -4428,7 +4428,7 @@
       "executable": false
     },
     "tests/helpers/handset-call-reports-browser.mjs": {
-      "sha256": "50a81fefa8365151c6e01762d8fa5d32cee78e8059d54339a83c6cc522c250c0",
+      "sha256": "7e170185a7c0ceb3f7c226411a46ce62a71336c4388dba59d2953b59e83da927",
       "executable": false
     },
     "tests/helpers/handset-call-reports.mjs": {
