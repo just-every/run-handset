@@ -1,10 +1,11 @@
 import type { Bindings } from '../../auth.server'
+import { callbackAuthority, recoverLostAuthority } from '../recovery/access'
 import { append } from '../audit/store'
 import { sourcePolicy } from '../audit/policy'
 import { Fault, id, text } from '../core'
 import { callUrl, readTwilio } from '../consent/store'
 import { activeSourceById, sourceFence, type Source } from '../providers/sources'
-import { callbackFence, event, freeAgents, isStopped, noVoiceStop, policyFence, recipientHold, recoveryEvent, root, type Attempt, type Callback, type Policy } from './model'
+import { callbackFence, event, staffQualificationHold, freeAgents, isStopped, noVoiceStop, policyFence, recipientHold, recoveryEvent, root, type Attempt, type Callback, type Policy } from './model'
 
 type ActiveSource = Source & { e164: string }
 const terminal = ['no-answer', 'busy', 'failed', 'canceled']
@@ -20,15 +21,16 @@ export async function finishAttempt(env: Bindings, p: Policy, source: ActiveSour
   env.DB.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_callback_attempts WHERE id=? AND state IN (\'claimed\',\'created\',\'answered\',\'uncertain\')').bind(attempt.id),
   env.DB.prepare('UPDATE hnd_callback_attempts SET state=?,reason=?,ended_at=? WHERE id=?').bind(result, reason, at, attempt.id),
   env.DB.prepare('UPDATE hnd_callbacks SET state=?,reason=?,due_at=?,revision=revision+1,updated_at=? WHERE id=?').bind(final, note, final === 'waiting' ? at + p.retry_seconds * 1000 : cb.due_at, at, cb.id),
-  ...(recovery ? [env.DB.prepare("UPDATE hnd_recovery SET state=?,resolution=?,reason=?,revision=revision+1,updated_at=? WHERE id=? AND state IN ('open','human','escalated')").bind(recovery[0], recovery[1], note, at, cb.recovery_id), recoveryEvent(env, cb.recovery_id, 'callback_' + final, { callbackId: cb.id, evidence }, source.id, at)] : []),
+  ...(recovery ? [env.DB.prepare("UPDATE hnd_recovery SET state=?,resolution=?,reason=?,revision=revision+1,updated_at=? WHERE id=? AND state='open'").bind(recovery[0], recovery[1], note, at, cb.recovery_id), recoveryEvent(env, cb.recovery_id, 'callback_' + final, { callbackId: cb.id, evidence }, source.id, at)] : []),
   event(env, cb.id, 'attempt_' + result, { attemptId: attempt.id, reason, evidence }, at)], null, sourcePolicy(source))
  return true
 }
 const form = (values: Record<string, string>) => new URLSearchParams(values)
 
 async function place(env: Bindings, p: Policy, source: ActiveSource, cb: Callback, at: number) {
+ const authority=await callbackAuthority(env,cb)
  const n = cb.attempts + 1, attemptId = id(), now = Date.now()
- await append(env, source.id, 'callback.claim', cb.id, 'uncertain', [sourceFence(env, source), policyFence(env, p), callbackFence(env, cb), noVoiceStop(env, cb.recipient, source.number_id),
+ await append(env, source.id, 'callback.claim', cb.id, 'uncertain', [...authority,sourceFence(env, source), policyFence(env, p), callbackFence(env, cb), noVoiceStop(env, cb.recipient, source.number_id),
   env.DB.prepare("INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_recovery WHERE id=? AND state='open'").bind(cb.recovery_id),
   env.DB.prepare("UPDATE hnd_callbacks SET state='dialing',attempts=?,reason='Attempt claimed before any network request; awaiting provider readback',revision=revision+1,updated_at=? WHERE id=?").bind(n, now, cb.id),
   env.DB.prepare("INSERT INTO hnd_callback_attempts VALUES (?,?,?,'claimed',NULL,'claimed before provider create',?,NULL)").bind(attemptId, cb.id, n, now),
@@ -74,6 +76,7 @@ async function reconcile(env: Bindings, at: number) {
  }
 }
 export async function tickCallbacks(env: Bindings, at = Date.now()) {
+ await recoverLostAuthority(env)
  await reconcile(env, at)
  const policies = (await env.DB.prepare("SELECT p.* FROM hnd_callback_policies p JOIN oa_operators o ON o.id=p.approved_by WHERE p.enabled=1 AND o.role='owner' AND o.status='active' AND o.version=p.owner_version").all<Policy>()).results
  const placed: string[] = []
@@ -83,6 +86,13 @@ export async function tickCallbacks(env: Bindings, at = Date.now()) {
   let slots = await freeAgents(env, p.queue_id, source.id, at)
   const waiting = (await env.DB.prepare("SELECT c.* FROM hnd_callbacks c JOIN hnd_recovery r ON r.id=c.recovery_id WHERE c.source_id=? AND c.state='waiting' AND c.due_at<=? AND r.state='open' ORDER BY c.priority DESC,c.queued_at,c.rowid LIMIT 50").bind(source.id, at).all<Callback>()).results
   for (const cb of waiting) {
+   // The new staff attestation door cannot borrow the existing owner's
+   // protocol-only qualification. HND-017 must supply its integrated effect gate.
+   if(JSON.parse(cb.consent).kind==='native_person_attested') {
+    const reason=staffQualificationHold
+    if(cb.reason!==reason)await append(env,source.id,'callback.hold',cb.id,'refused',[sourceFence(env,source),callbackFence(env,cb),env.DB.prepare('UPDATE hnd_callbacks SET reason=?,revision=revision+1,updated_at=? WHERE id=?').bind(reason,at,cb.id),event(env,cb.id,'held',{reason},at)],null,sourcePolicy(source))
+    continue
+   }
    if (await isStopped(env, cb.recipient, source.number_id)) {
     await append(env, source.id, 'callback.change', cb.id, 'refused', [sourceFence(env, source), callbackFence(env, cb), env.DB.prepare("UPDATE hnd_callbacks SET state='cancelled',reason='Current opt-out or DNC suppresses contact',revision=revision+1,updated_at=? WHERE id=?").bind(at, cb.id), env.DB.prepare("UPDATE hnd_recovery SET state='stopped',reason='Current opt-out or DNC suppresses contact',revision=revision+1,updated_at=? WHERE id=? AND state='open'").bind(at, cb.recovery_id), event(env, cb.id, 'suppressed', { reason: 'stop_or_dnc' }, at)], null, sourcePolicy(source))
     continue
@@ -94,7 +104,7 @@ export async function tickCallbacks(env: Bindings, at = Date.now()) {
    }
    if (slots <= 0) break
    // One attempt per callback per tick: a replayed tick finds it already claimed.
-   try { if (['created', 'uncertain'].includes(await place(env, p, source, cb, at))) placed.push(cb.id); slots-- } catch (error) { if (!(error instanceof Fault && error.code === 'state_changed')) throw error }
+   try { if (['created', 'uncertain'].includes(await place(env, p, source, cb, at))) placed.push(cb.id); slots-- } catch (error) { if (!(error instanceof Fault && [403,409].includes(error.status))) throw error }
   }
  }
  return { placed }

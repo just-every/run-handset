@@ -41,30 +41,39 @@ test('Reviewed business hours admit one owned task from final carrier readback w
   assert.equal(task.due_at,Date.parse(call.resource.end_time)+60000)
   const taken=await f.write(f.base+'/'+task.id+'/takeover',{revision:task.revision,note:'Mara is already handling this need'},200)
   await call.send();await f.runtime.restart();await call.send()
-  let report=await f.get();assert.equal(report.cases.length,1);assert.deepEqual(report.cases[0],taken.recovery)
+  let report=await f.get();assert.equal(report.cases.length,1);assert.deepEqual(Object.fromEntries(Object.keys(taken.recovery).map(k=>[k,report.cases[0][k]])),taken.recovery)
   const retry=f.call(3,{caller:call.caller});assert.equal((await retry.send()).status,200);assert.equal((await f.get()).cases.length,1)
   assert.equal((await f.get()).cases[0].state,'human')
+  assert.deepEqual((await f.get()).cases[0].missedCalls.map(c=>c.callSid),[call.sid,retry.sid],'the current owner sees both missed calls')
+  const declined=await f.write(f.base+'/'+task.id+'/decline',{revision:taken.recovery.revision,note:'Caller declined this need'},200)
+  const later=f.call(30,{caller:call.caller});assert.equal((await later.send()).status,200)
+  report=await f.get();const fresh=report.cases.find(r=>r.previous_id===task.id)
+  assert.ok(fresh);assert.equal(fresh.case_id,task.case_id);assert.equal(fresh.state,'open');assert.equal(fresh.owner_id,task.owner_id)
+  assert.equal(report.cases.find(r=>r.id===task.id).state,'declined')
+  await later.send();await f.runtime.restart();await later.send();assert.equal((await f.get()).cases.length,2)
+  // Close the new need so the rest of this journey still counts independent callers.
+  await f.write(f.base+'/'+fresh.id+'/decline',{revision:fresh.revision,note:'Second need also declined'},200)
   const answered=f.call(4,{status:'completed'}),childSid='synthetic-handset-intake-staff'
   const child={sid:childSid,account_sid:f.source.account,parent_call_sid:answered.sid,direction:'outbound-dial',from:answered.caller,to:'+15125551099',status:'completed',duration:'20'}
   answered.children.calls.push(child);f.source.resource('Calls',childSid,child)
-  assert.equal((await answered.send()).status,200);assert.equal((await f.get()).cases.length,1,'a completed staff conversation is not missed')
+  assert.equal((await answered.send()).status,200);assert.equal((await f.get()).cases.length,2,'a completed staff conversation is not missed')
   const failed=f.call(5);f.runtime.twilioResources.delete(failed.url)
-  assert.equal((await failed.send()).status,503);assert.equal((await f.get()).cases.length,1)
+  assert.equal((await failed.send()).status,503);assert.equal((await f.get()).cases.length,2)
   f.runtime.twilioResources.set(failed.url,failed.resource)
-  assert.equal((await failed.send()).status,200);assert.equal((await f.get()).cases.length,2,'a provider retry completes interrupted intake once')
+  assert.equal((await failed.send()).status,200);assert.equal((await f.get()).cases.length,3,'a provider retry completes interrupted intake once')
   const race=f.call(6)
   f.runtime.twilioResources.set(race.url,async()=>{
    await f.write(f.base+'/policies/revoke',{sourceId:f.source.source.id,revision:1},200)
    return race.resource
   })
-  assert.equal((await race.send()).status,409);assert.equal((await f.get()).cases.length,2,'revocation during readback fences task creation')
+  assert.equal((await race.send()).status,409);assert.equal((await f.get()).cases.length,3,'revocation during readback fences task creation')
   const reapproved=await f.approve(2);assert.equal(reapproved.policy.revision,3)
   const stopped=f.call(7)
   await f.write('/api/handset/protection/stops',{numberId:f.source.numberId,recipient:stopped.caller,channel:'all',reason:'dnc',confirm:'record outbound consent stop'})
   assert.equal((await stopped.send()).status,200)
   assert.equal((await f.get()).cases.find(r=>r.recipient===stopped.caller).state,'stopped')
   await f.runtime.setTime(Date.parse('2026-10-26T22:00:00Z'))
-  const closed=f.call(8);assert.equal((await closed.send()).status,200);assert.equal((await f.get()).cases.length,3,'the local closing boundary excludes intake')
+  const closed=f.call(8);assert.equal((await closed.send()).status,200);assert.equal((await f.get()).cases.length,4,'the local closing boundary excludes intake')
   report=await f.get();assert.equal(report.intakePolicies.length,1);assert.equal(report.intakePolicies[0].revision,3)
   assert.equal((await f.get('/api/handset/consent')).permissions.length,0)
   assert.equal((await f.get('/api/handset/callbacks')).callbacks.length,0)
@@ -75,7 +84,7 @@ test('Reviewed business hours admit one owned task from final carrier readback w
    return withdrawn.resource
   })
   assert.equal((await withdrawn.send()).status,409)
-  assert.equal((await f.get()).cases.length,3,'source withdrawal during readback cannot create owned work')
+  assert.equal((await f.get()).cases.length,4,'source withdrawal during readback cannot create owned work')
   assert.equal(f.runtime.sourceRequests.filter(r=>r.method==='POST').length,0)
  }finally{await f.runtime.close()}
 })
@@ -169,6 +178,13 @@ test('Recovery closes only on a same-case confirmed booking or explicit decline 
 
   await f.runtime.setTime(reportStart+86400000);f.headers.cookie=(await signIn(f.runtime)).cookie
   declined = await f.action(declined, 'decline', { note: 'Customer explicitly declined the visit' })
+  await f.create('/api/handset/recovery/policies',{sourceId:f.source.source.id,revision:0,timezone:'UTC',hours:{weekly:[{days:[1,2,3,4,5,6,7],startMinute:0,endMinute:1440}]},confirm:'approve owned missed-call intake'})
+  const {intakeCall}=await import('./helpers/handset-recovery-intake.mjs')
+  const returned=intakeCall(f.runtime,f.source,91,{caller:booked.recipient});assert.equal((await returned.send()).status,200)
+  const again=(await (await f.runtime.request('/api/handset/recovery',{headers:f.headers})).json()).cases.find(r=>r.previous_id===booked.id)
+  assert.ok(again);assert.equal(again.case_id,booked.case_id);assert.equal(again.owner_id,booked.owner_id);assert.equal(again.state,'open')
+  assert.equal((await post(f.runtime,`/api/handset/recovery/${again.id}/resolve`,{revision:again.revision,outcomeId:opened.outcome.id},f.headers)).status,409,'a new need cannot borrow the booking that resolved the earlier need')
+  assert.equal((await (await f.runtime.request('/api/handset/recovery',{headers:f.headers})).json()).cases.find(r=>r.id===booked.id).state,'resolved')
   unreachable = await f.action(unreachable, 'callback-proposal', { timezone: 'America/Chicago', dueAt: Date.now() - 1000 })
   assert.match(unreachable.reason, /No dial started/)
   await f.runtime.restart(); await f.runtime.scheduled()
@@ -313,4 +329,47 @@ test('Post-call IVR and separately consented SMS keep real ratings and reconcile
   assert.match(analytics.csat.basis,/AI sentiment and silence are excluded/)
 
  } finally {await f.runtime.close()}
+})
+
+
+test('Assigned staff recovery capabilities isolate work and revocation returns ownership to the confirmed fallback',async()=>{
+ const f=await setup()
+ try {
+  await post(f.runtime,'/auth/operator/status',{operatorId:'synthetic-handset-2',status:'active'},f.headers)
+  await post(f.runtime,'/auth/operator/role',{operatorId:'synthetic-handset-2',role:'member'},f.headers)
+  const member=await signIn({...f.runtime,ownerEmail:'synthetic-handset-2@example.test'}),headers={cookie:member.cookie}
+  const person=(await f.runtime.sql("SELECT version FROM oa_operators WHERE id='synthetic-handset-2'")).results[0]
+  const one=await f.open(await f.missed(70)),two=await f.open(await f.missed(71))
+  const response=await post(f.runtime,'/api/handset/recovery/access',{personId:'synthetic-handset-2',personVersion:person.version,numberId:f.source.numberId,capabilities:['read','work','takeover','stop','decline','schedule','cancel'],fallbackId:'synthetic-handset-1',expiresAt:Date.now()+3600000,confirm:'approve scoped recovery work'},f.headers)
+  assert.equal(response.status,201,await response.clone().text());const {grant}=await response.json()
+  let assigned=await f.action(one,'assign',{ownerId:'synthetic-handset-2',note:'Assigned to reception'})
+  let list=await f.runtime.request('/api/handset/recovery',{headers});assert.equal(list.status,200);assert.deepEqual((await list.json()).cases.map(r=>r.id),[one.id])
+  assert.equal((await post(f.runtime,`/api/handset/recovery/${two.id}/takeover`,{revision:two.revision,note:'Outside assigned scope'},headers)).status,403)
+  assert.equal((await post(f.runtime,`/api/handset/recovery/${assigned.id}/assign`,{revision:assigned.revision,ownerId:'synthetic-handset-1',note:'Broaden my assignment'},headers)).status,403)
+  assert.equal((await post(f.runtime,'/api/handset/recovery/access',{...grant},headers)).status,403)
+  assert.equal((await post(f.runtime,'/api/handset/recovery/policies',{},headers)).status,403)
+  const taken=await post(f.runtime,`/api/handset/recovery/${assigned.id}/takeover`,{revision:assigned.revision,note:'I am helping this caller'},headers)
+  assert.equal(taken.status,200);assigned=(await taken.json()).recovery;assert.equal(assigned.state,'human')
+  await f.create('/api/handset/recovery/policies',{sourceId:f.source.source.id,revision:0,timezone:'UTC',hours:{weekly:[{days:[1,2,3,4,5,6,7],startMinute:0,endMinute:1440}]},confirm:'approve owned missed-call intake'})
+  const {intakeCall}=await import('./helpers/handset-recovery-intake.mjs'),later=intakeCall(f.runtime,f.source,95,{caller:assigned.recipient})
+  assert.equal((await later.send()).status,200)
+  const current=(await (await f.runtime.request('/api/handset/recovery',{headers})).json()).cases[0]
+  assert.equal(current.owner_id,'synthetic-handset-2');assert.equal(current.state,'human');assert.equal(current.missedCalls[0].callSid,later.sid,'later missed work reaches the assigned staff member, not the intake approver')
+  assert.equal((await post(f.runtime,'/auth/invite',{email:'synthetic-handset-3@example.test',displayName:'Rosa',role:'member'},f.headers)).status,202)
+  const other=await signIn({...f.runtime,ownerEmail:'synthetic-handset-3@example.test'}),otherHeaders={cookie:other.cookie}
+  const operators=await (await f.runtime.request('/auth/operators',{headers:f.headers})).json(),person3=operators.find(p=>p.email==='synthetic-handset-3@example.test')
+  const grant3=await post(f.runtime,'/api/handset/recovery/access',{personId:person3.id,personVersion:person3.version,numberId:f.source.numberId,capabilities:['read','work','takeover','decline'],fallbackId:'synthetic-handset-1',expiresAt:Date.now()+3600000,confirm:'approve scoped recovery work'},f.headers)
+  assert.equal(grant3.status,201,await grant3.clone().text())
+  const assigned3=await f.action(two,'assign',{ownerId:person3.id,note:'Separate staff assignment'})
+  const own3=await f.runtime.request('/api/handset/recovery',{headers:otherHeaders});assert.equal(own3.status,200);assert.deepEqual((await own3.json()).cases.map(r=>r.id),[two.id])
+  assert.equal((await post(f.runtime,`/api/handset/recovery/${one.id}/takeover`,{revision:current.revision,note:'Outside second staff scope'},otherHeaders)).status,403)
+  assert.equal((await post(f.runtime,`/api/handset/recovery/${two.id}/takeover`,{revision:assigned3.revision,note:'Second staff works their own need'},otherHeaders)).status,200)
+  const revoked=await post(f.runtime,'/api/handset/recovery/access/revoke',{accessId:grant.id,fallbackId:'synthetic-handset-1',confirm:'confirm recovery fallback'},f.headers)
+  assert.equal(revoked.status,200)
+  assert.equal((await f.runtime.request('/api/handset/recovery',{headers})).status,403)
+  assert.equal((await post(f.runtime,`/api/handset/recovery/${assigned.id}/decline`,{revision:assigned.revision,note:'No longer authorized'},headers)).status,403)
+  const report=await (await f.runtime.request('/api/handset/recovery',{headers:f.headers})).json(),fallback=report.cases.find(r=>r.id===one.id)
+  assert.equal(fallback.owner_id,'synthetic-handset-1');assert.equal(fallback.state,'human');assert.match(fallback.reason,/fallback/)
+  assert.equal(f.runtime.sourceRequests.filter(r=>r.method==='POST').length,0)
+ }finally{await f.runtime.close()}
 })

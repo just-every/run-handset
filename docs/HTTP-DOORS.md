@@ -224,3 +224,14 @@ staff Dial and one purpose-permitted text can produce an external effect. A
 missed-call reply never grants survey or marketing permission. The shared signed
 event webhook also correlates actual inbound survey replies. See
 `docs/CALL-CONSENT.md` for effect-time fences and physical-receipt limits.
+
+
+Scoped recovery work uses the native session and origin gate at
+`/app/recovery` and `/api/handset/recovery`. The recovery handler independently
+checks exact-number capabilities and current assignment before reads and writes;
+its SQL transaction repeats session, person, issuer, fallback, expiry, assignment
+and capability checks. Only owners create manual needs, administer intake and
+grant or revoke recovery scope. Staff scheduling and waiting cancellation use
+the recovery child actions and retain the callback policy checks. Before a
+provider creation the claim rechecks the current worker and scope. No recovery
+grant changes contact policy or grants outbound authority by itself.

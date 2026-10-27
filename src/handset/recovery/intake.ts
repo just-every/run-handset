@@ -71,10 +71,17 @@ export async function observeUnansweredCall(env:Bindings, sourceId:string, recor
  if(await answered(env,source,call.sid,String(parent.from),source.e164))return
  const queue=(await sql(env,'SELECT id,queue_id,origin_queue_id,queued_at,priority,current_visit_id FROM hnd_queue_entries WHERE call_id=? ORDER BY queued_at LIMIT 1',call.row.id).first<{id:string}>())
  const stop=await sql(env,"SELECT id FROM hnd_protection_stops WHERE recipient=? AND (number_id=? OR reason='dnc') AND channel IN ('voice','all') LIMIT 1",String(parent.from),source.number_id).first()
- const now=Date.now(),taskId=id(),reason=stop?'Current opt-out or DNC; owned task only, no customer contact':'Owned missed-call task; this intake grants no text or calling permission'
+ const previous=await sql(env,'SELECT id,state,revision,call_record_id,created_at FROM hnd_recovery WHERE case_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1',call.row.case_id).first<{id:string;state:string;revision:number;call_record_id:string;created_at:number}>()
+ const closed=previous&&['resolved','declined'].includes(previous.state)
+ // Replays of earlier calls never create another need after its closure.
+ if(closed&&await sql(env,"SELECT 1 FROM hnd_recovery_events WHERE recovery_id=? AND (json_extract(evidence,'$.customerCallId')=? OR json_extract(evidence,'$.callRecordId')=?)",previous.id,call.row.id,call.row.id).first())return
+ const now=Date.now(),taskId=previous&&!closed?previous.id:id(),reason=stop?'Current opt-out or DNC; owned task only, no customer contact':'Owned missed-call task; this intake grants no text or calling permission'
  await append(env,source.id,'recovery.intake',call.row.case_id,'completed',[
   sourceFence(env,source),intakeFence(env,policy),guard(env,'SELECT count(*) FROM hnd_records WHERE id=? AND case_id=?',call.row.id,call.row.case_id),
-  sql(env,'INSERT INTO hnd_recovery VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(case_id) DO NOTHING',taskId,call.row.case_id,source.id,recordId,queue?.id??null,JSON.stringify(queue??{}),String(parent.from),policy.approved_by,policy.owner_version,stop?'stopped':'open',missedAt+60000,1,reason,null,1,now,now),
-  sql(env,`INSERT INTO hnd_recovery_events SELECT ?,r.id,'missed_observed',?,?,? FROM hnd_recovery r WHERE r.case_id=? ON CONFLICT(id) DO NOTHING`,eventId,JSON.stringify({callRecordId:recordId,customerCallId:call.row.id,callSid:call.sid,missedAt,observedAt:now,policyRevision:policy.revision,intakeGrantsContact:false,marketingEnrollment:false}),source.id,now,call.row.case_id),
+  ...(previous?[guard(env,'SELECT count(*) FROM hnd_recovery WHERE id=? AND revision=?',previous.id,previous.revision)]:[]),
+  ...(!previous||closed?[guard(env,"SELECT CASE WHEN EXISTS(SELECT 1 FROM hnd_recovery WHERE case_id=? AND state NOT IN ('resolved','declined')) THEN 0 ELSE 1 END",call.row.case_id)]:[]),
+  sql(env,'INSERT INTO hnd_recovery VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING',taskId,call.row.case_id,source.id,recordId,queue?.id??null,JSON.stringify(queue??{}),String(parent.from),policy.approved_by,policy.owner_version,stop?'stopped':'open',missedAt+60000,1,reason,null,1,now,now),
+  ...(closed?[sql(env,'INSERT INTO hnd_recovery_links VALUES (?,?)',taskId,previous.id)]:[]),
+  sql(env,`INSERT INTO hnd_recovery_events SELECT ?,r.id,'missed_observed',?,?,? FROM hnd_recovery r WHERE r.id=? ON CONFLICT(id) DO NOTHING`,eventId,JSON.stringify({callRecordId:recordId,customerCallId:call.row.id,callSid:call.sid,missedAt,observedAt:now,policyRevision:policy.revision,intakeGrantsContact:false,marketingEnrollment:false}),source.id,now,taskId),
  ],null,{...sourcePolicy(source),...intakeAuthority(policy)})
 }

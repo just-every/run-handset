@@ -102,6 +102,10 @@ async function route(request: Request, original: Bindings): Promise<Response|nul
   // Delegated human authority uses native sessions at these existing API doors.
   // Administrative listings and credential management remain owner-only.
   if(actor.operator.role!=='owner'&&request.method==='POST'&&['/api/handset/grants','/api/handset/mcp/consent','/api/handset/grants/approve','/api/handset/grants/policy'].includes(path))return await authorityDoor(request,env,actor,await input(request))
+  if(path==='/app/recovery'||path.startsWith('/app/recovery/')||path==='/api/handset/recovery'||path.startsWith('/api/handset/recovery/')){
+   const value=request.method==='GET'?undefined:await input(request)
+   return await workConsole(request,env,actor,'recovery',recoveryDoor,value)??await recoveryDoor(request,env,actor,value)
+  }
   try { owner(actor) } catch(error) { await denied(env,actor,'product.access'); throw error }
   const read = request.method === 'GET', write = request.method === 'POST'
   for(const [root,door] of [

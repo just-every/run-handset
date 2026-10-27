@@ -218,7 +218,7 @@ for(const width of [1440,390])for(const domain of ['administration','queues','qu
 for (const width of [1440, 390]) for (const domain of ['rules', 'followups', 'recovery', 'operations']) test(`${domain} owner workflow at ${width}`, async () => {
  const { receptionistFixture } = await import('./helpers/handset-receptionist.mjs')
  const { workJourney } = await import('./helpers/handset-workflows-browser.mjs')
- const f = await receptionistFixture({ clockTime: domain === 'recovery' ? Date.parse('2026-10-26T18:00:00Z') : undefined }), browser = await chromium.launch({ headless: true, args: ['--use-mock-keychain', '--password-store=basic'] })
+ const f = await receptionistFixture({ clockTime: domain === 'recovery' ? Date.parse('2026-10-26T18:00:00Z') : undefined }), browser = await chromium.launch({ headless: true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}), args: ['--no-sandbox','--use-mock-keychain', '--password-store=basic'] })
  const context = await browser.newContext({ viewport: { width, height: 960 }, ignoreHTTPSErrors: true }), page = await context.newPage()
  const directory = process.env.HANDSET_EVIDENCE_DIR ?? '.cache/handset-console'
  await mkdir(directory, { recursive: true }); page.setDefaultTimeout(10000)
