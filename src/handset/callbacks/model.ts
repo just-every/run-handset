@@ -3,6 +3,7 @@ import { id } from '../core'
 import { guard } from '../delegation/store'
 import { presenceFreshMs } from '../queues/model'
 
+export const staffQualificationHold='Callback qualification pending: effect-time consent, jurisdiction and USD budget review under HND-017'
 export const root = '/providers/twilio/callbacks'
 export interface Policy { source_id: string; queue_id: string; staff_target: string; business_name: string; enabled: number; max_attempts: number; retry_seconds: number; approved_by: string; owner_version: number; revision: number; created_at: number }
 export interface Callback { id: string; recovery_id: string; case_id: string; source_id: string; queue_id: string | null; queue_entry_id: string | null; kind: 'virtual_hold' | 'scheduled'; recipient: string; queued_at: number; priority: number; due_at: number; state: string; attempts: number; reason: string; consent: string; owner_id: string; owner_version: number; revision: number; created_at: number; updated_at: number }

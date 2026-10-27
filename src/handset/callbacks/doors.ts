@@ -1,10 +1,11 @@
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
+import { recoveryAuthority } from '../recovery/access'
 import { commit } from '../audit/store'
 import { Fault, id, integer, json, keys, owner, text, timestamp, type ObjectValue } from '../core'
 import { guard, sql } from '../delegation/store'
 import { activeSourceById, sourceFence } from '../providers/sources'
-import { callbackFence, event, policyFor, recipientHold, recoveryEvent, type Callback, type Policy } from './model'
+import { callbackFence, event, staffQualificationHold, policyFor, policyFence, recipientHold, recoveryEvent, type Callback, type Policy } from './model'
 
 const e164 = (value: unknown, name: string) => { const v = text(value, name, 16); if (!/^\+[1-9]\d{7,14}$/.test(v)) throw new Fault('invalid_' + name); return v }
 async function writePolicy(env: Bindings, actor: Session, v: ObjectValue) {
@@ -19,11 +20,12 @@ async function writePolicy(env: Bindings, actor: Session, v: ObjectValue) {
   sql(env, 'INSERT INTO hnd_callback_policies VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(source_id) DO UPDATE SET queue_id=excluded.queue_id,staff_target=excluded.staff_target,business_name=excluded.business_name,enabled=excluded.enabled,max_attempts=excluded.max_attempts,retry_seconds=excluded.retry_seconds,approved_by=excluded.approved_by,owner_version=excluded.owner_version,revision=excluded.revision', ...row)])
  return { sourceId: source.id, revision, enabled: row[4] === 1, dialing: 'Only for callers who asked, inside the owner-reviewed recipient hours, one claimed attempt at a time.' }
 }
-async function schedule(env: Bindings, actor: Session, v: ObjectValue) {
+export async function schedule(env: Bindings, actor: Session, v: ObjectValue) {
  keys(v, ['recoveryId', 'dueAt', 'evidence', 'confirm'])
  if (v.confirm !== 'the customer asked for this callback') throw new Fault('customer_request_attestation_required', 403)
- const recovery = await sql(env, 'SELECT * FROM hnd_recovery WHERE id=?', text(v.recoveryId, 'recoveryId', 64)).first<{ id: string; case_id: string; source_id: string; recipient: string; state: string; queue_place: string; call_record_id: string }>()
+ const recovery = await sql(env, 'SELECT * FROM hnd_recovery WHERE id=?', text(v.recoveryId, 'recoveryId', 64)).first<{ id: string; case_id: string; source_id: string; recipient: string; state: string; queue_place: string; call_record_id: string; owner_id:string;revision:number }>()
  if (!recovery) throw new Fault('recovery_not_found', 404)
+ const authority=await recoveryAuthority(env,actor,recovery,'schedule')
  if (recovery.state !== 'open') throw new Fault('open_recovery_required', 409)
  const policy = await policyFor(env, recovery.source_id), source = await activeSourceById(env, recovery.source_id)
  if (!policy || !source) throw new Fault('callback_policy_required', 409)
@@ -31,29 +33,33 @@ async function schedule(env: Bindings, actor: Session, v: ObjectValue) {
  const known = await recipientHold(env, recovery.recipient, Date.now())
  if (known === 'recipient_timezone_unknown_or_expired') throw new Fault('recipient_timezone_required', 409)
  const place = JSON.parse(recovery.queue_place) as { queued_at?: number; priority?: number; queue_id?: string }, now = Date.now(), key = id()
- const consent = { kind: 'owner_attested', purpose: 'callback', evidence: text(v.evidence, 'evidence', 500), attestedBy: actor.operator.id, serverTimestamp: now, marketingEnrollment: false }
- const cb: Callback = { id: key, recovery_id: recovery.id, case_id: recovery.case_id, source_id: recovery.source_id, queue_id: policy.queue_id, queue_entry_id: null, kind: 'scheduled', recipient: recovery.recipient, queued_at: place.queued_at ?? now, priority: place.priority ?? 0, due_at: timestamp(v.dueAt, 'dueAt'), state: 'waiting', attempts: 0, reason: 'Owner-scheduled callback awaiting its due time', consent: JSON.stringify(consent), owner_id: actor.operator.id, owner_version: actor.operator.version, revision: 1, created_at: now, updated_at: now }
- await commit(env, actor, 'callback.create', key, 'completed', [sourceFence(env, source), guard(env, "SELECT count(*) FROM hnd_recovery WHERE id=? AND state='open'", recovery.id),
-  sql(env, `INSERT INTO hnd_callbacks(${Object.keys(cb).join(',')}) VALUES (${Object.keys(cb).map(() => '?').join(',')})`, ...Object.values(cb) as (string | number | null)[]), event(env, key, 'scheduled', { consent }, now), recoveryEvent(env, recovery.id, 'callback_scheduled', { callbackId: key, dueAt: cb.due_at }, actor.operator.id, now)])
+ const consent = { kind: actor.operator.role==='owner'?'owner_attested':'native_person_attested', purpose: 'callback', evidence: text(v.evidence, 'evidence', 500), attestedBy: actor.operator.id, serverTimestamp: now, marketingEnrollment: false }
+ const cb: Callback = { id: key, recovery_id: recovery.id, case_id: recovery.case_id, source_id: recovery.source_id, queue_id: policy.queue_id, queue_entry_id: null, kind: 'scheduled', recipient: recovery.recipient, queued_at: place.queued_at ?? now, priority: place.priority ?? 0, due_at: timestamp(v.dueAt, 'dueAt'), state: 'waiting', attempts: 0, reason: actor.operator.role==='owner'?'Requested callback awaiting its due time':staffQualificationHold, consent: JSON.stringify(consent), owner_id: actor.operator.id, owner_version: actor.operator.version, revision: 1, created_at: now, updated_at: now }
+ await commit(env, actor, 'callback.create', key, 'completed', [...authority,sourceFence(env, source),policyFence(env,policy), guard(env, "SELECT count(*) FROM hnd_recovery WHERE id=? AND revision=? AND state='open'", recovery.id,recovery.revision),
+  sql(env, `INSERT INTO hnd_callbacks(${Object.keys(cb).join(',')}) VALUES (${Object.keys(cb).map(() => '?').join(',')})`, ...Object.values(cb) as (string | number | null)[]), event(env, key, 'scheduled', { consent }, now), recoveryEvent(env, recovery.id, 'callback_scheduled', { callbackId: key, dueAt: cb.due_at }, actor.operator.id, now)],false)
  return { callback: cb }
 }
-async function change(env: Bindings, actor: Session, cb: Callback, op: string, v: ObjectValue) {
+export async function change(env: Bindings, actor: Session, cb: Callback, op: string, v: ObjectValue) {
  keys(v, ['revision', 'note', 'outcome'])
  if (integer(v.revision, 'revision', 1) !== cb.revision) throw new Fault('callback_revision_conflict', 409)
+ const recovery=await sql(env,'SELECT id,source_id,owner_id,revision FROM hnd_recovery WHERE id=?',cb.recovery_id).first<{id:string;source_id:string;owner_id:string;revision:number}>()
+ if(!recovery)throw new Fault('recovery_not_found',404)
+ const authority=await recoveryAuthority(env,actor,recovery,'cancel')
+ if(actor.operator.role!=='owner'&&op!=='cancel')throw new Fault('owner_required',403)
  const note = text(v.note, 'note', 1000), now = Date.now()
  let state: string, reason: string
  if (op === 'cancel') {
   if (!['waiting', 'uncertain'].includes(cb.state)) throw new Fault('callback_not_cancellable', 409)
-  state = 'cancelled'; reason = 'Cancelled by the named owner: ' + note
+  state = 'cancelled'; reason = 'Cancelled by an authorized person: ' + note
  } else {
   if (cb.state !== 'uncertain') throw new Fault('uncertain_attempt_required', 409)
   const outcome = text(v.outcome, 'outcome', 20)
   if (!['not_placed', 'placed'].includes(outcome)) throw new Fault('invalid_outcome')
   state = outcome === 'not_placed' ? 'waiting' : 'unanswered'; reason = `Owner resolved the uncertain attempt as ${outcome}: ${note}`
  }
- await commit(env, actor, 'callback.change', cb.id, 'completed', [callbackFence(env, cb),
+ await commit(env, actor, 'callback.change', cb.id, 'completed', [...authority,callbackFence(env, cb),
   sql(env, 'UPDATE hnd_callbacks SET state=?,reason=?,due_at=CASE WHEN ?=\'waiting\' THEN ? ELSE due_at END,revision=revision+1,updated_at=? WHERE id=?', state, reason, state, now, now, cb.id),
-  sql(env, "UPDATE hnd_callback_attempts SET state=CASE WHEN state='uncertain' THEN 'failed' ELSE state END,reason=CASE WHEN state='uncertain' THEN ? ELSE reason END,ended_at=COALESCE(ended_at,?) WHERE callback_id=?", 'owner resolved: ' + note, now, cb.id), event(env, cb.id, op, { note, state, previous: cb.state, actor: actor.operator.id }, now)])
+  sql(env, "UPDATE hnd_callback_attempts SET state=CASE WHEN state='uncertain' THEN 'failed' ELSE state END,reason=CASE WHEN state='uncertain' THEN ? ELSE reason END,ended_at=COALESCE(ended_at,?) WHERE callback_id=?", 'owner resolved: ' + note, now, cb.id), event(env, cb.id, op, { note, state, previous: cb.state, actor: actor.operator.id }, now)],false)
  return { callback: await sql(env, 'SELECT * FROM hnd_callbacks WHERE id=?', cb.id).first<Callback>() }
 }
 export async function callbackDoor(request: Request, env: Bindings, actor: Session, value?: ObjectValue): Promise<Response | null> {

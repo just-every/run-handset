@@ -3,8 +3,7 @@
 Native owners open an owned recovery with `POST /api/handset/recovery`, selecting
 `callRecordId`, `dueAt`, `maxAttempts` (one to three) and optionally `queueEntryId`.
 The call must be a signed Twilio unanswered inbound record from a currently
-consented source. Repeated legs on the existing correlated customer case return
-one recovery. The optional queue entry must belong to that same case; its
+consented source. Repeated legs on an unresolved correlated customer need return one recovery. After resolution or decline a later missed call opens a new need linked to the earlier recovery within the same customer case; the earlier decision stays unchanged. The optional queue entry must belong to that same case; its
 original queue, priority, queued time and visit are preserved without requeueing.
 An existing DNC or opt-out suppresses contact.
 
@@ -16,15 +15,28 @@ Actions: `takeover`, `stop`, `decline`, `escalate` (each with an evidence note),
 A callback proposal makes no call. Human takeover disables proposals and the
 scheduler only escalates overdue work to its existing named owner. It never
 retries customer contact. An answered transport or delivered text cannot close
-a need. The historical booking receipt is explicit evidence, not a new claim
+a need. A confirmed booking outcome can resolve only one recovery need; later needs cannot reuse the earlier resolution. Complete need-specific outcome attribution remains open. The historical booking receipt is explicit evidence, not a new claim
 that an appointment remains current forever.
 
-This slice does not implement text-back, actual callback attempts, first-caller
-consent capture, reply routing or dynamic need splitting.
-Actual contact must use HND-011/017/031/089 and the existing dialer approval,
-licensed-registry, local-time and budget controls; no source permission supplies
-outbound authority. Native-owner-only management, no autonomous contact and
-explicit human decline evidence are conservative defaults pending ct.
+The owner grants exact-person, exact-number recovery capabilities under
+**Settings: recovery access**. Each grant requires a current person version,
+a named current fallback owner, expiry within one day and an explicit list:
+`read`, `work`, `takeover`, `stop`, `decline`, `schedule`, `cancel`, `assign`.
+Staff see and act only on assigned recoveries within current scope. Native
+sessions, assignment, grant, person, issuer and fallback authority are fenced
+at reads and writes. Reassignment requires `assign`; company contact policies
+and grant administration remain owner-only. Revocation confirms the shown
+fallback, cancels waiting callbacks and retains the human state. A scheduled
+sweep transfers work after other grant authority loss when that named fallback
+is still current; if the fallback also lost authority, owner repair remains
+required. Complete identity and deprovisioning remain HND-027 obligations.
+
+Requested callback scheduling and waiting cancellation are available on the
+recovery screen. A proposal sends nothing. Scheduling requires a caller request
+and the HND-017 policy and recipient review; it does not establish carrier or
+TCPA qualification. Human takeover, stop and decline cancel waiting callbacks;
+already started calls remain observed, never falsely recalled. Staff attestations are visibly held until HND-017 supplies integrated effect-time consent, jurisdiction and USD budget qualification; they cannot create a provider call through the protocol-only owner path. Real receipt and the
+integrated consent, jurisdiction and USD budget gate remain HND-017 gaps.
 
 The native owner screen `/app/recovery` exposes these actions, the named
 owner, due time in UTC, suppression reason, attempt bound and preserved queue
@@ -71,12 +83,10 @@ This approval grants no contact permission: it creates neither a text permission
 nor a callback attempt, and cannot enroll marketing. STOP or DNC remains visible
 on held work. HND-089 keeps the separate one-reply consent path; HND-017 keeps its
 explicitly requested callback path. Automatic task ownership does not qualify a
-real carrier callback or handset receipt. Fresh needs after a terminal recovery
-still require explicit case work; automatic separation of those needs remains
-unproved under HND-017 and HND-073. HND-047 retains accountable evidence and
+real carrier callback or handset receipt. A new business-hours unanswered call after a resolved or declined need creates a linked owned need. Unresolved work retains its owner, human state and due time, with each new missed call shown in its history. HND-047 retains accountable evidence and
 HND-065 and HND-066 retain complete archive and erasure composition.
 
-Conservative task-intake default ADOPTED pending ct: exact-source weekly hours,
+Task-intake boundary approved with riders by ct on 26 October 2026: exact-source weekly hours,
 current owner approval and ownership, no automatic contact, and no automatic
 reopening or reassignment of an existing human decision. This is additional to
 the separately adopted caller-requested callback default. HND-017 stays PARTIAL.
