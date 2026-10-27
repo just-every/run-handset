@@ -19,7 +19,7 @@ export async function captureDoor(request:Request,env:Bindings,actor:Session,v?:
  if(path===base){
   if(request.method==='GET'){
    const sessions=(await sql(env,'SELECT * FROM hnd_capture_sessions ORDER BY created_at DESC,id LIMIT 100').all<Capture>()).results
-   const calls=(await sql(env,`SELECT r.id,COALESCE(json_extract(r.data,'$.name'),r.id) AS name FROM hnd_records r WHERE r.kind IN ('call_session','call_leg') ORDER BY r.received_at DESC LIMIT 100`).all<{id:string;name:string}>()).results
+   const calls=(await sql(env,`SELECT r.id,COALESCE(json_extract(r.data,'$.from'),'Call')||' → '||COALESCE(json_extract(r.data,'$.to'),'selected number') AS name FROM hnd_records r WHERE r.kind IN ('call_session','call_leg') ORDER BY r.received_at DESC LIMIT 100`).all<{id:string;name:string}>()).results
    return json({sessions,calls})
   }
   if(request.method!=='POST')throw new Fault('method_not_allowed',405)

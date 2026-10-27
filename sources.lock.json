@@ -316,7 +316,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "657f901f3b1c4b48144e62d332232a763e0aa788c059a2b5855c2873d76ff02a",
+      "sha256": "17000bed033d746564443816579a52a4ed8856f8c7ade6a11548f91fd5717e1c",
       "executable": false
     },
     "AGENTS.md": {
@@ -336,7 +336,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "c7b8a4eea9b99d8139673460b167273a3d4a5fc2e06e2d3733c2c98c0153f0ab",
+      "sha256": "7a88c148f0fa4586abf3a82e8a59cee8d2e2f6cc2e8af7f13ceb11f6fa160575",
       "executable": false
     },
     "deploy-demo.json": {
@@ -2216,11 +2216,11 @@
       "executable": false
     },
     "src/handset/recording/capture-doors.ts": {
-      "sha256": "27ba4dd7e436cc22f929d46396d5dc9b65a831c521173987c02c344780136527",
+      "sha256": "ec18dad0b291656160308f49921a11f387ad0206c92b84fba1d5bebb298d362f",
       "executable": false
     },
     "src/handset/recording/capture-pages.ts": {
-      "sha256": "ec0d50e5eecd203a877ff7a241fc3d47f67f7238ea41367b067f03435f388dd6",
+      "sha256": "622cc569811e4cdb94764f6dc842a6e776397ffb2ebc8ad78301c265005cb409",
       "executable": false
     },
     "src/handset/recording/capture-policy.ts": {
@@ -4348,7 +4348,7 @@
       "executable": false
     },
     "tests/helpers/handset-capture-browser.mjs": {
-      "sha256": "ff40c8bace897ec506f798f89e724910e25ddd1187d7c0dd876eb744ba7a8305",
+      "sha256": "ee8b4bd9e6c84696d250047262847cb82dc1cf5c13ff0201b3b9b242be07407a",
       "executable": false
     },
     "tests/helpers/handset-capture.mjs": {

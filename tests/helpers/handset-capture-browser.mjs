@@ -40,15 +40,15 @@ export async function captureBrowser(width) {
   await page.getByText('Settings: capture consent and retention',{exact:true}).click()
   const form=actionForm('consent')
   await form.getByLabel('Participant jurisdiction policy',{exact:true}).selectOption(jurisdiction)
-  await form.getByLabel('Exact participants and consent (JSON)',{exact:true}).fill(JSON.stringify(values,null,2))
+  for(let i=0;i<values.length;i++){await form.getByLabel('Participant '+(i+1)+' reference',{exact:true}).fill(values[i].id);await form.getByLabel('Participant '+(i+1)+' consent',{exact:true}).selectOption(values[i].consent)}
   await submit('consent','Save participant consent',{attest:true})
  }
  async function attest() {await submit('announcement','Record human announcement attestation',{attest:true})}
  try {
   await mkdir(evidence,{recursive:true});await as(f.cookie)
   await page.goto(runtime.origin+base);await proof('review-active-call')
-  await page.getByLabel('Active native call',{exact:true}).selectOption(f.callId)
-  await page.getByLabel('Exact participants and consent (JSON)',{exact:true}).fill(JSON.stringify(participants,null,2))
+  await page.getByLabel('Native call',{exact:true}).selectOption(f.callId)
+  for(let i=0;i<participants.length;i++){await page.getByLabel('Participant '+(i+1)+' reference',{exact:true}).fill(participants[i].id);await page.getByLabel('Participant '+(i+1)+' consent',{exact:true}).selectOption(participants[i].consent)}
   await page.getByRole('checkbox',{name:'I reviewed these exact call participants and their consent',exact:true}).check()
   await page.getByRole('button',{name:'Review capture session',exact:true}).click()
   await page.waitForURL(new RegExp('/app/recordings/capture/[0-9a-f-]{36}$'))
