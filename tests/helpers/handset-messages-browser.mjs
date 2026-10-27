@@ -43,6 +43,31 @@ export async function messageJourney({runtime,page,context,cookie,proof,click}) 
  const uncertainDraft=await f.queued({dueAt:f.now+120000});f.receiver.drop=true
  assert.equal((await f.write('/jobs/'+uncertainDraft.id+'/dispatch',{revision:uncertainDraft.revision},200)).job.state,'uncertain')
  await page.reload();await proof('messages-uncertain')
+ const mediaUrl=`https://api.twilio.com/2010-04-01/Accounts/${f.source.account}/Messages/synthetic-handset-1880/Media/synthetic-handset-1881`
+ runtime.twilioResources.set(mediaUrl+'.json',{account_sid:f.source.account,parent_sid:'synthetic-handset-1880',sid:'synthetic-handset-1881',content_type:'image/jpeg',uri:new URL(mediaUrl).pathname+'.json'})
+ runtime.twilioResources.set(mediaUrl,{__audio:new Uint8Array(1024),__mime:'image/jpeg'})
+ const beforeMedia=f.receiver.sent.length
+ for(const declaredBytes of [1,1024]) {
+  await page.getByLabel('Due at (UTC)',{exact:true}).fill(new Date(f.now+120000).toISOString().slice(0,16))
+  await page.getByLabel('Verified media URL (optional)',{exact:true}).fill(mediaUrl)
+  await page.getByLabel('Media MIME type (optional)',{exact:true}).fill('image/jpeg')
+  await page.getByLabel('Media bytes (optional)',{exact:true}).fill(String(declaredBytes))
+  await click('Create scheduled draft')
+  await page.getByRole('checkbox',{name:/I reviewed and approve the exact scheduled message/}).check()
+  await click('Queue exact message');await click('Send queued message')
+  const mediaJob=(await snapshot()).jobs.find(j=>JSON.parse(j.media).some(m=>m.bytes===declaredBytes))
+  assert.ok(mediaJob)
+  if(declaredBytes===1) {
+   assert.equal(mediaJob.state,'suppressed');assert.equal(mediaJob.reason,'provider_media_size_mismatch')
+   assert.equal(f.receiver.sent.length,beforeMedia)
+   assert.match(await page.locator('main').innerText(),/provider_media_size_mismatch/)
+   await proof('messages-media-size-refused')
+  } else {
+   assert.equal(mediaJob.state,'accepted');assert.equal(f.receiver.sent.length,beforeMedia+1)
+   assert.deepEqual(f.receiver.sent.at(-1).form.getAll('MediaUrl'),[mediaUrl])
+   await proof('messages-media-verified')
+  }
+ }
  await click('Record HappyToHelp custody'); await proof('messages-custody')
  assert.match(await page.locator('main').innerText(),/HappyToHelp/i)
  await click('Reclaim for handset')

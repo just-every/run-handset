@@ -1,7 +1,7 @@
 import type { Bindings } from '../../auth.server'
 import { append } from '../audit/store'
 import { sourcePolicy } from '../audit/policy'
-import { Fault, id } from '../core'
+import { boundedBody, Fault, id } from '../core'
 import { guard, policyAuthority, readTwilio, type ConsentPolicy } from '../consent/store'
 import { job, thread, permission, permissionFence, custodyFence, sourceFence } from './store'
 import { requireNoStop, noStopFence } from './suppression'
@@ -35,6 +35,14 @@ export async function dispatchMessage(env:Bindings,key:string) {
    const metadata=await readTwilio(env,first.source,media.url+'.json')
    const parts=new URL(media.url).pathname.split('/')
    if(metadata.account_sid!==first.source.account_id||metadata.content_type!==media.mime||metadata.parent_sid!==parts[5]||metadata.sid!==parts[7]||metadata.uri!==new URL(media.url).pathname+'.json')throw new Fault('provider_media_metadata_mismatch',409)
+   const response=await fetch(media.url,{headers:{authorization:'Basic '+btoa(first.source.account_id+':'+env.HANDSET_TWILIO_AUTH_TOKEN)},redirect:'manual',signal:AbortSignal.timeout(5000)})
+   if(response.status!==200||response.headers.get('content-type')?.split(';')[0].trim()!==media.mime) {
+    await response.body?.cancel()
+    throw new Fault('provider_media_unavailable',409)
+   }
+   // Approval bounds the read; only the measured body can confirm its size.
+   const bytes=await boundedBody(response,media.bytes,'provider_media_size_mismatch',409)
+   if(bytes.byteLength!==media.bytes)throw new Fault('provider_media_size_mismatch',409)
   }
   // Recheck all mutable authority after every provider preflight and claim once.
   const fresh=await authority(env,j)
