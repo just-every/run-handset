@@ -407,3 +407,58 @@ test('Native group scenarios select simultaneous sequential round robin and long
   assert.equal(runtime.sourceRequests.length,0)
  }finally{await runtime.close()}
 })
+
+test('Scoped flow roles separate read draft and test authority, fence foreign references and withdraw access without changing exact publication',async()=>{
+ const {flowRoleFixture}=await import('./helpers/handset-flow-access.mjs'),runtime=await openHandset()
+ try{
+  const q=await queueFixture(runtime),f=await flowRoleFixture(runtime,q),{base,access,allowed,foreign}=f
+  const read=()=>runtime.request(base,{headers:f.headers}),save=d=>f.actorPost(base,{flowId:allowed.flowId,previousVersionId:allowed.id,definition:d})
+  assert.equal((await read()).status,403)
+  let role=await f.ownerPost(access,{...f.roleInput,capabilities:['flow.read']},201)
+  await f.assign(role)
+  let catalog=await (await read()).json()
+  assert.deepEqual(catalog.versions.map(v=>v.id),[allowed.id]);assert.deepEqual(catalog.publications,[]);assert.deepEqual(catalog.tests,[])
+  assert.equal((await save(f.definition)).status,403)
+  assert.equal((await f.actorPost(`${base}/${allowed.id}/test`,{path:['sales']})).status,403)
+  assert.equal((await f.actorPost(`${base}/${allowed.id}/evaluate`,{instant:'2026-10-27T18:00:00Z'})).status,403)
+  role=await f.ownerPost(`${access}/${role.id}`,{...f.roleInput,revision:role.revision},201)
+  assert.equal((await read()).status,403,'changed role suspends the previous exact assignment')
+  await f.assign(role)
+  for(const d of [
+   {...f.definition,nodes:[{...f.definition.nodes[0],queueId:q.support.id}]},
+   {...f.definition,nodes:[{...f.definition.nodes[0],group:{strategy:'simultaneous',members:[q.english]}}]},
+   {...f.definition,nodes:[{...f.definition.nodes[0],prompt:{promptId:crypto.randomUUID(),versionId:crypto.randomUUID()}}]},
+  ])assert.equal((await save(d)).status,403,'a flow role never imports another reference')
+  for(const action of ['test','evaluate','publish','rollback'])assert.equal((await f.actorPost(`${base}/${foreign.id}/${action}`,{path:['support'],revision:1,confirm:'approve this exact tested flow version'})).status,403)
+  assert.equal((await f.actorPost(base,{definition:f.definition})).status,403,'scoped authors cannot create unscoped flows')
+  assert.equal((await f.actorPost(base,{flowId:foreign.flowId,previousVersionId:foreign.id,definition:f.definition})).status,403)
+  assert.equal((await f.actorPost(access,f.roleInput)).status,403,'scoped preparation grants no role administration')
+  const response=await save({...f.definition,name:'Austin reviewed draft'});assert.equal(response.status,201);const draft=await response.json()
+  assert.equal((await save(f.definition)).status,409,'immutable draft versions reject stale saves')
+  assert.equal((await f.actorPost(`${base}/${draft.id}/test`,{path:['sales']})).status,200)
+  const evaluated=await f.actorPost(`${base}/${draft.id}/evaluate`,{instant:'2026-10-27T18:00:00Z',groups:{sales:{members:[{id:q.spanish,eligible:true}]}}})
+  assert.equal(evaluated.status,200);assert.deepEqual((await evaluated.json()).group.selected,[q.spanish])
+  assert.equal((await f.actorPost(`${base}/${draft.id}/publish`,{revision:0,confirm:'approve this exact tested flow version'})).status,403)
+  await f.ownerPost(`${base}/${draft.id}/publish`,{revision:0,confirm:'approve this exact tested flow version'})
+  const next=await f.ownerPost(base,{flowId:allowed.flowId,previousVersionId:draft.id,definition:f.definition},201)
+  assert.equal((await f.actorPost(`${base}/${next.id}/publish`,{revision:1,confirm:'approve this exact tested flow version'})).status,403)
+  assert.equal((await f.ownerPost(base,{flowId:allowed.flowId,previousVersionId:next.id,definition:f.definition},201)).version,4)
+  await runtime.restart();catalog=await (await read()).json()
+  assert.deepEqual(catalog.publications.map(p=>[p.version_id,p.revision,p.approved_by]),[[draft.id,1,q.english]])
+  assert.deepEqual(catalog.tests.map(t=>t.version_id),[draft.id]);assert.ok(catalog.versions.every(v=>v.flow_id===allowed.flowId))
+  const audit=(await runtime.sql("SELECT action,policy FROM hnd_audit WHERE subject=? AND action IN ('flow.draft','flow.test')",draft.id)).results
+  assert.deepEqual(audit.map(r=>r.action).sort(),['flow.draft','flow.test'])
+  assert.ok(audit.every(r=>JSON.parse(r.policy).applied.access.id===role.id))
+  assert.equal((await post(runtime,'/auth/operator/status',{operatorId:f.personId,status:'inactive'},q.headers)).status,200)
+  assert.equal((await read()).status,401)
+  assert.equal((await f.actorPost(`${base}/${draft.id}/evaluate`,{instant:'2026-10-27T18:00:00Z'})).status,401)
+  assert.equal((await post(runtime,'/auth/operator/status',{operatorId:f.personId,status:'active'},q.headers)).status,200)
+  const renewed=await signIn({...runtime,ownerEmail:f.personId+'@example.test'})
+  assert.equal((await runtime.request(base,{headers:{cookie:renewed.cookie}})).status,403,'reactivation never restores withdrawn assignment')
+  f.person.version=(await runtime.sql('SELECT version FROM oa_operators WHERE id=?',f.personId)).results[0].version
+  await f.assign(role)
+  assert.equal((await runtime.request(base,{headers:{cookie:renewed.cookie}})).status,200)
+  await runtime.sql('UPDATE oa_operators SET version=version+1 WHERE id=?',q.english)
+  assert.equal((await runtime.request(base,{headers:{cookie:renewed.cookie}})).status,403,'issuing owner version loss suspends the role')
+ }finally{await runtime.close()}
+})

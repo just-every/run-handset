@@ -14,11 +14,11 @@ test('Custom greeting roles permit only scoped drafts and current role and perso
   const greeting=await newPrompt(f,'Austin reception','main_attendant'),foreign=await newPrompt(f,'Private management menu','menu')
   const body={source:'upload',language:'en',variant:'always',audioBase64:b64(wavBytes({rate:8000}))},path=p=>`/api/handset/prompts/${p.id}/versions`,access='/api/handset/prompts/access'
   const original=await f.ok('POST',path(greeting),body,201);await approve(f,original.id)
-  const roleInput={revision:0,name:'Front desk greetings',capabilities:['greeting.draft'],promptIds:[greeting.id],confirm:'approve greeting draft role'}
+  const roleInput={revision:0,name:'Front desk greetings',capabilities:['greeting.draft'],promptIds:[greeting.id],confirm:'approve exact custom role'}
   await f.refused(access,{...roleInput,capabilities:['billing.read']},403,'unsupported_role_capability')
   const role=await f.ok('POST',access,roleInput,201)
   await f.refused(`${access}/${role.id}`,roleInput,409,'role_revision_changed')
-  const assign=()=>f.ok('POST',`${access}/${role.id}/assign`,{revision:role.revision,personId:people[1].id,personVersion:1,confirm:'assign exact greeting role'})
+  const assign=()=>f.ok('POST',`${access}/${role.id}/assign`,{revision:role.revision,personId:people[1].id,personVersion:1,confirm:'assign exact custom role'})
   const member=await signIn({...f.runtime,ownerEmail:people[1].id+'@example.test'}),headers={cookie:member.cookie}
   assert.equal((await post(f.runtime,path(greeting),body,headers)).status,403)
   await assign()
@@ -31,7 +31,7 @@ test('Custom greeting roles permit only scoped drafts and current role and perso
   const other=await f.ok('POST',path(foreign),body,201)
   for(const [method,target,value] of [
    ['POST',path(foreign),body],['GET',versionPath(other.id,'audio')],
-   ['GET',access],['POST',access,roleInput],['POST',`${access}/${role.id}/assign`,{revision:1,personId:people[2].id,personVersion:1,confirm:'assign exact greeting role'}],
+   ['GET',access],['POST',access,roleInput],['POST',`${access}/${role.id}/assign`,{revision:1,personId:people[2].id,personVersion:1,confirm:'assign exact custom role'}],
    ['POST',versionPath(draft.id,'approve'),{audioSha256:draft.audio_sha256,confirm:'approve this exact prompt version'}],
    ['POST',path(greeting),{source:'tts',language:'en',variant:'always',script:'Spend no money'}],
    ['POST',`/api/handset/prompts/${greeting.id}/phone-recordings`,{}],['POST','/api/handset/prompts/test-calls',{}],

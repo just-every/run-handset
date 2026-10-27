@@ -1,6 +1,7 @@
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
-import { Fault, consolePage, escape as e, owner, text, type ObjectValue } from '../core'
+import { Fault, consolePage, escape as e, text, type ObjectValue } from '../core'
+import { authorizeFlow, flowReferences } from '../access/flows'
 import { sql } from '../delegation/store'
 import { flowDoor } from './doors'
 import { definition, type FlowDefinition } from './definition'
@@ -20,13 +21,22 @@ function fromForm(v:ObjectValue):FlowDefinition {
  }) as FlowDefinition['nodes'],overrides:Array.from({length:overrideCount},(_,i)=>({date:String(v['date'+i]??''),entry:String(v['override'+i]??'')})).filter(o=>o.date||o.entry)}
 }
 export async function flowConsole(request:Request,env:Bindings,actor:Session,v?:ObjectValue){
- owner(actor)
  const url=new URL(request.url),suffix=url.pathname.slice('/app/flows'.length)
  if(url.search)throw new Fault('unexpected_flow_query')
  const api=(path:string,value?:ObjectValue)=>flowDoor(new Request(new URL('/api/handset/flows'+path,url),{method:value?'POST':'GET'}),env,actor,value)
  const inventory=await (await api('')).json() as FlowSnapshot
- const queues=(await sql(env,'SELECT id,name FROM hnd_queues ORDER BY name LIMIT 100').all<{id:string;name:string}>()).results
- inventory.people=(await sql(env,"SELECT id,display_name FROM oa_operators WHERE status='active' ORDER BY display_name LIMIT 100").all<{id:string;display_name:string}>()).results
+ const isOwner=actor.operator.role==='owner',references=flowReferences(inventory.versions.map(v=>JSON.parse(v.definition) as FlowDefinition))
+ const filter=(ids:string[])=>isOwner?'':` WHERE id IN (${ids.length?ids.map(()=>'?').join(','):'NULL'})`
+ const permissions=await Promise.all([...new Set(inventory.versions.map(v=>v.flow_id))].map(id=>authorizeFlow(env,actor,id,'flow.read')))
+ const metadata=await env.DB.batch([...permissions.flatMap(p=>p.fences),
+  sql(env,'SELECT id,name FROM hnd_queues'+filter(references.queues)+' ORDER BY name LIMIT 100',...(isOwner?[]:references.queues)),
+  sql(env,'SELECT id,display_name FROM oa_operators'+filter(references.people)+(isOwner?" WHERE status='active'":" AND status='active'")+' ORDER BY display_name LIMIT 100',...(isOwner?[]:references.people)),sql(env,'DELETE FROM hnd_guard')])
+ const queues=metadata.at(-3)!.results as unknown as {id:string;name:string}[]
+ inventory.people=metadata.at(-2)!.results as unknown as {id:string;display_name:string}[]
+ inventory.owner=isOwner;inventory.draftFlows=[];inventory.testFlows=[]
+ for(const id of new Set(inventory.versions.map(v=>v.flow_id)))for(const [capability,target] of [['flow.draft',inventory.draftFlows],['flow.test',inventory.testFlows]] as const){
+  try{await authorizeFlow(env,actor,id,capability);target.push(id)}catch(error){if(!(error instanceof Fault&&error.status===403))throw error}
+ }
  const personName=(id:string)=>inventory.people!.find(p=>p.id===id)?.display_name??id
  const parts=suffix.split('/').filter(Boolean),selected=parts[0]&&parts[0]!=='save'?inventory.versions.find(row=>row.id===parts[0]):undefined
  if(parts[0]&&parts[0]!=='save'&&!selected)throw new Fault('flow_version_missing',404)
@@ -35,6 +45,7 @@ export async function flowConsole(request:Request,env:Bindings,actor:Session,v?:
  let draft:FlowDefinition|undefined,editing=selected
  try{
   if(suffix==='/save'){
+   if(!isOwner)await authorizeFlow(env,actor,text(v!.flowId,'flowId'),'flow.draft')
    const d=fromForm(v!);draft=d
    if(v!.previousVersionId)editing=inventory.versions.find(row=>row.id===v!.previousVersionId)
    // The form has no prompt controls: keep the previous version's pins on steps that still exist.
