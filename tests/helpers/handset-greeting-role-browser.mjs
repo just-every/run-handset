@@ -15,6 +15,7 @@ export async function greetingRoleJourney({runtime,page,proof,cookie}){
  await create.getByLabel('Role name',{exact:true}).fill('Front desk greetings')
  await create.getByLabel('Main greeting',{exact:true}).check()
  await create.getByLabel('I approve this greeting draft role and scope',{exact:true}).check();await click(create,'Create greeting role')
+ await proof('greeting-role-created')
  let snapshot=await (await runtime.request(access,{headers:ownerHeaders})).json(),role=snapshot.roles[0]
  assert.deepEqual([role.name,JSON.parse(role.capabilities)],['Front desk greetings',['greeting.draft']])
  const assign=page.locator(`form[action="/app/prompts/access/${role.id}/assign"]`)
