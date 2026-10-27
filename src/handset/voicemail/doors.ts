@@ -1,0 +1,66 @@
+import type { Bindings } from '../../auth.server'
+import type { Session } from '../../modules/operator-auth/index.mjs'
+import { choice, Fault, id, integer, json, keys, owner, text, type ObjectValue } from '../core'
+import { commit } from '../audit/store'
+import { nativeFence } from '../preparation/access'
+interface Box {id:string;owner_id:string;kind:string;name:string;revision:number}
+interface Item {id:string;box_id:string;source_id:string;observation:string;language:string;claimant:string|null;state:string;revision:number}
+const root='/api/handset/voicemail'
+const allowed=`SELECT b.* FROM hnd_mailboxes b WHERE b.id=? AND (b.owner_id=? OR (b.kind<>'personal' AND EXISTS(SELECT 1 FROM hnd_mailbox_members m JOIN oa_operators p ON p.id=m.person_id JOIN oa_operators i ON i.id=m.issuer_id WHERE m.box_id=b.id AND m.person_id=? AND p.status='active' AND p.version=m.person_version AND i.status='active' AND i.role='owner' AND i.version=m.issuer_version)))`
+const access=(env:Bindings,a:Session,key:string)=>env.DB.prepare(allowed).bind(key,a.operator.id,a.operator.id)
+const fence=(env:Bindings,a:Session,key:string)=>env.DB.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM ('+allowed+')').bind(key,a.operator.id,a.operator.id)
+const presented=(item:Item)=>({...item,captureQualified:false,transcriptionQualified:false,outboundAuthority:false})
+export async function voicemailDoor(request:Request,env:Bindings,a:Session,v?:ObjectValue):Promise<Response>{
+ const path=new URL(request.url).pathname.slice(root.length),db=env.DB
+ if(request.method==='POST'&&path==='/boxes'&&v){
+  keys(v,['name','kind']);const kind=choice(v.kind,['personal','shared','group'],'kind');if(kind!=='personal')owner(a)
+  const box:Box={id:id(),owner_id:a.operator.id,kind,name:text(v.name,'name'),revision:1}
+  await commit(env,a,'voicemail.create',box.id,'completed',[nativeFence(db,a),db.prepare('INSERT INTO hnd_mailboxes VALUES (?,?,?,?,?)').bind(...Object.values(box))],kind!=='personal')
+  return json({box},201)
+ }
+ const match=path.match(/^\/boxes\/([^/]+)(?:\/(members|observations|items)(?:\/([^/]+)(?:\/(claim|handle|reopen))?)?)?$/)
+ if(!match)throw new Fault('not_found',404)
+ const box=await access(env,a,match[1]).first<Box>();if(!box)throw new Fault('mailbox_refused',403)
+ const guards=[nativeFence(db,a),fence(env,a,box.id)]
+ if(request.method==='GET'&&!match[2]){
+  const items=(await db.prepare('SELECT * FROM hnd_voicemail_items WHERE box_id=? ORDER BY id').bind(box.id).all<Item>()).results
+  const history=(await db.prepare('SELECT h.* FROM hnd_voicemail_history h JOIN hnd_voicemail_items i ON i.id=h.item_id WHERE i.box_id=? ORDER BY h.created_at,h.id').bind(box.id).all()).results
+  await commit(env,a,'voicemail.read',box.id,'completed',guards,false)
+  return json({box,items:items.map(presented),due:items.filter(i=>i.state==='open').map(i=>i.id),history})
+ }
+ if(request.method!=='POST'||!v)throw new Fault('method_not_allowed',405)
+ if(match[2]==='members'){
+  keys(v,['personId','revision','enabled']);if(box.kind==='personal')throw new Fault('personal_box_unshared',403)
+  owner(a);if(box.owner_id!==a.operator.id)throw new Fault('box_owner_required',403)
+  if(integer(v.revision,'revision',1)!==box.revision)throw new Fault('mailbox_revision_conflict',409)
+  const person=text(v.personId,'personId'),enabled=integer(v.enabled,'enabled',0,1)
+  guards.push(db.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_mailboxes WHERE id=? AND revision=?').bind(box.id,box.revision),db.prepare('DELETE FROM hnd_mailbox_members WHERE box_id=? AND person_id=?').bind(box.id,person))
+  if(enabled){
+   const p=await db.prepare("SELECT version FROM oa_operators WHERE id=? AND status='active'").bind(person).first<{version:number}>();if(!p)throw new Fault('active_person_required',409)
+   guards.push(db.prepare("INSERT INTO hnd_guard(ok) SELECT count(*) FROM oa_operators WHERE id=? AND version=? AND status='active'").bind(person,p.version),db.prepare('INSERT INTO hnd_mailbox_members VALUES (?,?,?,?,?)').bind(box.id,person,p.version,a.operator.id,a.operator.version))
+  }
+  guards.push(db.prepare('UPDATE hnd_mailboxes SET revision=revision+1 WHERE id=?').bind(box.id))
+  await commit(env,a,'voicemail.membership',box.id,'completed',guards)
+  return json({revision:box.revision+1,enabled})
+ }
+ if(match[2]==='observations'){
+  keys(v,['sourceId','text','language']);if(box.owner_id!==a.operator.id)throw new Fault('box_owner_required',403)
+  const source=text(v.sourceId,'sourceId'),observation=text(v.text,'text',10000),language=choice(v.language,['en','es'],'language')
+  const old=await db.prepare('SELECT * FROM hnd_voicemail_items WHERE box_id=? AND source_id=?').bind(box.id,source).first<Item>()
+  if(old){if(old.observation!==observation||old.language!==language)throw new Fault('observation_replay_conflict',409);await commit(env,a,'voicemail.read',old.id,'completed',guards,false);return json({item:presented(old),replay:true})}
+  const item:Item={id:id(),box_id:box.id,source_id:source,observation,language,claimant:null,state:'open',revision:1}
+  guards.push(db.prepare('INSERT INTO hnd_voicemail_items VALUES (?,?,?,?,?,?,?,?)').bind(...Object.values(item)),db.prepare('INSERT INTO hnd_voicemail_history VALUES (?,?,?,?,?,?)').bind(id(),item.id,a.operator.id,'observed',1,Date.now()))
+  await commit(env,a,'voicemail.observe',item.id,'completed',guards,false)
+  return json({item:presented(item),replay:false},201)
+ }
+ if(match[2]!=='items'||!match[3]||!match[4])throw new Fault('not_found',404)
+ keys(v,['revision']);const item=await db.prepare('SELECT * FROM hnd_voicemail_items WHERE id=? AND box_id=?').bind(match[3],box.id).first<Item>();if(!item)throw new Fault('not_found',404)
+ if(integer(v.revision,'revision',1)!==item.revision)throw new Fault('voicemail_revision_conflict',409)
+ const op=match[4]
+ if(op==='claim'){if(item.state!=='open'||item.claimant)throw new Fault('already_claimed',409)}
+ else if(item.claimant!==a.operator.id&&box.owner_id!==a.operator.id)throw new Fault('claimant_or_box_owner_required',403)
+ if(op==='handle'&&item.state!=='open'||op==='reopen'&&item.state!=='handled')throw new Fault('voicemail_state_conflict',409)
+ guards.push(db.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_voicemail_items WHERE id=? AND revision=?').bind(item.id,item.revision),db.prepare('UPDATE hnd_voicemail_items SET claimant=?,state=?,revision=revision+1 WHERE id=?').bind(op==='claim'?a.operator.id:op==='reopen'?null:item.claimant,op==='handle'?'handled':'open',item.id),db.prepare('INSERT INTO hnd_voicemail_history VALUES (?,?,?,?,?,?)').bind(id(),item.id,a.operator.id,op,item.revision+1,Date.now()))
+ await commit(env,a,'voicemail.'+op,item.id,'completed',guards,false)
+ return json({item:presented((await db.prepare('SELECT * FROM hnd_voicemail_items WHERE id=?').bind(item.id).first<Item>())!)})
+}
