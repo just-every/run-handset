@@ -419,6 +419,10 @@
       "sha256": "7e3ea5f2d96c4f9b8fb89d6790090520c4d402a5693724b162b50c91705856b6",
       "executable": false
     },
+    "docs/MESSAGES.md": {
+      "sha256": "17960bab4ec8399fc7a209a0479831e5cc10a5ec2d72070308bbb009c8f6c1d1",
+      "executable": false
+    },
     "docs/NATIVE-DIRECTORY-VOICEMAIL.md": {
       "sha256": "b3a3a14d16a95c01bcdafae19f7ef3b128699d8ba9687278eb308a9dbd50079c",
       "executable": false
