@@ -420,7 +420,7 @@
       "executable": false
     },
     "docs/NUMBER-LIFECYCLE.md": {
-      "sha256": "eed6becc2b539fa57970777ba7c063ac8e42ce444e51699dbcddf1e9521ed5f9",
+      "sha256": "80382e95b4c975c8aa64cb069250ef52c7049d898414925dfe49c255e68ee109",
       "executable": false
     },
     "docs/OPERATIONS.md": {
@@ -1908,7 +1908,7 @@
       "executable": false
     },
     "src/handset/numbers/store.ts": {
-      "sha256": "fe4b733428e1fea41fcef6356eef0f6f986c1e1b106ed23d5eb9ca77cdfa5b33",
+      "sha256": "97cd3156d3cbf839a70650e736fa34695fdc2ebaf79cfc4a92d0ea75203aa417",
       "executable": false
     },
     "src/handset/operations/doors.ts": {
@@ -2000,7 +2000,7 @@
       "executable": false
     },
     "src/handset/providers/sources.ts": {
-      "sha256": "49892abbf68794f4e95ed7fc69588e7a5a12ae05ecfeea9e22f351e80fb09acc",
+      "sha256": "bd73805ace87ebdfa1506c251dc300dda8cdd973308585c902ef676ad6ac735f",
       "executable": false
     },
     "src/handset/providers/twilio.ts": {
@@ -4164,7 +4164,7 @@
       "executable": false
     },
     "tests/handset-admin.mjs": {
-      "sha256": "fcaccff72d8f3cfee55cb5fe012d55e63248723faed87f00f481d0a4bc7ac677",
+      "sha256": "f7712daf91a4d88b98340d829b38aac20a61249fa98d98592eeb3ad7bfe3803a",
       "executable": false
     },
     "tests/handset-agent-outcomes.mjs": {
@@ -4324,7 +4324,7 @@
       "executable": false
     },
     "tests/helpers/handset-numbers.mjs": {
-      "sha256": "1ed8623c3507c449bc4dfa105eb5c4a778bad74a1ed9e11ea01e567f12d9ccb7",
+      "sha256": "95ddae240e4de7dab96c124044c6f3962fcbd0f0c045157b469dcda2359cf8d5",
       "executable": false
     },
     "tests/helpers/handset-prompts-browser.mjs": {

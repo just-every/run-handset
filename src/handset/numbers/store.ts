@@ -41,6 +41,8 @@ export async function purchase(env:Bindings,actor:Session,v:ObjectValue){
   if(response.status!==201)throw new Fault('carrier_purchase_not_confirmed',503)
   const receipt=await response.json() as Record<string,unknown>
   if(receipt.account_sid!==quote.account_id||receipt.phone_number!==quote.e164||typeof receipt.sid!=='string'||!receipt.sid)throw new Fault('carrier_purchase_identity_mismatch',502)
+  const readback=await readCarrier(env,quote.account_id,`${accountRoot(quote.account_id)}/IncomingPhoneNumbers/${encodeURIComponent(receipt.sid)}.json`)
+  if(readback.sid!==receipt.sid||readback.account_sid!==quote.account_id||readback.phone_number!==quote.e164||readback.friendly_name!=='Handset '+key)throw new Fault('carrier_purchase_readback_mismatch',502)
   providerId=receipt.sid
  }catch{
   await commit(env,actor,'number.purchase',key,'uncertain',[sql(env,"UPDATE hnd_number_inventory SET state='uncertain',revision=revision+1 WHERE id=? AND state='purchasing'",key)],false)

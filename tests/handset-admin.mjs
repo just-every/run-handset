@@ -192,6 +192,13 @@ test('Number purchases reserve once across concurrent requests and preserve unce
   assert.equal(f.calls.filter(c=>c.method==='POST').length,2,'restart never retries a possibly completed paid effect')
   const recovered=await f.value(await f.send('/'+tollfree.number.id+'/reconcile',{}));assert.equal(recovered.number.state,'owned');assert.equal(recovered.number.provider_id,tollfree.number.provider_id??[...f.owned.keys()][1])
   assert.equal((await f.inventory()).length,2)
+  f.setUncertain(false);f.useNextLocal();f.setBadReadback(true)
+  const mismatched=await f.buy();assert.equal(mismatched.number.state,'uncertain','a creation response cannot replace independent identity readback')
+  assert.equal((await f.value(await f.send('/purchase',mismatched.input))).number.state,'uncertain')
+  assert.equal(f.calls.filter(c=>c.method==='POST').length,3)
+  f.setBadReadback(false)
+  assert.equal((await f.value(await f.send('/'+mismatched.number.id+'/reconcile',{}))).number.state,'owned')
+  assert.equal((await f.inventory()).length,3)
  }finally{await runtime.close()}
 })
 
@@ -201,6 +208,10 @@ test('Exact-number release preserves a review hold, refuses stale approvals and 
   const f=await numberFixture(runtime),first=(await f.buy()).number,replacement=(await f.buy('tollfree','Dallas · Backup team')).number
   const reviewed=(await f.value(await f.send('/'+first.id+'/review',f.review(first,replacement)))).number
   assert.equal(reviewed.replacement_id,replacement.id);assert.equal(reviewed.release_by,'synthetic-handset-1')
+  const native=await f.value(await post(runtime,'/api/handset/records',{kind:'number',sourceId:'synthetic-handset-7130',occurredAt:Date.now(),data:{e164:first.e164}},{cookie:f.cookie}))
+  const sourceAttempt=await post(runtime,'/api/handset/sources',{accountId:f.account,numberId:native.record.id,confirm:'authorize signed inbound records'},{cookie:f.cookie})
+  assert.equal(sourceAttempt.status,409,'release review fences concurrent source activation')
+  assert.equal((await runtime.sql('SELECT id FROM hnd_sources WHERE number_id=?',native.record.id)).results.length,0)
   assert.equal((await f.send('/'+first.id+'/release',f.release(reviewed))).status,409,'cooling hold refuses early execution')
   assert.equal(f.calls.filter(c=>c.method==='DELETE').length,0)
   const cancelled=(await f.value(await f.send('/'+first.id+'/cancel',{revision:reviewed.revision}))).number

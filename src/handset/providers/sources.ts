@@ -70,6 +70,6 @@ export async function sourceDoor(request:Request,env:Bindings,actor:Session,valu
  if(await activeSource(env,accountId,numberId))throw new Fault('source_already_registered',409)
  const revision=(latest?.revision??0)+1
  try{await commit(env,actor,'source.create',sourceId,'completed',[...authority.fences,env.DB.prepare("INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_records n WHERE n.id=? AND n.kind='number' AND NOT EXISTS(SELECT 1 FROM hnd_records correction WHERE correction.supersedes_id=n.id)").bind(numberId),env.DB.prepare('INSERT INTO hnd_sources(id,account_id,number_id,owner_id,owner_version,revision,revoked_at,created_at,consent_access_id) VALUES (?,?,?,?,?,?,?,?,?)').bind(sourceId,accountId,numberId,actor.operator.id,actor.operator.version,revision,null,Date.now(),authority.grant?.id??null)],false,{...sourcePolicy({id:sourceId,revision,owner_version:actor.operator.version,consent_access_id:authority.grant?.id??null}),...authority.applied})}
- catch(error){if(String(error).includes('UNIQUE constraint'))throw new Fault('source_already_registered',409);throw error}
+ catch(error){if(String(error).includes('number_release_protected'))throw new Fault('number_release_protected',409);if(String(error).includes('UNIQUE constraint'))throw new Fault('source_already_registered',409);throw error}
  return html?page('Source authorized',`<p>Signed callbacks may use /providers/twilio/events. No call or message has been sent.</p><a href="/app/sources">Review sources</a>`):json({id:sourceId,revision,callbackPath:'/providers/twilio/events'},201)
 }
