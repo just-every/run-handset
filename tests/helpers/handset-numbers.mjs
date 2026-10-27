@@ -8,8 +8,7 @@ export async function numberFixture(runtime,cookie){
  let sequence=7001,uncertain=false,deletingUncertain=false,emergency=false,route=false,noResults=false,changedPrice=false,badReadback=false,localIndex=0
  runtime.twilioResources.set(root+'.json',{sid:account,status:'active',type:'Full'})
  const catalog=(country,kind,area)=>{
-  const e164=kind==='local'?numbers[localIndex]:numbers[1]
-  runtime.twilioResources.set(`${root}/AvailablePhoneNumbers/${country}/${kind==='local'?'Local':'TollFree'}.json?PageSize=20&AreaCode=${area}`,()=>({available_phone_numbers:noResults?[]:[{phone_number:e164,iso_country:country,capabilities:{voice:true,SMS:true,MMS:kind==='local'}}]}))
+  runtime.twilioResources.set(`${root}/AvailablePhoneNumbers/${country}/${kind==='local'?'Local':'TollFree'}.json?PageSize=20&AreaCode=${area}`,()=>({available_phone_numbers:noResults?[]:[{phone_number:kind==='local'?numbers[localIndex]:numbers[1],iso_country:country,capabilities:{voice:true,SMS:true,MMS:kind==='local'}}]}))
  }
  catalog('US','local','512');catalog('US','tollfree','833')
  runtime.twilioResources.set('https://pricing.twilio.com/v1/PhoneNumbers/Countries/US',()=>({iso_country:'US',price_unit:'usd',phone_number_prices:[{number_type:'local',current_price:changedPrice?'2.00':'1.15'},{number_type:'toll free',current_price:'2.15'}]}))

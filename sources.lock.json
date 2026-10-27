@@ -4320,11 +4320,11 @@
       "executable": false
     },
     "tests/helpers/handset-numbers-browser.mjs": {
-      "sha256": "693963bc796f23510729065252412ae17557836da6de5f3c70379573d4c24a90",
+      "sha256": "0520c24cece203a8eccb2f3c0f045a8fce5cf55afc40dfe7cb817e0686f5946f",
       "executable": false
     },
     "tests/helpers/handset-numbers.mjs": {
-      "sha256": "95ddae240e4de7dab96c124044c6f3962fcbd0f0c045157b469dcda2359cf8d5",
+      "sha256": "126612a201866e79784d0eb96dd59352075f43cf63db4e02627fa8a5ea3f037f",
       "executable": false
     },
     "tests/helpers/handset-prompts-browser.mjs": {
