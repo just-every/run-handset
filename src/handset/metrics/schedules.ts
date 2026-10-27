@@ -4,20 +4,26 @@ import { operatorMail } from '../../mail.server.mjs'
 import { actorRef, append, commit } from '../audit/store'
 import { escape, Fault, id, keys, object, text, timestamp } from '../core'
 import { currentConfig, liveReport, reportFence } from './store'
+import { dashboardFence, getDashboard, type Dashboard } from './dashboards'
+import { parseNativeFilters, type NativeFilters } from './filters'
 
-interface Schedule {id:string;queue_id:string;config_revision:number;owner_id:string;owner_version:number;recipient:string;due_at:number;created_at:number;state:string;report_id:string|null}
+interface Schedule {id:string;queue_id:string;config_revision:number;owner_id:string;owner_version:number;recipient:string;due_at:number;created_at:number;state:string;report_id:string|null;dashboard_definition:string|null}
 export async function scheduleReport(env:Bindings,actor:Session,value:unknown) {
- const v=object(value);keys(v,['queueId','configRevision','dueAt','recipient','confirm'])
+ const v=object(value);keys(v,['queueId','configRevision','dueAt','recipient','confirm','dashboardId','dashboardRevision','filters'])
  if(v.confirm!=='schedule this owner report')throw new Fault('explicit_schedule_consent_required')
  const recipient=text(v.recipient,'recipient',254)
  if(recipient!==actor.operator.email||recipient!==env.OWNER_EMAIL)throw new Fault('owner_recipient_required',403)
  if(!env.MAIL_FROM||!operatorMail(env))throw new Fault('mail_transport_required',409)
  const dueAt=timestamp(v.dueAt,'dueAt')
  if(dueAt>Date.now()+31*86400000||dueAt<Date.now()-60000)throw new Fault('due_within_31_days_required')
- const config=await currentConfig(env.DB,text(v.queueId,'queueId'))
+ const dashboard=v.dashboardId===undefined?undefined:await getDashboard(env.DB,text(v.dashboardId,'dashboardId'))
+ if(dashboard&&v.dashboardRevision!==dashboard.revision)throw new Fault('dashboard_changed',409)
+ const config=await currentConfig(env.DB,text(v.queueId,'queueId'),dashboard?.configRevision)
  if(v.configRevision!==config.revision)throw new Fault('metric_config_changed',409)
+ if(dashboard&&dashboard.queueId!==config.queueId)throw new Fault('dashboard_changed',409)
+ const selection={filters:dashboard?.filters??parseNativeFilters(v.filters??{}),...(dashboard?{dashboard}:{})}
  const scheduleId=id()
- await commit(env,actor,'metrics.schedule',scheduleId,'completed',[env.DB.prepare('INSERT INTO hnd_metric_schedules VALUES (?,?,?,?,?,?,?,?,?,NULL)').bind(scheduleId,config.queueId,config.revision,actor.operator.id,actor.operator.version,recipient,dueAt,Date.now(),'scheduled')])
+ await commit(env,actor,'metrics.schedule',scheduleId,'completed',[...(dashboard?[dashboardFence(env.DB,dashboard)]:[]),env.DB.prepare('INSERT INTO hnd_metric_schedules VALUES (?,?,?,?,?,?,?,?,?,NULL,?)').bind(scheduleId,config.queueId,config.revision,actor.operator.id,actor.operator.version,recipient,dueAt,Date.now(),'scheduled',JSON.stringify(selection))])
  return env.DB.prepare('SELECT * FROM hnd_metric_schedules WHERE id=?').bind(scheduleId).first<Schedule>()
 }
 export const listSchedules=(db:D1Database)=>db.prepare('SELECT * FROM hnd_metric_schedules ORDER BY created_at DESC LIMIT 100').all<Schedule>()
@@ -28,7 +34,8 @@ export async function runDueReports(env:Bindings,now=Date.now()) {
   const db=env.DB,pseudonym=await actorRef(db,job.owner_id)
   const owner=await db.prepare("SELECT id FROM oa_operators WHERE id=? AND role='owner' AND status='active' AND version=? AND email=?").bind(job.owner_id,job.owner_version,job.recipient).first()
   if(!owner||job.recipient!==env.OWNER_EMAIL){await append(env,pseudonym,'metrics.deliver',job.id,'refused',[db.prepare("UPDATE hnd_metric_schedules SET state='refused' WHERE id=? AND state='scheduled'").bind(job.id)]);results.push({id:job.id,state:'refused'});continue}
-  const config=await currentConfig(db,job.queue_id,job.config_revision),report=await liveReport(env,config),reportId=id()
+  const selection: {filters:NativeFilters;dashboard?:Dashboard}=job.dashboard_definition?JSON.parse(job.dashboard_definition):{filters:{}}
+  const config=await currentConfig(db,job.queue_id,job.config_revision),report=await liveReport(env,config,selection.filters,selection.dashboard),reportId=id()
   try{await append(env,pseudonym,'metrics.deliver',job.id,'completed',[
    reportFence(db,report.erasureEpoch),
    db.prepare("INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_metric_schedules s JOIN oa_operators o ON o.id=s.owner_id WHERE s.id=? AND s.state='scheduled' AND s.owner_version=o.version AND o.role='owner' AND o.status='active' AND o.email=s.recipient").bind(job.id),

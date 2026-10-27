@@ -5,8 +5,9 @@ import { post, signIn } from './helpers/handset-auth.mjs'
 import { metricDataset,metricConfig } from './helpers/handset-metrics.mjs'
 import { exportFixture, archiveEdge, sftpEdge, range, encryptionKey, sha } from './helpers/handset-exports.mjs'
 import { runSftp } from '../src/handset/exports/sftp.mjs'
-import { analyticsFixture,analyticsStart,analyticsEnd,analyticsNow } from './helpers/handset-analytics.mjs'
+import { knownWeekFixture,analyticsStart,analyticsEnd,analyticsNow } from './helpers/handset-analytics.mjs'
 import { importDataset } from './helpers/handset-import.mjs'
+import { createEdges } from './helpers/handset-edges.mjs'
 
 test('Reviewed queue observations reconcile exact service levels, agent durations, historical snapshots and scheduled report contents',async()=>{
  const runtime=await openHandset()
@@ -216,10 +217,14 @@ test('Buyer OpenSSH SFTP pins the approved host key, independently reads encrypt
 })
 
 
-test('Known-week customer reports reconcile canonical calls, missed DST hours, case owners, recovery outcomes, CSV and one owner-only scheduled snapshot',async()=>{
- const runtime=await openHandset({twilio:true,clockTime:analyticsNow})
+test('Known-week reports reconcile source legs, confirmed recovery, reporting groups, filtered saved dashboards and owner-only delivery',async()=>{
+ const edges=createEdges(),runtime=await openHandset({twilio:true,edges,clockTime:analyticsNow})
  try{
-  const {source,calls,recoveries}=await analyticsFixture(runtime),headers=source.headers
+  const {source,calls,recoveries,dataset}=await knownWeekFixture(runtime,edges),headers=source.headers
+  const send=async(path,data,status=201)=>{const r=await post(runtime,'/api/handset/metrics/'+path,data,headers);assert.equal(r.status,status,await r.clone().text());return r.json()}
+  await send('groups',{number:'+15125550125',team:'Support',location:'Austin',revision:0})
+  await send('groups',{number:'+15125550999',team:'Sales',location:'Dallas',revision:0})
+  await send('groups',{number:'+15125550125',team:'Wrong',location:'Wrong',revision:0},409)
   const configured=await post(runtime,'/api/handset/metrics/config',metricConfig('*',0,{startAt:analyticsStart,endAt:analyticsEnd}),headers);assert.equal(configured.status,201,await configured.clone().text());const config=await configured.json()
   const response=await runtime.request('/api/handset/metrics/live?queueId=*',{headers});assert.equal(response.status,200);const report=await response.json(),n=report.native
   assert.deepEqual(n.totals,{volume:6,answered:1,missed:5,unknown:0,legs:1})
@@ -228,10 +233,15 @@ test('Known-week customer reports reconcile canonical calls, missed DST hours, c
   assert.deepEqual(n.byHour.map(h=>[h.volume,h.missed]),[[1,1],[1,1],[1,0],[1,1],[1,1],[1,1]])
   assert.match(n.byHour[0].label,/01.*GMT-05:00/);assert.match(n.byHour[1].label,/01.*GMT-06:00/)
   assert.deepEqual(n.byNumber.map(r=>[r.label,r.volume,r.missed]),[['+15125550125',6,5]])
-  assert.equal(n.recovery.cases,2);assert.equal(n.recovery.confirmed,0);assert.deepEqual(n.recovery.confirmedCaseIds,[])
+  assert.equal(n.recovery.cases,2);assert.equal(n.recovery.confirmed,1);assert.deepEqual(n.recovery.confirmedCaseIds,[calls[1].caseId])
   assert.deepEqual(new Set(n.recovery.caseIds),new Set(recoveries.map(r=>r.case_id)))
-  assert.deepEqual([n.fcr.numerator,n.fcr.denominator,n.fcr.value],[0,2,0]);assert.deepEqual(n.fcr.eligibleCallIds,calls.slice(0,2).map(c=>c.recordId));assert.deepEqual(n.fcr.repeatCallIds,[calls[0].recordId]);assert.deepEqual(n.fcr.excluded,{immature:3,unknownIdentity:0,repeatContact:1})
+  assert.deepEqual([n.fcr.numerator,n.fcr.denominator,n.fcr.value],[1,2,0.5]);assert.deepEqual(n.fcr.eligibleCallIds,calls.slice(0,2).map(c=>c.recordId));assert.deepEqual(n.fcr.repeatCallIds,[calls[0].recordId]);assert.deepEqual(n.fcr.excluded,{immature:3,unknownIdentity:0,repeatContact:1})
   assert.equal(n.csat.responseRate,null);assert.equal(n.csat.mean,null)
+  assert.deepEqual(n.byTeam.map(g=>[g.label,g.volume,g.answered,g.missed]),[['Support',6,1,5]])
+  assert.deepEqual(n.byLocation.map(g=>[g.label,g.volume,g.answered,g.missed]),[['Austin',6,1,5]])
+  assert.deepEqual(n.fcr.resolvedCallIds,[calls[1].recordId])
+  assert.equal(edges.bookings.size,1)
+  assert.equal(recoveries.length,3);assert.equal(new Set(recoveries.map(r=>r.case_id)).size,2)
   const csvResponse=await runtime.request('/api/handset/metrics/csv?queueId=*',{headers});assert.equal(csvResponse.status,200);const csv=await csvResponse.text()
   assert.equal(csv.trim().split('\r\n').length,7);for(const c of calls.slice(0,6))assert.ok(csv.includes(c.recordId));assert.ok(!csv.includes(calls[6].recordId));assert.ok(csv.includes('GMT-05:00'));assert.ok(csv.includes('GMT-06:00'))
   const schedule={queueId:'*',configRevision:config.revision,recipient:runtime.ownerEmail,dueAt:analyticsNow,confirm:'schedule this owner report'}
@@ -242,11 +252,90 @@ test('Known-week customer reports reconcile canonical calls, missed DST hours, c
   assert.deepEqual(received.native,n);assert.equal(received.config.timezone,'America/Chicago')
   const finalResponse=await post(runtime,'/api/handset/metrics/finalize',{queueId:'*',configRevision:config.revision},headers);assert.equal(finalResponse.status,201);const final=await finalResponse.json()
   const history=await (await runtime.request('/api/handset/metrics/history/'+final.id,{headers})).json();assert.deepEqual(history.native,n)
+
+  // The same known week carries independently reviewed queue legs, transfers,
+  // overflow, callback correlation and the complete staffed timeline.
+  const fullWeek={startAt:analyticsStart,endAt:analyticsEnd}
+  let queue=await send('config',metricConfig('queue-A',0,fullWeek))
+  const live=async(suffix)=>{const r=await runtime.request('/api/handset/metrics/'+suffix,{headers});assert.equal(r.status,200,await r.clone().text());return r.json()}
+  let a=await live('live?queueId=queue-A')
+  assert.deepEqual(a.sourceEntryIds,dataset.entries.slice(0,6).map(e=>e.id))
+  assert.deepEqual(a.totals,{offered:6,arrivals:6,transfers:0,overflows:0,callbacks:0,answered:4,abandoned:2,eligibleAbandons:1,shortAbandons:1,withinTarget:2,completedHandled:4,talkSeconds:160,holdSeconds:40,wrapSeconds:40})
+  assert.deepEqual(a.serviceLevel,{numerator:2,denominator:5,value:0.4})
+  assert.deepEqual(a.asaSeconds,{numerator:70,denominator:4,value:17.5})
+  assert.deepEqual(a.abandonment,{numerator:1,denominator:5,value:0.2})
+  assert.deepEqual(a.averageAbandonSeconds,{numerator:40,denominator:1,value:40})
+  assert.deepEqual(a.ahtSeconds,{numerator:240,denominator:4,value:60})
+  const agent=a.agents['synthetic-handset-agent-1']
+  assert.deepEqual(agent.durations,{available:200,ringing:60,talk:160,hold:40,wrap:40,break:30,unavailable:100,'logged-out':60})
+  assert.equal(agent.staffedSeconds,600);assert.equal(agent.loggedInSeconds,630)
+  assert.deepEqual(agent.occupancy,{numerator:240,denominator:600,value:0.4});assert.equal(agent.answeredOffers,4);assert.equal(agent.missedOffers,1)
+  queue=await send('config',{...queue,method:'exclude-abandons'})
+  assert.deepEqual((await live('live?queueId=queue-A')).serviceLevel,{numerator:2,denominator:4,value:0.5})
+  queue=await send('config',{...queue,method:'include-abandons',shortSeconds:0})
+  a=await live('live?queueId=queue-A')
+  assert.deepEqual(a.serviceLevel,{numerator:2,denominator:6,value:1/3});assert.deepEqual(a.abandonment,{numerator:2,denominator:6,value:1/3})
+  assert.deepEqual(a.averageAbandonSeconds,{numerator:43,denominator:2,value:21.5})
+  await send('config',metricConfig('queue-B',0,fullWeek))
+  const b=await live('live?queueId=queue-B')
+  assert.deepEqual(b.sourceEntryIds,dataset.entries.slice(6).map(e=>e.id))
+  assert.deepEqual(b.totals,{offered:2,arrivals:0,transfers:1,overflows:1,callbacks:1,answered:1,abandoned:1,eligibleAbandons:1,shortAbandons:0,withinTarget:1,completedHandled:2,talkSeconds:15,holdSeconds:0,wrapSeconds:0})
+  assert.deepEqual(b.serviceLevel,{numerator:1,denominator:2,value:0.5});assert.equal(b.asaSeconds.value,2);assert.equal(b.ahtSeconds.value,7.5);assert.equal(b.averageAbandonSeconds.value,10)
+  assert.deepEqual(b.callbackParents,[{id:dataset.entries[8].id,parentEntryId:dataset.entries[2].id,callId:calls[2].recordId}])
+  assert.equal((await live('live?queueId=queue-A')).totals.arrivals,6)
+  const filtered=await live('live?queueId=*&outcome=missed&team=Support&location=Austin')
+  assert.deepEqual(filtered.native.sourceCalls.map(c=>c.id),[calls[0],calls[1],calls[3],calls[4],calls[5]].map(c=>c.recordId))
+  assert.deepEqual(filtered.native.totals,{volume:5,answered:0,missed:5,unknown:0,legs:0})
+  const firstHour=await live('live?'+new URLSearchParams({queueId:'*',hour:n.byHour[0].label}))
+  assert.deepEqual(firstHour.native.fcr.repeatCallIds,[calls[0].recordId],'filtering out a repeat cannot turn it into FCR')
+  assert.equal(firstHour.native.fcr.value,0)
+  assert.equal((await live('live?queueId=*&team=Sales')).native.totals.volume,0)
+  for(const query of ['team=','team=Support&team=Sales','ownerId=synthetic-handset-2'])assert.equal((await runtime.request('/api/handset/metrics/live?queueId=*&'+query,{headers})).status,400)
+  const definition={name:'Austin missed calls',queueId:'*',configRevision:config.revision,filters:{team:'Support',location:'Austin',outcome:'missed'},groups:['hour','team','location'],metrics:['volume','missed']}
+  let dashboard=await send('dashboards',definition)
+  const dashPath='dashboards/'+dashboard.id
+  assert.deepEqual((await live(dashPath)).native.sourceCalls,filtered.native.sourceCalls)
+  assert.deepEqual((await live(dashPath)).dashboard,dashboard)
+  assert.equal((await runtime.request('/api/handset/metrics/'+dashPath+'?team=Sales',{headers})).status,400)
+  const dashboardCsv=await (await runtime.request('/api/handset/metrics/'+dashPath+'/csv',{headers})).text()
+  assert.equal(dashboardCsv.trim().split('\r\n').length,6);assert.ok(!dashboardCsv.includes(calls[2].recordId));assert.ok(dashboardCsv.includes('Austin'))
+  const dashSchedule={...schedule,dashboardId:dashboard.id,dashboardRevision:dashboard.revision}
+  await send('schedule',{...dashSchedule,recipient:'synthetic-handset-restricted@example.test'},403)
+  await send('schedule',dashSchedule)
+  const originalDashboard=structuredClone(dashboard)
+  dashboard=await send('dashboards',{...dashboard,name:'One DST hour',filters:{hour:n.byHour[1].label},groups:['hour'],metrics:['missed']})
+  await send('dashboards',{...originalDashboard,name:'Stale edit'},409)
+  await send('schedule',dashSchedule,409)
+  await send('finalize',{queueId:'*',configRevision:config.revision,dashboardId:dashboard.id,dashboardRevision:originalDashboard.revision},409)
+  const one=await live(dashPath)
+  assert.deepEqual(one.native.totals,{volume:1,answered:0,missed:1,unknown:0,legs:0})
+  assert.deepEqual(one.native.recovery.confirmedCaseIds,[calls[1].caseId]);assert.equal(one.native.fcr.value,1)
+  const retained=await send('finalize',{queueId:'*',configRevision:config.revision,dashboardId:dashboard.id,dashboardRevision:dashboard.revision})
+  await send(dashPath+'/delete',{revision:originalDashboard.revision},409)
+  await send(dashPath+'/delete',{revision:dashboard.revision},200)
+  assert.equal((await runtime.request('/api/handset/metrics/'+dashPath,{headers})).status,404)
+  const mailCount=runtime.mails.length;await runtime.scheduled();assert.equal(runtime.mails.length,mailCount+1)
+  const savedDelivery=JSON.parse(runtime.mails.at(-1).content.find(p=>p.type==='text/plain').value)
+  assert.deepEqual(savedDelivery.dashboard,originalDashboard);assert.deepEqual(savedDelivery.native.totals,filtered.native.totals)
+  assert.deepEqual((await live('history/'+retained.id)).native,one.native)
+  await send('groups',{number:'+15125550125',team:'Field service',location:'Houston',revision:1})
+  assert.deepEqual((await live('live?queueId=*')).native.byLocation.map(g=>[g.label,g.volume]),[['Houston',6]])
+  assert.deepEqual((await live('history/'+final.id)).native.byLocation,n.byLocation,'retained reports keep captured assignments')
+  await runtime.restart();headers.cookie=(await signIn(runtime)).cookie
+  assert.equal((await live('history/'+retained.id)).native.totals.volume,1)
+  const pending=await send('schedule',{...schedule,dueAt:analyticsNow+1000})
+
   await post(runtime,'/api/handset/metrics/config',metricConfig('synthetic-handset-foreign',0,{startAt:analyticsStart,endAt:analyticsEnd}),headers)
   assert.equal((await (await runtime.request('/api/handset/metrics/live?queueId=synthetic-handset-foreign',{headers})).json()).native.totals.volume,0)
   assert.equal((await runtime.request('/api/handset/metrics/csv?queueId=*')).status,401)
   await post(runtime,'/auth/operator/status',{operatorId:'synthetic-handset-2',status:'active'},headers)
   const member=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'})
-  for(const path of ['/api/handset/metrics/live?queueId=*','/api/handset/metrics/csv?queueId=*','/app/reports/queues/live?queueId=*'])assert.equal((await runtime.request(path,{headers:{cookie:member.cookie}})).status,403)
+  for(const path of ['/api/handset/metrics/live?queueId=*','/api/handset/metrics/csv?queueId=*','/app/reports/queues/live?queueId=*','/api/handset/metrics/dashboards','/api/handset/metrics/groups','/api/handset/metrics/history/'+retained.id])assert.equal((await runtime.request(path,{headers:{cookie:member.cookie}})).status,403)
+  for(const [path,data] of [['dashboards',definition],['groups',{number:'+15125550125',team:'Bad',location:'Bad',revision:2}],[dashPath+'/delete',{revision:2}]])assert.equal((await post(runtime,'/api/handset/metrics/'+path,data,{cookie:member.cookie})).status,403)
+  assert.equal((await post(runtime,'/auth/operator/role',{operatorId:'synthetic-handset-2',role:'owner'},headers)).status,200)
+  assert.equal((await post(runtime,'/auth/operator/status',{operatorId:'synthetic-handset-1',status:'inactive'},headers)).status,200)
+  assert.equal((await runtime.request('/api/handset/metrics/history/'+retained.id,{headers})).status,401)
+  const beforeRefusal=runtime.mails.length;await runtime.scheduled(analyticsNow+2000);assert.equal(runtime.mails.length,beforeRefusal)
+  assert.equal((await runtime.sql('SELECT state FROM hnd_metric_schedules WHERE id=?',pending.id)).results[0].state,'refused')
  }finally{await runtime.close()}
 })

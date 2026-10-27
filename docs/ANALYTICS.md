@@ -15,7 +15,7 @@ independently received staff audio. A canonical terminal no-answer, busy, failed
 or canceled call is missed only when no leg is answered. Other and unknown states
 remain in volume, with their exclusion from answered and missed counts shown.
 Root calls, transfer legs and endpoint offers never inflate canonical call volume.
-CSV contains one row per root call, with local hour, timezone and capture time.
+CSV contains one row per selected root call, with local hour, timezone, reporting team, reporting location and capture time.
 The JSON API and immutable historical and scheduled reports retain raw denominators,
 source IDs and the full snapshot. Native observations contribute to the source hash.
 
@@ -36,9 +36,36 @@ eligible delivered invitations; its mean denominator is responses. No response a
 AI sentiment have no rating. Outcomes are current as of the displayed capture time;
 historical snapshots retain the captured values.
 
-HND-022 remains partial. Team and location grouping, actual staff attribution,
-receptionist containment and tracking conversion, custom dashboards and richer
-filtered drill-down remain. HND-019 supplies the still-missing real live-wallboard
+Reporting teams and locations are explicit owner-maintained business-number
+assignments, separate from staff membership. Numbers without an assignment use
+Unassigned. Changes append an audited revision. Each captured source call retains
+the assignment revision; historical reports keep their captured labels.
+
+Follow a group or outcome link to intersect customer-call filters. The source
+list, CSV, API, recovery cases and survey denominator use those same selected calls.
+FCR still examines surrounding contacts outside the selected subset, so filtering
+out a repeat cannot turn a first contact into a successful resolution. Recovery
+case totals deduplicate multiple needs in the same customer case. Reviewed queue
+formulas and agent timelines retain the complete configured queue interval and
+are labeled separately from filtered native calls.
+
+Custom dashboards save an exact formula revision, customer-call filters, grouping
+dimensions and displayed group measures. Current owner authority is checked at
+every read, export, save and delete. A stale edit preserves the submitted draft
+and requires explicit comparison before replacing the latest revision. Scheduling
+binds the exact reviewed dashboard definition; subsequent edits or deletion do not
+rewrite an approved scheduled definition or a retained report. Owner authority and
+recipient are checked again before release, and a revoked owner receives no report.
+
+The combined known-week journey uses signed provider ingress and reviewed import,
+with a receiving booking system at the network edge. It reconciles the DST split,
+failed recording metadata, transfer and overflow legs, callback parents, unresolved
+repeat work, a confirmed booking and every HND-086 fixture total. Provider metadata
+and independently stored test-edge booking readback do not certify live audio or
+real external delivery.
+
+HND-022 remains partial. Actual handling-user attribution, receptionist containment
+and tracking conversion remain. HND-019 supplies the still-missing real live-wallboard
 comparison; stored queue observations are not a live wallboard. Real survey SMS
 and handset receipt remain held on toll-free verification. No real text is sent
 by these reporting proofs. The existing HND-092 live-mail receipt does not prove
