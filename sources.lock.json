@@ -4488,7 +4488,7 @@
       "executable": false
     },
     "tests/helpers/handset-messages-browser.mjs": {
-      "sha256": "96d0e73eee56d51b0618c71615f918ad14322619f9a68f444a662878e604c0fe",
+      "sha256": "e40075a83e3ea078f872e446e51ca182b267afcf7dfd768500a26c8842484132",
       "executable": false
     },
     "tests/helpers/handset-messages.mjs": {
