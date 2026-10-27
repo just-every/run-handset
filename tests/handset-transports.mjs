@@ -189,6 +189,13 @@ test('Signed call status reordering preserves one canonical call and every origi
  const runtime = await openHandset({ twilio: true })
  try {
   const f = await sourceFixture(runtime), at = Date.now() - 10000
+  for (const address of ['not a URL', 'http://api.twilio.com/media', 'https://api.twilio.com:8443/media', 'https://example.invalid/media', 'https://api.twilio.com/media?secret=synthetic-handset-982']) {
+   const refused = await f.callback({ MessageSid: 'synthetic-handset-mms-refused', NumMedia: '1', MediaUrl0: address, MediaContentType0: 'audio/wav', Timestamp: new Date(at).toISOString() })
+   assert.equal(refused.status, 400); assert.equal((await refused.json()).error, 'invalid_media_reference')
+  }
+  const mms = await f.callback({ MessageSid: 'synthetic-handset-mms-valid', NumMedia: '1', MediaUrl0: 'https://api.twilio.com/media/synthetic-handset-983', MediaContentType0: 'audio/wav', Timestamp: new Date(at).toISOString() })
+  assert.equal(mms.status, 200)
+  assert.equal(runtime.sourceRequests.length, 0, 'MMS is declared metadata only and never fetches supplied media URLs')
   const orders = [[3, 1, 0, 2], [1, 3, 2, 0], [0, 2, 3, 1]]
   for (const [index, order] of orders.entries()) {
    const events = ['initiated', 'ringing', 'in-progress', 'completed'].map((state, sequence) => ({ CallSid: 'synthetic-handset-order-' + index, CallStatus: state, SequenceNumber: String(sequence), Timestamp: new Date(at + sequence * 1000).toISOString() }))
@@ -210,7 +217,7 @@ test('Signed call status reordering preserves one canonical call and every origi
    assert.equal(new Set(receipts.map(receipt => receipt.caseId)).size, 1)
    assert.equal((await (await runtime.request('/api/handset/cases/' + receipts[0].caseId, { headers: f.headers })).json()).current.status, 'open')
   }
-  assert.equal((await runtime.sql('SELECT count(*) AS n FROM hnd_source_receipts')).results[0].n, 12)
+  assert.equal((await runtime.sql('SELECT count(*) AS n FROM hnd_source_receipts')).results[0].n, 13)
   assert.equal(runtime.sourceRequests.filter(request => request.method === 'POST').length, 0)
  } finally { await runtime.close() }
 })

@@ -74,6 +74,13 @@ explicit instant. It is signed, bound to the first call it sees, and expires in 
 minutes. It publishes nothing and routes no live call. Each carrier step is
 retained as an event.
 
+Carrier audio addresses bind that test and its exact approved prompt version.
+Every fetch rechecks test expiry and current source authority, and audio is
+served with no-store. Revoking a source withdraws previously issued addresses;
+fresh source consent requires a fresh test and never revives old playback.
+The current media flows, fixed speech destination and unqualified custody
+boundaries are declared in `docs/MEDIA-SECURITY.md`.
+
 ## What is not proved here
 
 Real audible test calls, real record-by-phone calls and real ringing of the

@@ -33,13 +33,13 @@ export function choice<T extends string>(value: unknown, choices: readonly T[], 
  return value as T
 }
 /** Bound both declared and streamed bytes before parsing or retaining a body. */
-export async function boundedBody(body:Request|Response,limit:number,code='body_too_large'):Promise<Uint8Array<ArrayBuffer>>{
+export async function boundedBody(body:Request|Response,limit:number,code='body_too_large',status=413):Promise<Uint8Array<ArrayBuffer>>{
  const reader=body.body?.getReader(),length=body.headers.get('content-length'),chunks:Uint8Array[]=[]
  let size=0
  try{
-  if(length!==null&&(!/^\d+$/.test(length)||Number(length)>limit))throw new Fault(code,413)
-  if(reader)while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>limit)throw new Fault(code,413);chunks.push(part.value)}
-  if(length!==null&&size!==Number(length))throw new Fault(code,413)
+  if(length!==null&&(!/^\d+$/.test(length)||Number(length)>limit))throw new Fault(code,status)
+  if(reader)while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>limit)throw new Fault(code,status);chunks.push(part.value)}
+  if(length!==null&&size!==Number(length))throw new Fault(code,status)
   const bytes=new Uint8Array(size);let offset=0
   for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length}
   return bytes

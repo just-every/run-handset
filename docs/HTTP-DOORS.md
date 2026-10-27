@@ -84,6 +84,15 @@ HND-036 inherit provider-specific signed callbacks with narrow authority.
 Those future clauses must prove their own implemented doors. Their signatures,
 product permissions and carrier qualification are not proved by a current 404.
 
+Prompt recording and test callbacks under `/providers/twilio/prompts` require
+their exact signed URL and narrowly bound call identity. Carrier WAV reads at
+`/providers/twilio/prompts/audio/:testId/:versionId/:capability.wav` require the
+exact test-bound capability, an approved version, an unexpired started test and
+its current selected-number source. They return no-store audio. Source
+withdrawal fences each fetch; replacement consent cannot revive an old test.
+Native preview requires the current owner session or the exact current greeting-draft role scope. See
+`docs/MEDIA-SECURITY.md` for the bounded external-flow declarations.
+
 `tests/handset-auth.mjs` exercises the emitted Worker and actual numbered D1
 migrations with production auth. These auth tests substitute only the SendGrid network edge
 in ordinary CI. `tests/handset-auth-browser.mjs` drives native forms at 1440 and

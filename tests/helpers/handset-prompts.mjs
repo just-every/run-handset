@@ -18,7 +18,7 @@ export function wavBytes({ rate = 44100, channels = 1, seconds = 1, freq = 440 }
 }
 export const b64 = bytes => Buffer.from(bytes).toString('base64')
 
-export async function promptFixture() {
+export async function promptFixture(options={}) {
  const speech = [],speechResponses=[],redirectRequests=[]
  const runtime = await openHandset({
   captureLogs:true,
@@ -32,6 +32,7 @@ export async function promptFixture() {
   knowledgeEdge:async(request,Response)=>{
    if(request.url.startsWith('https://handset-redirect.example.test/')){redirectRequests.push(request.url);return new Response('refused redirect target',{status:403})}
   },
+  ...options,
  })
  try {
   const source = await sourceFixture(runtime, { e164: business }), headers = source.headers

@@ -6,7 +6,7 @@ import { append } from '../audit/store'
 import { sourcePolicy } from '../audit/policy'
 import { boundedBody, Fault, json, text, id, digest, integer } from '../core'
 
-import { activeSources, sourceFence, type Source } from './sources'
+import { activeSources, activeSourceById, sourceFence, type Source } from './sources'
 export { sourceDoor } from './sources'
 const endpoint='/providers/twilio/events'
 
@@ -40,7 +40,9 @@ function normalize(p:URLSearchParams){
   const count=integer(Number(p.get('NumMedia')??0),'NumMedia',0,10)
   const media=[]
   for(let index=0;index<count;index++){
-   const address=new URL(get('MediaUrl'+index));if(address.protocol!=='https:'||address.hostname!=='api.twilio.com'||address.port||address.username||address.password||address.search||address.hash)throw new Fault('invalid_media_reference')
+   let address:URL
+   try{address=new URL(get('MediaUrl'+index))}catch{throw new Fault('invalid_media_reference')}
+   if(address.origin!=='https://api.twilio.com'||address.username||address.password||address.search||address.hash)throw new Fault('invalid_media_reference')
    media.push({providerUrl:address.href,mime:get('MediaContentType'+index)})
   }
   return {account,externalId:get('MessageSid'),parent:'',eventId:`message:${get('MessageSid')}:${state}`,occurredAt,from,to,kind:'message',state,data:{channel:count?'mms':'sms',providerStatus:state,from,to,text:sourceText(p.get('Body')??''),media,capture:'metadata only; media not fetched'}}
@@ -68,10 +70,11 @@ async function eventSource(env:Bindings,event:Event){
  return matching.length===1?matching[0]:null
 }
 
-async function sourceTimestamp(env:Bindings,event:Event):Promise<Event>{
+async function sourceTimestamp(env:Bindings,event:Event,source:Source):Promise<Event>{
  if(event.occurredAt!==null&&event.kind!=='recording')return event
  const resource=event.kind==='message'?'Messages':event.kind==='recording'?'Recordings':null
  if(!resource)throw new Fault('provider_event_timestamp_required')
+ if(!await activeSourceById(env,source.id))throw new Fault('source_authority_changed',409)
  let response:Response
  try{response=await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(event.account)}/${resource}/${encodeURIComponent(event.externalId)}.json`,{headers:{authorization:'Basic '+btoa(event.account+':'+env.HANDSET_TWILIO_AUTH_TOKEN)},redirect:'manual',signal:AbortSignal.timeout(5000)})}catch{throw new Fault('provider_readback_unavailable',503)}
  if(response.status!==200)throw new Fault('provider_readback_unavailable',503)
@@ -187,14 +190,14 @@ export async function twilioResponse(request:Request,original:Bindings):Promise<
   knownSource=source??await env.DB.prepare(`SELECT s.* FROM hnd_sources s JOIN hnd_records n ON n.id=s.number_id WHERE s.account_id=? AND (json_extract(n.data,'$.e164')=? OR EXISTS(SELECT 1 FROM hnd_source_objects so WHERE so.source_id=s.id AND so.external_id IN (?,?))) ORDER BY s.revision DESC LIMIT 1`).bind(event.account,event.to,event.externalId,event.parent).first<Source>()
   if(!source)throw new Fault('invalid_source_proof',403)
   const alreadyRecorded=await historicalReceipt(env,source,event.eventId)
-  if(!alreadyRecorded)event=await sourceTimestamp(env,event)
+  if(!alreadyRecorded)event=await sourceTimestamp(env,event,source)
   // Persist only the documented fields needed to replay a verified dependent event.
   const allowed=['AccountSid','CallSid','ParentCallSid','CallStatus','CallDuration','SequenceNumber','Timestamp','From','To','MessageSid','MessageStatus','SmsStatus','Body','NumMedia','RecordingSid','RecordingStatus',...Array.from({length:10},(_,i)=>['MediaUrl'+i,'MediaContentType'+i]).flat()]
   const retained=new URLSearchParams([...p].filter(([key])=>allowed.includes(key))).toString(),bodyHash=await digest([...p].sort(([a],[b])=>a.localeCompare(b))),receivedAt=Date.now()
   const result=await ingest(env,source,event,bodyHash,retained,receivedAt)
   if(!result.held){
    const pending=(await env.DB.prepare('SELECT * FROM hnd_source_pending WHERE source_id=? AND parent_external_id=? ORDER BY received_at LIMIT 100').bind(source.id,event.externalId).all<{parameters:string;body_hash:string;received_at:number}>()).results
-   for(const item of pending)await ingest(env,source,await sourceTimestamp(env,normalize(new URLSearchParams(item.parameters))),item.body_hash,item.parameters,item.received_at)
+   for(const item of pending)await ingest(env,source,await sourceTimestamp(env,normalize(new URLSearchParams(item.parameters)),source),item.body_hash,item.parameters,item.received_at)
   }
   if(!result.held&&event.kind==='message'&&['received','receiving'].includes(event.state))await surveyIncoming(env,source.id,p)
   return json({...result,customerOutcome:'unconfirmed',externalEffectOccurred:false},result.held?202:200)
