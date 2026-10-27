@@ -401,7 +401,7 @@ The managed RunEditRun carrier, billing and staffed-support offer requires an ac
 
 ## Status
 
-Judged from the code and tests at commit `1b79f970f72bfaf4e4dabd649965322e63e31b55` (27 October 2026). Builder review only; fresh ct judgment remains pending. HND-022 data and live-mail proof use this implementation; the final candidate also corrects singular call labels, with its exact head and browser run identified in the handoff. No completion or live-provider qualification is claimed for HND-033 or HND-010.
+Judged from the code and tests at commit `63da5b3d7202f4346a7dda1dc999320edbbd9077` (28 October 2026). Builder review only; fresh ct judgment remains pending. HND-022 includes transactional effect revision capture; the final handoff names its exact candidate and test and browser runs. Independent live-mail proof retains source and journey commit `1b79f970f72bfaf4e4dabd649965322e63e31b55`; no mail transport or receiver code changed in this fix. No completion or live-provider qualification is claimed for HND-033 or HND-010.
 
 HND-073 scoped recovery additions are locally verified; no new DONE claim.
 

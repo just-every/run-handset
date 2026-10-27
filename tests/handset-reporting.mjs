@@ -425,7 +425,7 @@ test('Call-bound reports attribute verified handlers and reconcile booking conta
   const captured=(await live()).native
   assert.deepEqual(captured.receptionist.states.pending,[calls[3].recordId])
   assert.deepEqual(captured.receptionist.states.unstarted,[])
-  assert.deepEqual(captured.sourceCalls[3].receptionistWork.steps.map(s=>[s.id,s.revision]),[[f.uncertain.step.id,f.uncertain.step.version+1]])
+  assert.deepEqual(captured.sourceCalls[3].receptionistWork.steps.map(s=>[s.id,s.revision]),[[f.uncertain.step.id,n.sourceCalls[3].receptionistWork.steps[0].revision+1]])
   const saved=await f.write('/api/handset/metrics/finalize',{queueId:'*',configRevision:1,dashboardId:dashboard.id,dashboardRevision:1})
   const csv=await (await runtime.request('/api/handset/metrics/dashboards/'+dashboard.id+'/csv',{headers})).text()
   assert.equal(csv.trim().split('\r\n').length,7);assert.ok(csv.includes(handler));assert.ok(csv.includes(calls[0].offerId));assert.ok(csv.includes('Winter repairs'));assert.ok(csv.includes(f.outcomes[0].id));assert.ok(!csv.includes(f.unlinked.id));assert.ok(csv.includes(f.crm.step.id));assert.ok(csv.includes(f.uncertain.step.id))

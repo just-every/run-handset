@@ -336,7 +336,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "584fbbdecd5b88601fb5f19a76dad8aa9a240241b87dd94176c7a61808325cc9",
+      "sha256": "e835280a44f0bd06ca605fac62e7233605fce9639aba4b26f3993d7de19d52d3",
       "executable": false
     },
     "deploy-demo.json": {
@@ -4396,7 +4396,7 @@
       "executable": false
     },
     "tests/handset-reporting.mjs": {
-      "sha256": "e538e32f0e33b9b2f539a096055b6858bbeef2ae322369f788b031f434afb23c",
+      "sha256": "07298a53a60568e95936b7702dbf5e28895ec1ec8ab4aecfe2341e8a6a8d3b2a",
       "executable": false
     },
     "tests/handset-transports.mjs": {
