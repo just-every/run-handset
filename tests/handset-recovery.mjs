@@ -380,3 +380,40 @@ test('Post-call IVR and separately consented SMS keep real ratings and reconcile
 
  } finally {await f.runtime.close()}
 })
+
+test('Queued inbox work and scoped connected attempts share durable STOP across two company numbers and preflight races',async()=>{
+ const {openHandset}=await import('./helpers/handset-worker.mjs'),{messagesFixture,messageNow}=await import('./helpers/handset-messages.mjs')
+ const runtime=await openHandset({twilio:true,clockTime:messageNow})
+ try {
+  const a=await messagesFixture(runtime),b=await messagesFixture(runtime,{business:'+18335550135'})
+  await a.incoming('Please confirm the service window');await b.incoming('Please confirm the same service window')
+  const first=await a.queued(),second=await b.queued()
+  const native=await a.incoming('Customer-care only, please'),person=await a.write('/api/handset/records',{kind:'person',sourceId:'synthetic-handset-1850',occurredAt:messageNow,caseId:native.caseId,data:{name:'Jordan Lee'}})
+  const issued=await a.write('/api/handset/mcp/consent',{name:'Connected-system customer-care check',definition:{scopes:['send'],tools:['message.send'],records:[native.caseId],numbers:[a.source.numberId],recipients:[person.record.id],budgetCents:0,policyRevision:'owner-only-v1'},expiresAt:messageNow+3600000,confirm:'approve scoped credential'})
+  const state={operation:'message.send',caseId:native.caseId,caseVersion:1,numberId:a.source.numberId,recipients:[person.record.id],amountCents:0,flowRevision:'',policyRevision:'owner-only-v1',content:'Confirm the service window'}
+  const approval=await a.write('/api/handset/grants/approve',{grantId:issued.grant.id,state,expiresAt:messageNow+3600000,confirm:'approve exact reviewed state'})
+  const auth={authorization:'Bearer '+issued.token},check=()=>runtime.request('/api/handset/v1/cases/'+native.caseId+'/message-suppression',{headers:auth})
+  assert.equal((await (await check()).json()).suppressed,false)
+  const prepared=await post(runtime,'/api/handset/application/prepare',{state,approvalId:approval.id,idempotencyKey:'synthetic-handset-1851'},auth)
+  assert.equal(prepared.status,202,await prepared.clone().text());const held=await prepared.json()
+  await a.incoming('custom opt-out',{OptOutType:'STOP'})
+  assert.equal((await (await check()).json()).suppressed,true)
+  for(const f of [a,b]){
+   const report=await f.get();assert.equal(report.jobs.filter(j=>[first.id,second.id].includes(j.id)&&j.state==='suppressed').length,2)
+   assert.equal((await f.get('/suppression?recipient='+encodeURIComponent(a.recipient))).suppressed,true)
+  }
+  assert.equal((await post(runtime,'/api/handset/application/execute',{jobId:held.job.id,state},auth)).status,409)
+  assert.equal((await post(runtime,'/api/handset/application/prepare',{state,approvalId:approval.id,idempotencyKey:'synthetic-handset-1852'},auth)).status,409)
+  await runtime.restart();await runtime.scheduled(messageNow)
+  assert.equal(a.receiver.sent.length+b.receiver.sent.length,0)
+  assert.equal((await (await check()).json()).suppressed,true)
+  assert.equal((await post(runtime,a.base+'/permissions',{recipient:a.recipient,purpose:'customer-care',evidence:'A call alone is not a new opt-in',expiresAt:messageNow+3600000,confirm:'I verified explicit permission for customer-care texts'},a.headers)).status,409)
+  const other=await messagesFixture(runtime,{business:'+18335550145',recipient:'+15125550128'}),racing=await other.queued()
+  const registrationUrl='https://messaging.twilio.com/v1/Tollfree/Verifications/'+other.registration.sid
+  runtime.twilioResources.set(registrationUrl,async()=>{await other.incoming('STOP');return other.registration})
+  const after=(await other.write('/jobs/'+racing.id+'/dispatch',{revision:racing.revision},200)).job
+  assert.equal(after.state,'suppressed');assert.equal(other.receiver.sent.length,0,'STOP during provider preflight receives no POST')
+  const foreign=await runtime.request('/api/handset/v1/cases/'+(await other.current()).id+'/message-suppression',{headers:auth})
+  assert.equal(foreign.status,403)
+ }finally{await runtime.close()}
+})

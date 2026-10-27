@@ -20,7 +20,7 @@ export async function enqueueText(env:Bindings,permissionId:string,body:string,d
  await append(env,source.id,'consent.enqueue',row.id,'completed',[...fences,guard(env,"SELECT count(*) FROM hnd_text_permissions WHERE id=? AND state='granted'",permissionId),env.DB.prepare('INSERT INTO hnd_care_texts(id,permission_id,body,state,provider_sid,reason,created_at,accepted_at,delivered_at,deadline_at) VALUES (?,?,?,?,?,?,?,?,?,?)').bind(...Object.values(row))],null,sourcePolicy(source))
  return row
 }
-const stopQuery="SELECT count(*) FROM hnd_protection_stops WHERE recipient=? AND (channel IN ('sms','all') OR reason='dnc')"
+import { stopQuery } from '../messages/suppression'
 export async function dispatchText(env:Bindings,key:string):Promise<CareText> {
  const row=await getText(env,key)
  if(row.state!=='pending')return row

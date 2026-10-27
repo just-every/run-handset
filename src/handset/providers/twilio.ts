@@ -1,3 +1,5 @@
+import { observeMessage } from '../messages/ingress'
+import { observeMessageStatus } from '../messages/provider'
 import { surveyIncoming } from '../surveys/provider'
 import { observeUnansweredCall } from '../recovery/intake'
 import { observeConsentDisconnect } from '../consent/outcomes'
@@ -37,6 +39,7 @@ function normalize(p:URLSearchParams){
  if(message){
   const state=get('MessageStatus',true)||get('SmsStatus',true)||'received'
   if(!['queued','sending','sent','delivered','undelivered','failed','receiving','received','read','accepted','scheduled','canceled'].includes(state))throw new Fault('invalid_message_status')
+  if(p.has('ConversationSid')||p.has('GroupSid')||p.has('Participants'))throw new Fault('group_route_unqualified',409)
   const count=integer(Number(p.get('NumMedia')??0),'NumMedia',0,10)
   const media=[]
   for(let index=0;index<count;index++){
@@ -64,6 +67,8 @@ async function eventSource(env:Bindings,event:Event){
   activeSources(env,event.account),
   env.DB.prepare('SELECT DISTINCT s.number_id FROM hnd_source_objects o JOIN hnd_sources s ON s.id=o.source_id WHERE o.external_id IN (?,?) AND s.account_id=?').bind(event.externalId,event.parent,event.account).all<{number_id:string}>(),
  ])
+ const outbound=await env.DB.prepare('SELECT t.source_id FROM hnd_message_jobs j JOIN hnd_message_threads t ON t.id=j.thread_id WHERE j.provider_sid=?').bind(event.externalId).first<{source_id:string}>()
+ if(outbound)return sources.find(s=>s.id===outbound.source_id)??null
  const linked=sources.filter(s=>objects.results.some(o=>o.number_id===s.number_id))
  if(linked.length)return linked.length===1?linked[0]:null
  const matching=sources.filter(s=>s.e164===event.to)
@@ -156,7 +161,7 @@ async function ingest(env:Bindings,source:Source,event:Event,bodyHash:string,par
 
  // A verified inbound opt-out cancels pending promises for this correlated need.
  // Started remote work stays visibly started: this is not a claim of remote deletion.
- if (event.kind === 'message' && ['received','receiving'].includes(event.state) && 'text' in event.data && /^(stop|stopall|unsubscribe|cancel|end|quit)$/i.test(String(event.data.text).trim())) {
+ if (event.kind === 'message' && ['received','receiving'].includes(event.state) && 'text' in event.data && (/^(stop|stopall|unsubscribe|cancel|end|quit)$/i.test(String(event.data.text).trim())||new URLSearchParams(parameters).get('OptOutType')==='STOP')) {
   statements.push(db.prepare("INSERT INTO hnd_protection_stops VALUES (?,?,?,'all','consent_revoked',?,?) ON CONFLICT(number_id,recipient,channel,reason) DO NOTHING").bind(id(),source.number_id,peer,source.id,now))
   statements.push(db.prepare(`UPDATE hnd_followups SET status='canceled',delivery=CASE WHEN delivery IN ('draft','approved','held') THEN 'canceled' ELSE delivery END,reason='Signed inbound STOP; obsolete follow-up canceled',revision=revision+1,updated_at=? WHERE case_id=? AND status='open'`).bind(now,caseId))
   statements.push(db.prepare(`INSERT INTO hnd_followup_history SELECT id,revision,json_object('status',status,'delivery',delivery,'reason',reason),?,? FROM hnd_followups WHERE case_id=? AND updated_at=? AND reason='Signed inbound STOP; obsolete follow-up canceled' ON CONFLICT(id,revision) DO NOTHING`).bind(source.id,now,caseId,now))
@@ -192,14 +197,18 @@ export async function twilioResponse(request:Request,original:Bindings):Promise<
   const alreadyRecorded=await historicalReceipt(env,source,event.eventId)
   if(!alreadyRecorded)event=await sourceTimestamp(env,event,source)
   // Persist only the documented fields needed to replay a verified dependent event.
-  const allowed=['AccountSid','CallSid','ParentCallSid','CallStatus','CallDuration','SequenceNumber','Timestamp','From','To','MessageSid','MessageStatus','SmsStatus','Body','NumMedia','RecordingSid','RecordingStatus',...Array.from({length:10},(_,i)=>['MediaUrl'+i,'MediaContentType'+i]).flat()]
+  const allowed=['AccountSid','CallSid','ParentCallSid','CallStatus','CallDuration','SequenceNumber','Timestamp','From','To','MessageSid','MessageStatus','SmsStatus','Body','NumMedia','RecordingSid','RecordingStatus','OptOutType',...Array.from({length:10},(_,i)=>['MediaUrl'+i,'MediaContentType'+i]).flat()]
   const retained=new URLSearchParams([...p].filter(([key])=>allowed.includes(key))).toString(),bodyHash=await digest([...p].sort(([a],[b])=>a.localeCompare(b))),receivedAt=Date.now()
   const result=await ingest(env,source,event,bodyHash,retained,receivedAt)
   if(!result.held){
    const pending=(await env.DB.prepare('SELECT * FROM hnd_source_pending WHERE source_id=? AND parent_external_id=? ORDER BY received_at LIMIT 100').bind(source.id,event.externalId).all<{parameters:string;body_hash:string;received_at:number}>()).results
    for(const item of pending)await ingest(env,source,await sourceTimestamp(env,normalize(new URLSearchParams(item.parameters)),source),item.body_hash,item.parameters,item.received_at)
   }
-  if(!result.held&&event.kind==='message'&&['received','receiving'].includes(event.state))await surveyIncoming(env,source.id,p)
+  if(!result.held&&event.kind==='message'){
+   await observeMessage(env,source,p,event.occurredAt??receivedAt)
+   await observeMessageStatus(env,p)
+   if(['received','receiving'].includes(event.state))await surveyIncoming(env,source.id,p)
+  }
   return json({...result,customerOutcome:'unconfirmed',externalEffectOccurred:false},result.held?202:200)
  }catch(error){
   if(error instanceof Fault){if(knownSource)await append(env,knownSource.id,'source.refuse','installation','refused',[],null,sourcePolicy(knownSource));return json({error:error.code},error.status)}

@@ -1,3 +1,4 @@
+import { requireCaseNoStop, noCaseStopFence } from '../messages/suppression'
 import type { Bindings } from '../../auth.server'
 import { runtimeBindings } from '../../auth.server'
 import { digest, Fault, id, input, json, keys, object, text, type ObjectValue } from '../core'
@@ -74,11 +75,12 @@ async function prepare(env:Bindings,g:Grant,value:ObjectValue,applied:AppliedPol
  const s=state(value.state),d=await checkState(env,g,s),key=text(value.idempotencyKey,'idempotencyKey',100),hash=await digest(s)
  if(['case.read','comment.draft'].includes(s.operation))throw new Fault('use_read_or_draft_door')
  if(['number.port','recording.read','commitment.make','outcome.work'].includes(s.operation))throw new Fault('qualified_human_or_media_door_required',403)
+ if(s.operation==='message.send')await requireCaseNoStop(env,s.caseId)
  const existing=await env.DB.prepare('SELECT * FROM hnd_jobs WHERE grant_id=? AND idempotency_key=?').bind(g.id,key).first<Job>()
  if(existing){jobPolicy(existing,applied);if(existing.state_hash!==hash)throw new Fault('idempotency_state_changed',409);await append(env,g.id,'application.read',existing.id,'completed',[grantFence(env,g)],null,applied);return {job:existing,replay:true,effectOccurred:false}}
  const a=await authority(env,g,s,value,applied),jobId=id(),now=Date.now()
  await append(env,g.id,'application.attempt',jobId,'completed',[
-  grantFence(env,g),a.fence,
+  grantFence(env,g),a.fence,...(s.operation==='message.send'?[noCaseStopFence(env,s.caseId)]:[]),
   env.DB.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_cases WHERE id=? AND version=?').bind(s.caseId,s.caseVersion),
   env.DB.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_grants WHERE id=? AND reserved_cents+?<=?').bind(g.id,s.amountCents,d.budgetCents),
   env.DB.prepare('UPDATE hnd_grants SET reserved_cents=reserved_cents+? WHERE id=?').bind(s.amountCents,g.id),
@@ -95,6 +97,7 @@ async function execute(env:Bindings,g:Grant,value:ObjectValue,applied:AppliedPol
  const s=state(value.state)
  if(await digest(s)!==job.state_hash)throw new Fault('reviewed_state_changed',409)
  await checkState(env,g,s)
+ if(s.operation==='message.send')await requireCaseNoStop(env,s.caseId)
  let approvalFence:D1PreparedStatement
  if(job.standing_id){
   const p=await env.DB.prepare('SELECT * FROM hnd_standing WHERE id=?').bind(job.standing_id).first<Standing>()
@@ -104,7 +107,7 @@ async function execute(env:Bindings,g:Grant,value:ObjectValue,applied:AppliedPol
   approvalFence=env.DB.prepare(`INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_approvals a JOIN oa_operators o ON o.id=a.approved_by WHERE a.id=? AND a.consumed_by=? AND a.grant_id=? AND a.grant_revision=? AND a.state_hash=? AND a.owner_version=? AND a.revoked_at IS NULL AND a.expires_at>? AND ${humanAuthority('a')} AND o.status='active' AND o.version=a.owner_version`).bind(job.approval_id,job.id,g.id,job.grant_revision,job.state_hash,job.approved_owner_version,Date.now())
  }
  await append(env,g.id,'application.execute',job.id,'refused',[
-  grantFence(env,g),approvalFence,env.DB.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_cases WHERE id=? AND version=?').bind(s.caseId,s.caseVersion),
+  grantFence(env,g),approvalFence,...(s.operation==='message.send'?[noCaseStopFence(env,s.caseId)]:[]),env.DB.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_cases WHERE id=? AND version=?').bind(s.caseId,s.caseVersion),
  ],null,applied)
  // No qualified provider exists yet. This is never a successful paid effect.
  return {status:'held_adapter_unqualified',effectOccurred:false,jobId:job.id}

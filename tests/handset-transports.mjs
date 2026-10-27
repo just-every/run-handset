@@ -221,3 +221,66 @@ test('Signed call status reordering preserves one canonical call and every origi
   assert.equal(runtime.sourceRequests.filter(request => request.method === 'POST').length, 0)
  } finally { await runtime.close() }
 })
+
+test('Signed inbox MMS retains shared history and exactly one claim while unsupported routes and foreign sessions are refused',async()=>{
+ const {openHandset}=await import('./helpers/handset-worker.mjs'),{messagesFixture,messageNow}=await import('./helpers/handset-messages.mjs')
+ const runtime=await openHandset({twilio:true,clockTime:messageNow})
+ try {
+  const f=await messagesFixture(runtime),media=`https://api.twilio.com/2010-04-01/Accounts/${f.source.account}/Messages/synthetic-handset-1810/Media/synthetic-handset-1811`
+  const received=await f.incoming('The heater display is flashing',{MessageSid:'synthetic-handset-1810',NumMedia:'1',MediaUrl0:media,MediaContentType0:'image/jpeg'})
+  const t=await f.current();assert.ok(t)
+  const races=await Promise.all([1,2].map(()=>post(runtime,f.base+'/threads/'+t.id+'/claim',{revision:t.revision},f.headers)))
+  assert.deepEqual(races.map(r=>r.status).sort(),[200,409])
+  const detail=await f.get('/threads/'+t.id)
+  assert.equal(detail.thread.owner_id,'synthetic-handset-1');assert.equal(detail.thread.revision,2)
+  assert.equal(detail.messages.length,1);assert.equal(detail.messages[0].body,'The heater display is flashing')
+  assert.deepEqual(JSON.parse(detail.messages[0].participants),[f.business,f.recipient])
+  assert.deepEqual(JSON.parse(detail.messages[0].media),[{providerUrl:media,mime:'image/jpeg',content:'metadata only; not fetched'}])
+  assert.equal(detail.history.filter(h=>h.event==='Conversation claimed').length,1)
+  assert.equal(runtime.sourceRequests.filter(r=>r.url===media).length,0,'metadata does not fetch private media')
+  const group=await f.source.callback({MessageSid:'synthetic-handset-1812',MessageStatus:'received',Body:'Group invitation',Participants:JSON.stringify([f.business,f.recipient,'+15125550127']),Timestamp:new Date(messageNow).toISOString()})
+  assert.equal(group.status,409);assert.equal((await f.get('/threads/'+t.id)).messages.length,1)
+  assert.equal((await f.source.callback({MessageSid:'synthetic-handset-1813',Body:'Unsigned'},{signature:false})).status,403)
+  await runtime.restart();assert.deepEqual((await f.get('/threads/'+t.id)).messages,detail.messages)
+  assert.equal((await runtime.request(f.base)).status,401)
+  await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
+  const {signIn}=await import('./helpers/handset-auth.mjs'),member=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'})
+  assert.equal((await runtime.request(f.base,{headers:{cookie:member.cookie}})).status,403)
+  assert.equal((await post(runtime,f.base+'/threads/'+t.id+'/claim',{revision:2},{cookie:member.cookie})).status,403)
+ }finally{await runtime.close()}
+})
+
+test('Exact reviewed snippets send MMS once and keep provider acceptance distinct from carrier delivery and uncertain creates',async()=>{
+ const {openHandset}=await import('./helpers/handset-worker.mjs'),{messagesFixture,messageNow}=await import('./helpers/handset-messages.mjs')
+ const runtime=await openHandset({twilio:true,clockTime:messageNow})
+ try {
+  const f=await messagesFixture(runtime),url=`https://api.twilio.com/2010-04-01/Accounts/${f.source.account}/Messages/synthetic-handset-1820/Media/synthetic-handset-1821`
+  await f.incoming('Please send the diagram',{MessageSid:'synthetic-handset-1820',NumMedia:'1',MediaUrl0:url,MediaContentType0:'image/png'})
+  runtime.twilioResources.set(url+'.json',{account_sid:f.source.account,content_type:'image/png',size:'1024'})
+  const t=await f.claimed(),draft=await f.draft({media:[{url,mime:'image/png',bytes:1024}]})
+  assert.equal(draft.state,'draft');assert.equal(f.receiver.sent.length,0)
+  assert.equal((await post(runtime,f.base+'/jobs/'+draft.id+'/approve',{revision:draft.revision,confirm:'unchecked'},f.headers)).status,403)
+  const queued=(await f.write('/jobs/'+draft.id+'/approve',{revision:draft.revision,confirm:'approve exact scheduled message'},200)).job
+  assert.equal(queued.state,'queued');assert.equal(queued.body,draft.body)
+  assert.equal((await post(runtime,f.base+'/threads/'+t.id+'/schedule',{revision:t.revision,snippetId:draft.snippet_id,snippetRevision:1,dueAt:messageNow,permissionId:draft.permission_id,media:[{url,mime:'image/png',bytes:5000001}]},f.headers)).status,400)
+  assert.equal((await post(runtime,f.base+'/threads/'+t.id+'/schedule',{revision:t.revision,snippetId:draft.snippet_id,snippetRevision:1,dueAt:messageNow,permissionId:draft.permission_id,participants:[f.recipient,'+15125550127']},f.headers)).status,409)
+  const sent=(await f.write('/jobs/'+queued.id+'/dispatch',{revision:queued.revision},200)).job
+  assert.equal(sent.state,'accepted');assert.equal(sent.provider_state,'queued');assert.equal(sent.carrier_state,'unconfirmed')
+  assert.equal(f.receiver.sent.length,1);assert.deepEqual(f.receiver.sent[0].form.getAll('MediaUrl'),[url])
+  await runtime.restart();await runtime.scheduled(messageNow);assert.equal(f.receiver.sent.length,1)
+  const m=f.receiver.sent[0].message;m.status='delivered';f.source.resource('Messages',m.sid,m)
+  const callback=await f.source.callback({MessageSid:m.sid,From:f.business,To:f.recipient,MessageStatus:'delivered',Timestamp:new Date(messageNow).toISOString()})
+  assert.equal(callback.status,200,await callback.clone().text())
+  const delivered=(await f.get()).jobs.find(j=>j.id===sent.id)
+  assert.equal(delivered.state,'delivered');assert.equal(delivered.carrier_state,'delivered');assert.match(delivered.reason,/no read receipt/)
+  m.status='sent';f.source.resource('Messages',m.sid,m)
+  assert.equal((await f.write('/jobs/'+sent.id+'/refresh',{},200)).job.state,'delivered','stale provider state cannot regress delivery')
+  const uncertain=await f.queued();f.receiver.drop=true
+  assert.equal((await f.write('/jobs/'+uncertain.id+'/dispatch',{revision:uncertain.revision},200)).job.state,'uncertain')
+  await runtime.restart();await runtime.scheduled(messageNow);assert.equal(f.receiver.sent.length,2,'a lost create response is not sent twice')
+  const revoked=await f.queued()
+  await f.write('/permissions/'+revoked.permission_id+'/revoke',{},200)
+  assert.equal((await f.get()).jobs.find(j=>j.id===revoked.id).state,'suppressed')
+  assert.equal(f.receiver.sent.length,2)
+ }finally{await runtime.close()}
+})

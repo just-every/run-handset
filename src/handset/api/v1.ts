@@ -1,3 +1,4 @@
+import { caseSuppression, noCaseStopFence } from '../messages/suppression'
 import { runtimeBindings, type Bindings } from '../../auth.server'
 import { append } from '../audit/store'
 import type { AppliedPolicy } from '../audit/policy'
@@ -13,6 +14,7 @@ const spec = {
  paths: {
   '/openapi.json': { get: { summary: 'Read this current capability contract', responses: { '200': { description: 'OpenAPI document' }, '401': { description: 'Inactive credential' } } } },
   '/cases': { get: { summary: 'List only exact selected native cases', parameters: [{ name: 'cursor', in: 'query', schema: { type: 'string' } }, { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 50, default: 20 } }], responses: { '200': { description: 'items and nextCursor; stable selected-case ID order' }, '403': { description: 'Read scope or selected cursor refused' }, '429': { description: '60 requests per credential per minute; Retry-After indicates reset' } } } },
+  '/cases/{id}/message-suppression': { get: { summary: 'Check company-wide text suppression for a selected case under current message.send scope; grants no send authority', responses: { '200': { description: 'Current suppression state; required replies stay provider-managed' }, '403': { description: 'Case or message scope refused' } } } },
   '/cases/{id}': { get: { summary: 'Read one exact selected case under case.read', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { '200': { description: 'Current native case and linked records' }, '403': { description: 'Case outside current grant' } } } },
   '/drafts': { post: { summary: 'Create one unpublished draft under comment.draft', parameters: [{ name: 'Idempotency-Key', in: 'header', required: true, schema: { type: 'string', maxLength: 100 } }], requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['caseId','text'], additionalProperties: false, properties: { caseId: { type: 'string' }, text: { type: 'string', maxLength: 4000 } } } } } }, responses: { '201': { description: 'Unpublished draft' }, '200': { description: 'Same key and same request replay the original draft' }, '409': { description: 'Changed payload or concurrent claim; retry the same unchanged key' } } } },
   '/prepare': { post: { summary: 'Prepare exact reviewed work; unqualified provider effects stay held', responses: { '202': { description: 'Held job with stable idempotency key' }, '403': { description: 'Current scope, grant or exact approval refused' } } } },
@@ -51,6 +53,13 @@ export async function versionedResponse(request: Request, original: Bindings): P
    for (const key of selected.slice(0, limit)) items.push(await applicationRead(env, grant, key))
    await append(env, grant.id, 'application.read', 'installation', 'completed', [grantFence(env, grant)], null, grantPolicy(grant))
    return finish(json({ items, nextCursor: selected.length > limit ? selected[limit - 1] : null }))
+  }
+  const suppressionMatch=path.match(/^\/cases\/([0-9a-f-]{36})\/message-suppression$/)
+  if(request.method==='GET'&&suppressionMatch){
+   if(!d.scopes.includes('send')||!d.tools.includes('message.send')||!d.records.includes(suppressionMatch[1]))throw new Fault('record_out_of_scope',403)
+   const result=await caseSuppression(env,suppressionMatch[1])
+   await append(env,grant.id,'application.read',suppressionMatch[1],'completed',[grantFence(env,grant)],null,grantPolicy(grant))
+   return finish(json(result))
   }
   const caseMatch = path.match(/^\/cases\/([0-9a-f-]{36})$/)
   if (request.method === 'GET' && caseMatch) return finish(json(await applicationRead(env, grant, caseMatch[1])))
