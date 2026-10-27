@@ -78,9 +78,9 @@ export async function knownWeekFixture(runtime,edges){
  await runtime.setTime(analyticsNow)
  source.cookie=(await signIn(runtime)).cookie;source.headers.cookie=source.cookie
  const dataset=metricDataset(),shift=Date.parse('2026-11-02T15:00:00Z')-metricStart
- const callIds=new Map(dataset.entries.slice(0,6).map((entry,index)=>[entry.callId,calls[index].recordId]))
+ // Reviewed queue observations are a separate historical population. Their
+ // call identities do not claim to be the signed carrier calls above.
  for(const entry of dataset.entries){
-  entry.callId=callIds.get(entry.callId)
   for(const field of ['enteredAt','answeredAt','abandonedAt','closedAt'])if(entry[field]!==undefined)entry[field]+=shift
  }
  for(const segment of dataset.agents){segment.startAt+=shift;segment.endAt+=shift}

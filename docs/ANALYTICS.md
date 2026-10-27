@@ -52,15 +52,24 @@ are labeled separately from filtered native calls.
 Custom dashboards save an exact formula revision, customer-call filters, grouping
 dimensions and displayed group measures. Current owner authority is checked at
 every read, export, save and delete. A stale edit preserves the submitted draft
-and requires explicit comparison before replacing the latest revision. Scheduling
+and requires explicit comparison before replacing the latest revision. Reporting
+assignment conflicts keep the submitted team and location beside the current
+values for explicit reconciliation. If another session deletes a dashboard,
+the refused save keeps its name, filters, groups and measures and offers an
+explicit save as a new dashboard; the deleted identity remains deleted. Scheduling
 binds the exact reviewed dashboard definition; subsequent edits or deletion do not
 rewrite an approved scheduled definition or a retained report. Owner authority and
 recipient are checked again before release, and a revoked owner receives no report.
 
-The combined known-week journey uses signed provider ingress and reviewed import,
-with a receiving booking system at the network edge. It reconciles the DST split,
-failed recording metadata, transfer and overflow legs, callback parents, unresolved
-repeat work, a confirmed booking and every HND-086 fixture total. Provider metadata
+The known-week journey reconciles two independent source populations through
+public doors. Signed provider ingress supplies canonical customer calls with the
+DST split, a transfer leg, failed recording metadata, unresolved repeat work and a
+confirmed booking read back at the receiving network edge. A separate reviewed
+queue dataset supplies queue transfer and overflow legs, callback parents, agent
+timelines and every HND-086 fixture total under both abandoned-call methods.
+Imported queue identities do not claim to be these canonical carrier calls.
+Exact queue source observations are read back through the datasets door, and
+queue formulas are reconciled in live, retained and scheduled reports. Provider metadata
 and independently stored test-edge booking readback do not certify live audio or
 real external delivery.
 

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { post } from './handset-auth.mjs'
+import { post, signIn } from './handset-auth.mjs'
 
 const groupNames={hour:'Calls by hour',person:'Calls by person (case owner)',number:'Calls by number',team:'Calls by reporting team',location:'Calls by reporting location'}
 const groupRows=(page,dimension)=>page.getByRole('heading',{name:groupNames[dimension],exact:true}).locator('xpath=following-sibling::ul[1]')
@@ -47,6 +47,7 @@ async function assertFiltered(page,calls){
 
 export async function reportingDashboardJourney({runtime,page,proof,click,cookie,analytics,configRevision=1}){
  assert.ok(cookie,'parent supplies the refreshed owner session after fixture time travel')
+ const competingSession=await signIn(runtime)
  const allCalls=analytics.calls.slice(0,6),missedCalls=allCalls.filter((_,index)=>index!==2)
  const root=runtime.origin+'/app/reports/queues',live=root+'/live?queueId=*'
  const capture=async name=>{
@@ -69,6 +70,28 @@ export async function reportingDashboardJourney({runtime,page,proof,click,cookie
  assert.equal(await assignment.getByLabel('Reporting team',{exact:true}).inputValue(),'Support')
  assert.equal(await assignment.getByLabel('Reporting location',{exact:true}).inputValue(),'Austin')
  await capture('reporting-groups-assigned')
+ await assignment.getByLabel('Reporting team',{exact:true}).fill('Draft support')
+ await assignment.getByLabel('Reporting location',{exact:true}).fill('Draft Austin')
+ const competingAssignment=await post(runtime,'/api/handset/metrics/groups',{number:'+15125550125',team:'Concurrent support',location:'Concurrent Austin',revision:1},{cookie:competingSession.cookie})
+ assert.equal(competingAssignment.status,201)
+ const [groupConflict]=await Promise.all([
+  page.waitForResponse(response=>response.request().method()==='POST'&&new URL(response.url()).pathname===root.replace(runtime.origin,'')+'/groups'),
+  click('Save assignment version'),
+ ])
+ assert.equal(groupConflict.status(),409)
+ await page.getByRole('heading',{name:'Review assignment draft',exact:true}).waitFor()
+ assert.equal(await page.getByLabel('Reporting team',{exact:true}).inputValue(),'Draft support')
+ assert.equal(await page.getByLabel('Reporting location',{exact:true}).inputValue(),'Draft Austin')
+ const assignmentComparison=page.locator('details').filter({has:page.getByText('Compare current assignment',{exact:true})})
+ assert.ok((await assignmentComparison.innerText()).includes('Concurrent support'))
+ assert.ok((await assignmentComparison.innerText()).includes('Concurrent Austin'))
+ await capture('reporting-group-stale-draft-preserved')
+ await page.getByLabel('Reporting team',{exact:true}).fill('Support')
+ await page.getByLabel('Reporting location',{exact:true}).fill('Austin')
+ await click('Save reviewed assignment')
+ assert.equal(await assignment.getByLabel('Reporting team',{exact:true}).inputValue(),'Support')
+ assert.equal(await assignment.getByLabel('Reporting location',{exact:true}).inputValue(),'Austin')
+ await capture('reporting-group-reconciled')
 
  await page.goto(live)
  assert.equal(await total(page,'volume'),'6')
@@ -119,7 +142,7 @@ export async function reportingDashboardJourney({runtime,page,proof,click,cookie
  const currentResponse=await runtime.request('/api/handset/metrics/dashboards/'+dashboardId,{headers:{cookie}})
  assert.equal(currentResponse.status,200)
  const current=(await currentResponse.json()).dashboard,competingName='Austin concurrent review'
- const competing=await post(runtime,'/api/handset/metrics/dashboards',{...current,name:competingName},{cookie})
+ const competing=await post(runtime,'/api/handset/metrics/dashboards',{...current,name:competingName},{cookie:competingSession.cookie})
  assert.equal(competing.status,201)
  const [refused]=await Promise.all([
   page.waitForResponse(response=>response.request().method()==='POST'&&new URL(response.url()).pathname==='/app/reports/queues/dashboards'),
@@ -178,6 +201,34 @@ export async function reportingDashboardJourney({runtime,page,proof,click,cookie
 
  await page.goto(dashboardUrl)
  assert.equal(await total(page,'volume'),'0','saved customer-call filters remain exact after assignment changes')
+ const recoveredName='Recovered Austin review'
+ await page.getByLabel('Dashboard name',{exact:true}).fill(recoveredName)
+ await setSelection(page,['hour','number'],['answered','missed'])
+ const beforeDeletion=await runtime.request('/api/handset/metrics/dashboards/'+dashboardId,{headers:{cookie:competingSession.cookie}})
+ assert.equal(beforeDeletion.status,200)
+ const deleted=await post(runtime,'/api/handset/metrics/dashboards/'+dashboardId+'/delete',{revision:(await beforeDeletion.json()).dashboard.revision},{cookie:competingSession.cookie})
+ assert.equal(deleted.status,200)
+ const [deletedConflict]=await Promise.all([
+  page.waitForResponse(response=>response.request().method()==='POST'&&new URL(response.url()).pathname==='/app/reports/queues/dashboards'),
+  click('Update dashboard'),
+ ])
+ assert.equal(deletedConflict.status(),409)
+ await page.getByRole('heading',{name:'Review dashboard draft',exact:true}).waitFor()
+ assert.equal(await page.getByLabel('Dashboard name',{exact:true}).inputValue(),recoveredName)
+ await checkSelection(page,['hour','number'],['answered','missed'])
+ assert.match(await page.getByRole('alert').innerText(),/deleted/)
+ assert.equal(await dashboardForm(page).locator('input[name="id"]').count(),0)
+ await capture('reporting-deleted-dashboard-draft-preserved')
+ await click('Save as new dashboard')
+ const recoveredUrl=page.url()
+ assert.notEqual(recoveredUrl,dashboardUrl)
+ await page.reload()
+ assert.equal(await page.getByLabel('Dashboard name',{exact:true}).inputValue(),recoveredName)
+ await checkSelection(page,['hour','number'],['answered','missed'])
+ assert.equal(await total(page,'volume'),'0','recovered dashboard retains its exact customer-call filters')
+ const original=await runtime.request('/api/handset/metrics/dashboards/'+dashboardId,{headers:{cookie}})
+ assert.equal(original.status,404,'recovery creates a new dashboard without reviving the deleted identity')
+ await capture('reporting-deleted-dashboard-recovered')
  await click('Delete saved dashboard')
  assert.equal(new URL(page.url()).pathname,'/app/reports/queues')
  assert.equal(await page.getByRole('link',{name:editedName,exact:true}).count(),0)

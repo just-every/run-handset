@@ -21,10 +21,14 @@ function selection<T extends string>(value:unknown,allowed:readonly T[],name:str
 export async function listDashboards(db:D1Database):Promise<Dashboard[]> {
  return (await db.prepare('SELECT value FROM hnd_metric_dashboards ORDER BY updated_at DESC,id').all<{value:string}>()).results.map(row=>JSON.parse(row.value))
 }
-export async function getDashboard(db:D1Database,dashboardId:string):Promise<Dashboard> {
+export async function findDashboard(db:D1Database,dashboardId:string):Promise<Dashboard|undefined> {
  const row=await db.prepare('SELECT value FROM hnd_metric_dashboards WHERE id=?').bind(dashboardId).first<{value:string}>()
- if(!row)throw new Fault('dashboard_not_found',404)
- return JSON.parse(row.value)
+ return row?JSON.parse(row.value):undefined
+}
+export async function getDashboard(db:D1Database,dashboardId:string):Promise<Dashboard> {
+ const dashboard=await findDashboard(db,dashboardId)
+ if(!dashboard)throw new Fault('dashboard_not_found',404)
+ return dashboard
 }
 export async function saveDashboard(env:Bindings,actor:Session,value:unknown) {
  owner(actor)

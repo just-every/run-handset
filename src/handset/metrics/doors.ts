@@ -7,8 +7,8 @@ import { configForm, reportBody, reportPage } from './pages'
 import { configure, configs, currentConfig, datasets, liveReport, saveReport, erasureEpoch, reportFence } from './store'
 import { listSchedules, runDueReports, scheduleReport } from './schedules'
 import { parseNativeFilters, type NativeFilters } from './filters'
-import { groupsForm, listGroups, saveGroup } from './groups'
-import { dashboardGroups, dashboardMetrics, deleteDashboard, getDashboard, listDashboards, saveDashboard } from './dashboards'
+import { groupConflictForm, groupsForm, listGroups, saveGroup } from './groups'
+import { dashboardGroups, dashboardMetrics, deleteDashboard, findDashboard, getDashboard, listDashboards, saveDashboard } from './dashboards'
 import { dashboardEditor, dashboardList } from './dashboard-pages'
 import { denied } from '../audit/store'
 
@@ -74,8 +74,16 @@ export async function metricsDoor(request:Request,env:Bindings,actor:Session,dat
   if(data.excludeShort!==undefined)data.excludeShort=data.excludeShort==='exclude'
  }
  if(action==='/groups'){
-  const result=await saveGroup(env,actor,data)
-  return html?redirect('/app/reports/queues/groups'):json(result,201)
+  try{
+   const result=await saveGroup(env,actor,data)
+   return html?redirect('/app/reports/queues/groups'):json(result,201)
+  }catch(error){
+   if(!html||!(error instanceof Fault)||error.code!=='report_group_changed')throw error
+   const draft={number:text(data.number,'number',16),team:text(data.team,'team'),location:text(data.location,'location'),revision:integer(data.revision,'revision')}
+   const current=(await listGroups(db)).find(group=>group.number===draft.number)
+   await denied(env,actor,'product.request')
+   return page('Review assignment draft',`<p role="alert">This assignment was not saved because another session changed it. Your draft is kept below. Compare the current values before saving your reviewed assignment.</p>${groupConflictForm(draft,current)}`,409)
+  }
  }
  if(action==='/dashboards'){
   if(html){
@@ -89,9 +97,11 @@ export async function metricsDoor(request:Request,env:Bindings,actor:Session,dat
   }catch(error){
    if(!html||!(error instanceof Fault)||![400,409].includes(error.status))throw error
    const config=await currentConfig(db,text(data.queueId,'queueId'),integer(data.configRevision,'configRevision',1)),report=await liveReport(env,config,formFilters(data.filters))
-   const current=typeof data.id==='string'?await getDashboard(db,data.id):undefined
+   const current=typeof data.id==='string'?await findDashboard(db,data.id):undefined
+   const deleted=typeof data.id==='string'&&!current
+   const draft=deleted?{...data,id:undefined,revision:0}:data
    await denied(env,actor,'product.request')
-   return page('Review dashboard draft',`<p role="alert">This dashboard was not saved. Your draft is kept below. ${error.status===409?'Someone saved a newer version; compare it before saving your reviewed draft.':'Choose at least one group and measure, and enter a dashboard name.'}</p>${dashboardEditor(report,data,current)}<p><a href="/app/reports/queues">All queue reports</a></p>`,error.status)
+   return page('Review dashboard draft',`<p role="alert">This dashboard was not saved. Your draft is kept below. ${deleted?'The saved dashboard was deleted in another session. Review your draft and save it as a new dashboard to recover your work.':error.status===409?'Someone saved a newer version; compare it before saving your reviewed draft.':'Choose at least one group and measure, and enter a dashboard name.'}</p>${dashboardEditor(report,draft,current,deleted)}<p><a href="/app/reports/queues">All queue reports</a></p>`,error.status)
   }
  }
  const deletion=action.match(/^\/dashboards\/([^/]+)\/delete$/)

@@ -34,6 +34,10 @@ export async function saveGroup(env:Bindings,actor:Session,raw:unknown):Promise<
  return result
 }
 
+export function groupConflictForm(draft:{number:string;team:string;location:string;revision:number},current?:ReportGroup):string {
+ return `<h2>${e(draft.number)}</h2><form method="post" action="/app/reports/queues/groups">${hidden('number',draft.number)}${hidden('revision',draft.revision)}${field('Reporting team','team',draft.team)}${field('Reporting location','location',draft.location)}<details open><summary>Compare current assignment</summary><p>Your submitted values are kept above. Review the current assignment before replacing it.</p><dl><dt>Reporting team</dt><dd>${e(current?.team??'Unassigned')}</dd><dt>Reporting location</dt><dd>${e(current?.location??'Unassigned')}</dd><dt>Assignment revision</dt><dd>${current?.revision??0}</dd></dl><button name="revision" value="${current?.revision??0}">Save reviewed assignment</button></details></form><p><a href="/app/reports/queues/groups">Reload assignments</a></p>`
+}
+
 export function groupsForm(groups:ReportGroup[]=[]):string {
  const form=(current?:ReportGroup)=>`<form method="post" action="/app/reports/queues/groups">${current?hidden('number',current.number):field('Business number (E.164)','number')}${hidden('revision',current?.revision??0)}${field('Reporting team','team',current?.team??'Unassigned')}${field('Reporting location','location',current?.location??'Unassigned')}<button>${current?'Save assignment version':'Assign business number'}</button></form>`
  return `<p>Owners assign business numbers to reporting teams and locations. These labels do not change staff membership. Calls use the current assignment when a report is captured; retained snapshots keep their captured labels. Numbers without an assignment use Unassigned. Save Unassigned to clear either label.</p>${groups.map(current=>`<h3>${e(current.number)} · assignment ${current.revision}</h3>${form(current)}`).join('')}${form()}`

@@ -6,7 +6,7 @@ import { metricDataset,metricConfig } from './helpers/handset-metrics.mjs'
 import { exportFixture, archiveEdge, sftpEdge, range, encryptionKey, sha } from './helpers/handset-exports.mjs'
 import { runSftp } from '../src/handset/exports/sftp.mjs'
 import { knownWeekFixture,analyticsStart,analyticsEnd,analyticsNow } from './helpers/handset-analytics.mjs'
-import { importDataset } from './helpers/handset-import.mjs'
+import { importDataset,nativeDatasets } from './helpers/handset-import.mjs'
 import { createEdges } from './helpers/handset-edges.mjs'
 
 test('Reviewed queue observations reconcile exact service levels, agent durations, historical snapshots and scheduled report contents',async()=>{
@@ -222,6 +222,14 @@ test('Known-week reports reconcile source legs, confirmed recovery, reporting gr
  try{
   const {source,calls,recoveries,dataset}=await knownWeekFixture(runtime,edges),headers=source.headers
   const send=async(path,data,status=201)=>{const r=await post(runtime,'/api/handset/metrics/'+path,data,headers);assert.equal(r.status,status,await r.clone().text());return r.json()}
+  const records=await Promise.all(calls.map(async call=>{
+   const r=await runtime.request('/api/handset/records/'+call.recordId,{headers});assert.equal(r.status,200,await r.clone().text());return (await r.json()).record
+  }))
+  assert.deepEqual(records.map(r=>[new Date(r.occurred_at).toISOString(),JSON.parse(r.data).providerStatus]),[
+   ['2026-11-01T06:15:00.000Z','no-answer'],['2026-11-01T07:15:00.000Z','failed'],['2026-11-02T15:00:00.000Z','completed'],['2026-11-03T16:00:00.000Z','busy'],['2026-11-04T17:00:00.000Z','no-answer'],['2026-11-05T18:00:00.000Z','canceled'],['2026-11-08T00:00:00.000Z','no-answer'],
+  ])
+  assert.deepEqual((await nativeDatasets(runtime,source.cookie)).map(row=>row.dataset),[dataset],'the reviewed queue source survives the import door with every entry, relationship and agent segment')
+  assert.ok(dataset.entries.every(entry=>!records.some(record=>record.id===entry.callId)),'historical queue identities are independent of canonical carrier calls')
   await send('groups',{number:'+15125550125',team:'Support',location:'Austin',revision:0})
   await send('groups',{number:'+15125550999',team:'Sales',location:'Dallas',revision:0})
   await send('groups',{number:'+15125550125',team:'Wrong',location:'Wrong',revision:0},409)
@@ -229,6 +237,7 @@ test('Known-week reports reconcile source legs, confirmed recovery, reporting gr
   const response=await runtime.request('/api/handset/metrics/live?queueId=*',{headers});assert.equal(response.status,200);const report=await response.json(),n=report.native
   assert.deepEqual(n.totals,{volume:6,answered:1,missed:5,unknown:0,legs:1})
   assert.deepEqual(n.sourceCalls.map(c=>c.id),calls.slice(0,6).map(c=>c.recordId))
+  assert.deepEqual(n.sourceCalls.map(c=>[c.id,c.occurredAt,c.status,c.answered,c.missed]),records.slice(0,6).map((r,index)=>[r.id,r.occurred_at,JSON.parse(r.data).providerStatus,index===2,index!==2]))
   assert.deepEqual(n.byPerson,[{label:'synthetic-handset-1',volume:6,answered:1,missed:5,sourceCallIds:calls.slice(0,6).map(c=>c.recordId)}])
   assert.deepEqual(n.byHour.map(h=>[h.volume,h.missed]),[[1,1],[1,1],[1,0],[1,1],[1,1],[1,1]])
   assert.match(n.byHour[0].label,/01.*GMT-05:00/);assert.match(n.byHour[1].label,/01.*GMT-06:00/)
@@ -253,12 +262,13 @@ test('Known-week reports reconcile source legs, confirmed recovery, reporting gr
   const finalResponse=await post(runtime,'/api/handset/metrics/finalize',{queueId:'*',configRevision:config.revision},headers);assert.equal(finalResponse.status,201);const final=await finalResponse.json()
   const history=await (await runtime.request('/api/handset/metrics/history/'+final.id,{headers})).json();assert.deepEqual(history.native,n)
 
-  // The same known week carries independently reviewed queue legs, transfers,
-  // overflow, callback correlation and the complete staffed timeline.
+  // A separate imported population supplies queue legs and staffed timelines.
+  // Its exact formulas do not qualify the canonical carrier calls above.
   const fullWeek={startAt:analyticsStart,endAt:analyticsEnd}
   let queue=await send('config',metricConfig('queue-A',0,fullWeek))
   const live=async(suffix)=>{const r=await runtime.request('/api/handset/metrics/'+suffix,{headers});assert.equal(r.status,200,await r.clone().text());return r.json()}
   let a=await live('live?queueId=queue-A')
+  assert.deepEqual(a.native.sourceCalls,[],'an imported queue identity does not manufacture a canonical carrier call')
   assert.deepEqual(a.sourceEntryIds,dataset.entries.slice(0,6).map(e=>e.id))
   assert.deepEqual(a.totals,{offered:6,arrivals:6,transfers:0,overflows:0,callbacks:0,answered:4,abandoned:2,eligibleAbandons:1,shortAbandons:1,withinTarget:2,completedHandled:4,talkSeconds:160,holdSeconds:40,wrapSeconds:40})
   assert.deepEqual(a.serviceLevel,{numerator:2,denominator:5,value:0.4})
@@ -270,6 +280,15 @@ test('Known-week reports reconcile source legs, confirmed recovery, reporting gr
   assert.deepEqual(agent.durations,{available:200,ringing:60,talk:160,hold:40,wrap:40,break:30,unavailable:100,'logged-out':60})
   assert.equal(agent.staffedSeconds,600);assert.equal(agent.loggedInSeconds,630)
   assert.deepEqual(agent.occupancy,{numerator:240,denominator:600,value:0.4});assert.equal(agent.answeredOffers,4);assert.equal(agent.missedOffers,1)
+  const retainedQueue=await send('finalize',{queueId:'queue-A',configRevision:queue.revision})
+  const queueHistory=await live('history/'+retainedQueue.id)
+  await send('schedule',{...schedule,queueId:'queue-A',configRevision:queue.revision})
+  const queueMailCount=runtime.mails.length;await runtime.scheduled();await runtime.scheduled();assert.equal(runtime.mails.length,queueMailCount+1)
+  const deliveredQueue=JSON.parse(runtime.mails.at(-1).content.find(p=>p.type==='text/plain').value)
+  for(const key of ['sourceEntryIds','totals','serviceLevel','asaSeconds','abandonment','averageAbandonSeconds','ahtSeconds','agents','callbackParents','sourceHash']){
+   assert.deepEqual(queueHistory[key],a[key],'retained queue '+key)
+   assert.deepEqual(deliveredQueue[key],a[key],'scheduled queue '+key)
+  }
   queue=await send('config',{...queue,method:'exclude-abandons'})
   assert.deepEqual((await live('live?queueId=queue-A')).serviceLevel,{numerator:2,denominator:4,value:0.5})
   queue=await send('config',{...queue,method:'include-abandons',shortSeconds:0})
@@ -278,10 +297,11 @@ test('Known-week reports reconcile source legs, confirmed recovery, reporting gr
   assert.deepEqual(a.averageAbandonSeconds,{numerator:43,denominator:2,value:21.5})
   await send('config',metricConfig('queue-B',0,fullWeek))
   const b=await live('live?queueId=queue-B')
+  assert.deepEqual(b.native.sourceCalls,[])
   assert.deepEqual(b.sourceEntryIds,dataset.entries.slice(6).map(e=>e.id))
   assert.deepEqual(b.totals,{offered:2,arrivals:0,transfers:1,overflows:1,callbacks:1,answered:1,abandoned:1,eligibleAbandons:1,shortAbandons:0,withinTarget:1,completedHandled:2,talkSeconds:15,holdSeconds:0,wrapSeconds:0})
   assert.deepEqual(b.serviceLevel,{numerator:1,denominator:2,value:0.5});assert.equal(b.asaSeconds.value,2);assert.equal(b.ahtSeconds.value,7.5);assert.equal(b.averageAbandonSeconds.value,10)
-  assert.deepEqual(b.callbackParents,[{id:dataset.entries[8].id,parentEntryId:dataset.entries[2].id,callId:calls[2].recordId}])
+  assert.deepEqual(b.callbackParents,[{id:dataset.entries[8].id,parentEntryId:dataset.entries[2].id,callId:dataset.entries[2].callId}])
   assert.equal((await live('live?queueId=queue-A')).totals.arrivals,6)
   const filtered=await live('live?queueId=*&outcome=missed&team=Support&location=Austin')
   assert.deepEqual(filtered.native.sourceCalls.map(c=>c.id),[calls[0],calls[1],calls[3],calls[4],calls[5]].map(c=>c.recordId))
