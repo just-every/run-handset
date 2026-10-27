@@ -316,7 +316,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "459304d6ac4b89ea171ac80a0a5014b490660b1e675823d37816d283e1330fd9",
+      "sha256": "6664e71898c23e72a238bd72a7f06a8153996aa1fe1700fb156f091489ae766b",
       "executable": false
     },
     "AGENTS.md": {
@@ -336,7 +336,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "50715d5b324f8f772fed12929430c5b9dd1bc4ce618c47b393114fba307236e2",
+      "sha256": "502c215fbedc3227be9631794df50f783cb30c2e980443441b6bfdcd7c35d0c2",
       "executable": false
     },
     "deploy-demo.json": {
@@ -364,7 +364,7 @@
       "executable": false
     },
     "docs/CALL-CONSENT.md": {
-      "sha256": "3eee23e2c7c9e21e281b2c8dca91755ad80c10a3e140c9189659936508bb5704",
+      "sha256": "5fab7f77fb6e2ccd85629edf65f31f1f941b63b61d7880deac4ff0802c37c794",
       "executable": false
     },
     "docs/CALL-EXPORTS.md": {
@@ -4180,7 +4180,7 @@
       "executable": false
     },
     "tests/handset-recovery.mjs": {
-      "sha256": "22d90b6ea21e091829f375199cb6b481ffc7a9638c81752f0530db58b266111b",
+      "sha256": "ea0f81604a92cdabe212ad885d0608f1daf5767de53c2ee41d770490becf1aa2",
       "executable": false
     },
     "tests/handset-reporting.mjs": {
@@ -4336,7 +4336,7 @@
       "executable": false
     },
     "tests/journeys/handset-consent-timing.mjs": {
-      "sha256": "939986cc5cce6dae23adc89b755b141bc74bf8039b1e41b0544a5911c4465141",
+      "sha256": "8c8fa3bfe7be363f3fc348b37363b9d6884fc579383f5adaad9757727ee3e4bc",
       "executable": false
     },
     "tests/journeys/handset-export-mail.mjs": {

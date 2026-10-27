@@ -233,6 +233,7 @@ test('Explicit caller permission produces one missed-call reply and owned task t
     const incomplete=await call.disconnect({nextPage:'/next-page'})
     assert.equal(incomplete.status,409,'incomplete child-leg readback cannot prove a pre-consent disconnect')
     assert.equal((await f.get()).outcomes.some(o=>o.call_id===call.call.id),false)
+    assert.equal((await f.get('/api/handset/recovery')).cases.some(c=>c.case_id===call.canonical.caseId),false,'incomplete readback creates no task')
     const response=await call.disconnect()
     assert.equal(response.status,200,await response.clone().text())
    } else await call.missed()
@@ -259,6 +260,12 @@ test('Explicit caller permission produces one missed-call reply and owned task t
   const recoveries=await f.get('/api/handset/recovery');assert.equal(recoveries.cases.length,6);assert.ok(recoveries.cases.every(c=>c.owner_id==='synthetic-handset-1'))
   assert.equal((await f.signed(f.configured.providerPath,stopped.fields,{signature:false})).status,403)
   assert.equal((await f.runtime.request(f.base)).status,401)
+  const withdrawn=await f.start(8)
+  await f.write(f.base+'/revoke',{policyId:f.configured.policy.id})
+  assert.equal((await withdrawn.disconnect()).status,409,'withdrawn consent-policy authority cannot create task work')
+  assert.equal((await f.get()).outcomes.some(o=>o.call_id===withdrawn.call.id),false)
+  assert.equal((await f.get('/api/handset/recovery')).cases.length,6)
+  assert.equal(f.receiver.sent.length,1)
  } finally {await f.runtime.close()}
 })
 

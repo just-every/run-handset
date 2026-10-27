@@ -24,6 +24,16 @@ read-back `TWILIO_APPROVED` toll-free verification for that exact business numbe
 Unknown identity or timezone, quiet hours, or pending verification suppresses the
 reply and retains the task. Current source consent alone never permits a send.
 
+Configure the business number's terminal call-status callback to the existing
+signed `/providers/twilio/events` source door as well as its voice webhook.
+When a caller hangs up inside the consent prompt, no staff Dial action exists.
+That terminal callback independently reads the ended inbound parent and the
+complete, empty child-call list before recording no response and one owned task.
+Incomplete child readback or withdrawn policy authority refuses this intake.
+An existing staff child stays with its separate Dial outcome. A restart or a
+replayed terminal callback keeps the original task; this path cannot grant text
+permission.
+
 Message creation is claimed durably before the network request. An independently
 read-back first submission consumes the permission; accepted is distinct from
 delivered. A lost response remains uncertain and cannot retry automatically.
