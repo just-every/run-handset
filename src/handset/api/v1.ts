@@ -1,4 +1,4 @@
-import { caseSuppression, noCaseStopFence } from '../messages/suppression'
+import { caseSuppression } from '../messages/suppression'
 import { runtimeBindings, type Bindings } from '../../auth.server'
 import { append } from '../audit/store'
 import type { AppliedPolicy } from '../audit/policy'

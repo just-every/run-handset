@@ -1,9 +1,9 @@
 import { createHmac } from 'node:crypto'
 import assert from 'node:assert/strict'
 import { post, signIn } from './handset-auth.mjs'
-export async function sourceFixture(runtime,{e164='+15125550125'}={}){
+export async function sourceFixture(runtime,{e164='+15125550125',sourceId='synthetic-handset-501'}={}){
  const {cookie}=await signIn(runtime),headers={cookie}
- const result=await post(runtime,'/api/handset/records',{kind:'number',sourceId:'synthetic-handset-501',occurredAt:Date.now(),data:{e164}},headers)
+ const result=await post(runtime,'/api/handset/records',{kind:'number',sourceId,occurredAt:Date.now(),data:{e164}},headers)
  assert.equal(result.status,201)
  const numberId=(await result.json()).record.id,account='synthetic-handset-502'
  const source=await post(runtime,'/api/handset/sources',{accountId:account,numberId,confirm:'authorize signed inbound records'},headers)
