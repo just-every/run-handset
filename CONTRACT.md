@@ -379,7 +379,7 @@ The managed RunEditRun carrier, billing and staffed-support offer requires an ac
 
 ## Status
 
-Judged from the code and tests at commit `54e7c2d1635982c1ebef4a97a8e94adfcb828cfe` (27 October 2026). This pins the prior main baseline for existing clauses. The two added native preparations remain partial; fresh ct judgment is pending.
+Judged from the code and tests at commit `bb8cb8afae24afe1126c0a106513b26bf25ec6b0` (27 October 2026). Builder review only; fresh ct judgment remains pending. The candidate preserves this implementation and its tests unchanged, with its exact head identified in the submission receipt. No completion or live-provider qualification is claimed for HND-033 or HND-010.
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
