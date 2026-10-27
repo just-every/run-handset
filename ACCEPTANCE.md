@@ -285,7 +285,7 @@ Perform authorized receiving-side readback for Orbit, HappyToHelp, Dial and a re
 
 Run the 200-call receptionist evaluation against the exact knowledge, policy and tool versions. Cover English and Spanish, interruptions, prompt injection, competing bookings, withheld consent, unavailable staff, emergency requests, policy exceptions, lost provider replies and explicit human takeover. Evaluate QA coverage with exclusions and unknowns in its denominator and retain human overrides. Every mandatory person decision binds exact reviewed state, and stale or revoked authority blocks work. Never count a promised action as completed until the named receiving system or customer outcome supplies evidence.
 
-Clause totals: **100 total; 5 done, 30 partial, 65 missing.**
+Clause totals: **100 total; 5 done, 31 partial and 64 missing.**
 
 ## Buyer review 1 end states
 
