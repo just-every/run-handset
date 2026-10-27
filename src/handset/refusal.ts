@@ -111,7 +111,7 @@ export function withRefusal(body: string, refusal?: Refusal) {
  const stale = refusal.code.endsWith('_conflict')
  const named = refusal.field ?? fields[refusal.code] ?? (refusal.code.startsWith('invalid_') ? refusal.code.slice(8) : '')
  // With no field to focus, the explanation itself takes focus so it is in view.
- const note = (why: string, focus = true) => `<div class="hs-problem" id="settings-problem" role="alert"${focus ? ' tabindex="-1" autofocus' : ''}><p>${e(why)}</p>${stale ? '<p><a href="#settings-compare">Compare saved values</a></p>' : ''}<details><summary>Technical detail</summary><code>${e(refusal.code)}</code></details></div>`
+ const note = (why: string, focus = true, compare = false) => `<div class="hs-problem" id="settings-problem" role="alert"${focus ? ' tabindex="-1" autofocus' : ''}><p>${e(why)}</p>${compare ? '<p><a href="#settings-compare">Compare saved values</a></p>' : ''}<details><summary>Technical detail</summary><code>${e(refusal.code)}</code></details></div>`
  let at = -1
  const filled = body.replace(/<form\b[^>]*>[\s\S]*?<\/form>/g, (form, index: number) => {
   if (at >= 0 || attribute(form, 'action') !== e(refusal.action) || !sameForm(form, refusal.values, stale)) return form
@@ -139,9 +139,9 @@ export function withRefusal(body: string, refusal?: Refusal) {
     return value === undefined ? area : `${mark(`<textarea${attrs}>`, name)}${e(value)}</textarea>`
    })
   // Append after hidden revision inputs: the clicked button's value wins in FormData.
-  return retained.replace(/^<form\b[^>]*>/, open => open + note(why, !field)).replace(/<\/form>$/, () => (stale ? comparison(form, refusal.values) : '') + '</form>')
+  return retained.replace(/^<form\b[^>]*>/, open => open + note(why, !field, stale)).replace(/<\/form>$/, () => (stale ? comparison(form, refusal.values) : '') + '</form>')
  })
- if (at < 0) return note(refusal.code.endsWith('_conflict') ? conflict : words[refusal.code] ?? 'This wasn’t saved. Check the entries below and save again.') + body
+ if (at < 0) return note(stale ? 'This wasn’t saved because the form has changed. The current saved version is shown below.' : words[refusal.code] ?? 'This wasn’t saved. Check the entries below and save again.') + body
  const earlier = body.indexOf('<form') < at ? '<p class="hs-problem-link" role="status">This wasn’t saved. <a href="#settings-problem">Correct it below</a>.</p>' : ''
  return earlier + openAround(filled, at)
 }
