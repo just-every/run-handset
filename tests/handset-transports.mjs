@@ -267,9 +267,18 @@ test('Signed inbox MMS retains shared history and exactly one claim while unsupp
 
 test('Exact reviewed snippets send MMS once and keep provider acceptance distinct from carrier delivery and uncertain creates',async()=>{
  const {openHandset}=await import('./helpers/handset-worker.mjs'),{messagesFixture,messageNow}=await import('./helpers/handset-messages.mjs')
- const runtime=await openHandset({twilio:true,clockTime:messageNow})
+ const {createEdges}=await import('./helpers/handset-edges.mjs'),edges=createEdges()
+ let mediaAccount,mediaUrl,mediaBytes=1024,mediaHeaders={},mediaStatus=200,mediaReads=0
+ edges.handle=async(request,Response)=>{
+  if(request.url!==mediaUrl)return null
+  mediaReads++
+  assert.equal(request.headers.get('authorization'),'Basic '+Buffer.from(mediaAccount+':synthetic-handset-500').toString('base64'))
+  return new Response(new Uint8Array(mediaBytes),{status:mediaStatus,headers:{'content-type':'image/png',...mediaHeaders}})
+ }
+ const runtime=await openHandset({twilio:true,clockTime:messageNow,edges})
  try {
   const f=await messagesFixture(runtime),url=`https://api.twilio.com/2010-04-01/Accounts/${f.source.account}/Messages/synthetic-handset-1820/Media/synthetic-handset-1821`
+  mediaUrl=url;mediaAccount=f.source.account
   await f.incoming('Please send the diagram',{MessageSid:'synthetic-handset-1820',NumMedia:'1',MediaUrl0:url,MediaContentType0:'image/png'})
   runtime.twilioResources.set(url+'.json',{account_sid:f.source.account,parent_sid:'synthetic-handset-1820',sid:'synthetic-handset-1821',content_type:'image/png',date_created:new Date(messageNow).toUTCString(),date_updated:new Date(messageNow).toUTCString(),uri:new URL(url).pathname+'.json'})
   const t=await f.claimed(),draft=await f.draft({media:[{url,mime:'image/png',bytes:1024}]})
@@ -279,8 +288,26 @@ test('Exact reviewed snippets send MMS once and keep provider acceptance distinc
   assert.equal(queued.state,'queued');assert.equal(queued.body,draft.body)
   assert.equal((await post(runtime,f.base+'/threads/'+t.id+'/schedule',{revision:t.revision,snippetId:draft.snippet_id,snippetRevision:1,dueAt:messageNow,permissionId:draft.permission_id,media:[{url,mime:'image/png',bytes:5000001}]},f.headers)).status,400)
   assert.equal((await post(runtime,f.base+'/threads/'+t.id+'/schedule',{revision:t.revision,snippetId:draft.snippet_id,snippetRevision:1,dueAt:messageNow,permissionId:draft.permission_id,participants:[f.recipient,'+15125550127']},f.headers)).status,409)
+  // Measure the body even when length headers are absent or understate it.
+  for(const sample of [
+   {bytes:1025,headers:{},claimed:1024},
+   {bytes:1025,headers:{'content-length':'1024'},claimed:1024},
+   {bytes:1023,headers:{},claimed:1024},
+   {bytes:5000001,headers:{},claimed:1},
+   {bytes:1024,headers:{location:'https://example.invalid/synthetic-handset-1822'},status:302,claimed:1024},
+  ]) {
+   mediaBytes=sample.bytes;mediaHeaders=sample.headers;mediaStatus=sample.status??200
+   const rejected=await f.queued({media:[{url,mime:'image/png',bytes:sample.claimed}]})
+   const result=(await f.write('/jobs/'+rejected.id+'/dispatch',{revision:rejected.revision},200)).job
+   assert.equal(result.state,'suppressed','Unverified attachment bytes must be refused before submission')
+   assert.match(result.reason,/provider_media_(size_mismatch|unavailable)/)
+   assert.equal(f.receiver.sent.length,0,'A rejected attachment must never create a provider message')
+   assert.equal(result.provider_sid,null)
+  }
+  mediaBytes=1024;mediaHeaders={};mediaStatus=200
   const sent=(await f.write('/jobs/'+queued.id+'/dispatch',{revision:queued.revision},200)).job
   assert.equal(sent.state,'accepted');assert.equal(sent.provider_state,'queued');assert.equal(sent.carrier_state,'unconfirmed')
+  assert.equal(mediaReads,6,'Every attachment is independently read before submission')
   assert.equal(f.receiver.sent.length,1);assert.deepEqual(f.receiver.sent[0].form.getAll('MediaUrl'),[url])
   await runtime.restart();await runtime.scheduled(messageNow);assert.equal(f.receiver.sent.length,1)
   const m=f.receiver.sent[0].message;m.status='delivered';f.source.resource('Messages',m.sid,m)

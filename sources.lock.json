@@ -4384,7 +4384,7 @@
       "executable": false
     },
     "tests/handset-transports.mjs": {
-      "sha256": "266c47f215053441d327fc10853dc157551d03b53aa80698325e903bcd13ff30",
+      "sha256": "57120ec9a553f8c8889380906e9bc746bff7e60992563ad587b5cf86144aeaf5",
       "executable": false
     },
     "tests/handset-workspace-browser.mjs": {
