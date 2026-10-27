@@ -4,7 +4,8 @@ import { numberFixture } from './handset-numbers.mjs'
 export async function numbersJourney({runtime,page,cookie,proof,click}){
  const f=await numberFixture(runtime,cookie),url=runtime.origin+'/app/numbers'
  async function search(kind='local'){
-  await page.goto(url);await page.getByLabel('Twilio account SID',{exact:true}).fill(f.account)
+  await page.goto(url);const searchPanel=page.locator('main details');if(!await searchPanel.getAttribute('open').then(v=>v!==null))await searchPanel.locator('summary').click()
+  await page.getByLabel('Twilio account SID',{exact:true}).fill(f.account)
   await page.getByLabel('Number type',{exact:true}).selectOption(kind)
   await page.getByLabel('Area code',{exact:true}).fill(kind==='local'?'512':'833')
   await click('Search numbers')
@@ -43,6 +44,6 @@ export async function numbersJourney({runtime,page,cookie,proof,click}){
  await card().getByRole('checkbox').check();await click('Release '+first.e164)
  assert.match(await card().innerText(),/Carrier confirmed release/);await proof('numbers-released')
  assert.equal(f.calls.filter(c=>c.method==='DELETE').length,1)
- await page.goto(url);await page.getByLabel('Twilio account SID',{exact:true}).fill('synthetic-handset-7999');await click('Search numbers')
+ await page.goto(url);await page.locator('main details summary').click();await page.getByLabel('Twilio account SID',{exact:true}).fill('synthetic-handset-7999');await click('Search numbers')
  assert.match(await page.getByRole('alert').innerText(),/carrier readback unavailable/);await proof('numbers-provider-failed')
 }
