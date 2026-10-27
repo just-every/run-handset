@@ -14,7 +14,9 @@ test('Custom greeting roles permit only scoped drafts and current role and perso
   const body={source:'upload',language:'en',variant:'always',audioBase64:b64(wavBytes({rate:8000}))},path=p=>`/api/handset/prompts/${p.id}/versions`,access='/api/handset/prompts/access'
   const original=await f.ok('POST',path(greeting),body,201);await approve(f,original.id)
   const roleInput={revision:0,name:'Front desk greetings',capabilities:['greeting.draft'],promptIds:[greeting.id],confirm:'approve greeting draft role'}
+  await f.refused(access,{...roleInput,capabilities:['billing.read']},403,'unsupported_role_capability')
   const role=await f.ok('POST',access,roleInput,201)
+  await f.refused(`${access}/${role.id}`,roleInput,409,'role_revision_changed')
   const assign=()=>f.ok('POST',`${access}/${role.id}/assign`,{revision:role.revision,personId:people[1].id,personVersion:1,confirm:'assign exact greeting role'})
   const member=await signIn({...f.runtime,ownerEmail:people[1].id+'@example.test'}),headers={cookie:member.cookie}
   assert.equal((await post(f.runtime,path(greeting),body,headers)).status,403)
