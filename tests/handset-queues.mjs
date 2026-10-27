@@ -414,6 +414,8 @@ test('Scoped flow roles separate read draft and test authority, fence foreign re
   const q=await queueFixture(runtime),f=await flowRoleFixture(runtime,q),{base,access,allowed,foreign}=f
   const read=()=>runtime.request(base,{headers:f.headers}),save=d=>f.actorPost(base,{flowId:allowed.flowId,previousVersionId:allowed.id,definition:d})
   assert.equal((await read()).status,403)
+  const {exerciseFlowCatalog}=await import('./helpers/handset-flow-catalog.mjs')
+  await exerciseFlowCatalog(f)
   let role=await f.ownerPost(access,{...f.roleInput,capabilities:['flow.read']},201)
   await f.assign(role)
   let catalog=await (await read()).json()

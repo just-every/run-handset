@@ -2,7 +2,7 @@ import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { Fault, id, integer, json, keys, owner, text, type ObjectValue } from '../core'
 import { commit } from '../audit/store'
-import { authorizeFlow, authorizeFlowDefinition, flowScope } from '../access/flows'
+import { authorizeFlow, authorizeFlowDefinition, flowAccess } from '../access/flows'
 import { guard, sql } from '../delegation/store'
 import { definition, type FlowDefinition } from './definition'
 import { evaluateFlow, validateEvaluationInput } from './evaluation'
@@ -13,14 +13,16 @@ export async function flowDoor(request:Request,env:Bindings,actor:Session,value?
  const url=new URL(request.url),base='/api/handset/flows',path=url.pathname
  if(url.search)throw new Fault('unexpected_flow_query')
  if(path===base&&request.method==='GET'){
-  const scope=await flowScope(env,actor),condition=scope?` WHERE flow_id IN (${scope.map(()=>'?').join(',')})`:'',args=scope??[]
-  const permissions=scope?await Promise.all(scope.map(id=>authorizeFlow(env,actor,id,'flow.read'))):[await authorizeFlow(env,actor,'installation','flow.read')]
-  const result=await env.DB.batch([...permissions.flatMap(p=>p.fences),
+  const access=await flowAccess(env,actor),scope=access.scope
+  if(scope&&!scope.length)throw new Fault('flow_access_required',403)
+  const condition=scope?' WHERE flow_id IN (SELECT value FROM json_each(?))':'',args=scope?[JSON.stringify(scope)]:[]
+  const permission=access.permission(scope??['installation'],'flow.read')
+  const result=await env.DB.batch([...permission.fences,
    sql(env,'SELECT * FROM hnd_flow_versions'+condition+' ORDER BY created_at DESC,id LIMIT 100',...args),
    sql(env,'SELECT p.*,o.display_name AS approver_name FROM hnd_flow_publications p LEFT JOIN oa_operators o ON o.id=p.approved_by'+(scope?condition.replace('flow_id','p.flow_id'):'')+' ORDER BY p.flow_id LIMIT 100',...args),
    sql(env,'SELECT version_id,path FROM hnd_flow_tests WHERE version_id IN (SELECT id FROM hnd_flow_versions'+condition+') ORDER BY created_at DESC LIMIT 1000',...args),sql(env,'DELETE FROM hnd_guard')])
   const versions=result.at(-4)!.results,publications=result.at(-3)!.results,tests=result.at(-2)!.results
-  await commit(env,actor,'flow.read','installation','completed',permissions.flatMap(p=>p.fences),false)
+  await commit(env,actor,'flow.read','installation','completed',permission.fences,false)
   return json({versions,publications,tests,bounded:true,qualification:'native path tests only; no carrier routing or audible test calls'})
  }
  if(path===base&&request.method==='POST'){
