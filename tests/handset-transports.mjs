@@ -291,7 +291,8 @@ test('Exact reviewed snippets send MMS once and keep provider acceptance distinc
   m.status='sent';f.source.resource('Messages',m.sid,m)
   assert.equal((await f.write('/jobs/'+sent.id+'/refresh',{},200)).job.state,'delivered','stale provider state cannot regress delivery')
   const uncertain=await f.queued();f.receiver.drop=true
-  assert.equal((await f.write('/jobs/'+uncertain.id+'/dispatch',{revision:uncertain.revision},200)).job.state,'uncertain')
+  const unknown=(await f.write('/jobs/'+uncertain.id+'/dispatch',{revision:uncertain.revision},200)).job
+  assert.equal(unknown.state,'uncertain');assert.equal(unknown.provider_state,'unknown')
   await runtime.restart();await runtime.scheduled(messageNow);assert.equal(f.receiver.sent.length,2,'a lost create response is not sent twice')
   const revoked=await f.queued()
   await f.write('/permissions/'+revoked.permission_id+'/revoke',{},200)

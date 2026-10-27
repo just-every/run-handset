@@ -37,7 +37,7 @@ export async function dispatchMessage(env:Bindings,key:string) {
   }
   // Recheck all mutable authority after every provider preflight and claim once.
   const fresh=await authority(env,j)
-  await append(env,j.created_by,'message.send',j.id,'uncertain',[...fresh.fences,guard(env,"SELECT count(*) FROM hnd_message_jobs WHERE id=? AND state='queued' AND revision=?",j.id,j.revision),env.DB.prepare("UPDATE hnd_message_jobs SET state='sending',reason='Submitted once; awaiting independent readback',revision=revision+1 WHERE id=?").bind(key)],null,sourcePolicy(fresh.source))
+  await append(env,j.created_by,'message.send',j.id,'uncertain',[...fresh.fences,guard(env,"SELECT count(*) FROM hnd_message_jobs WHERE id=? AND state='queued' AND revision=?",j.id,j.revision),env.DB.prepare("UPDATE hnd_message_jobs SET state='sending',provider_state='unconfirmed',reason='Submission claimed once; provider result unconfirmed',revision=revision+1 WHERE id=?").bind(key)],null,sourcePolicy(fresh.source))
   claimed=true
   await requireNoStop(env,[fresh.t.peer])
   const form=new URLSearchParams({From:fresh.t.business,To:fresh.t.peer,Body:j.body,StatusCallback:env.AUTH_ORIGIN+'/providers/twilio/events'})
@@ -53,7 +53,7 @@ export async function dispatchMessage(env:Bindings,key:string) {
   if(!['queued','sending'].includes(current.state))return current
   const reason=error instanceof Fault?error.code:'message_transport_uncertain'
   const stopped=reason==='recipient_STOP_or_DNC',state=claimed&&!stopped?'uncertain':'suppressed'
-  await append(env,j.created_by,'message.send',key,state==='suppressed'?'refused':'uncertain',[env.DB.prepare('UPDATE hnd_message_jobs SET state=?,reason=?,revision=revision+1 WHERE id=? AND state=?').bind(state,reason,key,current.state)])
+  await append(env,j.created_by,'message.send',key,state==='suppressed'?'refused':'uncertain',[env.DB.prepare('UPDATE hnd_message_jobs SET state=?,provider_state=?,reason=?,revision=revision+1 WHERE id=? AND state=?').bind(state,state==='uncertain'?'unknown':'not submitted',reason,key,current.state)])
   return job(env,key)
  }
 }

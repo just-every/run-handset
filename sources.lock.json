@@ -1924,7 +1924,7 @@
       "executable": false
     },
     "src/handset/messages/provider.ts": {
-      "sha256": "9039f1cf6e12adcb94b014c8cd21fa69b2454e3a03528d12b5d65b8f10ea462a",
+      "sha256": "422dfbda964f8983c07aa7a02e3ce9798628baa3860dff68216976528f8618bd",
       "executable": false
     },
     "src/handset/messages/scheduling.ts": {
@@ -4336,7 +4336,7 @@
       "executable": false
     },
     "tests/handset-transports.mjs": {
-      "sha256": "752147426bf119d4b8c864698160dd92a04e315cb76f22182d86a780f3e15fdf",
+      "sha256": "f6d4e2686318f997a63f95a73abb6224ba4dcbe32304c7a6c88b5f4bb7d491e1",
       "executable": false
     },
     "tests/handset-workspace-browser.mjs": {
@@ -4432,7 +4432,7 @@
       "executable": false
     },
     "tests/helpers/handset-messages-browser.mjs": {
-      "sha256": "63a6e11a7628fd7a6a892eef0bcefd6c1d72de57bb71eb96f32fb6bc9dfa5533",
+      "sha256": "3b2182849bd51b77a5001f47f418e63b2826c4a031e3146f9b2a5fc7efe9c389",
       "executable": false
     },
     "tests/helpers/handset-messages.mjs": {
