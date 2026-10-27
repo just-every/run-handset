@@ -240,6 +240,11 @@ test('Number ownership and protected dependencies refuse unauthorized or unsafe 
   const source=await post(runtime,'/api/handset/sources',{accountId:f.account,numberId:number.id,confirm:'authorize signed inbound records'},{cookie:f.cookie});assert.equal(source.status,201,await source.clone().text())
   assert.equal((await f.send('/'+first.id+'/review',f.review(first,replacement))).status,409,'active inbound source blocks release review')
   assert.equal(f.calls.filter(c=>c.method==='DELETE').length,0)
+  const sourceId=(await source.json()).id
+  const port=await post(runtime,'/api/handset/compliance',{sourceId,kind:'port_pin',report:{port_in_request_sid:'synthetic-handset-7120',phone_number_sid:'synthetic-handset-7121',port_in_phone_number_status:'port_rejected',rejection_reason:'INVALID_PIN'},dueAt:Date.now()+3600000,confirm:'prepare exact compliance case'},{cookie:f.cookie})
+  assert.equal(port.status,201,await port.clone().text())
+  assert.equal((await post(runtime,'/api/handset/sources/revoke',{sourceId},{cookie:f.cookie})).status,200)
+  assert.equal((await f.send('/'+first.id+'/review',f.review(first,replacement))).status,409,'unresolved port case still protects a revoked source')
   await runtime.sql('UPDATE oa_operators SET version=version+1 WHERE id=?','synthetic-handset-1')
   assert.equal((await f.send('/'+first.id+'/review',f.review(first,replacement))).status,401)
  }finally{await runtime.close()}

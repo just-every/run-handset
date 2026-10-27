@@ -4160,7 +4160,7 @@
       "executable": false
     },
     "tests/handset-admin.mjs": {
-      "sha256": "3de697ad8e20d510a6fc3c1c29b4d4215c97bd52695789b5a6f61b0b1029040f",
+      "sha256": "fcaccff72d8f3cfee55cb5fe012d55e63248723faed87f00f481d0a4bc7ac677",
       "executable": false
     },
     "tests/handset-agent-outcomes.mjs": {
