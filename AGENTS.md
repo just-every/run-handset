@@ -172,3 +172,13 @@ their maintenance.
 
 Pinned reference: https://github.com/runeditrun/base/blob/d1249b3d696c4011e9c72de2097f3757436074a6/TANSTACK-START-MIGRATION.md
 Native-session/runtime evidence: https://github.com/runeditrun/base/tree/d1249b3d696c4011e9c72de2097f3757436074a6/default-seed
+
+## Contract documents
+
+Lander-Regenerate: `node reports/contract-docs.mjs write`
+
+Then run `node reports/contract-docs.mjs check`. To adopt another clause's existing
+journey, pass `--clause HND-000` to both commands. Adopted journeys, their current
+scope and evidence are generated from CONTRACT.md; other writers' journey entries
+stay intact. The generated implementation status is `docs/CLAIMS.md`. The root
+homepage claims document remains owned by the homepage workstream.

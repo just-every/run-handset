@@ -106,3 +106,20 @@ are not a live wallboard. Real survey SMS and handset receipt remain held on tol
 verification. No real text is sent by these reporting proofs. The existing HND-092
 live-mail proof does not establish a newly delivered HND-022 report; these journeys
 exercise the official mail edge. HND-023 retains advertising-platform attribution.
+
+Receptionist execution now exposes the existing business-effect readbacks separately
+from booking containment. Exact canonical call and case linkage is required for
+bookings, deposits, refunds and recorded CRM and support handoffs. Each kind counts
+a call once, with source step, outcome and external record identities and observation
+time. Availability is a read, not a business effect. A lost acknowledgement remains
+pending even when the receiving system holds a record; a refused effect remains
+rejected. An outcome opened without a business effect remains unstarted. Open
+exceptions retain their responsible owner. Kinds and work states overlap, so they
+must not be summed as distinct calls or complete customer resolutions.
+
+The execution details filter intersects the existing call filters. Custom dashboards
+can show distinct calls with confirmed recorded handoffs and pending receptionist
+work in every existing group. CSV carries confirmed and pending step IDs and open
+exception IDs; API, retained history and scheduled snapshots preserve the same
+selection and captured provenance. These observations qualify recorded effects only;
+they do not establish human acceptance, a complete receptionist session or audio.

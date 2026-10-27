@@ -316,11 +316,11 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "bcdc61800277312ffddb04d206f0b9eac4119f9481f0487930a71dcf0ced2c6e",
+      "sha256": "b4302f7a75d5646b9a5e2ce42edb799e4ce67374078af08bd69c45779eaa521b",
       "executable": false
     },
     "AGENTS.md": {
-      "sha256": "b30ef31083323fe3b1c4f1f6b88af8b1101853fe95e88efa77def004bdb9ec30",
+      "sha256": "dbc1a07a21db3a13acf5891b6a8e36be0b8ee77f104a4bff9aff15c8ab6d8b73",
       "executable": false
     },
     "base-copies.json": {
@@ -336,7 +336,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "cddc15422aeb0c8bb027421e20eec67912357a51ea4207d8be70a15fa1a3d7c9",
+      "sha256": "b7f5f0480df2ff7ad25d197e5309ac5a22299cf89097cc1333b80c5f0d5148bf",
       "executable": false
     },
     "deploy-demo.json": {
@@ -352,7 +352,7 @@
       "executable": false
     },
     "docs/ANALYTICS.md": {
-      "sha256": "a3271ab8cc9f70548ab7f3baf95285d2c314706d89e1b18a967abac464cfff9f",
+      "sha256": "77ff0f8d2a3d0d3892ac0de3dfed333b0fe2aff402e336d9bc718ffb109af399",
       "executable": false
     },
     "docs/API.md": {
@@ -4593,6 +4593,10 @@
     },
     "tests/journeys/handset-recovery-intake-timing.mjs": {
       "sha256": "21fcdc6e5a0661dc11ea62ced0aa500dbc81eae231fa70b2b628b9b1b8160070",
+      "executable": false
+    },
+    "tests/journeys/handset-report-mail.mjs": {
+      "sha256": "2481f348c05fdf62b7236436705388f1b850216c9695953bf8269723aa159763",
       "executable": false
     },
     "tests/runtime.mjs": {
