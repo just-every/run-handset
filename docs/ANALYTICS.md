@@ -129,3 +129,12 @@ work in every existing group. CSV carries confirmed and pending step IDs and ope
 exception IDs; API, retained history and scheduled snapshots preserve the same
 selection and captured provenance. These observations qualify recorded effects only;
 they do not establish human acceptance, a complete receptionist session or audio.
+
+Receptionist source capture reads outcomes, business-effect identities and revisions,
+and exceptions in a single D1 transaction. The report request timestamp is not a
+cutoff on mutable step timestamps: an update beyond that marker never removes an
+existing step or changes it to unstarted. Containment, conversion, FCR and recovery
+use the same captured business-effect facts as the source details. API and saved
+reports retain the captured revision, state, external identity and observation time.
+A later step edit changes a fresh report, while retained reports and already
+captured scheduled deliveries preserve their original values.

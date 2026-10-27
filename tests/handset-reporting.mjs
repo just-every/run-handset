@@ -420,6 +420,12 @@ test('Call-bound reports attribute verified handlers and reconcile booking conta
   assert.deepEqual(b.native.sourceCalls.map(c=>c.id),calls.slice(0,3).map(c=>c.recordId));assert.deepEqual(b.callbackParents,[{id:dataset.entries[8].id,parentEntryId:dataset.entries[2].id,callId:calls[2].recordId}])
   assert.deepEqual([b.totals.offered,b.totals.transfers,b.totals.overflows,b.totals.callbacks,b.totals.arrivals],[2,1,1,1,0]);assert.equal((await live('queueId=queue-A')).totals.arrivals,6)
   const dashboard=await f.write('/api/handset/metrics/dashboards',{name:'Winter booking outcomes',queueId:'*',configRevision:1,filters:{trackingSource:'Winter repairs'},groups:['handlingUser','trackingSource'],metrics:['volume','contained','converted','serviceSeconds','handoffs','pendingWork']})
+  // A concurrent update timestamp is not an identity or membership fence.
+  await runtime.sql('UPDATE hnd_rx_steps SET updated_at=?,version=version+1 WHERE id=?',callReportNow+1000,f.uncertain.step.id)
+  const captured=(await live()).native
+  assert.deepEqual(captured.receptionist.states.pending,[calls[3].recordId])
+  assert.deepEqual(captured.receptionist.states.unstarted,[])
+  assert.deepEqual(captured.sourceCalls[3].receptionistWork.steps.map(s=>[s.id,s.revision]),[[f.uncertain.step.id,f.uncertain.step.version+1]])
   const saved=await f.write('/api/handset/metrics/finalize',{queueId:'*',configRevision:1,dashboardId:dashboard.id,dashboardRevision:1})
   const csv=await (await runtime.request('/api/handset/metrics/dashboards/'+dashboard.id+'/csv',{headers})).text()
   assert.equal(csv.trim().split('\r\n').length,7);assert.ok(csv.includes(handler));assert.ok(csv.includes(calls[0].offerId));assert.ok(csv.includes('Winter repairs'));assert.ok(csv.includes(f.outcomes[0].id));assert.ok(!csv.includes(f.unlinked.id));assert.ok(csv.includes(f.crm.step.id));assert.ok(csv.includes(f.uncertain.step.id))
@@ -428,11 +434,14 @@ test('Call-bound reports attribute verified handlers and reconcile booking conta
   await f.write('/api/handset/metrics/schedule',schedule)
   const mailCount=runtime.mails.length;await runtime.scheduled();await runtime.scheduled();assert.equal(runtime.mails.length,mailCount+1)
   const mailed=JSON.parse(runtime.mails.at(-1).content.find(p=>p.type==='text/plain').value)
-  for(const key of ['sourceCalls','byHandlingUser','byTrackingSource','containment','conversion','receptionist'])assert.deepEqual(mailed.native[key],n[key],'scheduled '+key)
+  for(const key of ['sourceCalls','byHandlingUser','byTrackingSource','containment','conversion','receptionist'])assert.deepEqual(mailed.native[key],captured[key],'scheduled '+key)
   await f.write('/api/handset/metrics/groups',{number:'+15125550125',team:'Support',location:'Austin',trackingSource:'Unattributed',revision:1})
   const cleared=(await live()).native;assert.equal(cleared.conversion.value,null);assert.equal(cleared.conversion.excluded.unattributed,6)
+  await runtime.sql("UPDATE hnd_rx_steps SET state='rejected',updated_at=?,version=version+1 WHERE id=?",callReportNow+2000,f.uncertain.step.id)
+  assert.deepEqual((await live()).native.receptionist.states.pending,[])
   await runtime.restart();headers.cookie=(await signIn(runtime)).cookie
   const history=await (await runtime.request('/api/handset/metrics/history/'+saved.id,{headers})).json()
+  assert.deepEqual(history.native.sourceCalls,saved.native.sourceCalls,'saved report retains captured effect identities, revisions, states and readback provenance after a later edit')
   assert.deepEqual(history.native.conversion,n.conversion);assert.deepEqual(history.native.byHandlingUser,n.byHandlingUser);assert.deepEqual(history.native.receptionist,n.receptionist)
   await post(runtime,'/auth/operator/status',{operatorId:'synthetic-handset-2',status:'active'},headers)
   const member=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'})

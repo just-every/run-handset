@@ -3,18 +3,19 @@ import type { Config } from './model'
 import { callRows } from '../exports/logs'
 import { matchesNativeFilters, parseNativeFilters, type NativeFilters } from './filters'
 import { listGroups } from './groups'
-import { callOutcomeSources, containmentBasis, conversionBasis } from './call-outcomes'
+import { handlingSources, containmentBasis, conversionBasis } from './call-outcomes'
 import { receptionistSources, receptionistSummary, workStates } from './receptionist'
 
 // Canonical customer calls are counted once, independently of endpoint offers.
 export async function nativeAnalytics(env:Bindings,config:Config,rawFilters:NativeFilters={},reviewedCallIds:string[]=[]) {
  const filters=parseNativeFilters(rawFilters),capturedAt=Date.now()
- const [rows,assignments,outcomeSources,receptionistWork]=await Promise.all([
+ const [rows,assignments,handlers,receptionist]=await Promise.all([
   callRows(env,{from:config.startAt,to:config.endAt,timezone:config.timezone,queueId:null,ownerId:null},capturedAt),
   listGroups(env.DB),
-  callOutcomeSources(env,capturedAt),
+  handlingSources(env,capturedAt),
   receptionistSources(env,capturedAt),
  ])
+ const outcomeSources={handlers,outcomes:receptionist.outcomes},receptionistWork=receptionist.work
  const groups=new Map(assignments.map(assignment=>[assignment.number,assignment]))
  const queueCalls=new Set(config.queueId==='*'?[]:(await env.DB.prepare('SELECT DISTINCT e.call_id FROM hnd_queue_entries e JOIN hnd_queue_visits v ON v.entry_id=e.id WHERE v.queue_id=?').bind(config.queueId).all<{call_id:string}>()).results.map(e=>e.call_id))
  for(const callId of reviewedCallIds)queueCalls.add(callId)
@@ -39,16 +40,18 @@ export async function nativeAnalytics(env:Bindings,config:Config,rawFilters:Nati
  }).sort((a,b)=>a.occurredAt-b.occurredAt||a.id.localeCompare(b.id))
  const sourceCalls=allSourceCalls.filter(call=>matchesNativeFilters(call,filters))
  const caseIds=new Set(sourceCalls.map(c=>c.caseId)),callIds=new Set(sourceCalls.map(c=>c.id))
- const recoveries=(await env.DB.prepare(`SELECT r.id,r.case_id,r.state,r.resolution,CASE WHEN o.id IS NOT NULL THEN s.id END AS confirmed_step_id FROM hnd_recovery r
-  LEFT JOIN hnd_rx_steps s ON s.id=json_extract(r.resolution,'$.stepId') AND s.kind='booking' AND s.state='confirmed'
-  LEFT JOIN hnd_rx_outcomes o ON o.id=s.outcome_id AND o.case_id=r.case_id`).all<{id:string;case_id:string;state:string;resolution:string|null;confirmed_step_id:string|null}>()).results.filter(r=>caseIds.has(r.case_id))
+ const recoveries=(await env.DB.prepare('SELECT id,case_id,state,resolution FROM hnd_recovery').all<{id:string;case_id:string;state:string;resolution:string|null}>()).results.filter(r=>caseIds.has(r.case_id)).map(r=>{
+  const resolution=r.resolution?JSON.parse(r.resolution):null
+  const confirmed=receptionist.bookings.some(s=>s.id===resolution?.stepId&&s.case_id===r.case_id)
+  return {...r,confirmed_step_id:confirmed?resolution.stepId:null}
+ })
  const surveys=(await env.DB.prepare(`SELECT i.call_record_id,i.eligible_at,r.rating FROM hnd_survey_invitations i LEFT JOIN hnd_survey_responses r ON r.invitation_id=i.id`).all<{call_record_id:string;eligible_at:number|null;rating:number|null}>()).results.filter(i=>callIds.has(i.call_record_id))
  const ratings=surveys.filter(i=>i.rating!==null),delivered=surveys.filter(i=>i.eligible_at!==null).length
  const windowMs=config.repeatWindowHours*3600000
  const contacts=(await env.DB.prepare(`SELECT r.id,r.case_id,r.occurred_at,r.data,p.source_id FROM hnd_records r JOIN hnd_record_sources p ON p.record_id=r.id AND p.source_kind='twilio'
   WHERE r.kind='call_session' AND r.occurred_at>=? AND r.occurred_at<? AND r.received_at<=? AND json_extract(r.data,'$.direction')='inbound'
   AND NOT EXISTS(SELECT 1 FROM hnd_records n WHERE n.supersedes_id=r.id)`).bind(Math.max(0,config.startAt-windowMs),config.endAt+windowMs,capturedAt).all<{id:string;case_id:string|null;occurred_at:number;data:string;source_id:string}>()).results.map(c=>{const d=JSON.parse(c.data);return {...c,identity:/^\+[1-9]\d{7,14}$/.test(d.from??'')&&/^\+[1-9]\d{7,14}$/.test(d.to??'')?JSON.stringify([c.source_id,d.from,d.to]):null}})
- const bookings=(await env.DB.prepare("SELECT o.case_id,s.updated_at FROM hnd_rx_steps s JOIN hnd_rx_outcomes o ON o.id=s.outcome_id WHERE s.kind='booking' AND s.state='confirmed' AND s.readback IS NOT NULL").all<{case_id:string;updated_at:number}>()).results
+ const bookings=receptionist.bookings
  const eligibleCallIds:string[]=[],resolvedCallIds:string[]=[],repeatCallIds:string[]=[],excluded={immature:0,unknownIdentity:0,repeatContact:0}
  for(const call of sourceCalls){
   const c=contacts.find(c=>c.id===call.id)
