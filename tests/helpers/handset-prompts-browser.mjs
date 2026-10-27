@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { sourceFixture } from './handset-sources.mjs'
 import { business, people, wavBytes } from './handset-prompts.mjs'
+import { greetingRoleJourney } from './handset-greeting-role-browser.mjs'
 
 export const speechEdge = async (request, Response) => new Response(wavBytes({ rate: 24000, seconds: 1.5, freq: 330 }), { status: 200, headers: { 'content-type': 'audio/wav' } })
 
@@ -49,4 +50,5 @@ export async function promptJourney({ runtime, page, proof, cookie }) {
  const listing = await (await runtime.request('/api/handset/prompts', { headers: { cookie } })).json()
  assert.deepEqual(listing.versions.map(v => v.source).sort(), ['browser_recording', 'tts', 'upload'])
  assert.equal(listing.recordings.length, 1)
+ await greetingRoleJourney({runtime,page,proof,cookie})
 }

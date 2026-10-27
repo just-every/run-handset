@@ -13,6 +13,7 @@ import { flowConsole } from '../flows/console'
 import { flowDoor } from '../flows/doors'
 import { promptConsole } from '../prompts/console'
 import { promptDoor } from '../prompts/doors'
+import { roleDoor } from '../access/role-doors'
 import { transcriptPage } from '../transcripts/pages'
 import { transcriptDoor } from '../transcripts/doors'
 import { delegationDoor } from '../delegation/doors'
@@ -97,6 +98,7 @@ async function route(request: Request, original: Bindings): Promise<Response|nul
   }
   if(path==='/app/flows'||path.startsWith('/app/flows/'))return await flowConsole(request,env,actor,request.method==='GET'?undefined:await input(request))
   if(path==='/api/handset/flows'||path.startsWith('/api/handset/flows/'))return await flowDoor(request,env,actor,request.method==='GET'?undefined:await input(request))
+  if(['/app/prompts/access','/api/handset/prompts/access'].some(root=>path===root||path.startsWith(root+'/')))return await roleDoor(request,env,actor,request.method==='GET'?undefined:await input(request))
   if(path==='/app/prompts'||path.startsWith('/app/prompts/'))return await promptConsole(request,env,actor,request.method==='GET'?undefined:await input(request,4500000))
   if(path==='/api/handset/prompts'||path.startsWith('/api/handset/prompts/'))return await promptDoor(request,env,actor,request.method==='GET'?undefined:await input(request,4500000))
   const records=await recordsDoor(request,env,actor)

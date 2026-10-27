@@ -10,6 +10,8 @@ import { requestTestCall } from './test-calls'
 import { synthesize } from './tts'
 import { keypad, variants, type Language } from './model'
 import { columns, joined, version, versionInsert, type NewVersion } from './store'
+import { authorizePrompt } from '../access/custom-roles'
+import { greetingCatalog } from './access'
 
 export const purposes = ['main_attendant', 'menu', 'queue', 'holiday', 'after_hours'] as const
 const sources = ['upload', 'browser_recording', 'tts'] as const
@@ -28,17 +30,20 @@ export function schedule(raw: unknown) {
  return out
 }
 export async function addVersion(env: Bindings, actor: Session, promptId: string, v: NewVersion) {
+ const access = await authorizePrompt(env, actor, promptId)
  const { target, statements } = await versionInsert(env, actor.operator.id, promptId, v)
- await commit(env, actor, 'prompt.create', target, 'completed', statements)
+ await commit(env, actor, 'prompt.create', target, 'completed', [...access.fences, ...statements], false, access.applied)
  return version(env, target)
 }
 async function author(env: Bindings, actor: Session, promptId: string, v: ObjectValue) {
+ await authorizePrompt(env, actor, promptId)
  keys(v, ['source', 'language', 'variant', 'schedule', 'audioBase64', 'script'])
  const source = choice(v.source, sources, 'source'), language = choice(v.language, languages, 'language'), variant = choice(v.variant, variants, 'variant')
  const prompt = await sql(env, 'SELECT id FROM hnd_prompts WHERE id=?', promptId).first()
  if (!prompt) throw new Fault('prompt_missing', 404)
  let raw: Uint8Array, script: string | undefined
  if (source === 'tts') {
+  owner(actor)
   if (v.audioBase64 !== undefined) throw new Fault('tts_takes_script_only')
   script = text(v.script, 'script', 1000)
   raw = await synthesize(env, language, script)
@@ -63,9 +68,25 @@ async function extensionWrite(env: Bindings, actor: Session, v: ObjectValue) {
  return { extension, operatorId: person, directoryName: name, active: !!active, ringsDestination: 'registered by the named owner; HND-078 personal answering rules are not applied' }
 }
 export async function promptDoor(request: Request, env: Bindings, actor: Session, value?: ObjectValue): Promise<Response> {
- owner(actor)
  const url = new URL(request.url), base = '/api/handset/prompts', path = url.pathname
  if (url.search) throw new Fault('unexpected_prompt_query')
+ const draft = path.match(/^\/api\/handset\/prompts\/([0-9a-f-]{36})\/versions$/)
+ if (actor.operator.role !== 'owner') {
+  if (path === base && request.method === 'GET') return json(await greetingCatalog(env, actor))
+  if (draft && request.method === 'POST' && value) return json(await author(env, actor, draft[1], value), 201)
+  const preview = path.match(/^\/api\/handset\/prompts\/versions\/([0-9a-f-]{36})\/audio$/)
+  if (preview && request.method === 'GET') {
+   const row = await sql(env, 'SELECT prompt_id FROM hnd_prompt_versions WHERE id=?', preview[1]).first<{prompt_id:string}>()
+   if (!row) throw new Fault('greeting_access_required', 403)
+   const access = await authorizePrompt(env, actor, row.prompt_id)
+   const result = await env.DB.batch([...access.fences, sql(env, 'SELECT audio FROM hnd_prompt_versions WHERE id=? AND prompt_id=?', preview[1], row.prompt_id), sql(env, 'DELETE FROM hnd_guard')])
+   const bytes = storedAudio((result.at(-2)!.results[0] as {audio:string}).audio)
+   await commit(env, actor, 'prompt.read', preview[1], 'completed', access.fences, false, access.applied)
+   return new Response(bytes, {headers:{'content-type':'audio/wav','cache-control':'private, no-store','x-content-type-options':'nosniff','content-security-policy':"default-src 'none'; sandbox"}})
+  }
+  throw new Fault('greeting_operation_forbidden', 403)
+ }
+ owner(actor)
  if (path === base && request.method === 'GET') {
   const prompts = (await sql(env, 'SELECT p.*,o.display_name AS author_name FROM hnd_prompts p JOIN oa_operators o ON o.id=p.created_by ORDER BY p.created_at DESC LIMIT 200').all()).results
   const versions = (await sql(env, `SELECT ${columns} ${joined} ORDER BY v.created_at DESC LIMIT 500`).all()).results

@@ -739,6 +739,10 @@
       "sha256": "69dcaf7a9534bd7e4e431693f4bc35dff9fd5180e3d68d995ca8c46d998cd4c8",
       "executable": false
     },
+    "migrations/core/0067_handset_custom_roles.sql": {
+      "sha256": "102f6582649fd272443de43c93238e8ba3133a79c885e75b02955b50948a3b2f",
+      "executable": false
+    },
     "ONBOARDING.md": {
       "sha256": "4d2223ee9e22ba7315d6a6d36b2fc3d18b0ad5cb6b30e3a5d7a8946560a8c809",
       "executable": false
@@ -1435,8 +1439,16 @@
       "sha256": "84abac66e4a87409fe44223296a73279af8284cc6921e072ad751f1b8927e4c8",
       "executable": false
     },
+    "src/handset/access/custom-roles.ts": {
+      "sha256": "9149659d117957fae3786ad38dcedd4abc94e7f356285bf9a8a9194ef222acfe",
+      "executable": false
+    },
     "src/handset/access/numbers.ts": {
       "sha256": "bdf7444c5dcda6053e101ff871ac9e38cde2c27f5c2ae2afbaedb6d44029543a",
+      "executable": false
+    },
+    "src/handset/access/role-doors.ts": {
+      "sha256": "da2dc06ab1ef94ce8278d99f2f6c94a7f42590308dbf5c83fa5cf5b8adf6b3cf",
       "executable": false
     },
     "src/handset/admin/access.ts": {
@@ -1804,7 +1816,7 @@
       "executable": false
     },
     "src/handset/http/product.ts": {
-      "sha256": "13d47847659d724765797b31703b5a14724fd3971eb640a89c5ff113f5243c8f",
+      "sha256": "8e0fdfcea797b193c947a3da548d7d1bd1e92ff3d52a4eb263f692613ac49140",
       "executable": false
     },
     "src/handset/import/bridge.ts": {
@@ -1923,16 +1935,24 @@
       "sha256": "9f7ab11383ea8ae4b6e7f25e6fb5a26fb517954a1ffd191190536074eeb30a22",
       "executable": false
     },
+    "src/handset/prompts/access.ts": {
+      "sha256": "e40a47550a60569d724c82792a7887dfb91506bf3e8b3614e361b2ae3def8fa2",
+      "executable": false
+    },
     "src/handset/prompts/audio.ts": {
       "sha256": "dec331174ae13f6a36899f3669f93a4acd9402396ff39416bb3627b6a809ab56",
       "executable": false
     },
     "src/handset/prompts/console.ts": {
-      "sha256": "b9822625831a7d5e3966cd8c7878cc51e9de1e1ebca1b808965d27e3c9d57eaf",
+      "sha256": "668a3b25f161bfbd1dfe58875b664da77ce203b6c0dc927c2e6ea8145196dd9a",
       "executable": false
     },
     "src/handset/prompts/doors.ts": {
-      "sha256": "927f4830592d31aedd05a946a242832dfe1b7a5b064e9940852fe8f014fd93ab",
+      "sha256": "a169ab32949602bda058ebbaf3496b54eb99e9b8f4db666af50dfb6e3a4cea30",
+      "executable": false
+    },
+    "src/handset/prompts/greeting-console.ts": {
+      "sha256": "6b92a551041817dcf1f1e09d6cdd3026b34ef9433d36205b7de08a89f588b3b0",
       "executable": false
     },
     "src/handset/prompts/model.ts": {
@@ -4208,7 +4228,7 @@
       "executable": false
     },
     "tests/handset-prompts.mjs": {
-      "sha256": "44ef12fc85cc8b72346ba9a97135539f539911e158c39cbc798e55310f3db81e",
+      "sha256": "3ce9c471fcf65371f047c631beea7c1c579c013f3ce7c8df230d7b07cdb2334f",
       "executable": false
     },
     "tests/handset-queues.mjs": {
@@ -4303,6 +4323,10 @@
       "sha256": "7d781801ebfe72ee51d99816119b4495027a484fe17089ebe1e07b066b21facc",
       "executable": false
     },
+    "tests/helpers/handset-greeting-role-browser.mjs": {
+      "sha256": "27930cb60a940df343d9425479c0c560bcbf73b31540a28fd7c605d26b7646bc",
+      "executable": false
+    },
     "tests/helpers/handset-import.mjs": {
       "sha256": "a740ebe4096268eee4fa0d92265dbd1e6513349ca5cac010ed1596cb4e240f68",
       "executable": false
@@ -4328,7 +4352,7 @@
       "executable": false
     },
     "tests/helpers/handset-prompts-browser.mjs": {
-      "sha256": "558a4d6657610329b45ff3385740789d528c1c93c3a2834a0ba1f7f27e4b5eed",
+      "sha256": "8e87b03faa242eff927ac8336a030dee926992a59879701f0be8a305a9c393f3",
       "executable": false
     },
     "tests/helpers/handset-prompts.mjs": {

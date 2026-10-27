@@ -1,10 +1,11 @@
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
-import { Fault, consolePage, escape as e, owner, type ObjectValue } from '../core'
+import { Fault, consolePage, escape as e, type ObjectValue } from '../core'
 import { sql } from '../delegation/store'
 import { promptDoor, purposes } from './doors'
 import { variants } from './model'
 import { columns, joined } from './store'
+import { greetingConsole } from './greeting-console'
 
 type Prompt = { id: string; name: string; purpose: string; shared: number }
 type Version = { id: string; prompt_id: string; version: number; source: string; language: string; variant: string; schedule: string; script: string | null; audio_sha256: string; duration_ms: number; state: string; author_name: string; original_format: string }
@@ -27,7 +28,7 @@ async function snapshot(env: Bindings) {
 }
 async function view(env: Bindings, notice = '', status = 200, extra = '') {
  const { prompts, versions, people, extensions, sources } = await snapshot(env)
- const response = await consolePage('Greetings and prompts', `<link rel="stylesheet" href="/handset-flows.css"><p role="status">Prompt authoring is preparatory. Previews and signed-edge tests play nothing to customers and publish nothing. Prompt versions are pinned to flow versions; changing a shared prompt never alters a published flow.</p>${notice ? `<p role="alert">${e(notice)}</p>` : ''}${extra}
+ const response = await consolePage('Greetings and prompts', `<link rel="stylesheet" href="/handset-flows.css"><p><a href="/app/prompts/access">Greeting role settings</a></p><p role="status">Prompt authoring is preparatory. Previews and signed-edge tests play nothing to customers and publish nothing. Prompt versions are pinned to flow versions; changing a shared prompt never alters a published flow.</p>${notice ? `<p role="alert">${e(notice)}</p>` : ''}${extra}
 <section class="hnd-panel"><h2>New prompt</h2><form method="post" action="/app/prompts"><label>Name<input name="name" required maxlength="120"></label>${select('new', 'purpose', 'Use', purposes.map(p => [p, label(p)]))}<label><input type="checkbox" name="shared" value="yes"> Shared by more than one flow</label><button type="submit">Create prompt</button></form></section>
 <section class="hnd-panel"><h2>Add a version</h2><form method="post" action="/app/prompts/versions" data-prompt-author>${select('author', 'promptId', 'Prompt', prompts.map(p => [p.id, p.name]))}${select('author', 'source', 'Source', [['upload', 'Audio file upload (WAV)'], ['browser_recording', 'Browser microphone'], ['tts', 'Text to speech']])}${select('author', 'language', 'Language', [['en', 'English'], ['es', 'Spanish']])}${select('author', 'variant', 'Schedule variant', variants.map(v => [v, label(v)]))}<label>Effective from<input type="date" name="effectiveFrom"></label><label>Effective until<input type="date" name="effectiveUntil"></label>
 <label data-source="upload">Audio file<input type="file" accept="audio/wav,.wav" data-audio-file></label><div data-source="browser_recording"><button type="button" data-record-start>Start recording</button> <button type="button" data-record-stop disabled>Stop recording</button><audio controls hidden data-record-preview aria-label="Recording preview"></audio></div><label data-source="tts">Greeting text<textarea name="script" maxlength="1000" rows="3"></textarea></label><input type="hidden" name="audioBase64" data-audio-field><p role="status" data-audio-status></p><button type="submit">Add version</button></form><script src="/handset-prompts.js"></script></section>
@@ -39,11 +40,13 @@ async function view(env: Bindings, notice = '', status = 200, extra = '') {
  return response
 }
 export async function promptConsole(request: Request, env: Bindings, actor: Session, v?: ObjectValue): Promise<Response> {
- owner(actor)
  const url = new URL(request.url), path = url.pathname
  if (url.search) throw new Fault('unexpected_prompt_query')
- if (request.method === 'GET') { if (path !== '/app/prompts') throw new Fault('not_found', 404); return view(env) }
+ const isOwner=actor.operator.role==='owner'
+ if(!isOwner&&path!=='/app/prompts'&&path!=='/app/prompts/versions')throw new Fault('greeting_operation_forbidden',403)
+ if (request.method === 'GET') { if (path !== '/app/prompts') throw new Fault('not_found', 404); return isOwner?view(env):greetingConsole(env,actor) }
  if (request.method !== 'POST' || !v) throw new Fault('method_not_allowed', 405)
+ if(!isOwner&&path==='/app/prompts')throw new Fault('greeting_operation_forbidden',403)
  const api = (target: string, body: ObjectValue) => promptDoor(new Request(new URL('/api/handset/prompts' + target, url), { method: 'POST' }), env, actor, body)
  try {
   let result: Response
@@ -64,7 +67,7 @@ export async function promptConsole(request: Request, env: Bindings, actor: Sess
   void result
   return new Response(null, { status: 303, headers: { location: '/app/prompts' } })
  } catch (error) {
-  if (error instanceof Fault) return view(env, error.code.replaceAll('_', ' '), error.status)
+  if (error instanceof Fault) return isOwner?view(env, error.code.replaceAll('_', ' '), error.status):greetingConsole(env,actor,error.code.replaceAll('_',' '),error.status)
   throw error
  }
 }

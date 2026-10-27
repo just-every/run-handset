@@ -1,9 +1,63 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { post, signIn } from './helpers/handset-auth.mjs'
 import { approve, authoredFlow, b64, business, coverage, flowDefinition, instants, newPrompt, people, promptFixture, publishFlow, queueId, registerPeople, wavBytes } from './helpers/handset-prompts.mjs'
 
 const versionPath = (id, tail) => `/api/handset/prompts/versions/${id}/${tail}`
 const listing = f => f.ok('GET', '/api/handset/prompts')
+
+test('Custom greeting roles permit only scoped drafts and current role and person authority fences every subsequent request', async () => {
+ const f=await promptFixture()
+ try {
+  await registerPeople(f)
+  const greeting=await newPrompt(f,'Austin reception','main_attendant'),foreign=await newPrompt(f,'Private management menu','menu')
+  const body={source:'upload',language:'en',variant:'always',audioBase64:b64(wavBytes({rate:8000}))},path=p=>`/api/handset/prompts/${p.id}/versions`,access='/api/handset/prompts/access'
+  const original=await f.ok('POST',path(greeting),body,201);await approve(f,original.id)
+  const roleInput={revision:0,name:'Front desk greetings',capabilities:['greeting.draft'],promptIds:[greeting.id],confirm:'approve greeting draft role'}
+  const role=await f.ok('POST',access,roleInput,201)
+  const assign=()=>f.ok('POST',`${access}/${role.id}/assign`,{revision:role.revision,personId:people[1].id,personVersion:1,confirm:'assign exact greeting role'})
+  const member=await signIn({...f.runtime,ownerEmail:people[1].id+'@example.test'}),headers={cookie:member.cookie}
+  assert.equal((await post(f.runtime,path(greeting),body,headers)).status,403)
+  await assign()
+  const saved=await post(f.runtime,path(greeting),body,headers);assert.equal(saved.status,201,await saved.clone().text());const draft=await saved.json()
+  assert.deepEqual([draft.prompt_id,draft.author_name,draft.state,draft.version],[greeting.id,people[1].name,'draft',2])
+  const catalog=await (await f.runtime.request('/api/handset/prompts',{headers})).json()
+  assert.deepEqual(catalog.prompts.map(p=>p.id),[greeting.id]);assert.deepEqual(catalog.versions.map(v=>v.id).sort(),[original.id,draft.id].sort())
+  assert.deepEqual(catalog.extensions,[])
+  assert.equal((await f.runtime.request(versionPath(draft.id,'audio'),{headers})).status,200)
+  const other=await f.ok('POST',path(foreign),body,201)
+  for(const [method,target,value] of [
+   ['POST',path(foreign),body],['GET',versionPath(other.id,'audio')],
+   ['GET',access],['POST',access,roleInput],['POST',`${access}/${role.id}/assign`,{revision:1,personId:people[2].id,personVersion:1,confirm:'assign exact greeting role'}],
+   ['POST',versionPath(draft.id,'approve'),{audioSha256:draft.audio_sha256,confirm:'approve this exact prompt version'}],
+   ['POST',path(greeting),{source:'tts',language:'en',variant:'always',script:'Spend no money'}],
+   ['POST',`/api/handset/prompts/${greeting.id}/phone-recordings`,{}],['POST','/api/handset/prompts/test-calls',{}],
+   ['GET','/api/handset/billing'],['POST','/api/handset/numbers/purchase',{}],['POST','/api/handset/compliance',{kind:'port_pin',sourceId:f.source.source.id}],
+   ['GET','/api/handset/exports/csv'],['POST','/api/handset/exports/archives',{}],['POST','/api/handset/flows',{}],
+   ['POST','/auth/operator/role',{operatorId:people[1].id,role:'owner'}],
+  ])assert.equal((await (method==='GET'?f.runtime.request(target,{headers}):post(f.runtime,target,value,headers))).status,403,target)
+  assert.equal(f.speech.length,0)
+  assert.equal((await listing(f)).versions.find(v=>v.id===original.id).state,'approved')
+  assert.equal((await listing(f)).versions.find(v=>v.id===draft.id).state,'draft')
+  const revised=await f.ok('POST',`${access}/${role.id}`,{...roleInput,revision:1,capabilities:[]},201);role.revision=revised.revision
+  for(const target of ['/api/handset/prompts',versionPath(draft.id,'audio')])assert.equal((await f.runtime.request(target,{headers})).status,403)
+  assert.equal((await post(f.runtime,path(greeting),body,headers)).status,403)
+  await assign();assert.equal((await post(f.runtime,path(greeting),body,headers)).status,403,'assignment cannot add a missing capability')
+  const restored=await f.ok('POST',`${access}/${role.id}`,{...roleInput,revision:2},201);role.revision=restored.revision
+  await assign();assert.equal((await post(f.runtime,path(greeting),body,headers)).status,201)
+  await f.runtime.restart();assert.equal((await post(f.runtime,path(greeting),body,headers)).status,201)
+  assert.equal((await post(f.runtime,'/auth/operator/status',{operatorId:people[1].id,status:'inactive'},f.headers)).status,200)
+  for(const target of ['/api/handset/prompts',versionPath(draft.id,'audio')])assert.equal((await f.runtime.request(target,{headers})).status,401)
+  assert.equal((await post(f.runtime,path(greeting),body,headers)).status,401)
+  assert.equal((await post(f.runtime,'/auth/operator/status',{operatorId:people[1].id,status:'active'},f.headers)).status,200)
+  const renewed=await signIn({...f.runtime,ownerEmail:people[1].id+'@example.test'})
+  assert.equal((await post(f.runtime,path(greeting),body,{cookie:renewed.cookie})).status,403,'reactivation never revives old assignments')
+  const current=await listing(f)
+  assert.equal(current.versions.filter(v=>v.prompt_id===greeting.id).length,4)
+  const audit=await f.ok('GET','/api/handset/audit/export')
+  assert.ok(audit.rows.some(r=>r.action==='prompt.create'&&r.subject===draft.id&&JSON.parse(r.policy).applied.access?.id===role.id))
+ }finally{await f.runtime.close()}
+})
 
 test('Uploaded, browser-recorded, phone-recorded and Spanish speech prompts are refused, previewed, approved, pinned and kept through rollback', async () => {
  const f = await promptFixture()
@@ -39,7 +93,7 @@ test('Uploaded, browser-recorded, phone-recorded and Spanish speech prompts are 
   assert.equal(f.speech.length, 1)
   assert.deepEqual([f.speech[0].body.model, f.speech[0].body.input, f.speech[0].body.response_format], ['gpt-4o-mini-tts', speech.script, 'wav'])
   assert.match(f.speech[0].body.instructions, /español/); assert.ok(f.speech[0].body.voice); assert.match(f.speech[0].headers.authorization, /^Bearer /)
-  await f.refused(`/api/handset/prompts/${closed.id}/versions`, { source: 'tts', language: 'es', variant: 'after_hours', script: 'x', audioBase64: b64(wavBytes()) }, 400, 'tts_takes_script_only')
+  await f.refused(`/api/handset/prompts/${closed.id}/versions`, { source: 'tts', language: 'es', variant: 'after_hours', script: 'x', audioBase64: b64(wavBytes({rate:8000})) }, 400, 'tts_takes_script_only')
   const holiday = await newPrompt(f, 'Holiday', 'holiday')
   // Record by phone: only the author's own registered number, only through the signed door.
   const phone = `/api/handset/prompts/${holiday.id}/phone-recordings`, mara = people[0].destination
