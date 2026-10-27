@@ -131,7 +131,7 @@ export async function reportingDashboardJourney({runtime,page,proof,click,cookie
  await checkSelection(page,['person','team','location'],['missed'])
  const comparison=page.locator('details').filter({has:page.getByText('Compare current dashboard',{exact:true})})
  assert.equal(await comparison.isVisible(),true)
- assert.ok((await comparison.locator('pre').innerText()).includes(competingName))
+ assert.ok((await comparison.innerText()).includes(competingName))
  assert.equal(await page.getByRole('button',{name:'Save reviewed dashboard',exact:true}).isVisible(),true)
  await capture('reporting-dashboard-stale-draft-preserved')
  await click('Save reviewed dashboard')

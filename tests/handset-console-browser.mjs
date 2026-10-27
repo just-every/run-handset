@@ -142,6 +142,7 @@ for(const width of [1440,390])for(const domain of ['messages','numbers','adminis
 
   await page.goto(runtime.origin+'/app/import');await proof('import-empty')
   await page.getByLabel('Source JSON',{exact:true}).fill(JSON.stringify(metricDataset()))
+  await page.getByRole('checkbox',{name:'Compare as a catch-up against the latest applied source snapshot',exact:true}).check()
   await click('Upload and review plan');await page.getByRole('heading',{name:'Review exact import plan',exact:true}).waitFor();await proof('import-plan')
   await page.getByRole('checkbox',{name:'I approve this exact fingerprint and these differences',exact:true}).check();await click('Apply this reviewed plan')
   for(let i=0;i<20&&await page.getByRole('button',{name:'Resume reviewed apply',exact:true}).count();i++){
