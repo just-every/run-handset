@@ -2216,7 +2216,7 @@
       "executable": false
     },
     "src/handset/recording/capture-doors.ts": {
-      "sha256": "ec18dad0b291656160308f49921a11f387ad0206c92b84fba1d5bebb298d362f",
+      "sha256": "881db62a396455cd70444a66e9da5a36198d42886d9a39ac774498d29318e941",
       "executable": false
     },
     "src/handset/recording/capture-pages.ts": {
@@ -2228,7 +2228,7 @@
       "executable": false
     },
     "src/handset/recording/capture-provider.ts": {
-      "sha256": "d13f31f0345dc5312f35a467236390d5411da725874c3ab7f3b729a736547a99",
+      "sha256": "986896ef8cb8d12f5b95e2c5e4a037f5475345b3b0117178c4f63802e3861edb",
       "executable": false
     },
     "src/handset/recording/capture-retention.ts": {
@@ -2324,7 +2324,7 @@
       "executable": false
     },
     "src/handset/transcripts/doors.ts": {
-      "sha256": "83774e834eea6f0ee0fcae083f82200b71638f2e2988e82fd948f7a56678ab56",
+      "sha256": "29908f3cf7e03759f7f6232df1097288ad88c40e93e375e5d1301e08e95b09ec",
       "executable": false
     },
     "src/handset/transcripts/pages.ts": {
@@ -4348,7 +4348,7 @@
       "executable": false
     },
     "tests/helpers/handset-capture-browser.mjs": {
-      "sha256": "ee8b4bd9e6c84696d250047262847cb82dc1cf5c13ff0201b3b9b242be07407a",
+      "sha256": "23098d28ada722e45a4979c7e92b9fdb0c42c1bf367769f6964664433c2fcdb2",
       "executable": false
     },
     "tests/helpers/handset-capture.mjs": {

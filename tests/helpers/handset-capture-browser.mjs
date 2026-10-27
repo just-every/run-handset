@@ -46,7 +46,8 @@ export async function captureBrowser(width) {
  async function attest() {await submit('announcement','Record human announcement attestation',{attest:true})}
  try {
   await mkdir(evidence,{recursive:true});await as(f.cookie)
-  await page.goto(runtime.origin+base);await proof('review-active-call')
+  await page.goto(runtime.origin+'/app/recordings');await proof('recordings-entry')
+  await page.getByRole('link',{name:'Recording controls and retention',exact:true}).click();await proof('review-active-call')
   await page.getByLabel('Native call',{exact:true}).selectOption(f.callId)
   for(let i=0;i<participants.length;i++){await page.getByLabel('Participant '+(i+1)+' reference',{exact:true}).fill(participants[i].id);await page.getByLabel('Participant '+(i+1)+' consent',{exact:true}).selectOption(participants[i].consent)}
   await page.getByRole('checkbox',{name:'I reviewed these exact call participants and their consent',exact:true}).check()
@@ -90,5 +91,27 @@ export async function captureBrowser(width) {
   assert.equal((await runtime.request(api,{headers:{cookie:member.cookie}})).status,403)
   assert.equal((await post(runtime,api+'/'+id+'/start',{revision:current.revision,confirm:'start this consented recording'},{cookie:member.cookie})).status,403)
   await as(f.cookie);await page.goto(runtime.origin+base+'/'+id);await state('stopped')
+  await page.getByText('Settings: capture consent and retention',{exact:true}).click()
+  const releaseHold=actionForm('retention')
+  await releaseHold.getByLabel('Retain until (UTC; blank keeps no scheduled end)',{exact:true}).fill(new Date(Date.now()-60000).toISOString().slice(0,16))
+  await releaseHold.getByLabel('Keep a legal hold on this recording',{exact:true}).uncheck()
+  await releaseHold.getByLabel('I reviewed this exact retention date and legal hold',{exact:true}).check()
+  await submit('retention','Save retention and hold')
+  runtime.twilioResources.set(`https://api.twilio.com/2010-04-01/Accounts/${f.account}/Recordings/${f.recordingSid}.json`,{__httpStatus:204})
+  await page.getByText('Settings: capture consent and retention',{exact:true}).click()
+  await submit('erase','Erase recording and supplied text',{attest:true});await state('erased');await proof('erased')
+  await page.getByRole('link',{name:'Return to capture sessions',exact:true}).click()
+  await page.getByLabel('Native call',{exact:true}).selectOption(f.callId)
+  await page.getByLabel('Participant jurisdiction policy',{exact:true}).selectOption('all-party')
+  for(let i=0;i<participants.length;i++){await page.getByLabel('Participant '+(i+1)+' reference',{exact:true}).fill(participants[i].id);await page.getByLabel('Participant '+(i+1)+' consent',{exact:true}).selectOption(participants[i].consent)}
+  await page.getByRole('checkbox',{name:'I reviewed these exact call participants and their consent',exact:true}).check()
+  await page.getByRole('button',{name:'Review capture session',exact:true}).click()
+  await page.waitForURL(new RegExp('/app/recordings/capture/[0-9a-f-]{36}$'));id=new URL(page.url()).pathname.split('/').at(-1)
+  await attest()
+  runtime.twilioResources.set(`https://api.twilio.com/2010-04-01/Accounts/${f.account}/Calls/${f.callSid}/Recordings.json`,{__httpStatus:503})
+  await submit('start','Start consented recording',{attest:true});await page.getByRole('alert').waitFor();await proof('provider-unconfirmed')
+  await page.goto(runtime.origin+base+'/'+id);await state('uncertain')
+  assert.equal(await page.getByRole('button',{name:'Start consented recording',exact:true}).count(),0)
+  await proof('uncertain')
  } finally {await context.close();await browser.close();await runtime.close()}
 }

@@ -28,7 +28,7 @@ export async function captureCommand(env:Bindings,actor:Session,r:Capture,action
  const body=action==='start'?new URLSearchParams({RecordingChannels:'dual',RecordingTrack:'both',Trim:'do-not-trim',RecordingStatusCallback:env.AUTH_ORIGIN+'/providers/twilio/events',RecordingStatusCallbackEvent:'completed'}):new URLSearchParams({Status:status,...(action==='pause'?{PauseBehavior:'skip'}:{})})
  const receipt=await provider(env,r,recordingUrl+(action==='start'?'':'/'+encodeURIComponent(r.recording_sid!))+'.json','POST',body)
  if(receipt?.account_sid!==r.account_id||receipt.call_sid!==r.call_sid||receipt.status!==status||typeof receipt.sid!=='string'||!receipt.sid||r.recording_sid&&receipt.sid!==r.recording_sid)throw new Fault('capture_provider_identity_mismatch',502)
- try{return await writeCapture(env,actor,pending,action+'.confirmed',{state:action==='start'||action==='resume'?'capturing':status,recording_sid:receipt.sid,announced_revision:null},[sourceFence(env,source)])}
+ try{return await writeCapture(env,actor,pending,action+'.confirmed',{state:action==='start'||action==='resume'?'capturing':status,recording_sid:receipt.sid,announced_revision:action==='pause'?null:r.announced_revision},[sourceFence(env,source)])}
  catch(error){
   if(action==='start'||action==='resume'){try{await stopCaptureMedia(env,{...r,recording_sid:receipt.sid})}catch{ /* Withhold uncertain media; never replay a create. */ }}
   throw error

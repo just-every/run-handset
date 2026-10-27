@@ -20,6 +20,7 @@ export async function captureDoor(request:Request,env:Bindings,actor:Session,v?:
   if(request.method==='GET'){
    const sessions=(await sql(env,'SELECT * FROM hnd_capture_sessions ORDER BY created_at DESC,id LIMIT 100').all<Capture>()).results
    const calls=(await sql(env,`SELECT r.id,COALESCE(json_extract(r.data,'$.from'),'Call')||' → '||COALESCE(json_extract(r.data,'$.to'),'selected number') AS name FROM hnd_records r WHERE r.kind IN ('call_session','call_leg') ORDER BY r.received_at DESC LIMIT 100`).all<{id:string;name:string}>()).results
+   await commit(env,actor,'recording.capture','installation','completed')
    return json({sessions,calls})
   }
   if(request.method!=='POST')throw new Fault('method_not_allowed',405)
@@ -29,7 +30,7 @@ export async function captureDoor(request:Request,env:Bindings,actor:Session,v?:
  const match=path.match(/^\/api\/handset\/recordings\/capture\/([0-9a-f-]{36})(?:\/(consent|announcement|start|pause|resume|stop|retention|erase))?$/)
  if(!match)throw new Fault('not_found',404)
  const r=await capture(env,match[1]),action=match[2]
- if(!action&&request.method==='GET')return json({session:r})
+ if(!action&&request.method==='GET'){await commit(env,actor,'recording.capture',r.id,'completed');return json({session:r})}
  if(request.method!=='POST'||!action)throw new Fault('method_not_allowed',405)
  const allowed=action==='consent'?['revision','jurisdiction','participants','confirm']:action==='retention'?['revision','retainUntil','hold','confirm']:['pause','stop'].includes(action)?['revision']:['revision','confirm']
  keys(v!,allowed)
