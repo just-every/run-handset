@@ -1024,3 +1024,78 @@ test('Processing withdrawal and native version changes erase derived output and 
   assert.equal((await api('/search',{query:'Synthetic',sourceIds:[changed.s.id]})).state,'knowledge_gap')
  }finally{await runtime.close()}
 })
+
+test('Native directory normalizes explicit calling codes and extensions without treating a contact match as authentication',async()=>{
+ const runtime=await openHandset()
+ try{
+  const {cookie}=await signIn(runtime),h={cookie},base='/api/handset/directory'
+  const contact={name:'Synthetic service contact',phones:[{label:'work',number:'(512) 555-0197 ext 42',callingCode:'1'}],tags:['service'],sourceIds:[{source:'synthetic-crm',id:'synthetic-handset-3301'}],consentReferences:['synthetic-handset-3302']}
+  assert.equal((await post(runtime,base,{contact})).status,401)
+  assert.equal((await post(runtime,base,{contact},{...h,origin:'https://foreign.example.test'})).status,403)
+  for(const bad of [{number:'5125550197'},{number:'+1512oops'},{number:'+15125550197 x42',extension:'43'}])assert.equal((await post(runtime,base,{contact:{...contact,phones:[bad]}},h)).status,400)
+  const created=await post(runtime,base,{contact},h);assert.equal(created.status,201,await created.clone().text())
+  const first=(await created.json()).contact
+  assert.deepEqual(first.phones,[{label:'work',number:'+15125550197',extension:'42'}]);assert.equal(first.timezone,'');assert.equal(first.stopped,false)
+  const match=await (await runtime.request(base+'/match?number=%2B15125550197',{headers:h})).json()
+  assert.equal(match.state,'context');assert.equal(match.callerAuthenticated,false);assert.equal(match.contact.id,first.id)
+  const second=await post(runtime,base,{contact:{...contact,name:'Unrelated private customer',phones:[{number:'+1 (512) 555-0197'}]}},h)
+  assert.equal(second.status,201)
+  const ambiguous=await runtime.request(base+'/match?number=%2B15125550197',{headers:h})
+  assert.deepEqual(await ambiguous.json(),{state:'ambiguous',callerAuthenticated:false})
+  const unknown=await (await runtime.request(base+'/match?number=%2B442079460123',{headers:h})).json()
+  assert.deepEqual(unknown,{state:'unknown',callerAuthenticated:false})
+  assert.equal((await runtime.request(base,{headers:h})).headers.get('cache-control'),'no-store')
+ }finally{await runtime.close()}
+})
+
+test('An explicit versioned directory merge preserves stops holds and source IDs and rejects stale or widened merges',async()=>{
+ const runtime=await openHandset()
+ try{
+  const {cookie}=await signIn(runtime),h={cookie},base='/api/handset/directory'
+  const create=async(contact,scope='company')=>{const r=await post(runtime,base,{contact,scope},h);assert.equal(r.status,201,await r.clone().text());return (await r.json()).contact}
+  const a=await create({name:'First',phones:[{number:'+15125550197'}],tags:['first'],sourceIds:[{source:'synthetic-crm',id:'synthetic-handset-3310'}]})
+  const b=await create({name:'Duplicate',phones:[{number:'+15125550197',extension:'7'},{number:'+442079460123'}],stopped:true,held:true,tags:['second'],sourceIds:[{source:'synthetic-crm',id:'synthetic-handset-3311'}]})
+  const merge={revision:1,otherId:b.id,otherRevision:1}
+  assert.equal((await post(runtime,base+'/'+a.id+'/merge',merge,h)).status,400)
+  const merged=await post(runtime,base+'/'+a.id+'/merge',{...merge,confirm:'merge these exact contacts'},h)
+  assert.equal(merged.status,200,await merged.clone().text());const result=(await merged.json()).contact
+  assert.equal(result.stopped,true);assert.equal(result.held,true);assert.equal(result.phones.length,3)
+  assert.deepEqual(result.tags,['first','second']);assert.deepEqual(result.sourceIds,[...a.sourceIds,...b.sourceIds])
+  assert.equal((await runtime.request(base+'/'+b.id,{headers:h})).status,404)
+  const stale=await post(runtime,base+'/'+a.id+'/update',{revision:1,contact:{name:'Stale',phones:a.phones}},h);assert.equal(stale.status,409)
+  const edited=await post(runtime,base+'/'+a.id+'/update',{revision:2,contact:{name:'Edited',phones:a.phones,stopped:false,held:false}},h)
+  assert.equal(edited.status,200);const latest=(await edited.json()).contact
+  assert.equal(latest.stopped,true);assert.equal(latest.held,true);assert.deepEqual(latest.sourceIds,result.sourceIds)
+  const exported=await (await runtime.request(base+'/export',{headers:h})).json()
+  assert.equal(exported.contacts.length,1);assert.equal(exported.contacts[0].id,a.id);assert.equal(exported.messageConsentGranted,false)
+  const personal=await create({name:'Personal',phones:[{number:'+15125550198'}]},'personal')
+  assert.equal((await post(runtime,base+'/'+a.id+'/merge',{revision:3,otherId:personal.id,otherRevision:1,confirm:'merge these exact contacts'},h)).status,409)
+  const audit=await (await runtime.request('/api/handset/audit/export',{headers:h})).text()
+  assert.ok(audit.includes('directory.merge'));for(const privateText of ['Edited','synthetic-handset-3310','+15125550197'])assert.ok(!audit.includes(privateText))
+ }finally{await runtime.close()}
+})
+
+test('Directory grants expose only current authorized contacts and withdrawal stops repeat cached reads and matches',async()=>{
+ const runtime=await openHandset()
+ try{
+  const {cookie}=await signIn(runtime),h={cookie},base='/api/handset/directory'
+  await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
+  const member=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'}),mh={cookie:member.cookie}
+  const create=async(scope,name)=>{const r=await post(runtime,base,{scope,contact:{name,phones:[{number:'+15125550197'}]}},h);assert.equal(r.status,201);return (await r.json()).contact}
+  const shared=await create('company','Explicit shared contact'),privateContact=await create('personal','Private owner contact')
+  assert.equal((await runtime.request(base+'/'+shared.id,{headers:mh})).status,404)
+  assert.equal((await post(runtime,base,{contact:{name:'Forbidden',phones:[{number:'+15125550197'}]}},mh)).status,403)
+  assert.equal((await post(runtime,base+'/'+privateContact.id+'/grant',{revision:1,operatorId:'synthetic-handset-2'},h)).status,403)
+  assert.equal((await post(runtime,base+'/'+shared.id+'/grant',{revision:1,operatorId:'synthetic-handset-2'},h)).status,200)
+  const read=await runtime.request(base+'/'+shared.id,{headers:mh});assert.equal(read.status,200);assert.equal(read.headers.get('cache-control'),'no-store')
+  assert.deepEqual((await (await runtime.request(base,{headers:mh})).json()).contacts.map(c=>c.id),[shared.id])
+  const match=await (await runtime.request(base+'/match?number=%2B15125550197',{headers:mh})).json();assert.equal(match.contact.id,shared.id)
+  assert.equal((await post(runtime,base+'/'+shared.id+'/revoke',{revision:2,operatorId:'synthetic-handset-2'},h)).status,200)
+  assert.equal((await runtime.request(base+'/'+shared.id,{headers:mh})).status,404)
+  assert.deepEqual((await (await runtime.request(base,{headers:mh})).json()).contacts,[])
+  assert.deepEqual(await (await runtime.request(base+'/match?number=%2B15125550197',{headers:mh})).json(),{state:'unknown',callerAuthenticated:false})
+  assert.equal((await post(runtime,base+'/'+shared.id+'/grant',{revision:3,operatorId:'synthetic-handset-2'},h)).status,200)
+  await runtime.sql("UPDATE oa_operators SET status='inactive',version=version+1 WHERE id='synthetic-handset-2'")
+  assert.equal((await runtime.request(base+'/'+shared.id,{headers:mh})).status,401)
+ }finally{await runtime.close()}
+})
