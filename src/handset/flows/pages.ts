@@ -13,7 +13,7 @@ function editor(d:FlowDefinition,queues:{id:string;name:string}[],v?:FlowVersion
 }
 export function branchPaths(d:FlowDefinition){
  const nodes=new Map(d.nodes.map(n=>[n.id,n])),prefix=new Map<string,string[]>(),paths:string[][]=[]
- function mark(id:string,path:string[]){if(prefix.has(id))return;prefix.set(id,[...path,id]);for(const next of nodes.get(id)!.next)mark(next,[...path,id])}mark(d.entry,[]);for(const override of d.overrides)mark(override.entry,[])
+ function mark(id:string,path:string[]){if(prefix.has(id))return;prefix.set(id,[...path,id]);for(const next of nodes.get(id)!.next)mark(next,[...path,id])}mark(d.entry,[])
  function tail(id:string):string[]{const n=nodes.get(id)!;return [id,...(n.next.length?tail(n.next[0]):[])]}
  for(const n of d.nodes)if(n.next.length)for(const next of n.next)paths.push([...prefix.get(n.id)!,...tail(next)])
  if(!paths.length)paths.push([d.entry])
