@@ -41,8 +41,10 @@ export async function liveReport(env:Bindings,config:Config,filters:NativeFilter
   for(const s of source.dataset.agents){const value=JSON.stringify(s),prior=segmentValues.get(s.id);if(prior!==undefined&&prior!==value)throw new Fault('source_segment_conflict',409);if(prior===undefined){segmentValues.set(s.id,value);segments.push(s)}}
  }
  validateCorrelation(entries,segments)
- const report=calculate(entries,segments,config),native=await nativeAnalytics(env,config,filters)
- return {...report,native,...(dashboard?{dashboard}:{}),erasureEpoch:epoch,sourceRevisions:sources.map(s=>({id:s.id,revision:s.revision})),sourceHash:await digest({sources,native:{...native,capturedAt:0}}),source:'reviewed native datasets; source observations retain their supplied identities'}
+ const cohort=entries.filter(e=>e.queueId===config.queueId&&e.enteredAt>=config.startAt&&e.enteredAt<config.endAt)
+ const report=calculate(entries,segments,config),native=await nativeAnalytics(env,config,filters,cohort.map(e=>e.callId))
+ const sourceEntries=cohort.map(entry=>({...entry,canonicalCallId:native.sourceCalls.some(call=>call.id===entry.callId)?entry.callId:null}))
+ return {...report,native,sourceEntries,...(dashboard?{dashboard}:{}),erasureEpoch:epoch,sourceRevisions:sources.map(s=>({id:s.id,revision:s.revision})),sourceHash:await digest({sources,native:{...native,capturedAt:0}}),source:'reviewed native datasets; source observations retain their supplied identities'}
 }
 export async function saveReport(env:Bindings,actor:Session,config:Config,filters:NativeFilters={},dashboard?:Dashboard) {
  const report=await liveReport(env,config,filters,dashboard)

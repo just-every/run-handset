@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { post, signIn } from './handset-auth.mjs'
 
-const groupNames={hour:'Calls by hour',person:'Calls by person (case owner)',number:'Calls by number',team:'Calls by reporting team',location:'Calls by reporting location'}
+const groupNames={hour:'Calls by hour',person:'Calls by person (case owner)',number:'Calls by number',team:'Calls by reporting team',location:'Calls by reporting location',handlingUser:'Calls by handling user',trackingSource:'Calls by tracking source'}
 const groupRows=(page,dimension)=>page.getByRole('heading',{name:groupNames[dimension],exact:true}).locator('xpath=following-sibling::ul[1]')
 const nativeTotals=page=>page.getByRole('heading',{name:'Customer calls',exact:true}).locator('xpath=following-sibling::dl[1]')
 const total=(page,name)=>nativeTotals(page).locator('dt').filter({hasText:new RegExp('^'+name+'$')}).locator('xpath=following-sibling::dd[1]').innerText()
@@ -25,13 +25,13 @@ async function assertSources(page,calls){
 async function checkSelection(page,groups,metrics){
  const form=dashboardForm(page)
  for(const group of Object.keys(groupNames))assert.equal(await form.locator(`[name="group_${group}"]`).isChecked(),groups.includes(group),'retained group '+group)
- for(const metric of ['volume','answered','missed'])assert.equal(await form.locator(`[name="metric_${metric}"]`).isChecked(),metrics.includes(metric),'retained measure '+metric)
+ for(const metric of ['volume','answered','missed','contained','converted'])assert.equal(await form.locator(`[name="metric_${metric}"]`).isChecked(),metrics.includes(metric),'retained measure '+metric)
 }
 
 async function setSelection(page,groups,metrics){
  const form=dashboardForm(page)
- for(const group of Object.keys(groupNames))await form.getByLabel(group==='person'?'Person (case owner)':group,{exact:true}).setChecked(groups.includes(group))
- for(const metric of ['volume','answered','missed'])await form.getByLabel(metric,{exact:true}).setChecked(metrics.includes(metric))
+ for(const group of Object.keys(groupNames))await form.getByLabel(group==='person'?'Person (case owner)':group==='handlingUser'?'Handling user':group==='trackingSource'?'Tracking source':group,{exact:true}).setChecked(groups.includes(group))
+ for(const metric of ['volume','answered','missed','contained','converted'])await form.getByLabel(metric,{exact:true}).setChecked(metrics.includes(metric))
 }
 
 async function assertFiltered(page,calls){

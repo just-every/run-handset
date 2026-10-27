@@ -5,8 +5,8 @@ import { choice, Fault, id, integer, keys, object, owner, text } from '../core'
 import { parseNativeFilters, type NativeFilters } from './filters'
 import { currentConfig } from './store'
 
-export const dashboardGroups = ['hour','person','number','team','location'] as const
-export const dashboardMetrics = ['volume','answered','missed'] as const
+export const dashboardGroups = ['hour','person','number','team','location','handlingUser','trackingSource'] as const
+export const dashboardMetrics = ['volume','answered','missed','contained','converted'] as const
 export interface Dashboard {
  id:string; revision:number; name:string; queueId:string; configRevision:number
  filters:NativeFilters; groups:(typeof dashboardGroups[number])[]; metrics:(typeof dashboardMetrics[number])[]

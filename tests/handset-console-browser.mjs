@@ -1,3 +1,4 @@
+import { callReportsBrowserJourney } from './helpers/handset-call-reports-browser.mjs'
 import { messageJourney } from './helpers/handset-messages-browser.mjs'
 import { messageNow } from './helpers/handset-messages.mjs'
 import { numbersJourney } from './helpers/handset-numbers-browser.mjs'
@@ -174,6 +175,7 @@ for(const width of [1440,390])for(const domain of ['messages','numbers','adminis
   assert.equal((await post(runtime,'/api/handset/metrics/config',metricConfig('queue-empty'),{cookie})).status,201)
   await page.goto(runtime.origin+'/app/reports/queues/live?queueId=queue-empty');assert.ok((await page.locator('main').innerText()).includes('Unavailable (zero denominator)'));await proof('metrics-zero-denominators')
   }
+  if(domain==='metrics')await callReportsBrowserJourney({page,context,proof,click})
   if(domain==='protection'){
   await page.goto(runtime.origin+'/app/protection');await proof('protection-empty')
   const protection=await protectionFixture(runtime,{populated:true})

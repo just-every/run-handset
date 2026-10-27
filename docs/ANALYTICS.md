@@ -9,13 +9,13 @@ the console. Scheduled reports bind the formula revision and exact owner recipie
 a revoked owner or changed owner version prevents delivery.
 
 Local hours include their UTC offset, keeping both fall-back hours distinct.
-Person means current case owner, rather than claiming unqualified agent attribution.
+Person remains the current case owner. Handling user is a separate dimension: only a completed provider-read-back queue offer, bound to the canonical source and parent call, attributes a handler. Ringing, reservations and case ownership never supply handling evidence. A transfer may have multiple verified handlers; each sees the call once, so handling-user groups are not additive. Missing attribution remains Unattributed.
 Completed or in-progress provider legs count as answered; this does not establish
 independently received staff audio. A canonical terminal no-answer, busy, failed
 or canceled call is missed only when no leg is answered. Other and unknown states
 remain in volume, with their exclusion from answered and missed counts shown.
 Root calls, transfer legs and endpoint offers never inflate canonical call volume.
-CSV contains one row per selected root call, with local hour, timezone, reporting team, reporting location and capture time.
+CSV contains one row per selected root call, with local hour, timezone, reporting team, reporting location, tracking source, handling users, handling offer IDs, linked receptionist outcome IDs, booking outcome flags and capture time.
 The JSON API and immutable historical and scheduled reports retain raw denominators,
 source IDs and the full snapshot. Native observations contribute to the source hash.
 
@@ -73,9 +73,36 @@ queue formulas are reconciled in live, retained and scheduled reports. Provider 
 and independently stored test-edge booking readback do not certify live audio or
 real external delivery.
 
-HND-022 remains partial. Actual handling-user attribution, receptionist containment
-and tracking conversion remain. HND-019 supplies the still-missing real live-wallboard
-comparison; stored queue observations are not a live wallboard. Real survey SMS
-and handset receipt remain held on toll-free verification. No real text is sent
-by these reporting proofs. The existing HND-092 live-mail receipt does not prove
-a newly delivered HND-022 report; this round exercises the official mail edge.
+Tracking sources are versioned owner-maintained business-number labels. Unattributed
+clears the label. Changing only a team or location through the API without supplying
+a source preserves the current source. A stale source edit retains its draft and
+shows the current source before explicit reconciliation. These are current reporting
+labels; they do not verify ad clicks or an advertising platform, or reconstruct
+historical source assignments. Captured reports retain their exact labels and revision.
+
+Booking conversion requires an independently read-back booking tied to the exact
+canonical call ID and the same case within the declared repeat-contact window.
+Only tracked inbound calls with verified number identities and a complete observation
+window enter the denominator. Unattributed, immature and unknown-identity exclusions
+are disclosed. A booking on another call in the same case, manual closure or an
+unlinked or wrong-case outcome never converts this call. Empty denominators are
+unavailable. Source filters, custom dashboard measures, CSV, API, retained reports
+and owner schedules use the same source call set.
+
+Native booking containment has a deliberately bounded outcome basis. Its denominator
+is distinct terminal inbound calls with exactly linked receptionist work. Its numerator
+requires a completed call and a confirmed booking, with no recorded human assignment,
+handoff, escalation or unfinished step. Replays do not multiply calls. Historical
+exceptions still exclude containment after a human decides them. This metric measures
+observed native booking work, and does not certify audio, an external human transfer,
+or every receptionist resolution type. The report discloses that boundary beside
+the raw numerator and denominator.
+
+HND-022 remains partial. Completed native queue offers now provide handling-user
+attribution, while other handling paths still need qualification. Complete receptionist
+session completion and human-handoff proof remain beyond the bounded native booking
+measure. HND-019 supplies the real live-wallboard comparison; stored queue observations
+are not a live wallboard. Real survey SMS and handset receipt remain held on toll-free
+verification. No real text is sent by these reporting proofs. The existing HND-092
+live-mail proof does not establish a newly delivered HND-022 report; these journeys
+exercise the official mail edge. HND-023 retains advertising-platform attribution.

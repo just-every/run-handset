@@ -79,7 +79,7 @@ export async function metricsDoor(request:Request,env:Bindings,actor:Session,dat
    return html?redirect('/app/reports/queues/groups'):json(result,201)
   }catch(error){
    if(!html||!(error instanceof Fault)||error.code!=='report_group_changed')throw error
-   const draft={number:text(data.number,'number',16),team:text(data.team,'team'),location:text(data.location,'location'),revision:integer(data.revision,'revision')}
+   const draft={number:text(data.number,'number',16),team:text(data.team,'team'),location:text(data.location,'location'),trackingSource:text(data.trackingSource??'Unattributed','trackingSource'),revision:integer(data.revision,'revision')}
    const current=(await listGroups(db)).find(group=>group.number===draft.number)
    await denied(env,actor,'product.request')
    return page('Review assignment draft',`<p role="alert">This assignment was not saved because another session changed it. Your draft is kept below. Compare the current values before saving your reviewed assignment.</p>${groupConflictForm(draft,current)}`,409)
