@@ -364,7 +364,7 @@ The managed RunEditRun carrier, billing and staffed-support offer requires an ac
 
 ## Status
 
-Status evidence is named per row. HND-033 and HND-010 were updated on 27 October 2026 and remain partial; no new DONE judgment is claimed.
+Judged from the code and tests at commit `8ae96673514f5150b5ea4a01fd20e3bed559e1e7` (27 October 2026). HND-033 and HND-010 remain partial; no new DONE judgment is claimed.
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |

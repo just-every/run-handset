@@ -336,7 +336,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "472a07f7f00ee3aae7e5aff4e8e19ae66574ba370a186b3a1ff99cf959f5c10a",
+      "sha256": "fb8cea1325b191ba3e3183ceabe67ba6a6deead291961e64b503c61ea86a18b0",
       "executable": false
     },
     "deploy-demo.json": {
@@ -413,6 +413,10 @@
     },
     "docs/KNOWLEDGE.md": {
       "sha256": "c49db99f90cb21ad92bece7cf2772aa82f585ef875f29e0a78e4836e80aebd31",
+      "executable": false
+    },
+    "docs/NATIVE-DIRECTORY-VOICEMAIL.md": {
+      "sha256": "0fbb6bb076caf99de549aadbff1733f9b9416c140302f4810c7f170bc23fd5a5",
       "executable": false
     },
     "docs/NUMBER-COMPLIANCE.md": {
@@ -729,6 +733,10 @@
     },
     "migrations/core/0065_handset_directory.sql": {
       "sha256": "8251654985bf995874c342fc13e77766ecf89ce61e809a3ef571a9f8363e78c3",
+      "executable": false
+    },
+    "migrations/core/0066_handset_voicemail.sql": {
+      "sha256": "6c9230faf5418d2b332f2a35ff9282dc69f08f7e6eac6b3e1825a4357ffeee22",
       "executable": false
     },
     "ONBOARDING.md": {
@@ -2213,6 +2221,10 @@
     },
     "src/handset/transcripts/pages.ts": {
       "sha256": "a0d8d08702783f9c6ff2662086f626de42303bc1d7b202866482f3fd3b15e9c5",
+      "executable": false
+    },
+    "src/handset/voicemail/doors.ts": {
+      "sha256": "353ef861153aa3ec34b6c5450e81535e811e5506e54127f76a4e5a830c88bb2f",
       "executable": false
     },
     "src/identity.ts": {
@@ -4184,7 +4196,7 @@
       "executable": false
     },
     "tests/handset-records.mjs": {
-      "sha256": "ac4a664268f5b9606286cd2d8179775549daf0ea274ac5807b5dee023154547f",
+      "sha256": "8b4a467567d3bd3a328e52eb64a72d073b12a66b0e5c113ff4f255ff39c3cb77",
       "executable": false
     },
     "tests/handset-recovery.mjs": {

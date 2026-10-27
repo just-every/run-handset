@@ -1086,6 +1086,10 @@ test('Directory grants expose only current authorized contacts and withdrawal st
   assert.equal((await runtime.request(base+'/'+shared.id,{headers:mh})).status,404)
   assert.equal((await post(runtime,base,{contact:{name:'Forbidden',phones:[{number:'+15125550197'}]}},mh)).status,403)
   assert.equal((await post(runtime,base+'/'+privateContact.id+'/grant',{revision:1,operatorId:'synthetic-handset-2'},h)).status,403)
+  await runtime.sql("INSERT INTO oa_operators(id,email,display_name,role,status,created_at) VALUES(?,?,?,?,?,?)",'synthetic-handset-3303','synthetic-handset-3303@example.test','Other owner','owner','active',Date.now())
+  const otherOwner=await signIn({...runtime,ownerEmail:'synthetic-handset-3303@example.test'}),oh={cookie:otherOwner.cookie}
+  assert.equal((await runtime.request(base+'/'+privateContact.id,{headers:oh})).status,404)
+  assert.equal((await post(runtime,base+'/'+privateContact.id+'/grant',{revision:1,operatorId:'synthetic-handset-3303'},oh)).status,404)
   assert.equal((await post(runtime,base+'/'+shared.id+'/grant',{revision:1,operatorId:'synthetic-handset-2'},h)).status,200)
   const read=await runtime.request(base+'/'+shared.id,{headers:mh});assert.equal(read.status,200);assert.equal(read.headers.get('cache-control'),'no-store')
   assert.deepEqual((await (await runtime.request(base,{headers:mh})).json()).contacts.map(c=>c.id),[shared.id])
