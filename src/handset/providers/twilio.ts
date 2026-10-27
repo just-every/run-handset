@@ -67,8 +67,8 @@ async function eventSource(env:Bindings,event:Event){
   activeSources(env,event.account),
   env.DB.prepare('SELECT DISTINCT s.number_id FROM hnd_source_objects o JOIN hnd_sources s ON s.id=o.source_id WHERE o.external_id IN (?,?) AND s.account_id=?').bind(event.externalId,event.parent,event.account).all<{number_id:string}>(),
  ])
- const outbound=await env.DB.prepare('SELECT t.source_id FROM hnd_message_jobs j JOIN hnd_message_threads t ON t.id=j.thread_id WHERE j.provider_sid=?').bind(event.externalId).first<{source_id:string}>()
- if(outbound)return sources.find(s=>s.id===outbound.source_id)??null
+ const outbound=await env.DB.prepare('SELECT s.account_id,s.number_id FROM hnd_message_jobs j JOIN hnd_message_threads t ON t.id=j.thread_id JOIN hnd_sources s ON s.id=t.source_id WHERE j.provider_sid=?').bind(event.externalId).first<{account_id:string;number_id:string}>()
+ if(outbound)return sources.find(s=>s.account_id===outbound.account_id&&s.number_id===outbound.number_id)??null
  const linked=sources.filter(s=>objects.results.some(o=>o.number_id===s.number_id))
  if(linked.length)return linked.length===1?linked[0]:null
  const matching=sources.filter(s=>s.e164===event.to)

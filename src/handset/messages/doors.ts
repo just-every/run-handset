@@ -16,27 +16,31 @@ async function snapshot(env:Bindings,actor:Session) {
  const sources=(await env.DB.prepare('SELECT id FROM hnd_sources').all<{id:string}>()).results
  const active=(await Promise.all(sources.map(s=>activeSourceById(env,s.id)))).filter(s=>s!==null)
  const ids=JSON.stringify(active.map(s=>s.id))
- const threads=(await env.DB.prepare(`SELECT t.*,o.display_name AS owner_name FROM hnd_message_threads t LEFT JOIN oa_operators o ON o.id=t.owner_id WHERE t.source_id IN (SELECT value FROM json_each(?)) AND (t.route_kind='programmable' OR EXISTS(SELECT 1 FROM hnd_message_group_routes g JOIN oa_operators o ON o.id=g.approved_by WHERE g.source_id=t.source_id AND t.peer='group:'||g.conversation_sid AND g.revoked_at IS NULL AND o.role='owner' AND o.status='active' AND o.version=g.owner_version)) ORDER BY t.updated_at DESC,t.id LIMIT 200`).bind(ids).all()).results
+ const lineages=await Promise.all(active.map(async s=>(await env.DB.prepare('SELECT id FROM hnd_sources WHERE account_id=? AND number_id=?').bind(s.account_id,s.number_id).all<{id:string}>()).results.map(p=>p.id)))
+ const historyIds=JSON.stringify(lineages.flat())
+ const threads=(await env.DB.prepare(`SELECT t.*,o.display_name AS owner_name FROM hnd_message_threads t LEFT JOIN oa_operators o ON o.id=t.owner_id WHERE t.source_id IN (SELECT value FROM json_each(?)) AND (t.route_kind='programmable' OR EXISTS(SELECT 1 FROM hnd_message_group_routes g JOIN oa_operators o ON o.id=g.approved_by WHERE g.source_id=t.source_id AND g.source_id IN (SELECT value FROM json_each(?)) AND t.peer='group:'||g.conversation_sid AND g.revoked_at IS NULL AND o.role='owner' AND o.status='active' AND o.version=g.owner_version)) ORDER BY t.updated_at DESC,t.id LIMIT 200`).bind(historyIds,ids).all()).results
  const [snippets,permissions,jobs,stops]=await Promise.all([
   env.DB.prepare('SELECT * FROM hnd_message_snippets ORDER BY created_at DESC,id LIMIT 200').all(),
   env.DB.prepare('SELECT * FROM hnd_message_permissions ORDER BY created_at DESC,id LIMIT 200').all(),
-  env.DB.prepare('SELECT * FROM hnd_message_jobs WHERE thread_id IN (SELECT id FROM hnd_message_threads WHERE source_id IN (SELECT value FROM json_each(?))) ORDER BY created_at DESC,id LIMIT 200').bind(ids).all(),
+  env.DB.prepare('SELECT * FROM hnd_message_jobs WHERE thread_id IN (SELECT id FROM hnd_message_threads WHERE source_id IN (SELECT value FROM json_each(?))) ORDER BY created_at DESC,id LIMIT 200').bind(historyIds).all(),
   env.DB.prepare("SELECT DISTINCT recipient FROM hnd_protection_stops WHERE channel IN ('sms','all') OR reason='dnc' LIMIT 200").all(),
  ])
  await commit(env,actor,'message.read','installation','completed',[...active.map(s=>sourceFence(env,s)),...threads.map(t=>groupThreadFence(env,String(t.id)))])
  const groupRoutes=(await env.DB.prepare('SELECT * FROM hnd_message_group_routes WHERE source_id IN (SELECT value FROM json_each(?)) AND revoked_at IS NULL').bind(ids).all()).results
  return {actorId:actor.operator.id,groupRoutes,threads,routes:active.map(s=>route(s.id,s.e164)),snippets:snippets.results,permissions:permissions.results,jobs:jobs.results,stops:stops.results,bounded:true}
 }
-async function detail(env:Bindings,actor:Session,key:string) {
+async function detail(env:Bindings,actor:Session,key:string,cursor:string|null=null) {
  const {row,source}=await thread(env,key)
+ const boundary=cursor?await env.DB.prepare('SELECT occurred_at,id FROM hnd_inbox_messages WHERE thread_id=? AND id=?').bind(key,cursor).first<{occurred_at:number;id:string}>():null
+ if(cursor&&!boundary)throw new Fault('invalid_message_cursor')
  const [messages,jobs,history,person]=await Promise.all([
-  env.DB.prepare('SELECT * FROM hnd_inbox_messages WHERE thread_id=? ORDER BY occurred_at,id LIMIT 200').bind(key).all(),
-  env.DB.prepare('SELECT * FROM hnd_message_jobs WHERE thread_id=? ORDER BY created_at,id LIMIT 200').bind(key).all(),
-  env.DB.prepare("SELECT h.event,COALESCE(o.display_name,'Provider') AS actor_name,h.occurred_at FROM hnd_message_history h LEFT JOIN oa_operators o ON o.id=h.actor_id WHERE h.thread_id=? ORDER BY h.occurred_at,h.rowid LIMIT 200").bind(key).all(),
+  env.DB.prepare('SELECT * FROM hnd_inbox_messages WHERE thread_id=? AND (? IS NULL OR occurred_at<? OR (occurred_at=? AND id<?)) ORDER BY occurred_at DESC,id DESC LIMIT 201').bind(key,boundary?.id??null,boundary?.occurred_at??null,boundary?.occurred_at??null,boundary?.id??null).all(),
+  env.DB.prepare('SELECT * FROM hnd_message_jobs WHERE thread_id=? ORDER BY created_at DESC,id DESC LIMIT 200').bind(key).all(),
+  env.DB.prepare("SELECT h.event,COALESCE(o.display_name,'Provider') AS actor_name,h.occurred_at FROM hnd_message_history h LEFT JOIN oa_operators o ON o.id=h.actor_id WHERE h.thread_id=? ORDER BY h.occurred_at DESC,h.rowid DESC LIMIT 200").bind(key).all(),
   env.DB.prepare('SELECT display_name FROM oa_operators WHERE id=?').bind(row.owner_id).first<{display_name:string}>(),
  ])
  await commit(env,actor,'message.read',key,'completed',[sourceFence(env,source),groupThreadFence(env,key)])
- return {thread:{...row,owner_name:person?.display_name??null},messages:messages.results,jobs:jobs.results,history:history.results,bounded:true}
+ return {thread:{...row,owner_name:person?.display_name??null},messages:messages.results.slice(0,200),nextCursor:messages.results.length>200?messages.results[199].id:null,jobs:jobs.results,history:history.results,bounded:true}
 }
 async function changeCustody(env:Bindings,actor:Session,key:string,action:string,v:ObjectValue) {
  keys(v,action==='claim'?['revision']:['revision','custody'])
@@ -59,7 +63,7 @@ export async function messageDoor(request:Request,env:Bindings,actor:Session,v?:
   if(path==='/suppression'){keys(Object.fromEntries(url.searchParams),['recipient']);return json(await suppression(env,phone(url.searchParams.get('recipient'))))}
   if(path==='/thread-suppression'){keys(Object.fromEntries(url.searchParams),['threadId']);const {row:t}=await thread(env,text(url.searchParams.get('threadId'),'threadId'));const recipients=t.route_kind==='conversations'?(JSON.parse(t.participants) as string[]).filter(p=>p!==t.business):[t.peer];const results=await Promise.all(recipients.map(p=>suppression(env,p)));return json({suppressed:results.some(r=>r.suppressed),requiredReplyPolicy:'provider-managed-only'})}
   const match=path.match(/^\/threads\/([0-9a-f-]{36})$/)
-  if(match)return json(await detail(env,actor,match[1]))
+  if(match){keys(Object.fromEntries(url.searchParams),['cursor']);return json(await detail(env,actor,match[1],url.searchParams.get('cursor')))}
   throw new Fault('not_found',404)
  }
  if(request.method!=='POST'||!v)throw new Fault('method_not_allowed',405)

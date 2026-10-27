@@ -271,7 +271,7 @@ test('Exact reviewed snippets send MMS once and keep provider acceptance distinc
  try {
   const f=await messagesFixture(runtime),url=`https://api.twilio.com/2010-04-01/Accounts/${f.source.account}/Messages/synthetic-handset-1820/Media/synthetic-handset-1821`
   await f.incoming('Please send the diagram',{MessageSid:'synthetic-handset-1820',NumMedia:'1',MediaUrl0:url,MediaContentType0:'image/png'})
-  runtime.twilioResources.set(url+'.json',{account_sid:f.source.account,content_type:'image/png',size:'1024'})
+  runtime.twilioResources.set(url+'.json',{account_sid:f.source.account,parent_sid:'synthetic-handset-1820',sid:'synthetic-handset-1821',content_type:'image/png',date_created:new Date(messageNow).toUTCString(),date_updated:new Date(messageNow).toUTCString(),uri:new URL(url).pathname+'.json'})
   const t=await f.claimed(),draft=await f.draft({media:[{url,mime:'image/png',bytes:1024}]})
   assert.equal(draft.state,'draft');assert.equal(f.receiver.sent.length,0)
   assert.equal((await post(runtime,f.base+'/jobs/'+draft.id+'/approve',{revision:draft.revision,confirm:'unchecked'},f.headers)).status,403)

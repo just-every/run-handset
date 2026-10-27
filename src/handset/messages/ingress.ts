@@ -13,7 +13,7 @@ export async function observeMessage(env:Bindings,source:Source&{e164:string},p:
  // Programmable Messaging has no group delivery. Retain only its documented
  // two-party metadata; an undeclared group must never be flattened and sent.
  if(p.has('ConversationSid')||p.has('GroupSid')||p.has('Participants'))throw new Fault('group_route_unqualified',409)
- let t=await env.DB.prepare('SELECT * FROM hnd_message_threads WHERE source_id=? AND peer=?').bind(source.id,peer).first<Thread>()
+ const t=await env.DB.prepare("SELECT t.* FROM hnd_message_threads t JOIN hnd_sources s ON s.id=t.source_id WHERE s.account_id=? AND s.number_id=? AND t.business=? AND t.peer=? AND t.route_kind='programmable' ORDER BY s.created_at,s.id,t.id LIMIT 1").bind(source.account_id,source.number_id,source.e164,peer).first<Thread>()
  const old=await env.DB.prepare('SELECT id FROM hnd_inbox_messages WHERE thread_id=? AND provider_sid=?').bind(t?.id??'',sid).first<{id:string}>()
  const jobs=await env.DB.prepare('SELECT id FROM hnd_message_jobs WHERE provider_sid=?').bind(sid).first()
  if(!inbound&&jobs)return // Outbound jobs use independent provider readback.
