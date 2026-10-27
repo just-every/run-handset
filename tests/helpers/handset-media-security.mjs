@@ -3,6 +3,13 @@ import { post } from './handset-auth.mjs'
 import { b64, business, newPrompt, people, promptFixture, registerPeople, wavBytes } from './handset-prompts.mjs'
 
 export async function mediaSecurity() {
+ let speechRequests = 0
+ const undeclared = await promptFixture({ aiBaseUrl: 'https://example.invalid/v1', ttsEdge: () => { speechRequests++; throw new Error('Undeclared speech destination') }, knowledgeEdge: () => { speechRequests++; throw new Error('Undeclared destination') } })
+ try {
+  const prompt = await newPrompt(undeclared, 'Private greeting', 'main_attendant')
+  await undeclared.refused(`/api/handset/prompts/${prompt.id}/versions`, { source: 'tts', language: 'en', variant: 'always', script: 'Private greeting' }, 503, 'tts_unavailable')
+  assert.equal(speechRequests, 0, 'undeclared speech destinations receive no request or credentials')
+ } finally { await undeclared.runtime.close() }
  const requests = [], bodies = []
  let mode = 'valid', revoke, callSid
  const f = await promptFixture({ knowledgeEdge: async (request, Response) => {

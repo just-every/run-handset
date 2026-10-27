@@ -1980,7 +1980,7 @@
       "executable": false
     },
     "src/handset/prompts/tts.ts": {
-      "sha256": "52ed2af0e1ce50acbcbec9d7173f7b348f5483a3d99403e05513b0c2671fd8d3",
+      "sha256": "3c748bc3aa3f7cbbc2289f47e9a4154fcb3b904a92b6f7d9274682316d877639",
       "executable": false
     },
     "src/handset/protection/admission.ts": {
@@ -4344,7 +4344,7 @@
       "executable": false
     },
     "tests/helpers/handset-media-security.mjs": {
-      "sha256": "150e2c0cda248241f6b93508327d9600df94f9875c48ca9eecb4eff8bd3bfc24",
+      "sha256": "95dbe48f9a794668cda4174bf16ae6a2277b2acafc650c12e857419a4b8625ba",
       "executable": false
     },
     "tests/helpers/handset-metrics.mjs": {
@@ -4408,7 +4408,7 @@
       "executable": false
     },
     "tests/helpers/handset-worker.mjs": {
-      "sha256": "1ea499f4378efa64a624f214a00d59d4017f0fb6bd99a67bc7493dce34980884",
+      "sha256": "957c3d816561d6a1953b1b5edffa4ba9b27b0d184d91451a6e95258dcbbe7039",
       "executable": false
     },
     "tests/helpers/handset-workflows-browser.mjs": {

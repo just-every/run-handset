@@ -13,7 +13,7 @@ export async function synthesize(env: Bindings, language: 'en' | 'es', script: s
  const selected = aiConfig({ ...env }).direct
  let origin: URL
  try { origin = new URL(selected?.baseUrl ?? '') } catch { throw new Fault('tts_unavailable', 503) }
- if (!aiConfig({ ...env }).enabled || !selected?.apiKey || /\s/.test(selected.apiKey) || origin.protocol !== 'https:' || origin.username || origin.search || origin.hash) throw new Fault('tts_unavailable', 503)
+ if (!aiConfig({ ...env }).enabled || !selected?.apiKey || /\s/.test(selected.apiKey) || origin.origin !== 'https://api.openai.com' || !/^\/v1\/?$/.test(origin.pathname) || origin.username || origin.password || origin.search || origin.hash) throw new Fault('tts_unavailable', 503)
  let response: Response
  try {
   response = await fetch(origin.href.replace(/\/+$/, '') + '/audio/speech', {
