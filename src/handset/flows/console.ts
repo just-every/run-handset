@@ -31,7 +31,7 @@ export async function flowConsole(request:Request,env:Bindings,actor:Session,v?:
  }
  const isOwner=actor.operator.role==='owner',references=flowReferences(inventory.versions.map(v=>JSON.parse(v.definition) as FlowDefinition))
  const filter=(ids:string[])=>isOwner?'':` WHERE id IN (${ids.length?ids.map(()=>'?').join(','):'NULL'})`
- const permissions=await Promise.all([...new Set(inventory.versions.map(v=>v.flow_id))].map(id=>authorizeFlow(env,actor,id,'flow.read')))
+ const permissions=await Promise.all((isOwner?['installation']:[...new Set(inventory.versions.map(v=>v.flow_id))]).map(id=>authorizeFlow(env,actor,id,'flow.read')))
  const metadata=await env.DB.batch([...permissions.flatMap(p=>p.fences),
   sql(env,'SELECT id,name FROM hnd_queues'+filter(references.queues)+' ORDER BY name LIMIT 100',...(isOwner?[]:references.queues)),
   sql(env,'SELECT id,display_name FROM oa_operators'+filter(references.people)+(isOwner?" WHERE status='active'":" AND status='active'")+' ORDER BY display_name LIMIT 100',...(isOwner?[]:references.people)),sql(env,'DELETE FROM hnd_guard')])
