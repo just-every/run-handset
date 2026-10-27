@@ -316,7 +316,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "56474e1a741f8daa2633e45cfa32c77905c11735c43d1c1e15b43a7685d01f63",
+      "sha256": "9ff595f06f2866773e47a64d66aadd49e93c6f74763fca5b9eeb7523ef290cb7",
       "executable": false
     },
     "AGENTS.md": {
@@ -336,7 +336,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "09b9a7314ee2a73cdc05089ce63115bd728e5cdc73447d6d0d638ab949e71383",
+      "sha256": "edcb1f6d1ead5256e4a76d09f0be8477f9842c14c471a36a652e3414e4c48f21",
       "executable": false
     },
     "deploy-demo.json": {
@@ -1901,6 +1901,10 @@
     },
     "src/handset/messages/doors.ts": {
       "sha256": "3d6ced257c64c801d0d2c202f941ea72014e6e211ce0661cad9a9e07846f0cbf",
+      "executable": false
+    },
+    "src/handset/messages/groups.ts": {
+      "sha256": "e9b80845ce5f1a52db0a09f8712a2d6d35849c8365bd0e39ddef119e2cba5b21",
       "executable": false
     },
     "src/handset/messages/ingress.ts": {
@@ -4417,6 +4421,10 @@
     },
     "tests/helpers/handset-media-security.mjs": {
       "sha256": "329d39c330a1d814dc0b1b7f0ae3ea0b969c7ff171f9d57d14a98c5924246ba0",
+      "executable": false
+    },
+    "tests/helpers/handset-message-groups.mjs": {
+      "sha256": "96afb47f23827e9b54ed77c9570d3fa82ec86f0f0600a13fdae9c75805477976",
       "executable": false
     },
     "tests/helpers/handset-messages-browser.mjs": {
