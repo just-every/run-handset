@@ -316,7 +316,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "7d9953653dc8962969df25294e83001f746dfaaab59a7f9933e9a0207b9dff4a",
+      "sha256": "786514fbdcb9923ea4ef2a8e4a6954e898609f90a523448c034ce8bc320324e1",
       "executable": false
     },
     "AGENTS.md": {
@@ -336,7 +336,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "4ad20328a5d7dee8edc3752ee4f9ad484a176a6be181af75d5b131882f2c296f",
+      "sha256": "91fae339b382e8459bd8650b97a86085371e37c1f73827f21cd741b256399b3e",
       "executable": false
     },
     "deploy-demo.json": {
@@ -4284,7 +4284,7 @@
       "executable": false
     },
     "tests/handset-records.mjs": {
-      "sha256": "2deb56673dd609a4aa88e812870115bbfc6a599c6a46a3c6cb6f221d6332cb37",
+      "sha256": "9945e21f22605924cd6f03b8e2a726ae0ba93994d61e15d0a75d4c3248cb6dba",
       "executable": false
     },
     "tests/handset-recovery.mjs": {
