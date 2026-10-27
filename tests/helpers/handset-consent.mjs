@@ -65,6 +65,7 @@ export async function oneReplyJourney(f) {
  const began=performance.now();await call.missed();let elapsed=performance.now()-began
  assert.equal(f.receiver.sent.length,1);assert.ok(elapsed<60000)
  let report=await f.get(),permission=report.permissions.find(p=>p.call_id===call.call.id)
+ await ownedTaskWithinMinute(f,call,report,began)
  const event=JSON.parse(permission.event)
  assert.equal(event.caller,call.caller);assert.equal(event.business,f.business);assert.equal(event.callSid,call.sid);assert.equal(event.legSid,call.sid)
  assert.equal(event.kind,'dtmf');assert.equal(event.digits,'1');assert.equal(event.purpose,'one_reply');assert.equal(event.promptVersion,f.configured.policy.id)
@@ -74,6 +75,19 @@ export async function oneReplyJourney(f) {
  await f.delivered();elapsed=performance.now()-began;assert.ok(elapsed<60000,'independent delivery edge receipt stays within the deadline');await call.decision('1');await call.missed();await f.runtime.restart();await call.missed();await f.runtime.scheduled()
  assert.equal(f.receiver.sent.length,1);report=await f.get();assert.equal(report.outcomes.length,1);assert.equal(report.permissions.length,1)
  return {call,elapsed}
+}
+
+// Read the owned work through its public door before the same elapsed deadline.
+export async function ownedTaskWithinMinute(f,call,report,began) {
+ const outcome=report.outcomes.find(o=>o.call_id===call.call.id)
+ assert.ok(outcome,'the exact missed call has an outcome')
+ const recoveries=await f.get('/api/handset/recovery'),task=recoveries.cases.find(c=>c.id===outcome.task_id)
+ assert.ok(task,'the exact outcome links to visible callback work')
+ assert.equal(task.call_record_id,outcome.call_record_id)
+ assert.equal(task.owner_id,f.configured.policy.approved_by)
+ assert.equal(task.state,'open')
+ assert.ok(performance.now()-began<60000,'owned callback work is visible within one minute of the missed outcome')
+ return outcome
 }
 
 export async function surveyJourney(f) {

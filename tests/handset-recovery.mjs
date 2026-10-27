@@ -220,19 +220,32 @@ test('Continuity assessment separates media from API health, cites connector and
 
 // Customer-care permission is distinct from source records and marketing.
 test('Explicit caller permission produces one missed-call reply and owned task through signed provider doors', async()=>{
- const {consentFixture,oneReplyJourney}=await import('./helpers/handset-consent.mjs'),f=await consentFixture()
+ const {consentFixture,oneReplyJourney,ownedTaskWithinMinute}=await import('./helpers/handset-consent.mjs'),f=await consentFixture()
  try {
   await oneReplyJourney(f)
   const declined=await f.start(2),yes=await (await f.start(3)).decision('1'),no=await declined.decision('2')
   assert.equal(no.replaceAll(declined.call.id,'call'),yes.replace(/calls\/[0-9a-f-]+\//,'calls/call/'),'decline keeps the exact staff ringing instructions')
-  await declined.missed();const timeout=await f.start(4);await timeout.decision(null);await timeout.missed()
+  const timeout=await f.start(4);await timeout.decision(null)
+  const disconnected=await f.start(7)
+  for(const call of [declined,timeout,disconnected]) {
+   const sentBefore=f.receiver.sent.length,began=performance.now()
+   await call.missed()
+   const report=await f.get(),outcome=await ownedTaskWithinMinute(f,call,report,began)
+   assert.equal(outcome.text_id,null,'no consent produces callback work alone')
+   assert.equal(f.receiver.sent.length,sentBefore,'decline timeout and pre-decision disconnect send no text')
+   const permission=report.permissions.find(p=>p.call_id===call.call.id)
+   assert.equal(permission.state,'declined');assert.equal(permission.purpose,'one_reply')
+   const event=JSON.parse(permission.event)
+   assert.equal(event.marketingEnrollment,false)
+   assert.equal(event.kind,call===disconnected?'no_response':'dtmf')
+  }
   const stopped=await f.start(5);await stopped.decision('1');await f.stop(stopped);await stopped.missed()
   const unknown=await f.start(6,{identity:'No-TN-Validation'});await unknown.decision('1');await unknown.missed()
-  const report=await f.get();assert.equal(f.receiver.sent.length,1);assert.equal(report.outcomes.length,5)
+  const report=await f.get();assert.equal(f.receiver.sent.length,1);assert.equal(report.outcomes.length,6)
   assert.ok(report.texts.some(t=>t.reason==='recipient_STOP_or_DNC'));assert.ok(report.texts.some(t=>t.reason==='caller_identity_unclear'))
-  assert.equal(report.permissions.filter(p=>p.state==='declined').length,2)
+  assert.equal(report.permissions.filter(p=>p.state==='declined').length,3)
   assert.ok(report.permissions.every(p=>JSON.parse(p.event).marketingEnrollment===false))
-  const recoveries=await f.get('/api/handset/recovery');assert.equal(recoveries.cases.length,5);assert.ok(recoveries.cases.every(c=>c.owner_id==='synthetic-handset-1'))
+  const recoveries=await f.get('/api/handset/recovery');assert.equal(recoveries.cases.length,6);assert.ok(recoveries.cases.every(c=>c.owner_id==='synthetic-handset-1'))
   assert.equal((await f.signed(f.configured.providerPath,stopped.fields,{signature:false})).status,403)
   assert.equal((await f.runtime.request(f.base)).status,401)
  } finally {await f.runtime.close()}

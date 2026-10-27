@@ -68,7 +68,7 @@ const fields: Record<string, string> = {
  source_inactive: 'sourceId', active_source_required: 'sourceId', queue_missing: 'queueId', overflow_cycle: 'overflowQueueId', unexpected_overflow_queue: 'overflowQueueId', agent_language_required: 'languages', invalid_spanish_digit: 'spanishDigit',
  invalid_working_hours: 'opens', invalid_weekday: 'weekdays', invalid_forwarding_destination: 'forwardTo', line_not_found: 'lineId', distinct_assistant_required: 'assistantId', delegation_not_found: 'delegationId',
 }
-const conflict = 'Someone saved a newer version while you were editing, so this wasn’t saved. The page now shows the current version; make your change again.'
+const conflict = 'Someone saved a newer version while you were editing. Your draft is kept below. Compare the saved values, make any changes, then explicitly save the reviewed draft.'
 
 /** Runs one owner's Settings save. An ordinary refusal stays a recorded 4xx, shown on the same Settings page with the person's entries. */
 export async function settingsSave(env: Bindings, actor: Session, refused: Pick<Refusal, 'action' | 'values'>, save: () => Promise<Response | null>, again: (refusal: Refusal) => Promise<Response>) {
@@ -82,10 +82,21 @@ export async function settingsSave(env: Bindings, actor: Session, refused: Pick<
 const attribute = (tag: string, name: string) => tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1]
 const controls = (form: string) => [...form.matchAll(/<(?:input|select|textarea)\b[^>]*>/g)].map(([tag]) => tag)
 const labelOf = (form: string, name: string) => form.match(new RegExp(`<label[^>]*>([^<]+)(?:</label>)?<(?:input|select|textarea)\\b[^>]*\\sname="${name.replaceAll('.', '\\.')}"`))?.[1]
-// The refused form is the one with the same action, every entered name and the same hidden values (a changed revision means a newer version).
-function sameForm(form: string, values: ObjectValue) {
+const revisionField = (name: string) => /^(expectedVersion|version|revision|lineRevision)$/.test(name)
+// Identity fields must still match. A stale revision identifies a conflict to compare.
+function sameForm(form: string, values: ObjectValue, stale: boolean) {
  const tags = controls(form), names = new Set(tags.map(tag => attribute(tag, 'name')))
- return Object.keys(values).every(name => names.has(e(name))) && tags.every(tag => attribute(tag, 'type') !== 'hidden' || e(values[attribute(tag, 'name') ?? ''] ?? '') === attribute(tag, 'value'))
+ return Object.keys(values).every(name => names.has(e(name))) && tags.every(tag => attribute(tag, 'type') !== 'hidden' || stale && revisionField(attribute(tag, 'name') ?? '') || e(values[attribute(tag, 'name') ?? ''] ?? '') === attribute(tag, 'value'))
+}
+/** Native submit buttons carry the reviewed revision only when explicitly chosen.
+ * The ordinary save retains the submitted revision and cannot overwrite a newer save. */
+function comparison(form: string, values: ObjectValue) {
+ const revisions = controls(form).filter(tag => attribute(tag, 'type') === 'hidden' && revisionField(attribute(tag, 'name') ?? '') && attribute(tag, 'value') !== e(values[attribute(tag, 'name') ?? '']))
+ const changed = controls(form).filter(tag => attribute(tag, 'type') !== 'hidden' && attribute(tag, 'value') !== undefined && values[attribute(tag, 'name') ?? ''] !== undefined && attribute(tag, 'value') !== e(values[attribute(tag, 'name') ?? '']))
+ const rows = changed.map(tag => { const name = attribute(tag, 'name')!; return `<h3>${labelOf(form, name) ?? name}</h3><dl><dt>Your draft</dt><dd>${e(values[name]) || 'Empty'}</dd><dt>Current saved</dt><dd>${attribute(tag, 'value') || 'Empty'}</dd></dl>` }).join('')
+ // More than one changed revision needs separate review; never guess a binding.
+ const save = revisions.length === 1 ? `<button name="${attribute(revisions[0], 'name')}" value="${attribute(revisions[0], 'value')}">Save reviewed draft</button>` : ''
+ return `<details class="hs-compare" id="settings-compare" open><summary>Compare saved values</summary>${rows}<p>Review the differences and edit your draft above. Saving the reviewed draft replaces the current saved values. A newer save will still be refused.</p>${save}</details>`
 }
 // Every disclosure around a position, open.
 function openAround(html: string, at: number) {
@@ -97,19 +108,21 @@ function openAround(html: string, at: number) {
 export function withRefusal(body: string, refusal?: Refusal) {
  if (!refusal) return body
  const entered = (name: string) => typeof refusal.values[name] === 'string' ? String(refusal.values[name]) : undefined
+ const stale = refusal.code.endsWith('_conflict')
  const named = refusal.field ?? fields[refusal.code] ?? (refusal.code.startsWith('invalid_') ? refusal.code.slice(8) : '')
  // With no field to focus, the explanation itself takes focus so it is in view.
- const note = (why: string, focus = true) => `<div class="hs-problem" id="settings-problem" role="alert"${focus ? ' tabindex="-1" autofocus' : ''}><p>${e(why)}</p><details><summary>Technical detail</summary><code>${e(refusal.code)}</code></details></div>`
+ const note = (why: string, focus = true) => `<div class="hs-problem" id="settings-problem" role="alert"${focus ? ' tabindex="-1" autofocus' : ''}><p>${e(why)}</p>${stale ? '<p><a href="#settings-compare">Compare saved values</a></p>' : ''}<details><summary>Technical detail</summary><code>${e(refusal.code)}</code></details></div>`
  let at = -1
  const filled = body.replace(/<form\b[^>]*>[\s\S]*?<\/form>/g, (form, index: number) => {
-  if (at >= 0 || attribute(form, 'action') !== e(refusal.action) || !sameForm(form, refusal.values)) return form
+  if (at >= 0 || attribute(form, 'action') !== e(refusal.action) || !sameForm(form, refusal.values, stale)) return form
   at = index
   const field = controls(form).some(tag => attribute(tag, 'name') === e(named)) ? named : '', label = field ? labelOf(form, e(field)) : undefined
-  const why = words[refusal.code] ?? (label ? `Check “${label}” and save again.` : 'This wasn’t saved. Check the entries below and save again.')
+  const why = stale ? conflict : words[refusal.code] ?? (label ? `Check “${label}” and save again.` : 'This wasn’t saved. Check the entries below and save again.')
   const mark = (tag: string, name?: string) => field && name === e(field) ? tag.replace(/>$/, () => ' aria-invalid="true" aria-describedby="settings-problem" autofocus>') : tag
-  return form.replace(/^<form\b[^>]*>/, open => open + note(why, !field))
+  const retained = form
    .replace(/<input\b[^>]*>/g, tag => {
     const name = attribute(tag, 'name'), value = name === undefined ? undefined : entered(name)
+    if (attribute(tag, 'type') === 'hidden' && stale && revisionField(name ?? '') && value !== undefined) return tag.replace(/\svalue="[^"]*"/, () => ` value="${e(value)}"`)
     if (['hidden', 'checkbox', 'radio', 'submit'].includes(attribute(tag, 'type') ?? 'text')) return tag
     return mark(value === undefined ? tag : /\svalue="/.test(tag) ? tag.replace(/\svalue="[^"]*"/, () => ` value="${e(value)}"`) : tag.replace(/^<input\b/, () => `<input value="${e(value)}"`), name)
    })
@@ -125,6 +138,8 @@ export function withRefusal(body: string, refusal?: Refusal) {
     const name = attribute(area, 'name'), value = name === undefined ? undefined : entered(name)
     return value === undefined ? area : `${mark(`<textarea${attrs}>`, name)}${e(value)}</textarea>`
    })
+  // Append after hidden revision inputs: the clicked button's value wins in FormData.
+  return retained.replace(/^<form\b[^>]*>/, open => open + note(why, !field)).replace(/<\/form>$/, () => (stale ? comparison(form, refusal.values) : '') + '</form>')
  })
  if (at < 0) return note(refusal.code.endsWith('_conflict') ? conflict : words[refusal.code] ?? 'This wasn’t saved. Check the entries below and save again.') + body
  const earlier = body.indexOf('<form') < at ? '<p class="hs-problem-link" role="status">This wasn’t saved. <a href="#settings-problem">Correct it below</a>.</p>' : ''

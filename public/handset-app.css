@@ -187,7 +187,7 @@
 }
 
 /* Filter tabs over a list: the active one carries the mint underline, as the top bar does. */
-.hs-main .hs-filters { display: flex; flex-wrap: nowrap; gap: 0 34px; margin: 0; padding: 0 28px; border-bottom: 1px solid var(--hs-rule); overflow-x: auto; scrollbar-width: none; }
+.hs-main .hs-filters { display: flex; flex-wrap: wrap; gap: 0 34px; margin: 0; padding: 0 28px; border-bottom: 1px solid var(--hs-rule); }
 .hs-main .hs-filters::-webkit-scrollbar { display: none; }
 .hs-main .hs-filters a { display: flex; flex: none; align-items: center; gap: 10px; min-height: 66px; margin-bottom: -1px; border-bottom: 3px solid transparent; color: var(--hs-muted); font-size: 17px; font-weight: 500; text-decoration: none; white-space: nowrap; }
 .hs-main .hs-filters a:hover { color: var(--hs-ink); }
