@@ -6,8 +6,10 @@ transcribe speech or send email. Both clauses remain partial.
 
 Use the existing native session and same-origin POST rules. Every response is
 noncacheable. Writes and reads repeat current session authority in the audited
-transaction. Company management and shared-box creation remain owner-only while
-HND-027 supplies the separately scoped capabilities specified by ct.
+transaction. Company creation, contact-grant administration, shared-box creation and mailbox
+membership administration retain the native-owner boundary. Explicit exact-record
+grants permit staff work without the installation-owner role. HND-027 still
+owes the broader company, location, department, queue and number capability catalog.
 
 ## Directory
 
@@ -15,8 +17,9 @@ POST `/api/handset/directory/contacts` with name, number, visibility (`personal`
 or `company`), optional timezone, suppressed and held flags (zero or one), and
 source identity strings. Personal contacts belong only to their creating person.
 An explicit international calling code is required; formatting and an extension
-introduced by x, ext or # are separated. This is syntax normalization, not full
-regional number validation. Unknown timezone remains null.
+introduced by x, ext or # are separated. Bundled regional metadata rejects invalid patterns and incomplete numbers
+after normalization. Complete regional validation across every future import
+and synchronization door remains contractual work. Unknown timezone remains null.
 
 GET `/api/handset/directory/contacts` or append a contact ID. GET
 `/api/handset/directory/match?number=...` returns only a unique authorized match;
@@ -29,7 +32,13 @@ edit it. An edit preserves suppression, holds and source identities, and
 withdraws existing read grants. Personal edits remain private to that person.
 
 POST to a contact's grant or revoke suffix with revision and personId. Company
-member reads require this explicit grant. Issuer and recipient version changes
+member reads require this explicit grant. On the grant verb, allowEdit,
+allowExport and allowMerge are independent zero-or-one choices, each off by
+default. A read grant alone cannot edit, export or merge. Merge requires the
+capability on both contacts. Editing or merging withdraws the acting staff
+person’s grants too; the response is a receipt and supplies no continued read
+authority. Import and grant administration remain separate unfinished duties.
+Issuer and recipient version changes
 invalidate it. GET `/api/handset/directory/grants` lets a current native owner
 inspect the retained grants. A merge removes both records' grants from this
 list. Personal contacts cannot be granted to anyone else.
@@ -50,7 +59,9 @@ native-owner operations. GET the box's path to read its observations, due IDs
 and retained work history.
 
 POST to a box's members suffix with revision, personId and enabled (zero or one).
-Only its native owner administers membership. Every read and work action checks
+allowWork selects work membership (one by default); zero gives read-only
+membership. allowAssign separately permits assignment and defaults to zero.
+Only its original native administrator administers membership. Every read and work action checks
 current membership and the issuing person's current authority. Personal boxes
 are never shared.
 
@@ -61,9 +72,23 @@ transcription assertion is accepted. Each new observation creates separate open
 work without changing an earlier handled item.
 
 POST to a box's items path followed by the item ID and claim, handle or reopen,
-with the exact revision. One concurrent claim succeeds. Only the current
+with the exact revision. A read-only member cannot claim, handle, reopen or
+add notes. One concurrent claim succeeds. Only the current
 claimant or box owner handles or reopens. Handling removes that item from due
 work for all current members. Reopening retains the append-only history and
 makes it claimable again. This API confers no recording playback, consent or
 outbound authority. Email, greeting, audio, clinical sharing and qualified speech
 remain explicit contractual gaps.
+
+An item’s note suffix accepts revision and note and retains the note in its
+append-only history without reopening handled work. Its assign suffix accepts
+revision and personId, requires separate assignment authority and refuses
+any target outside current work membership or inactive native authority.
+
+The box’s owner suffix accepts revision and personId. Its original native
+administrator may designate a current box worker as the authorized box owner.
+That person may handle or reopen another worker’s claim, and gains no membership
+or company administration. Withdrawing that person’s work membership ends
+this designated ownership authority at the next request. Personal boxes cannot
+be reassigned. General delegated administration and fallback previews remain
+contractual work.

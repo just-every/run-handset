@@ -316,7 +316,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "094ed3df29a3bc58a339caa7a44f5282a2dae1c1046a9ce1cbe7547f1354a213",
+      "sha256": "d1a4ba47bed9e31e1e2b1c55d77fbf0a43308089b5573bbf217722a7730379f1",
       "executable": false
     },
     "AGENTS.md": {
@@ -336,7 +336,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "9b15a92d2d64a46db9481e9efda17bdd6454bf11a8fead936c592728b2724907",
+      "sha256": "fca4c983caea878f6786a04f21b88cc8293ecf77621f2ed3a268c15a288e84d6",
       "executable": false
     },
     "deploy-demo.json": {
@@ -416,7 +416,7 @@
       "executable": false
     },
     "docs/NATIVE-DIRECTORY-VOICEMAIL.md": {
-      "sha256": "c9b9052cbc2ea3ea4e3b9c1ee8fc86a55861568dfdd1cead40fc2eaca1356ec7",
+      "sha256": "b3a3a14d16a95c01bcdafae19f7ef3b128699d8ba9687278eb308a9dbd50079c",
       "executable": false
     },
     "docs/NUMBER-COMPLIANCE.md": {
@@ -732,7 +732,7 @@
       "executable": false
     },
     "migrations/core/0065_handset_directory_voicemail.sql": {
-      "sha256": "d86c90afcbfa705a144a700358a0cc202ade99070cc2cc68bb6ee9072bf002b6",
+      "sha256": "acc47173ac5f96cd650c9a07a8db676894fcf8c282d41ab409ea9a36f698ffbc",
       "executable": false
     },
     "ONBOARDING.md": {
@@ -748,7 +748,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "40e88e90f68e7ac47f31b4352f03ae1ecee449d6987dd25d10702798ad8db2fc",
+      "sha256": "a812f15ec40c21b82885b22a008162a82e1d203c152627c8917d9992bb29d05b",
       "executable": false
     },
     "packaging.json": {
@@ -756,7 +756,7 @@
       "executable": false
     },
     "pnpm-lock.yaml": {
-      "sha256": "aa18369876f7a70dc56959a84ce05a7525e2d6ba394b561605d02ba7588a081f",
+      "sha256": "bcb37680f61a02ebfbb47b10f2fcb86f830f178ac879b9b50afdac85dff09c53",
       "executable": false
     },
     "public/apple-touch-icon.png": {
@@ -1500,7 +1500,7 @@
       "executable": false
     },
     "src/handset/audit/store.ts": {
-      "sha256": "5e0d85d01bf2c7ab8f42b238c473e449bf0e79274474ea81fb93f0bb8a2fed72",
+      "sha256": "d44c384655ed4e21864282b0383b27091356454870703d2b0a6954829158ba42",
       "executable": false
     },
     "src/handset/authority/application.ts": {
@@ -1708,7 +1708,7 @@
       "executable": false
     },
     "src/handset/directory/doors.ts": {
-      "sha256": "ed9fd4d93841d7fbde07411d669942760aea0f79043fc47b15d64b3e4a98c791",
+      "sha256": "2066e0443ad68e98cf1d4646dab2482fcdfdcef698fca973c0c2f765383e80c8",
       "executable": false
     },
     "src/handset/erasure/doors.ts": {
@@ -2224,7 +2224,7 @@
       "executable": false
     },
     "src/handset/voicemail/doors.ts": {
-      "sha256": "1d7bd48390a7ede93c37ca7ac2f1e3c0a67e7b978e7984623c3bf7cb48bd2e3b",
+      "sha256": "32b9862f64cb039535b02ea472549956cb2963b27370c80ad6a23738111033db",
       "executable": false
     },
     "src/identity.ts": {
@@ -4196,7 +4196,7 @@
       "executable": false
     },
     "tests/handset-records.mjs": {
-      "sha256": "aefd40b4002f2297e725af8005564b5a3db741c89cb27920100b8443a456b291",
+      "sha256": "1932a3289258e1d553c4120e6f7828cf770e1d8f76075c9fb814415615491b1a",
       "executable": false
     },
     "tests/handset-recovery.mjs": {

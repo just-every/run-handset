@@ -1047,6 +1047,8 @@ test('Directory merge withdraws both cached read grants and preserves stops hold
   const b=(await create({number:'+15125550191 x42',suppressed:1,held:1,sources:['synthetic-handset-932']})).contact
   assert.equal(a.number,'+15125550191');assert.equal(a.extension,'42');assert.equal(a.timezone,null)
   await f.write('/api/handset/directory/contacts',{name:'No calling code',number:'5125550191'},f.ownerHeaders,400)
+  await f.write('/api/handset/directory/contacts',{name:'Impossible region',number:'+10005550199'},f.ownerHeaders,400)
+  await f.write('/api/handset/directory/contacts',{name:'Incomplete regional number',number:'+4420794601'},f.ownerHeaders,400)
   for(const c of [a,b]){
    await f.read('/api/handset/directory/contacts/'+c.id,f.memberHeaders,403)
    await f.write('/api/handset/directory/contacts/'+c.id+'/grant',{revision:1,personId:'synthetic-handset-2'})
@@ -1189,5 +1191,107 @@ test('Voicemail privacy and live membership refuse unauthorized handling reopeni
   await runtime.sql('DROP TRIGGER synthetic_handset_mailbox_loss')
   await f.read(path,f.memberHeaders,403)
   await f.write(target+'/reopen',{revision:3},f.ownerHeaders,401)
+ }finally{await runtime.close()}
+})
+
+test('Exact-contact staff capabilities independently bound edits exports and merges and never widen grants or survive authority withdrawal',async()=>{
+ const runtime=await openHandset()
+ try{
+  const f=await preparationFixture(runtime),base='/api/handset/directory'
+  const create=async(number)=>(await f.write(base+'/contacts',{name:'Scoped contact',number,visibility:'company'},f.ownerHeaders,201)).contact
+  const a=await create('+15125550194'),b=await create('+15125550195'),foreign=await create('+15125550196')
+  const grant=(c,caps={})=>f.write(base+'/contacts/'+c.id+'/grant',{revision:c.revision,personId:'synthetic-handset-2',...caps})
+  await grant(a)
+  assert.deepEqual((await f.read(base+'/contacts',f.memberHeaders)).contacts.map(c=>c.id),[a.id])
+  assert.deepEqual((await f.read(base+'/export',f.memberHeaders)).contacts,[])
+  await f.write(base+'/contacts/'+a.id,{revision:1,name:'Forbidden'},f.memberHeaders,403)
+  await f.write(base+'/contacts/'+foreign.id,{revision:1,name:'Outside scope'},f.memberHeaders,403)
+  await f.write(base+'/contacts/'+a.id+'/grant',{revision:1,personId:'synthetic-handset-930',allowEdit:1},f.memberHeaders,403)
+  await grant(a,{allowExport:1})
+  assert.deepEqual((await f.read(base+'/export',f.memberHeaders)).contacts.map(c=>c.id),[a.id])
+  await f.write(base+'/contacts/'+a.id,{revision:1,name:'Still forbidden'},f.memberHeaders,403)
+  await grant(a,{allowEdit:1})
+  const edited=await f.write(base+'/contacts/'+a.id,{revision:1,name:'Delegated edit'},f.memberHeaders)
+  assert.equal(edited.contactId,a.id);assert.equal(edited.revision,2)
+  assert.equal((await f.read(base+'/contacts/'+a.id)).contact.name,'Delegated edit')
+  await f.read(base+'/contacts/'+a.id,f.memberHeaders,403)
+  a.revision=2
+  await grant(a,{allowMerge:1});await grant(b)
+  const merge={revision:2,otherId:b.id,otherRevision:1,confirm:'merge these exact contacts and withdraw read grants'}
+  await f.write(base+'/contacts/'+a.id+'/merge',merge,f.memberHeaders,403)
+  await grant(b,{allowMerge:1})
+  await f.write(base+'/contacts/'+a.id+'/merge',{...merge,otherId:foreign.id},f.memberHeaders,403)
+  const combined=await f.write(base+'/contacts/'+a.id+'/merge',merge,f.memberHeaders)
+  assert.deepEqual(combined,{contactId:a.id,revision:3,grantsWithdrawn:true})
+  for(const c of [a,b])await f.read(base+'/contacts/'+c.id,f.memberHeaders,403)
+  assert.deepEqual((await f.read(base+'/grants')).grants,[])
+  a.revision=3;await grant(a,{allowEdit:1,allowExport:1,allowMerge:1})
+  await runtime.sql("CREATE TRIGGER synthetic_handset_contact_cap_loss BEFORE INSERT ON hnd_actor_refs WHEN NEW.operator_id='synthetic-handset-2' BEGIN DELETE FROM hnd_contact_grants WHERE person_id='synthetic-handset-2'; END")
+  await f.write(base+'/contacts/'+a.id,{revision:3,name:'Must lose the admission race'},f.memberHeaders,409)
+  assert.equal((await f.read(base+'/contacts/'+a.id)).contact.name,'Delegated edit')
+  await runtime.sql('DROP TRIGGER synthetic_handset_contact_cap_loss')
+  await grant(a,{allowEdit:1,allowExport:1,allowMerge:1})
+  await f.write(base+'/contacts/'+a.id+'/revoke',{revision:3,personId:'synthetic-handset-2'})
+  await f.write(base+'/contacts/'+a.id,{revision:3,name:'After withdrawal'},f.memberHeaders,403)
+  assert.deepEqual((await f.read(base+'/export',f.memberHeaders)).contacts,[])
+  // The creator's former owner role is not permanent company-contact authority.
+  await runtime.sql("UPDATE oa_operators SET role='member' WHERE id='synthetic-handset-1'")
+  const downgraded={cookie:(await signIn(runtime)).cookie}
+  await f.read(base+'/contacts/'+a.id,downgraded,403)
+ }finally{await runtime.close()}
+})
+
+test('Explicit mailbox work and assignment capabilities permit scoped staff ownership notes and owner override without granting membership administration',async()=>{
+ const runtime=await openHandset()
+ try{
+  const f=await preparationFixture(runtime),base='/api/handset/voicemail/boxes'
+  const box=(await f.write(base,{name:'Scoped support',kind:'shared'},f.ownerHeaders,201)).box,path=base+'/'+box.id
+  await f.write(path+'/members',{revision:1,personId:'synthetic-handset-2',enabled:1,allowWork:0,allowAssign:0})
+  const observation={sourceId:'synthetic-handset-944',text:'Staff work',language:'en'}
+  const item=(await f.write(path+'/observations',observation,f.ownerHeaders,201)).item,target=path+'/items/'+item.id
+  assert.deepEqual((await f.read(path,f.memberHeaders)).due,[item.id])
+  await f.write(target+'/claim',{revision:1},f.memberHeaders,403)
+  await f.write(target+'/note',{revision:1,note:'Not permitted'},f.memberHeaders,403)
+  await f.write(path+'/members',{revision:2,personId:'synthetic-handset-2',enabled:1,allowWork:1,allowAssign:0})
+  const claimed=await f.write(target+'/claim',{revision:1},f.memberHeaders)
+  assert.equal(claimed.item.claimant,'synthetic-handset-2')
+  await f.write(target+'/assign',{revision:2,personId:'synthetic-handset-930'},f.memberHeaders,403)
+  await f.write(target+'/note',{revision:2,note:'Needs a colleague'},f.memberHeaders)
+  assert.equal((await f.read(path)).history.find(h=>h.action==='note').note,'Needs a colleague')
+  await f.write(path+'/members',{revision:3,personId:'synthetic-handset-2',enabled:1,allowWork:1,allowAssign:1})
+  await f.write(target+'/assign',{revision:3,personId:'synthetic-handset-930'},f.memberHeaders,403)
+  await f.write(path+'/members',{revision:4,personId:'synthetic-handset-930',enabled:1,allowWork:1})
+  const reassigned=await f.write(target+'/assign',{revision:3,personId:'synthetic-handset-930'},f.memberHeaders)
+  assert.equal(reassigned.item.claimant,'synthetic-handset-930')
+  await f.write(target+'/handle',{revision:4},f.memberHeaders,403)
+  await f.write(path+'/owner',{revision:5,personId:'synthetic-handset-2'})
+  // A scoped staff box owner may handle another current worker's claim.
+  const handled=await f.write(target+'/handle',{revision:4},f.memberHeaders)
+  assert.equal(handled.item.state,'handled')
+  const annotated=await f.write(target+'/note',{revision:5,note:'Handled note is not a reopen'},f.memberHeaders)
+  assert.equal(annotated.item.state,'handled')
+  await f.write(target+'/reopen',{revision:6},f.memberHeaders)
+  await f.write(path+'/members',{revision:6,personId:'synthetic-handset-930',enabled:0},f.memberHeaders,403)
+  await f.write(path+'/owner',{revision:6,personId:'synthetic-handset-930'},f.memberHeaders,403)
+  await f.write(target+'/assign',{revision:7,personId:'synthetic-handset-2'},f.otherHeaders,403)
+  // The original native administrator retains only the explicit administrative boundary.
+  await f.write(path+'/members',{revision:6,personId:'synthetic-handset-930',enabled:0})
+  await f.read(path,f.otherHeaders,403)
+  await f.write(path+'/members',{revision:7,personId:'synthetic-handset-2',enabled:1,allowWork:0})
+  await f.write(path+'/observations',{sourceId:'synthetic-handset-945',text:'Read is not work',language:'en'},f.memberHeaders,403)
+  await f.write(target+'/handle',{revision:7},f.memberHeaders,403)
+  await f.write(path+'/members',{revision:8,personId:'synthetic-handset-2',enabled:1,allowWork:1,allowAssign:1})
+  await runtime.sql("CREATE TRIGGER synthetic_handset_box_cap_loss BEFORE INSERT ON hnd_actor_refs WHEN NEW.operator_id='synthetic-handset-2' BEGIN DELETE FROM hnd_mailbox_members WHERE person_id='synthetic-handset-2'; END")
+  await f.write(target+'/handle',{revision:7},f.memberHeaders,409)
+  assert.equal((await f.read(path)).items[0].state,'open')
+  await runtime.sql('DROP TRIGGER synthetic_handset_box_cap_loss')
+  await f.write(path+'/members',{revision:9,personId:'synthetic-handset-2',enabled:0})
+  await f.read(path,f.memberHeaders,403)
+  await runtime.sql("UPDATE oa_operators SET status='inactive' WHERE id='synthetic-handset-2'")
+  await f.write(target+'/handle',{revision:7},f.memberHeaders,401)
+  await runtime.restart()
+  const current=await f.read(path)
+  assert.equal(current.items[0].state,'open');assert.equal(current.items[0].claimant,null)
+  assert.equal(current.history.filter(h=>h.action==='note').length,2)
  }finally{await runtime.close()}
 })
