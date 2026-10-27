@@ -239,7 +239,7 @@ test('Known-week reports reconcile source legs, confirmed recovery, reporting gr
   assert.deepEqual(n.totals,{volume:6,answered:1,missed:5,unknown:0,legs:1})
   assert.deepEqual(n.sourceCalls.map(c=>c.id),calls.slice(0,6).map(c=>c.recordId))
   assert.deepEqual(n.sourceCalls.map(c=>[c.id,c.occurredAt,c.status,c.answered,c.missed]),records.slice(0,6).map((r,index)=>[r.id,r.occurred_at,JSON.parse(r.data).providerStatus,index===2,index!==2]))
-  assert.deepEqual(n.byPerson,[{label:'synthetic-handset-1',volume:6,answered:1,missed:5,contained:0,converted:0,serviceSeconds:0,sourceCallIds:calls.slice(0,6).map(c=>c.recordId)}])
+  assert.deepEqual(n.byPerson,[{label:'synthetic-handset-1',volume:6,answered:1,missed:5,handoffs:0,pendingWork:0,contained:0,converted:0,serviceSeconds:0,sourceCallIds:calls.slice(0,6).map(c=>c.recordId)}])
   assert.deepEqual(n.byHour.map(h=>[h.volume,h.missed]),[[1,1],[1,1],[1,0],[1,1],[1,1],[1,1]])
   assert.match(n.byHour[0].label,/01.*GMT-05:00/);assert.match(n.byHour[1].label,/01.*GMT-06:00/)
   assert.deepEqual(n.byNumber.map(r=>[r.label,r.volume,r.missed]),[['+15125550125',6,5]])

@@ -1999,6 +1999,14 @@
       "sha256": "3be49994f30082f90d9d7d1130860ff91bf21ee9cdd8a1f84119f9ce53c1a737",
       "executable": false
     },
+    "src/handset/metrics/receptionist-pages.ts": {
+      "sha256": "d2f624ca880a262995e61136bf76d75169e815869bc57d3b6ac7e90414aa7e0a",
+      "executable": false
+    },
+    "src/handset/metrics/receptionist.ts": {
+      "sha256": "84ee0f42c95afe904de4feb18b17a805d0e9d7cc66f7536456b66f66b349764e",
+      "executable": false
+    },
     "src/handset/metrics/schedules.ts": {
       "sha256": "afd7470213d7fa64b4d765736242ffeb57dbc05947cefb67c65c602900cc2a06",
       "executable": false
@@ -4380,7 +4388,7 @@
       "executable": false
     },
     "tests/handset-reporting.mjs": {
-      "sha256": "a785a8a8147dbda06bb4b76598d88f9eff1d418071c007b4f2fd96840a5a9ac8",
+      "sha256": "533a0f56d5769041d1cb1f1271a7f6167951f38be25510ab8438f66ab8fba293",
       "executable": false
     },
     "tests/handset-transports.mjs": {
