@@ -9,7 +9,7 @@ the console. Scheduled reports bind the formula revision and exact owner recipie
 a revoked owner or changed owner version prevents delivery.
 
 Local hours include their UTC offset, keeping both fall-back hours distinct.
-Person remains the current case owner. Handling user is a separate dimension: only a completed provider-read-back queue offer, bound to the canonical source and parent call, attributes a handler. Ringing, reservations and case ownership never supply handling evidence. A transfer may have multiple verified handlers; each sees the call once, so handling-user groups are not additive. Missing attribution remains Unattributed.
+Person remains the current case owner. Handling user is a separate dimension: only a completed provider-read-back queue offer, bound to the canonical source and parent call, attributes a handler. Ringing, reservations and case ownership never supply handling evidence. A transfer may have multiple verified handlers; each sees the call once, so handling-user groups are not additive. Missing attribution remains Unattributed. The custom Provider service seconds measure sums completed source-offer durations once per selected handler; it is provider elapsed service, with talk, hold and wrap still supplied by the separate reviewed queue formulas.
 Completed or in-progress provider legs count as answered; this does not establish
 independently received staff audio. A canonical terminal no-answer, busy, failed
 or canceled call is missed only when no leg is answered. Other and unknown states

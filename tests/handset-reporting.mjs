@@ -239,7 +239,7 @@ test('Known-week reports reconcile source legs, confirmed recovery, reporting gr
   assert.deepEqual(n.totals,{volume:6,answered:1,missed:5,unknown:0,legs:1})
   assert.deepEqual(n.sourceCalls.map(c=>c.id),calls.slice(0,6).map(c=>c.recordId))
   assert.deepEqual(n.sourceCalls.map(c=>[c.id,c.occurredAt,c.status,c.answered,c.missed]),records.slice(0,6).map((r,index)=>[r.id,r.occurred_at,JSON.parse(r.data).providerStatus,index===2,index!==2]))
-  assert.deepEqual(n.byPerson,[{label:'synthetic-handset-1',volume:6,answered:1,missed:5,contained:0,converted:0,sourceCallIds:calls.slice(0,6).map(c=>c.recordId)}])
+  assert.deepEqual(n.byPerson,[{label:'synthetic-handset-1',volume:6,answered:1,missed:5,contained:0,converted:0,serviceSeconds:0,sourceCallIds:calls.slice(0,6).map(c=>c.recordId)}])
   assert.deepEqual(n.byHour.map(h=>[h.volume,h.missed]),[[1,1],[1,1],[1,0],[1,1],[1,1],[1,1]])
   assert.match(n.byHour[0].label,/01.*GMT-05:00/);assert.match(n.byHour[1].label,/01.*GMT-06:00/)
   assert.deepEqual(n.byNumber.map(r=>[r.label,r.volume,r.missed]),[['+15125550125',6,5]])
@@ -368,7 +368,7 @@ test('Call-bound reports attribute verified handlers and reconcile booking conta
   const live=async(query='queueId=*')=>{const response=await runtime.request('/api/handset/metrics/live?'+query,{headers});assert.equal(response.status,200,await response.clone().text());return response.json()}
   const report=await live(),n=report.native
   assert.deepEqual(n.totals,{volume:6,answered:4,missed:2,unknown:0,legs:1})
-  assert.deepEqual(n.byHandlingUser.map(g=>[g.label,g.volume,g.answered,g.missed]),[['Unattributed',5,3,2],[handler,1,1,0]])
+  assert.deepEqual(n.byHandlingUser.map(g=>[g.label,g.volume,g.answered,g.missed,g.serviceSeconds]),[['Unattributed',5,3,2,0],[handler,1,1,0,60]])
   assert.deepEqual(n.recovery.confirmedCaseIds,[calls[4].caseId]);assert.equal(n.recovery.confirmed,1);assert.equal(n.recovery.cases,2)
   assert.equal(calls[5].caseId,calls[1].caseId);assert.ok(!n.conversion.convertedCallIds.includes(calls[5].recordId),'a repeat in the same booked case is not another conversion')
   const failed=await runtime.request('/api/handset/records/'+f.failedRecording.recordId,{headers});assert.equal(JSON.parse((await failed.json()).record.data).providerStatus,'failed')
@@ -403,7 +403,7 @@ test('Call-bound reports attribute verified handlers and reconcile booking conta
   const b=await live('queueId=queue-B')
   assert.deepEqual(b.native.sourceCalls.map(c=>c.id),calls.slice(0,3).map(c=>c.recordId));assert.deepEqual(b.callbackParents,[{id:dataset.entries[8].id,parentEntryId:dataset.entries[2].id,callId:calls[2].recordId}])
   assert.deepEqual([b.totals.offered,b.totals.transfers,b.totals.overflows,b.totals.callbacks,b.totals.arrivals],[2,1,1,1,0]);assert.equal((await live('queueId=queue-A')).totals.arrivals,6)
-  const dashboard=await f.write('/api/handset/metrics/dashboards',{name:'Winter booking outcomes',queueId:'*',configRevision:1,filters:{trackingSource:'Winter repairs'},groups:['handlingUser','trackingSource'],metrics:['volume','contained','converted']})
+  const dashboard=await f.write('/api/handset/metrics/dashboards',{name:'Winter booking outcomes',queueId:'*',configRevision:1,filters:{trackingSource:'Winter repairs'},groups:['handlingUser','trackingSource'],metrics:['volume','contained','converted','serviceSeconds']})
   const saved=await f.write('/api/handset/metrics/finalize',{queueId:'*',configRevision:1,dashboardId:dashboard.id,dashboardRevision:1})
   const csv=await (await runtime.request('/api/handset/metrics/dashboards/'+dashboard.id+'/csv',{headers})).text()
   assert.equal(csv.trim().split('\r\n').length,7);assert.ok(csv.includes(handler));assert.ok(csv.includes(calls[0].offerId));assert.ok(csv.includes('Winter repairs'));assert.ok(csv.includes(f.outcomes[0].id));assert.ok(!csv.includes(f.unlinked.id))

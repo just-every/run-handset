@@ -25,13 +25,13 @@ async function assertSources(page,calls){
 async function checkSelection(page,groups,metrics){
  const form=dashboardForm(page)
  for(const group of Object.keys(groupNames))assert.equal(await form.locator(`[name="group_${group}"]`).isChecked(),groups.includes(group),'retained group '+group)
- for(const metric of ['volume','answered','missed','contained','converted'])assert.equal(await form.locator(`[name="metric_${metric}"]`).isChecked(),metrics.includes(metric),'retained measure '+metric)
+ for(const metric of ['volume','answered','missed','contained','converted','serviceSeconds'])assert.equal(await form.locator(`[name="metric_${metric}"]`).isChecked(),metrics.includes(metric),'retained measure '+metric)
 }
 
 async function setSelection(page,groups,metrics){
  const form=dashboardForm(page)
  for(const group of Object.keys(groupNames))await form.getByLabel(group==='person'?'Person (case owner)':group==='handlingUser'?'Handling user':group==='trackingSource'?'Tracking source':group,{exact:true}).setChecked(groups.includes(group))
- for(const metric of ['volume','answered','missed','contained','converted'])await form.getByLabel(metric,{exact:true}).setChecked(metrics.includes(metric))
+ for(const metric of ['volume','answered','missed','contained','converted','serviceSeconds'])await form.getByLabel(metric==='serviceSeconds'?'Provider service seconds':metric,{exact:true}).setChecked(metrics.includes(metric))
 }
 
 async function assertFiltered(page,calls){
