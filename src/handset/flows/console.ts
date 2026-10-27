@@ -24,7 +24,11 @@ export async function flowConsole(request:Request,env:Bindings,actor:Session,v?:
  const url=new URL(request.url),suffix=url.pathname.slice('/app/flows'.length)
  if(url.search)throw new Fault('unexpected_flow_query')
  const api=(path:string,value?:ObjectValue)=>flowDoor(new Request(new URL('/api/handset/flows'+path,url),{method:value?'POST':'GET'}),env,actor,value)
- const inventory=await (await api('')).json() as FlowSnapshot
+ let inventory:FlowSnapshot
+ try{inventory=await (await api('')).json() as FlowSnapshot}catch(error){
+  if(error instanceof Fault&&error.code==='flow_access_required')return consolePage('Flow access needed','<p role="alert">Your current role does not permit reading any call flows. Ask an owner to review your assignment.</p><p><a href="/app">Return to workspace</a></p>',403)
+  throw error
+ }
  const isOwner=actor.operator.role==='owner',references=flowReferences(inventory.versions.map(v=>JSON.parse(v.definition) as FlowDefinition))
  const filter=(ids:string[])=>isOwner?'':` WHERE id IN (${ids.length?ids.map(()=>'?').join(','):'NULL'})`
  const permissions=await Promise.all([...new Set(inventory.versions.map(v=>v.flow_id))].map(id=>authorizeFlow(env,actor,id,'flow.read')))
@@ -39,7 +43,7 @@ export async function flowConsole(request:Request,env:Bindings,actor:Session,v?:
  }
  const personName=(id:string)=>inventory.people!.find(p=>p.id===id)?.display_name??id
  const parts=suffix.split('/').filter(Boolean),selected=parts[0]&&parts[0]!=='save'?inventory.versions.find(row=>row.id===parts[0]):undefined
- if(parts[0]&&parts[0]!=='save'&&!selected)throw new Fault('flow_version_missing',404)
+ if(parts[0]&&parts[0]!=='save'&&!selected)return consolePage('Flow unavailable','<p role="alert">This flow version is unavailable under your current access.</p><p><a href="/app/flows">Return to permitted flows</a></p>',404)
  if(request.method==='GET')return flowsPage(inventory,queues,selected)
  if(request.method!=='POST')throw new Fault('method_not_allowed',405)
  let draft:FlowDefinition|undefined,editing=selected
