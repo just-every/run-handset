@@ -5,7 +5,8 @@
       "browser": false,
       "hosted": false,
       "commands": [
-        "pnpm run check --profile first-party"
+        "pnpm run check --profile first-party",
+        "node reports/contract-docs.mjs check"
       ]
     },
     {

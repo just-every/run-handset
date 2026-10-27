@@ -375,6 +375,10 @@
       "sha256": "b3779391517c4d600dc857c05feb54c0ea7d43343e7839cad36846807ebcb6c9",
       "executable": false
     },
+    "docs/CLAIMS.md": {
+      "sha256": "0fa9d14e02a8137081198876f23445afceaf2f1ff9f2ab0f96ea5264192472b7",
+      "executable": false
+    },
     "docs/DELIVERY.md": {
       "sha256": "fcaabbb6ea895e5fb834810e6ccfeb03090783abd82c586eb6c731d5902a7625",
       "executable": false
@@ -1121,6 +1125,10 @@
     },
     "RELEASE.json": {
       "sha256": "81fb89bca1794ec85daece6294153ebe789c5389565a2292cb99412a3d9b1a3b",
+      "executable": false
+    },
+    "reports/contract-docs.mjs": {
+      "sha256": "0fecfe46ab2d7e74b0aae5d01d40c9ca53cf33684b9627525e4de782f55c4934",
       "executable": false
     },
     "reports/REPORT.md": {
@@ -4616,7 +4624,7 @@
       "executable": false
     },
     "verification.json": {
-      "sha256": "e432eccfdeae007034297153bec2024829d84fc4b43bccd02bf013db85211161",
+      "sha256": "38f3cca8c336d03ca7663206510ab2bf9b5ba8ec20a57b1c37601c96899936ca",
       "executable": false
     },
     "VERIFY-WORKFLOW.md": {
