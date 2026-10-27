@@ -174,7 +174,9 @@ test('Number purchases reserve once across concurrent requests and preserve unce
  try{
   const f=await numberFixture(runtime),quotes=await f.search()
   assert.deepEqual(quotes.map(q=>[q.e164,q.monthly_usd,JSON.parse(q.capabilities)]),[['+15125550125','1.15',{voice:true,SMS:true,MMS:true}]])
-  const input=f.approval(quotes[0]),responses=await Promise.all([f.send('/purchase',input),f.send('/purchase',input)])
+  const input=f.approval(quotes[0]);f.setChangedPrice(true)
+  assert.equal((await f.send('/purchase',input)).status,409,'changed price requires a new reviewed quote');assert.equal(f.calls.length,0);f.setChangedPrice(false)
+  const responses=await Promise.all([f.send('/purchase',input),f.send('/purchase',input)])
   const results=await Promise.all(responses.map(f.value)),key=results[0].number.id
   assert.equal(results[1].number.id,key)
   assert.equal(f.calls.filter(c=>c.method==='POST').length,1,'one paid creation for a concurrent repeated purchase')
@@ -196,7 +198,7 @@ test('Number purchases reserve once across concurrent requests and preserve unce
 test('Exact-number release preserves a review hold, refuses stale approvals and reassigns once before carrier release',async()=>{
  const runtime=await openHandset({twilio:true,clockTime:Date.UTC(2026,9,27,12)})
  try{
-  const f=await numberFixture(runtime),first=(await f.buy()).number,replacement=(await f.buy('tollfree')).number
+  const f=await numberFixture(runtime),first=(await f.buy()).number,replacement=(await f.buy('tollfree','Dallas · Backup team')).number
   const reviewed=(await f.value(await f.send('/'+first.id+'/review',f.review(first,replacement)))).number
   assert.equal(reviewed.replacement_id,replacement.id);assert.equal(reviewed.release_by,'synthetic-handset-1')
   assert.equal((await f.send('/'+first.id+'/release',f.release(reviewed))).status,409,'cooling hold refuses early execution')
@@ -210,11 +212,12 @@ test('Exact-number release preserves a review hold, refuses stale approvals and 
   f.setEmergency(true);assert.equal((await f.send('/'+first.id+'/release',f.release(current))).status,409)
   f.setEmergency(false);f.setRoute(true);assert.equal((await f.send('/'+first.id+'/release',f.release(current))).status,409)
   f.setRoute(false)
+  assert.equal((await f.send('/'+first.id+'/release',{...f.release(current),revision:current.revision-1})).status,409,'stale revision cannot consume current approval')
   const outcome=await f.value(await f.send('/'+first.id+'/release',f.release(current)))
   assert.equal(outcome.number.state,'released');assert.ok(outcome.number.released_at)
   assert.equal(f.calls.filter(c=>c.method==='DELETE').length,1)
   const changed=(await f.inventory()).find(n=>n.id===replacement.id)
-  assert.equal(changed.revision,replacement.revision+1);assert.equal(changed.assignment,first.assignment)
+  assert.equal(changed.revision,replacement.revision+1);assert.equal(changed.assignment,'Austin · Equipo de atención')
   assert.equal((await f.send('/'+first.id+'/release',f.release(current))).status,409)
   assert.equal(f.calls.filter(c=>c.method==='DELETE').length,1,'stale execution cannot issue a second release')
   const ledger=(await runtime.sql("SELECT action,outcome FROM hnd_audit WHERE action LIKE 'number.%'")).results
@@ -226,7 +229,7 @@ test('Number ownership and protected dependencies refuse unauthorized or unsafe 
  const runtime=await openHandset({twilio:true})
  try{
   assert.equal((await post(runtime,'/api/handset/numbers/purchase',{})).status,401)
-  const f=await numberFixture(runtime),first=(await f.buy()).number,replacement=(await f.buy('tollfree')).number
+  const f=await numberFixture(runtime),first=(await f.buy()).number,replacement=(await f.buy('tollfree','Dallas · Backup team')).number
   assert.equal((await post(runtime,'/api/handset/numbers/search',{}, {cookie:f.cookie,origin:'https://example.test'})).status,403)
   await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
   const member=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'})

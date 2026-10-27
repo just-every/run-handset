@@ -5,12 +5,12 @@ import { Fault, id, keys, text, type ObjectValue } from '../core'
 import { accountReady, accountRoot, carrier, readCarrier } from './provider'
 import type { Quote } from './catalog'
 
-export interface Inventory {id:string;request_key:string;quote_id:string;account_id:string;e164:string;provider_id:string|null;owner_id:string;owner_version:number;assignment:string;purpose:string;campaign:string;state:string;revision:number;created_at:number;replacement_id:string|null;replacement_revision:number|null;release_by:string|null;release_owner_version:number|null;release_revision:number|null;hold_until:number|null;released_at:number|null;emergency_state:string}
+export interface Inventory {owner_name?:string;release_name?:string;id:string;request_key:string;quote_id:string;account_id:string;e164:string;provider_id:string|null;owner_id:string;owner_version:number;assignment:string;purpose:string;campaign:string;state:string;revision:number;created_at:number;replacement_id:string|null;replacement_revision:number|null;release_by:string|null;release_owner_version:number|null;release_revision:number|null;hold_until:number|null;released_at:number|null;emergency_state:string}
 export const sql=(env:Bindings,q:string,...args:(string|number|null)[])=>env.DB.prepare(q).bind(...args)
 export const guard=(env:Bindings,q:string,...args:(string|number|null)[])=>sql(env,'INSERT INTO hnd_guard(ok) '+q,...args)
 export const inventoryFence=(env:Bindings,n:Inventory)=>guard(env,'SELECT count(*) FROM hnd_number_inventory WHERE id=? AND revision=? AND state=?',n.id,n.revision,n.state)
 export async function getNumber(env:Bindings,key:string){const row=await sql(env,'SELECT * FROM hnd_number_inventory WHERE id=?',key).first<Inventory>();if(!row)throw new Fault('number_not_found',404);return row}
-export async function listNumbers(env:Bindings){return (await env.DB.prepare('SELECT * FROM hnd_number_inventory ORDER BY created_at DESC,id LIMIT 200').all<Inventory>()).results}
+export async function listNumbers(env:Bindings){return (await env.DB.prepare('SELECT i.*,p.display_name AS owner_name,a.display_name AS release_name FROM hnd_number_inventory i JOIN oa_operators p ON p.id=i.owner_id LEFT JOIN oa_operators a ON a.id=i.release_by ORDER BY i.created_at DESC,i.id LIMIT 200').all<Inventory>()).results}
 export async function purchase(env:Bindings,actor:Session,v:ObjectValue){
  keys(v,['quoteId','requestKey','assignment','purpose','campaign','confirm'])
  if(v.confirm!=='approve exact number and carrier charges under my direct contract')throw new Fault('exact_purchase_approval_required')
@@ -20,6 +20,9 @@ export async function purchase(env:Bindings,actor:Session,v:ObjectValue){
  const quote=await sql(env,'SELECT * FROM hnd_number_quotes WHERE id=?',quoteId).first<Quote>()
  if(!quote||quote.expires_at<=Date.now()||quote.owner_id!==actor.operator.id||quote.owner_version!==actor.operator.version)throw new Fault('fresh_exact_owner_quote_required',409)
  await accountReady(env,quote.account_id)
+ const pricing=await readCarrier(env,quote.account_id,`https://pricing.twilio.com/v1/PhoneNumbers/Countries/${quote.country}`)
+ const prices=pricing.phone_number_prices
+ if(pricing.iso_country!==quote.country||String(pricing.price_unit).toUpperCase()!=='USD'||!Array.isArray(prices)||!prices.some(p=>p.number_type===(quote.kind==='local'?'local':'toll free')&&p.current_price===quote.monthly_usd))throw new Fault('carrier_price_changed_search_again',409)
  const key=id(),now=Date.now()
  try{await commit(env,actor,'number.purchase',key,'uncertain',[
   guard(env,'SELECT count(*) FROM hnd_number_quotes WHERE id=? AND owner_id=? AND owner_version=? AND expires_at>?',quote.id,actor.operator.id,actor.operator.version,now),

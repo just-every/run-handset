@@ -1888,7 +1888,7 @@
       "executable": false
     },
     "src/handset/numbers/console.ts": {
-      "sha256": "35587547e489906399d702b7711e5a7f608fc5de8d83b873002bf98ebbc7c1bb",
+      "sha256": "a7c7d66cc94406742511868a762b7c2f40431b93cd7105ee70fa2b770d7ea967",
       "executable": false
     },
     "src/handset/numbers/doors.ts": {
@@ -1904,7 +1904,7 @@
       "executable": false
     },
     "src/handset/numbers/store.ts": {
-      "sha256": "b4311eae68bace31f98c9c3c7ce574823ceadf3ca46020f794d5dc9b09e91e72",
+      "sha256": "fe4b733428e1fea41fcef6356eef0f6f986c1e1b106ed23d5eb9ca77cdfa5b33",
       "executable": false
     },
     "src/handset/operations/doors.ts": {
@@ -4160,7 +4160,7 @@
       "executable": false
     },
     "tests/handset-admin.mjs": {
-      "sha256": "d4c3a53363e7397a19640706af0edf79f50c54a9d1562dcec15f768a372017fd",
+      "sha256": "3de697ad8e20d510a6fc3c1c29b4d4215c97bd52695789b5a6f61b0b1029040f",
       "executable": false
     },
     "tests/handset-agent-outcomes.mjs": {
@@ -4320,7 +4320,7 @@
       "executable": false
     },
     "tests/helpers/handset-numbers.mjs": {
-      "sha256": "cc7ddaa41ee6f52da522acf642ca290c074d549cb6b48bbcfa3ba329f1f0992c",
+      "sha256": "1ed8623c3507c449bc4dfa105eb5c4a778bad74a1ed9e11ea01e567f12d9ccb7",
       "executable": false
     },
     "tests/helpers/handset-prompts-browser.mjs": {

@@ -28,7 +28,7 @@ export async function numberFixture(runtime,cookie){
  const value=async response=>{assert.ok(response.ok,await response.clone().text());return response.json()}
  const search=async(kind='local')=>(await value(await send('/search',{accountId:account,country:'US',kind,areaCode:kind==='local'?'512':'833'}))).quotes
  const approval=(quote,key='synthetic-handset-'+sequence++)=>({quoteId:quote.id,requestKey:key,assignment:'Austin · Equipo de atención',purpose:'Customer appointments / Citas',campaign:'',confirm:'approve exact number and carrier charges under my direct contract'})
- const buy=async(kind='local')=>{const q=(await search(kind))[0],input=approval(q);return {...await value(await send('/purchase',input)),input}}
+ const buy=async(kind='local',assignment)=>{const q=(await search(kind))[0],input=approval(q);if(assignment)input.assignment=assignment;return {...await value(await send('/purchase',input)),input}}
  return {account,root,headers,cookie,calls,owned,send,value,search,approval,buy,
   setUncertain:v=>uncertain=v,setReleaseUncertain:v=>deletingUncertain=v,setEmergency:v=>emergency=v,setRoute:v=>route=v,setEmpty:v=>noResults=v,setChangedPrice:v=>changedPrice=v,
   review:(n,replacement)=>({revision:n.revision,replacementId:replacement.id,replacementRevision:replacement.revision,confirm:'approve exact number release after reviewed reassignment'}),
