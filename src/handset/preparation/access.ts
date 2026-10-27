@@ -1,0 +1,2 @@
+import type { Session } from '../../modules/operator-auth/index.mjs'
+export const nativeFence = (db:D1Database, actor:Session) => db.prepare(`INSERT INTO hnd_guard(ok) SELECT count(*) FROM oa_sessions s JOIN oa_operators o ON o.id=s.operator_id WHERE s.id=? AND s.operator_id=? AND s.operator_version=? AND o.version=? AND o.status='active' AND s.revoked_at IS NULL AND s.expires_at>?`).bind(actor.id,actor.operator.id,actor.operator.version,actor.operator.version,Date.now())

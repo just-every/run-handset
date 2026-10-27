@@ -1024,3 +1024,170 @@ test('Processing withdrawal and native version changes erase derived output and 
   assert.equal((await api('/search',{query:'Synthetic',sourceIds:[changed.s.id]})).state,'knowledge_gap')
  }finally{await runtime.close()}
 })
+
+async function preparationFixture(runtime){
+ const primary=await signIn(runtime)
+ await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
+ const member=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'})
+ await runtime.sql("INSERT INTO oa_operators(id,email,display_name,role,status,created_at) VALUES (?,?,?,?,?,?)",'synthetic-handset-930','synthetic-handset-930@example.test','Another person','owner','active',Date.now())
+ const other=await signIn({...runtime,ownerEmail:'synthetic-handset-930@example.test'})
+ const ownerHeaders={cookie:primary.cookie},memberHeaders={cookie:member.cookie},otherHeaders={cookie:other.cookie}
+ const read=async(path,headers=ownerHeaders,status=200)=>{const r=await runtime.request(path,{headers});assert.equal(r.status,status,await r.clone().text());return r.json()}
+ const write=async(path,value,headers=ownerHeaders,status=200)=>{const r=await post(runtime,path,value,headers);assert.equal(r.status,status,await r.clone().text());return r.json()}
+ return {ownerHeaders,memberHeaders,otherHeaders,read,write}
+}
+
+test('Directory merge withdraws both cached read grants and preserves stops holds and source identities under exact revisions',async()=>{
+ const runtime=await openHandset()
+ try{
+  const f=await preparationFixture(runtime),create=value=>f.write('/api/handset/directory/contacts',{name:'Synthetic contact',visibility:'company',...value},f.ownerHeaders,201)
+  await f.write('/api/handset/directory/contacts',{name:'Anonymous',number:'+15125550190'}, {},401)
+  await f.write('/api/handset/directory/contacts',{name:'Foreign',number:'+15125550190'}, {...f.ownerHeaders,origin:'https://foreign.example'},403)
+  const a=(await create({number:'+1 (512) 555-0191 ext 42',sources:['synthetic-handset-931']})).contact
+  const b=(await create({number:'+15125550191 x42',suppressed:1,held:1,sources:['synthetic-handset-932']})).contact
+  assert.equal(a.number,'+15125550191');assert.equal(a.extension,'42');assert.equal(a.timezone,null)
+  await f.write('/api/handset/directory/contacts',{name:'No calling code',number:'5125550191'},f.ownerHeaders,400)
+  for(const c of [a,b]){
+   await f.read('/api/handset/directory/contacts/'+c.id,f.memberHeaders,403)
+   await f.write('/api/handset/directory/contacts/'+c.id+'/grant',{revision:1,personId:'synthetic-handset-2'})
+   assert.equal((await f.read('/api/handset/directory/contacts/'+c.id,f.memberHeaders)).contact.id,c.id)
+  }
+  assert.equal((await f.read('/api/handset/directory/match?number=%2B15125550191%20x42',f.memberHeaders)).state,'ambiguous')
+  assert.deepEqual((await f.read('/api/handset/directory/grants')).grants.map(g=>g.contact_id).sort(),[a.id,b.id].sort())
+  const merge={revision:1,otherId:b.id,otherRevision:1,confirm:'merge these exact contacts and withdraw read grants'}
+  await f.write('/api/handset/directory/contacts/'+a.id+'/merge',{...merge,otherRevision:2},f.ownerHeaders,409)
+  await f.write('/api/handset/directory/contacts/'+a.id+'/merge',{...merge,confirm:'yes'},f.ownerHeaders,403)
+  const result=await f.write('/api/handset/directory/contacts/'+a.id+'/merge',merge)
+  assert.deepEqual((await f.read('/api/handset/directory/grants')).grants,[])
+  assert.equal(result.contact.revision,2);assert.equal(result.contact.suppressed,1);assert.equal(result.contact.held,1)
+  assert.deepEqual(result.contact.sources,['synthetic-handset-931','synthetic-handset-932'])
+  for(const c of [a,b])await f.read('/api/handset/directory/contacts/'+c.id,f.memberHeaders,403)
+  assert.deepEqual((await f.read('/api/handset/directory/export',f.memberHeaders)).contacts,[])
+  const match=await f.read('/api/handset/directory/match?number=%2B15125550191%20x42',f.memberHeaders)
+  assert.deepEqual(match,{state:'unknown',callerAuthenticated:false})
+  await f.write('/api/handset/directory/contacts/'+a.id+'/merge',merge,f.ownerHeaders,409)
+  await f.write('/api/handset/directory/contacts/'+a.id+'/grant',{revision:2,personId:'synthetic-handset-2'})
+  const shared=(await f.read('/api/handset/directory/contacts/'+a.id,f.memberHeaders)).contact
+  assert.equal(shared.id,a.id);assert.equal(shared.messagingConsent,false);assert.equal(shared.employeeAccess,false);assert.equal(shared.callerAuthenticated,false)
+  const audit=await f.read('/api/handset/audit/export');assert.equal(audit.rows.filter(r=>r.action==='directory.merge').length,1)
+  assert.ok(!JSON.stringify(audit).includes('Synthetic contact'))
+ }finally{await runtime.close()}
+})
+
+test('Personal contacts stay private while company read grants stop on withdrawal and current issuer or recipient authority loss without minting contact authority',async()=>{
+ const runtime=await openHandset({twilio:true})
+ try{
+  const f=await preparationFixture(runtime),mailCount=runtime.mails.length
+  const privateContact=(await f.write('/api/handset/directory/contacts',{name:'Private staff contact',number:'+442079460123'},f.memberHeaders,201)).contact
+  assert.equal((await f.read('/api/handset/directory/contacts/'+privateContact.id,f.memberHeaders)).contact.id,privateContact.id)
+  const edited=await f.write('/api/handset/directory/contacts/'+privateContact.id,{revision:1,name:'Changed personal contact',number:'+442079460124'},f.memberHeaders)
+  assert.equal(edited.contact.name,'Changed personal contact');assert.equal(edited.contact.number,'+442079460124')
+  await f.write('/api/handset/directory/contacts/'+privateContact.id,{revision:1,name:'Stale'},f.memberHeaders,409)
+  await f.write('/api/handset/directory/contacts/'+privateContact.id,{revision:2,name:'Foreign'},f.ownerHeaders,403)
+  for(const h of [f.ownerHeaders,f.otherHeaders])await f.read('/api/handset/directory/contacts/'+privateContact.id,h,403)
+  await f.write('/api/handset/directory/contacts/'+privateContact.id+'/grant',{revision:1,personId:'synthetic-handset-1'},f.memberHeaders,403)
+  await f.write('/api/handset/directory/contacts',{name:'Company',number:'+15125550192',visibility:'company'},f.memberHeaders,403)
+  const c=(await f.write('/api/handset/directory/contacts',{name:'Company',number:'+15125550192',visibility:'company'},f.ownerHeaders,201)).contact
+  const grant=()=>f.write('/api/handset/directory/contacts/'+c.id+'/grant',{revision:1,personId:'synthetic-handset-2'})
+  await grant();assert.equal((await f.read('/api/handset/directory/contacts/'+c.id,f.memberHeaders)).contact.id,c.id)
+  await f.write('/api/handset/directory/contacts/'+c.id+'/revoke',{revision:1,personId:'synthetic-handset-2'})
+  await f.read('/api/handset/directory/contacts/'+c.id,f.memberHeaders,403)
+  await grant()
+  await runtime.sql("UPDATE oa_operators SET role='member' WHERE id='synthetic-handset-1'")
+  await f.read('/api/handset/directory/contacts/'+c.id,f.memberHeaders,403)
+  await f.write('/api/handset/directory/contacts/'+c.id+'/revoke',{revision:1,personId:'synthetic-handset-2'},f.ownerHeaders,401)
+  await runtime.sql("UPDATE oa_operators SET role='owner' WHERE id='synthetic-handset-1'")
+  await f.read('/api/handset/directory/contacts/'+c.id,f.memberHeaders,403)
+  assert.equal(runtime.mails.length,mailCount)
+  const renewed=await signIn(runtime);f.ownerHeaders.cookie=renewed.cookie
+  await grant()
+  await runtime.sql("UPDATE oa_operators SET status='inactive' WHERE id='synthetic-handset-2'")
+  await f.read('/api/handset/directory/contacts/'+c.id,f.memberHeaders,401)
+  assert.equal((await runtime.sql('SELECT count(*) AS n FROM hnd_text_permissions')).results[0].n,0)
+  assert.equal((await runtime.sql('SELECT count(*) AS n FROM hnd_grants')).results[0].n,0)
+  // Interrupt after the session read, at audit admission, before the atomic write.
+  await runtime.sql("CREATE TRIGGER synthetic_handset_directory_loss BEFORE INSERT ON hnd_actor_refs WHEN NEW.operator_id='synthetic-handset-1' BEGIN UPDATE oa_operators SET role='member' WHERE id='synthetic-handset-1'; END")
+  await f.write('/api/handset/directory/contacts',{name:'Refused after authority loss',number:'+15125550193',visibility:'company'},f.ownerHeaders,409)
+  assert.equal((await runtime.sql("SELECT count(*) AS n FROM hnd_contacts WHERE number='+15125550193'")).results[0].n,0)
+  await runtime.sql('DROP TRIGGER synthetic_handset_directory_loss')
+  assert.equal((await runtime.sql("SELECT role FROM oa_operators WHERE id='synthetic-handset-2'")).results[0].role,'member')
+  assert.deepEqual(runtime.sourceRequests,[])
+ }finally{await runtime.close()}
+})
+
+test('Shared voicemail races one claimant and preserves handled history across new observations restart and owner reopening',async()=>{
+ const runtime=await openHandset({twilio:true})
+ try{
+  const f=await preparationFixture(runtime),mailCount=runtime.mails.length
+  await f.write('/api/handset/voicemail/boxes',{name:'Anonymous',kind:'personal'}, {},401)
+  await f.write('/api/handset/voicemail/boxes',{name:'Foreign',kind:'personal'}, {...f.ownerHeaders,origin:'https://foreign.example'},403)
+  const box=(await f.write('/api/handset/voicemail/boxes',{name:'Support',kind:'shared'},f.ownerHeaders,201)).box
+  await f.write('/api/handset/voicemail/boxes/'+box.id+'/members',{revision:1,personId:'synthetic-handset-2',enabled:1})
+  const observation={sourceId:'synthetic-handset-940',text:'Necesito ayuda',language:'es'}
+  const item=(await f.write('/api/handset/voicemail/boxes/'+box.id+'/observations',observation,f.ownerHeaders,201)).item
+  assert.equal(item.captureQualified,false);assert.equal(item.transcriptionQualified,false);assert.equal(item.outboundAuthority,false)
+  const target='/api/handset/voicemail/boxes/'+box.id+'/items/'+item.id
+  const claimed=await Promise.all([post(runtime,target+'/claim',{revision:1},f.ownerHeaders),post(runtime,target+'/claim',{revision:1},f.memberHeaders)])
+  assert.deepEqual(claimed.map(r=>r.status).sort(),[200,409])
+  const winner=(await claimed.find(r=>r.status===200).json()).item
+  assert.ok(['synthetic-handset-1','synthetic-handset-2'].includes(winner.claimant))
+  // Exercise the owner override after a deterministic member claim.
+  if(winner.claimant!=='synthetic-handset-2'){
+   await f.write(target+'/handle',{revision:2});await f.write(target+'/reopen',{revision:3})
+   await f.write(target+'/claim',{revision:4},f.memberHeaders)
+  }
+  const before=await f.read('/api/handset/voicemail/boxes/'+box.id)
+  const current=before.items.find(i=>i.id===item.id)
+  assert.equal(current.claimant,'synthetic-handset-2')
+  const handled=await f.write(target+'/handle',{revision:current.revision})
+  assert.equal(handled.item.state,'handled');assert.equal(handled.item.claimant,'synthetic-handset-2')
+  await f.write('/api/handset/voicemail/boxes/'+box.id+'/observations',{...observation,sourceId:'synthetic-handset-941',text:'Another message'},f.ownerHeaders,201)
+  await runtime.restart()
+  for(const h of [f.ownerHeaders,f.memberHeaders]){
+   const view=await f.read('/api/handset/voicemail/boxes/'+box.id,h)
+   assert.equal(view.items.find(i=>i.id===item.id).state,'handled')
+   assert.equal(view.due.length,1);assert.ok(!view.due.includes(item.id))
+   assert.ok(view.history.some(e=>e.item_id===item.id&&e.action==='handle'))
+  }
+  await f.write(target+'/reopen',{revision:handled.item.revision})
+  assert.equal((await f.read('/api/handset/voicemail/boxes/'+box.id)).due.length,2)
+  assert.equal((await f.write('/api/handset/voicemail/boxes/'+box.id+'/observations',observation)).replay,true)
+  await f.write('/api/handset/voicemail/boxes/'+box.id+'/observations',{...observation,text:'Changed'},f.ownerHeaders,409)
+  await assert.rejects(runtime.sql("DELETE FROM hnd_voicemail_history WHERE item_id=?",item.id),/append_only/)
+  assert.deepEqual(runtime.sourceRequests,[])
+  assert.equal((await runtime.sql('SELECT count(*) AS n FROM hnd_text_permissions')).results[0].n,0)
+  assert.equal(runtime.mails.length,mailCount)
+ }finally{await runtime.close()}
+})
+
+test('Voicemail privacy and live membership refuse unauthorized handling reopening and cached reads without accepting supplied capture claims',async()=>{
+ const runtime=await openHandset()
+ try{
+  const f=await preparationFixture(runtime)
+  const personal=(await f.write('/api/handset/voicemail/boxes',{name:'Personal',kind:'personal'},f.memberHeaders,201)).box
+  await f.read('/api/handset/voicemail/boxes/'+personal.id,f.ownerHeaders,403)
+  await f.write('/api/handset/voicemail/boxes/'+personal.id+'/members',{personId:'synthetic-handset-1',revision:1,enabled:1},f.memberHeaders,403)
+  await f.write('/api/handset/voicemail/boxes',{name:'Shared',kind:'shared'},f.memberHeaders,403)
+  const box=(await f.write('/api/handset/voicemail/boxes',{name:'Group',kind:'group'},f.ownerHeaders,201)).box
+  const path='/api/handset/voicemail/boxes/'+box.id
+  await f.read(path,f.memberHeaders,403)
+  await f.write(path+'/members',{revision:1,personId:'synthetic-handset-2',enabled:1})
+  await f.write(path+'/observations',{sourceId:'synthetic-handset-942',text:'Supplied',language:'en',captureQualified:true},f.ownerHeaders,400)
+  const item=(await f.write(path+'/observations',{sourceId:'synthetic-handset-942',text:'Supplied',language:'en'},f.ownerHeaders,201)).item
+  const target=path+'/items/'+item.id
+  await f.write(target+'/claim',{revision:1})
+  await f.write(target+'/handle',{revision:2},f.memberHeaders,403)
+  await f.write(target+'/handle',{revision:2})
+  await f.write(target+'/reopen',{revision:3},f.memberHeaders,403)
+  await f.write(path+'/members',{revision:2,personId:'synthetic-handset-2',enabled:0})
+  await f.read(path,f.memberHeaders,403)
+  await f.write(target+'/reopen',{revision:3},f.memberHeaders,403)
+  await f.write(path+'/members',{revision:3,personId:'synthetic-handset-2',enabled:1})
+  await runtime.sql("CREATE TRIGGER synthetic_handset_mailbox_loss BEFORE INSERT ON hnd_actor_refs WHEN NEW.operator_id='synthetic-handset-1' BEGIN UPDATE oa_operators SET role='member' WHERE id='synthetic-handset-1'; END")
+  await f.write(path+'/observations',{sourceId:'synthetic-handset-943',text:'Must not persist after authority loss',language:'en'},f.ownerHeaders,409)
+  assert.equal((await runtime.sql('SELECT count(*) AS n FROM hnd_voicemail_items WHERE source_id=?','synthetic-handset-943')).results[0].n,0)
+  await runtime.sql('DROP TRIGGER synthetic_handset_mailbox_loss')
+  await f.read(path,f.memberHeaders,403)
+  await f.write(target+'/reopen',{revision:3},f.ownerHeaders,401)
+ }finally{await runtime.close()}
+})
