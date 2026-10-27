@@ -22,7 +22,7 @@ export async function numbersJourney({runtime,page,cookie,proof,click}){
  f.setEmpty(true);await search();assert.match(await page.locator('main').innerText(),/No matching numbers/);await proof('numbers-no-results');f.setEmpty(false)
  await search();assert.match(await page.locator('main').innerText(),/USD 1.15 per month/);await proof('numbers-quote',page.getByRole('article').first())
  await buy('+15125550125');assert.match(await page.locator('main').innerText(),/owned/);await proof('numbers-owned',page.locator('[data-number]').first())
- f.setUncertain(true);await search('tollfree');await buy('+18335550125');assert.match(await page.locator('main').innerText(),/purchase may have completed/);await proof('numbers-uncertain',page.locator('[data-number]').first())
+ f.setUncertain(true);await search('tollfree');await buy('+18335550125');assert.match(await page.locator('main').innerText(),/purchase may have completed/);await proof('numbers-uncertain',page.locator('[data-number]').filter({has:page.getByRole('heading',{name:'+18335550125',exact:true})}))
  await click('Read purchase outcome');f.setUncertain(false)
  assert.equal((await f.inventory()).filter(n=>n.state==='owned').length,2)
  const first=(await f.inventory()).find(n=>n.e164==='+15125550125'),replacement=(await f.inventory()).find(n=>n.e164==='+18335550125')
