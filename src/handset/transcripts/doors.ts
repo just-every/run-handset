@@ -1,3 +1,4 @@
+import { captureContentAccess, captureContentFence } from '../recording/capture-policy'
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { Fault, choice, id, integer, json, keys, owner, text, type ObjectValue } from '../core'
@@ -17,6 +18,7 @@ function accessFence(env:Bindings,actor:Session,target:string){
 async function metadata(env:Bindings,target:string){
  const row=await sql(env,'SELECT * FROM hnd_transcripts WHERE id=?',target).first<Transcript>()
  if(!row)throw new Fault('transcript_unavailable',404)
+ await captureContentAccess(env,row.recording_id)
  const source=await activeSourceById(env,row.source_id)
  if(!source||source.revision!==row.source_revision)throw new Fault('transcript_source_unavailable',403)
  return {row,source}
@@ -25,7 +27,7 @@ async function current(env:Bindings,actor:Session,target:string){
  const permitted=await sql(env,`SELECT g.id FROM hnd_transcript_access g JOIN oa_operators p ON p.id=g.person_id JOIN oa_operators o ON o.id=g.created_by WHERE g.transcript_id=? AND g.person_id=? AND ${permission} LIMIT 1`,target,actor.operator.id,Date.now()).first()
  if(!permitted)throw new Fault('transcript_access_required',403)
  const {row,source}=await metadata(env,target)
- const fences=()=>[nativeFence(env,actor),accessFence(env,actor,target),sourceFence(env,source)]
+ const fences=()=>[nativeFence(env,actor),accessFence(env,actor,target),sourceFence(env,source),captureContentFence(env,row.recording_id)]
  return {row,source,fences}
 }
 async function read(env:Bindings,actor:Session,target:string){
@@ -66,11 +68,12 @@ export async function transcriptDoor(request:Request,env:Bindings,actor:Session,
   const linked=await sql(env,`SELECT rs.source_id FROM hnd_records r JOIN hnd_record_sources rs ON rs.record_id=r.id WHERE r.id=? AND r.kind='recording' AND json_extract(r.data,'$.providerStatus')='completed'`,recordingId).first<{source_id:string}>()
   const source=linked?await activeSourceById(env,linked.source_id):null
   if(!source)throw new Fault('current_recording_source_required',409)
+  await captureContentAccess(env,recordingId)
   const data=state==='supplied'?segments(v!.segments,duration):[]
   const reason=state==='missing'?text(v!.reason,'reason',300):null
   if(state==='missing'&&v!.segments!==undefined)throw new Fault('missing_transcript_has_no_text')
   const target=id(),created=Date.now()
-  const result=await grant(env,actor,target,actor.operator.id,created+3600000,[sourceFence(env,source),guard(env,'SELECT CASE WHEN EXISTS(SELECT 1 FROM hnd_transcripts WHERE recording_id=?) THEN 0 ELSE 1 END',recordingId),sql(env,'INSERT INTO hnd_transcripts VALUES (?,?,?,?,?,?,?,?,?,?)',target,recordingId,source.id,source.revision,duration,state,reason,JSON.stringify(data),actor.operator.id,created)])
+  const result=await grant(env,actor,target,actor.operator.id,created+3600000,[sourceFence(env,source),captureContentFence(env,recordingId),guard(env,'SELECT CASE WHEN EXISTS(SELECT 1 FROM hnd_transcripts WHERE recording_id=?) THEN 0 ELSE 1 END',recordingId),sql(env,'INSERT INTO hnd_transcripts VALUES (?,?,?,?,?,?,?,?,?,?)',target,recordingId,source.id,source.revision,duration,state,reason,JSON.stringify(data),actor.operator.id,created)])
   return json({...result,state},201)
  }
  if(path===base&&request.method==='GET'){

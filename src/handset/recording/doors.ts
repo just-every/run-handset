@@ -1,3 +1,6 @@
+import { captureContentAccess, captureContentFence } from './capture-policy'
+import { captureDoor } from './capture-doors'
+import { capturePage } from './capture-pages'
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { actorRef, append, commit } from '../audit/store'
@@ -27,7 +30,8 @@ export async function recordingAccess(env:Bindings,actor:Session,target:string){
  const grant=await currentGrant(env,actor,target)
  if(!grant)throw new Fault('exact_person_recording_grant_required',403)
  const r=await recording(env,target)
- const fences=()=>[nativeFence(env,actor),grantFence(env,actor,grant),sourceFence(env,r),recordingFence(env,r)]
+ await captureContentAccess(env,target)
+ const fences=()=>[nativeFence(env,actor),grantFence(env,actor,grant),sourceFence(env,r),recordingFence(env,r),captureContentFence(env,target)]
  await env.DB.batch([...fences(),sql(env,'DELETE FROM hnd_guard')])
  return {fences,applied:playbackPolicy(actor,grant,r)}
 }
@@ -58,7 +62,8 @@ export async function recordingDoor(request:Request,env:Bindings,actor:Session,v
  const grant=await currentGrant(env,actor,play[1])
  const auditActor=await actorRef(env.DB,actor.operator.id)
  if(!grant){await append(env,auditActor,'recording.playback','installation','refused',[],null,playbackPolicy(actor));throw new Fault('exact_person_recording_grant_required',403)}
- const r=await recording(env,play[1]),fences=()=>[nativeFence(env,actor),grantFence(env,actor,grant),sourceFence(env,r),recordingFence(env,r)]
+ const r=await recording(env,play[1]);await captureContentAccess(env,play[1])
+ const fences=()=>[nativeFence(env,actor),grantFence(env,actor,grant),sourceFence(env,r),recordingFence(env,r),captureContentFence(env,play[1])]
  const applied=playbackPolicy(actor,grant,r)
  await append(env,auditActor,'recording.playback',r.id,'uncertain',fences(),null,applied)
  try{
@@ -88,6 +93,8 @@ export async function recordingDoor(request:Request,env:Bindings,actor:Session,v
 
 export async function recordingsPage(request:Request,env:Bindings,actor:Session,value?:ObjectValue):Promise<Response|null>{
  const path=new URL(request.url).pathname
+ const captureResponse=await captureDoor(request,env,actor,value)??await capturePage(request,env,actor,value)
+ if(captureResponse)return captureResponse
  if(path.startsWith('/api/handset/recordings/'))return recordingDoor(request,env,actor,value)
  const selected=path.match(/^\/app\/recordings\/([0-9a-f-]{36})$/)
  if(selected&&request.method==='GET'){
@@ -102,7 +109,7 @@ export async function recordingsPage(request:Request,env:Bindings,actor:Session,
   const grants=(await sql(env,`SELECT g.id,g.recording_id,g.expires_at FROM hnd_recording_grants g JOIN oa_operators o ON o.id=g.created_by WHERE g.person_id=? AND g.person_version=? AND g.revoked_at IS NULL AND g.expires_at>? AND o.role='owner' AND o.status='active' AND o.version=g.owner_version ORDER BY g.created_at DESC`,actor.operator.id,actor.operator.version,Date.now()).all<{id:string;recording_id:string;expires_at:number}>()).results
   const records=actor.operator.role==='owner'?(await sql(env,`SELECT r.id FROM hnd_records r WHERE r.kind='recording' AND ${completedRecording} ORDER BY r.received_at DESC LIMIT 100`).all<{id:string}>()).results:[]
   const people=actor.operator.role==='owner'?(await sql(env,"SELECT id,display_name FROM oa_operators WHERE status='active' ORDER BY display_name").all<{id:string;display_name:string}>()).results:[]
-  return consolePage('Recordings',`<details class="hs-tertiary"><summary>How playback approval works</summary><p>Executive delegation never conveys recording rights. Every playback needs a current owner-attested approval for the exact person and recording. Playback fetches provider bytes on demand without keeping a media copy.</p></details><p><a href="/app/transcripts">Search permitted transcript text</a></p><h2>My approved recordings</h2><ul>${grants.map(g=>`<li>Recording ${e(g.recording_id)} · expires ${e(new Date(g.expires_at).toISOString())}<p><a href="/app/recordings/${e(g.recording_id)}">Play approved recording ${e(g.recording_id)}</a></p></li>`).join('')||'<li>No current recording approvals.</li>'}</ul>${actor.operator.role==='owner'?`<h2>Approvals</h2><details class="hs-tertiary"><summary>Approve playback for a person</summary><p class="hs-hint">Attest that you verified participant consent and this exact person’s need. This records your attestation; consented capture is not available in this app, and this screen does not prove capture consent or US custody qualification.</p><form method="post" action="/app/recordings/grants"><label for="recording-recordingId">Provider recording</label><select id="recording-recordingId" name="recordingId">${records.map(r=>`<option value="${e(r.id)}">${e(r.id)}</option>`).join('')}</select><label for="recording-personId">Exact approved person</label><select id="recording-personId" name="personId">${people.map(p=>`<option value="${e(p.id)}">${e(p.display_name)} · ${e(p.id)}</option>`).join('')}</select>${field('Recording approval expiry (UTC)','expiresAt','','datetime-local')}<label><input type="checkbox" name="confirm" value="approve consented recording for this exact person" required>I attest participant consent and approve playback for this exact person</label><button>Approve recording playback</button></form></details><details class="hs-tertiary"><summary>Revoke a recording approval</summary><form method="post" action="/app/recordings/revoke">${field('Recording grant ID','grantId')}<button>Revoke recording approval now</button></form></details>`:''}`)
+  return consolePage('Recordings',`<details class="hs-tertiary"><summary>How playback approval works</summary><p>Executive delegation never conveys recording rights. Every playback needs a current owner-attested approval for the exact person and recording. Playback fetches provider bytes on demand without keeping a media copy.</p></details><p><a href="/app/recordings/capture">Recording controls and retention</a></p><p><a href="/app/transcripts">Search permitted transcript text</a></p><h2>My approved recordings</h2><ul>${grants.map(g=>`<li>Recording ${e(g.recording_id)} · expires ${e(new Date(g.expires_at).toISOString())}<p><a href="/app/recordings/${e(g.recording_id)}">Play approved recording ${e(g.recording_id)}</a></p></li>`).join('')||'<li>No current recording approvals.</li>'}</ul>${actor.operator.role==='owner'?`<h2>Approvals</h2><details class="hs-tertiary"><summary>Approve playback for a person</summary><p class="hs-hint">Attest that you verified participant consent and this exact person’s need. This records your attestation; live capture consent is not qualified in this app, and this screen does not prove capture consent or US custody qualification.</p><form method="post" action="/app/recordings/grants"><label for="recording-recordingId">Provider recording</label><select id="recording-recordingId" name="recordingId">${records.map(r=>`<option value="${e(r.id)}">${e(r.id)}</option>`).join('')}</select><label for="recording-personId">Exact approved person</label><select id="recording-personId" name="personId">${people.map(p=>`<option value="${e(p.id)}">${e(p.display_name)} · ${e(p.id)}</option>`).join('')}</select>${field('Recording approval expiry (UTC)','expiresAt','','datetime-local')}<label><input type="checkbox" name="confirm" value="approve consented recording for this exact person" required>I attest participant consent and approve playback for this exact person</label><button>Approve recording playback</button></form></details><details class="hs-tertiary"><summary>Revoke a recording approval</summary><form method="post" action="/app/recordings/revoke">${field('Recording grant ID','grantId')}<button>Revoke recording approval now</button></form></details>`:''}`)
  }
  if(request.method==='POST'&&['/app/recordings/grants','/app/recordings/revoke'].includes(path)){
   owner(actor);const v={...value}

@@ -402,3 +402,8 @@ for(const width of [1440,390])test(`Assigned number-scoped teammate case work an
   assert.equal((await context.request.get(runtime.origin+'/api/handset/sources')).status(),403)
  }finally{await context.close();await browser.close();await runtime.close()}
 })
+
+for(const width of [1440,390])test(`Reviewed recording capture, consent boundaries, retention hold and permission refusal at ${width}`,async()=>{
+ const {captureBrowser}=await import('./helpers/handset-capture-browser.mjs')
+ await captureBrowser(width)
+})

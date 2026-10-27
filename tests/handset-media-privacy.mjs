@@ -117,3 +117,82 @@ for(const width of [1440,390])test(`Transcript week search and bilingual correct
   const denied=await page.goto(f.runtime.origin+'/app/transcripts/'+tuesday.transcriptId);assert.equal(denied.status(),403);await proof('denied-detail')
  }finally{await context.close();await browser.close();await f.runtime.close()}
 })
+
+test('Recording capture requires exact participant consent and announcement revisions and never replays an uncertain provider create',async()=>{
+ const {captureFixture,captureParticipants,announceCapture,startCapture}=await import('./helpers/handset-capture.mjs')
+ const f=await captureFixture()
+ try{
+  await f.create({jurisdiction:'unknown'})
+  await f.act('start',{confirm:'start this consented recording'},409);assert.deepEqual(f.requests,[])
+  await f.act('consent',{jurisdiction:'all-party',participants:[captureParticipants[0],{...captureParticipants[1],consent:'no'}],confirm:'review exact call participants'})
+  await f.act('start',{confirm:'start this consented recording'},409);assert.deepEqual(f.requests,[])
+  await f.act('consent',{jurisdiction:'all-party',participants:captureParticipants,confirm:'review exact call participants'})
+  await f.act('start',{confirm:'start this consented recording'},409)
+  const old=f.session.revision;await announceCapture(f)
+  await f.act('start',{revision:old,confirm:'start this consented recording'},409)
+  await f.act('start',{confirm:'start this consented recording'});assert.equal(f.session.state,'capturing')
+  assert.equal(f.requests.length,1);assert.equal(f.requests[0].body.RecordingTrack,'both');assert.equal(f.requests[0].body.RecordingStatusCallback,f.runtime.origin+'/providers/twilio/events')
+  await f.act('pause');assert.equal(f.session.state,'paused');assert.equal(f.requests[1].body.PauseBehavior,'skip')
+  await f.act('resume',{confirm:'start this consented recording'},409);assert.equal(f.requests.length,2)
+  await announceCapture(f);await f.act('resume',{confirm:'start this consented recording'});assert.equal(f.session.state,'capturing')
+  await f.act('consent',{jurisdiction:'all-party',participants:[...captureParticipants,{id:'synthetic-handset-103',consent:'unknown'}],confirm:'review exact call participants'})
+  assert.equal(f.session.state,'blocked');assert.equal(f.requests.at(-1).body.Status,'stopped')
+  await f.act('resume',{confirm:'start this consented recording'},409)
+  await f.runtime.restart();assert.equal((await f.get()).state,'blocked')
+  const member=await f.member()
+  assert.equal((await post(f.runtime,f.base,{callId:f.callId,jurisdiction:'all-party',participants:captureParticipants,confirm:'review exact call participants'},{cookie:member.cookie})).status,403)
+  assert.equal((await f.runtime.request(f.base)).status,401)
+  const foreign=await post(f.runtime,f.base,{},{cookie:f.cookie,origin:'https://synthetic-handset-foreign.example.test'});assert.equal(foreign.status,403)
+  await f.create()
+  f.runtime.twilioResources.set(`https://api.twilio.com/2010-04-01/Accounts/${f.account}/Calls/${f.callSid}/Recordings.json`,{__httpStatus:503})
+  await announceCapture(f);await f.act('start',{confirm:'start this consented recording'},409)
+  assert.equal((await f.get()).state,'uncertain')
+  const attempts=f.runtime.sourceRequests.filter(r=>r.method==='POST').length
+  await f.act('start',{confirm:'start this consented recording'},409)
+  assert.equal(f.runtime.sourceRequests.filter(r=>r.method==='POST').length,attempts)
+  const events=await f.runtime.sql("SELECT kind FROM hnd_capture_boundaries WHERE session_id=? ORDER BY revision",f.session.id)
+  assert.deepEqual(events.results.map(r=>r.kind),['participants','announcement.attested','start.requested'])
+ }finally{await f.runtime.close()}
+})
+
+test('Paused capture withholds direct audio and transcript release and reviewed retention enforces a legal hold before exact erasure',async()=>{
+ const {captureFixture,startCapture,announceCapture}=await import('./helpers/handset-capture.mjs')
+ const f=await captureFixture()
+ try{
+  await f.create();await startCapture(f)
+  const arrival=await f.callback({RecordingSid:f.recordingSid,CallSid:f.callSid,RecordingStatus:'completed',From:'',To:''});assert.equal(arrival.status,200)
+  const recordingId=(await arrival.json()).recordId
+  const media=`https://api.twilio.com/2010-04-01/Accounts/${f.account}/Recordings/${f.recordingSid}`
+  f.runtime.twilioResources.set(media+'.wav',{__audio:[82,73,70,70,1,2,3,4]})
+  assert.equal((await post(f.runtime,'/api/handset/recordings/grants',{recordingId,personId:'synthetic-handset-1',expiresAt:Date.now()+1200000,confirm:'approve consented recording for this exact person'},f.headers)).status,201)
+  const input={recordingId,durationMs:120000,state:'supplied',confirm:'authorize supplied transcript for my exact identity',segments:[{id:'synthetic-handset-112',speaker:'Agent',language:'en',startMs:1000,endMs:2000,text:'Discuss the refund after consent',confidence:1}]}
+  await f.act('pause')
+  const reads=f.runtime.sourceRequests.filter(r=>r.url.endsWith('.wav')).length
+  assert.equal((await f.runtime.request('/api/handset/recordings/'+recordingId+'/playback',{headers:f.headers})).status,403)
+  const planted={...input,segments:[{...input.segments[0],text:'synthetic-handset-113 paused payment value'}]}
+  const refused=await post(f.runtime,'/api/handset/transcripts',planted,f.headers);assert.equal(refused.status,403)
+  const absent=await f.runtime.sql('SELECT count(*) AS n FROM hnd_transcripts WHERE recording_id=?',recordingId);assert.equal(absent.results[0].n,0)
+  assert.equal(f.runtime.sourceRequests.filter(r=>r.url.endsWith('.wav')).length,reads)
+  await announceCapture(f);await f.act('resume',{confirm:'start this consented recording'})
+  assert.equal((await post(f.runtime,'/api/handset/transcripts',input,f.headers)).status,403)
+  await f.act('stop')
+  let transcript=await post(f.runtime,'/api/handset/transcripts',input,f.headers);assert.equal(transcript.status,201,await transcript.clone().text());const transcriptId=(await transcript.json()).transcriptId
+  assert.equal((await f.runtime.request('/api/handset/recordings/'+recordingId+'/playback',{headers:f.headers})).status,200)
+  assert.equal((await f.runtime.request('/media/recordings/'+recordingId,{headers:f.headers})).status,404)
+  await f.act('retention',{retainUntil:Date.now()+86400000,hold:true,confirm:'review this exact retention and hold'})
+  await f.act('erase',{confirm:'erase this exact recording and supplied text'},409)
+  await f.act('retention',{retainUntil:Date.now()-1000,hold:true,confirm:'review this exact retention and hold'})
+  await f.act('erase',{confirm:'erase this exact recording and supplied text'},409)
+  assert.equal((await f.runtime.request('/api/handset/recordings/'+recordingId+'/playback',{headers:f.headers})).status,403)
+  assert.equal((await f.runtime.request('/api/handset/transcripts/'+transcriptId,{headers:f.headers})).status,403)
+  const hidden=await f.runtime.request('/api/handset/transcripts?q=refund',{headers:f.headers});assert.deepEqual((await hidden.json()).matches,[])
+  await f.act('retention',{retainUntil:Date.now()-1000,hold:false,confirm:'review this exact retention and hold'})
+  f.runtime.twilioResources.set(media+'.json',request=>{assert.equal(request.method,'DELETE');return {__httpStatus:204}})
+  await f.act('erase',{confirm:'erase this exact recording and supplied text'})
+  assert.equal(f.session.state,'erased')
+  const retained=await f.runtime.sql('SELECT original FROM hnd_transcripts WHERE id=?',transcriptId);assert.equal(retained.results[0].original,'[]')
+  await f.runtime.restart();assert.equal((await f.get()).state,'erased')
+  assert.equal((await f.runtime.request('/api/handset/transcripts/'+transcriptId,{headers:f.headers})).status,403)
+  assert.equal((await f.runtime.request('/api/handset/recordings/'+recordingId+'/playback',{headers:f.headers})).status,403)
+ }finally{await f.runtime.close()}
+})
