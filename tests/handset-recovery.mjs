@@ -229,7 +229,13 @@ test('Explicit caller permission produces one missed-call reply and owned task t
   const disconnected=await f.start(7)
   for(const call of [declined,timeout,disconnected]) {
    const sentBefore=f.receiver.sent.length,began=performance.now()
-   await call.missed()
+   if(call===disconnected) {
+    const incomplete=await call.disconnect({nextPage:'/next-page'})
+    assert.equal(incomplete.status,409,'incomplete child-leg readback cannot prove a pre-consent disconnect')
+    assert.equal((await f.get()).outcomes.some(o=>o.call_id===call.call.id),false)
+    const response=await call.disconnect()
+    assert.equal(response.status,200,await response.clone().text())
+   } else await call.missed()
    const report=await f.get(),outcome=await ownedTaskWithinMinute(f,call,report,began)
    assert.equal(outcome.text_id,null,'no consent produces callback work alone')
    assert.equal(f.receiver.sent.length,sentBefore,'decline timeout and pre-decision disconnect send no text')
@@ -238,6 +244,11 @@ test('Explicit caller permission produces one missed-call reply and owned task t
    const event=JSON.parse(permission.event)
    assert.equal(event.marketingEnrollment,false)
    assert.equal(event.kind,call===disconnected?'no_response':'dtmf')
+   if(call===disconnected) {
+    await f.runtime.restart();assert.equal((await call.disconnect()).status,200)
+    assert.equal((await f.get()).outcomes.filter(o=>o.call_id===call.call.id).length,1,'terminal callback replay after restart keeps one task')
+    assert.equal(f.receiver.sent.length,sentBefore)
+   }
   }
   const stopped=await f.start(5);await stopped.decision('1');await f.stop(stopped);await stopped.missed()
   const unknown=await f.start(6,{identity:'No-TN-Validation'});await unknown.decision('1');await unknown.missed()

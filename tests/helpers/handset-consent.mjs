@@ -45,7 +45,12 @@ export async function consentFixture() {
     const r=await signed(`/providers/twilio/consent/calls/${call.id}/outcome`,{...fields,DialCallSid:legSid,DialCallStatus:'no-answer'})
     assert.equal(r.status,200,await r.clone().text());return r.text()
    }
-   return {sid,caller,fields,call,canonical,prompt,decision,missed}
+   const disconnect=async({nextPage=null}={})=>{
+    source.resource('Calls',sid,{from:caller,to:business,direction:'inbound',parent_call_sid:null,status:'completed',duration:'0',date_created:new Date().toUTCString(),start_time:new Date().toUTCString(),end_time:new Date().toUTCString()})
+    runtime.twilioResources.set(`https://api.twilio.com/2010-04-01/Accounts/${source.account}/Calls.json?ParentCallSid=${sid}&PageSize=100`,{calls:[],next_page_uri:nextPage})
+    return source.callback({CallSid:sid,From:caller,To:business,CallStatus:'completed',CallDuration:'0',SequenceNumber:'1',Timestamp:new Date().toISOString()})
+   }
+   return {sid,caller,fields,call,canonical,prompt,decision,missed,disconnect}
   }
   async function stop(call) { const r=await source.callback({MessageSid:'synthetic-handset-stop-'+call.sid,From:call.caller,MessageStatus:'received',Body:'STOP',Timestamp:new Date().toISOString()});assert.equal(r.status,200,await r.clone().text()) }
   async function delivered(index=receiver.sent.length-1) { const m=receiver.sent[index];m.message.status='delivered';source.resource('Messages',m.message.sid,m.message);const r=await signed(new URL(m.form.StatusCallback).pathname,{MessageSid:m.message.sid,MessageStatus:'delivered',From:business,To:m.message.to});assert.equal(r.status,200,await r.clone().text());return r.json() }

@@ -2,8 +2,28 @@ import type { Bindings } from '../../auth.server'
 import { append } from '../audit/store'
 import { sourcePolicy } from '../audit/policy'
 import { Fault, id } from '../core'
-import { capturePermission, carePrompt, getPolicy, guard, policyAuthority, type ConsentCall } from './store'
+import { callUrl, capturePermission, carePrompt, getPolicy, guard, policyAuthority, readTwilio, type ConsentCall } from './store'
 import { dispatchText, enqueueText } from './texts'
+
+/** A caller can hang up inside Gather, before any staff Dial action exists.
+ * Only an ended inbound parent with complete, empty child readback proves this path. */
+export async function observeConsentDisconnect(env:Bindings,sourceId:string,sid:string,state:string,recordId:string) {
+ if(!['completed','no-answer','busy','failed','canceled'].includes(state))return
+ const call=await env.DB.prepare('SELECT * FROM hnd_consent_calls WHERE source_id=? AND call_sid=?').bind(sourceId,sid).first<ConsentCall>()
+ if(!call||await env.DB.prepare("SELECT id FROM hnd_text_permissions WHERE call_id=? AND purpose='one_reply'").bind(call.id).first())return
+ const policy=await getPolicy(env,call.policy_id),{source}=await policyAuthority(env,policy)
+ const parent=await readTwilio(env,source,callUrl(source,sid))
+ if(parent.sid!==sid||parent.account_sid!==source.account_id||parent.direction!=='inbound'||parent.parent_call_sid!==null||parent.from!==call.caller||parent.to!==call.business||parent.status!==state)throw new Fault('consent_disconnect_identity_mismatch',502)
+ const missedAt=Date.parse(String(parent.end_time))
+ if(!Number.isFinite(missedAt)||missedAt<Math.floor(call.created_at/1000)*1000||missedAt>Date.now()+1000)throw new Fault('missed_outcome_time_required',409)
+ const children=await readTwilio(env,source,`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(source.account_id)}/Calls.json?ParentCallSid=${encodeURIComponent(sid)}&PageSize=100`)
+ if(!Array.isArray(children.calls)||children.next_page_uri)throw new Fault('consent_disconnect_readback_incomplete',409)
+ // A staff leg belongs to its independent Dial outcome, never an inferred disconnect.
+ if(children.calls.length)return
+ const permission=await capturePermission(env,call,'one_reply','declined',carePrompt(policy),{kind:'no_response',reason:'Caller ended before a consent decision',source:'signed terminal call callback and independent Twilio readback',serverTimestamp:Date.now()})
+ if(permission.state!=='declined')return
+ await missedCall(env,call,recordId,missedAt)
+}
 
 /** The one-reply decision and owned callback share the exact verified call.
  * Replayed status and DTMF callbacks cannot create another task or send. */
