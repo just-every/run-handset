@@ -90,7 +90,7 @@ their exact signed URL and narrowly bound call identity. Carrier WAV reads at
 exact test-bound capability, an approved version, an unexpired started test and
 its current selected-number source. They return no-store audio. Source
 withdrawal fences each fetch; replacement consent cannot revive an old test.
-Native preview remains behind the current owner session. See
+Native preview requires the current owner session or the exact current greeting-draft role scope. See
 `docs/MEDIA-SECURITY.md` for the bounded external-flow declarations.
 
 `tests/handset-auth.mjs` exercises the emitted Worker and actual numbered D1

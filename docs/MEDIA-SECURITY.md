@@ -6,7 +6,7 @@ speech model. No live conversation audio is submitted to a model by these doors.
 
 | Flow | Fields and destination | Purpose and authority | Withdrawal and custody |
 | --- | --- | --- | --- |
-| Uploaded or browser-recorded greeting | Selected prompt, language, variant, schedule and WAV bytes to the installation's configured HTTPS origin | Current native owner creates a draft. Browser microphone permission is separate from server permission. | Every mutation checks the native session and browser origin. Normalized audio stays in the installation database until the owner erases installation data; a draft authoring door provides no external playback. |
+| Uploaded or browser-recorded greeting | Selected prompt, language, variant, schedule and WAV bytes to the installation's configured HTTPS origin | Current native owner or an approved current greeting-draft role creates a scoped draft. Browser microphone permission is separate from server permission. | Every mutation checks the native session and browser origin. Normalized audio stays in the installation database until the owner erases installation data; a draft authoring door provides no external playback. |
 | Greeting text to speech | Model, input text, voice, language instructions and WAV response format to `https://api.openai.com/v1/audio/speech` | Current native owner explicitly requests a greeting version, with direct AI transport enabled. Only authored greeting text leaves; no recording or live call is supplied. | Disabled or missing AI configuration refuses. Any other origin, port, path, credentials in the address, query or fragment refuses before credentials or text leave. Provider redirects are never followed. OpenAI receives the configured private key only in its authorization header. |
 | Phone greeting readback | Exact account and recording identifiers to the fixed Twilio account resource, first JSON then WAV | A signed callback must match the current source, exact call and author's own registered extension, after the one-time code. Caller-supplied recording URLs are ignored. | Source authority is rechecked before fetching audio and before retaining a draft. Revocation during metadata readback prevents the audio request. Redirects and wrong call or account identity refuse. The private carrier token appears only in the Twilio authorization header. |
 | Carrier test playback | Exact approved normalized WAV from the installation to the bearer of one test-bound audio address | A current owner selects the source, immutable flow and test instant. Signed ingress binds the test to one carrier call. | The address binds the test and exact version, expires with the test, requires a current source on every fetch, and uses no-store. Revocation or replacement consent never revives an old address. No carrier key or native session travels in that address. |
@@ -64,3 +64,11 @@ activation policy and qualified US custody, retention and erasure; live models
 receiving only consented audio with paused intervals excluded; and a populated
 portable archive proved to carry no secret or active authority. Ordinary audit
 export proof does not substitute for installation portability.
+
+A local public-command probe used `rer export --output exports/media-security.rer`
+after creating a real prompt draft, case and scoped application credential in
+`rer dev`. The 352217-byte archive had one prompt, one version, one case and
+one grant; no native session row or private session, installation or setup key
+was present. The grant remained unrevoked in the archive. This is direct
+private-configuration exclusion evidence, not proof that restore cannot revive
+application authority. HND-048 keeps that portable-authority gap.

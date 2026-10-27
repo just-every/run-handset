@@ -316,7 +316,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "dbacef93728e5fd96ab31b47006e3dbd0d9d5d8cb29ec1450652788d911c93fd",
+      "sha256": "af1be7f0b09ba1b083babcb6846c220d50ade0086554b9010528989610727a64",
       "executable": false
     },
     "AGENTS.md": {
@@ -336,7 +336,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "a65c00efedddde328b174c58aaf6e578a1b50052dfcba632bab9dcb8b04fbb90",
+      "sha256": "ae25659bde6c83626897f267028eb4f8108c62eabf7b2baca3b54596fc1c010e",
       "executable": false
     },
     "deploy-demo.json": {
@@ -408,7 +408,7 @@
       "executable": false
     },
     "docs/HTTP-DOORS.md": {
-      "sha256": "04810900e4c1c2e73272cd8b75b0a7244c4b62ad2650c1090871452c182c0980",
+      "sha256": "c5147c3b6aea6bf0c16f1835f5ccec0276250098c225108bc648cb3f112a9739",
       "executable": false
     },
     "docs/KNOWLEDGE.md": {
@@ -416,7 +416,7 @@
       "executable": false
     },
     "docs/MEDIA-SECURITY.md": {
-      "sha256": "823cfa654e4ade60ef7ce97a244536a46011c5ef52384da012d74a9e739fd481",
+      "sha256": "a740b14fc51001b4dbc05d837f7838f02e55a291d1954cb2c43ad7583f691a40",
       "executable": false
     },
     "docs/NUMBER-COMPLIANCE.md": {
@@ -2032,7 +2032,7 @@
       "executable": false
     },
     "src/handset/providers/twilio.ts": {
-      "sha256": "d1aff7579b2b953977bd13740b604d2701c92ef85c43ed6b69fd8d1a2a91e604",
+      "sha256": "ece78385cd004bf42cbd8a68f10b67fe8671d5e086f560d3d8d9b14d6b5ec8cd",
       "executable": false
     },
     "src/handset/quality/doors.ts": {
