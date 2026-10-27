@@ -1536,7 +1536,7 @@
       "executable": false
     },
     "src/handset/audit/store.ts": {
-      "sha256": "89587ce0f419ea971b1556e2fc03328e68e758826afae9101ffb142e54f27b2e",
+      "sha256": "f5957317e671932641d9542a47007fd2fa2133e44d6aabe651ceb39557f41f9c",
       "executable": false
     },
     "src/handset/authority/application.ts": {
