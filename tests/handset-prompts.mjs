@@ -39,11 +39,18 @@ test('Custom greeting roles permit only scoped drafts and current role and perso
   assert.equal(f.speech.length,0)
   assert.equal((await listing(f)).versions.find(v=>v.id===original.id).state,'approved')
   assert.equal((await listing(f)).versions.find(v=>v.id===draft.id).state,'draft')
-  const revised=await f.ok('POST',`${access}/${role.id}`,{...roleInput,revision:1,capabilities:[]},201);role.revision=revised.revision
+  const moved=await f.ok('POST',`${access}/${role.id}`,{...roleInput,revision:role.revision,promptIds:[foreign.id]},201);role.revision=moved.revision
+  assert.equal((await post(f.runtime,path(greeting),body,headers)).status,403,'a scope change fences the existing assignment')
+  await assign()
+  assert.equal((await post(f.runtime,path(greeting),body,headers)).status,403,'fresh assignment covers only the changed greeting scope')
+  assert.equal((await post(f.runtime,path(foreign),body,headers)).status,201)
+  const back=await f.ok('POST',`${access}/${role.id}`,{...roleInput,revision:role.revision},201);role.revision=back.revision
+  await assign()
+  const revised=await f.ok('POST',`${access}/${role.id}`,{...roleInput,revision:role.revision,capabilities:[]},201);role.revision=revised.revision
   for(const target of ['/api/handset/prompts',versionPath(draft.id,'audio')])assert.equal((await f.runtime.request(target,{headers})).status,403)
   assert.equal((await post(f.runtime,path(greeting),body,headers)).status,403)
   await assign();assert.equal((await post(f.runtime,path(greeting),body,headers)).status,403,'assignment cannot add a missing capability')
-  const restored=await f.ok('POST',`${access}/${role.id}`,{...roleInput,revision:2},201);role.revision=restored.revision
+  const restored=await f.ok('POST',`${access}/${role.id}`,{...roleInput,revision:role.revision},201);role.revision=restored.revision
   await assign();assert.equal((await post(f.runtime,path(greeting),body,headers)).status,201)
   await f.runtime.restart();assert.equal((await post(f.runtime,path(greeting),body,headers)).status,201)
   assert.equal((await post(f.runtime,'/auth/operator/status',{operatorId:people[1].id,status:'inactive'},f.headers)).status,200)

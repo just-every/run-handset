@@ -10,8 +10,9 @@ async function view(env:Bindings,actor:Session,notice='',status=200){
 }
 
 export async function roleDoor(request:Request,env:Bindings,actor:Session,v?:ObjectValue){
- owner(actor)
  const url=new URL(request.url),html=url.pathname.startsWith('/app/'),base=html?'/app/prompts/access':'/api/handset/prompts/access',path=url.pathname.slice(base.length)
+ if(html&&actor.operator.role!=='owner')return consolePage('Greeting settings need an owner','<p role="alert">Ask an owner to review greeting roles and assignments.</p><p><a href="/app/prompts">Return to greeting drafts</a></p>',403)
+ owner(actor)
  if(url.search)throw new Fault('unexpected_role_query')
  if(request.method==='GET'&&path==='')return html?view(env,actor):json(await roleSnapshot(env,actor))
  if(request.method!=='POST'||!v)throw new Fault('method_not_allowed',405)

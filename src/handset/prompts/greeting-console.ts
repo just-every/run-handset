@@ -1,10 +1,15 @@
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
-import { consolePage, escape as e } from '../core'
+import { Fault, consolePage, escape as e } from '../core'
 import { greetingCatalog } from './access'
 
 export async function greetingConsole(env:Bindings,actor:Session,notice='',status=200){
- const data=await greetingCatalog(env,actor),prompts=data.prompts as {id:string;name:string}[],versions=data.versions as {id:string;prompt_id:string;version:number;state:string;author_name:string}[]
+ let data:Awaited<ReturnType<typeof greetingCatalog>>
+ try{data=await greetingCatalog(env,actor)}catch(error){
+  if(error instanceof Fault&&error.code==='greeting_access_required')return consolePage('Greeting access changed','<p role="alert">Your current role does not permit greeting drafts. Ask an owner to review your role and assign its current revision.</p><p><a href="/app">Return to Handset</a></p>',403)
+  throw error
+ }
+ const prompts=data.prompts as {id:string;name:string}[],versions=data.versions as {id:string;prompt_id:string;version:number;state:string;author_name:string}[]
  const response=await consolePage('Greeting drafts',`<link rel="stylesheet" href="/handset-flows.css"><p>Upload or record a draft for your assigned greetings. An owner reviews and approves each exact version before it can be used in a flow.</p>${notice?`<p role="alert">${e(notice)}</p>`:''}<section class="hnd-panel"><h2>Add a greeting draft</h2><form method="post" action="/app/prompts/versions" data-prompt-author><label for="greeting-promptId">Prompt</label><select id="greeting-promptId" name="promptId">${prompts.map(p=>`<option value="${e(p.id)}">${e(p.name)}</option>`).join('')}</select><label for="greeting-source">Source</label><select id="greeting-source" name="source"><option value="upload">Audio file upload (WAV)</option><option value="browser_recording">Browser microphone</option></select><label for="greeting-language">Language</label><select id="greeting-language" name="language"><option value="en">English</option><option value="es">Spanish</option></select><label for="greeting-variant">Schedule variant</label><select id="greeting-variant" name="variant"><option value="always">Always</option><option value="business_hours">Business hours</option><option value="holiday">Holiday</option><option value="after_hours">After hours</option></select><label data-source="upload">Audio file<input type="file" accept="audio/wav,.wav" data-audio-file></label><div data-source="browser_recording"><button type="button" data-record-start>Start recording</button> <button type="button" data-record-stop disabled>Stop recording</button><audio controls hidden data-record-preview aria-label="Recording preview"></audio></div><input type="hidden" name="audioBase64" data-audio-field><p role="status" data-audio-status></p><button type="submit">Add version</button></form><script src="/handset-prompts.js"></script></section>${prompts.map(p=>`<section class="hnd-panel"><h2>${e(p.name)}</h2><ul>${versions.filter(v=>v.prompt_id===p.id).map(v=>`<li><h3>Version ${v.version} · ${e(v.state)}</h3><p>By ${e(v.author_name)}</p><audio controls preload="none" src="/api/handset/prompts/versions/${e(v.id)}/audio" aria-label="Preview version ${v.version}"></audio></li>`).join('')||'<li>No versions yet.</li>'}</ul></section>`).join('')}`,status)
  response.headers.set('content-security-policy',response.headers.get('content-security-policy')!+"; script-src 'self'; media-src 'self' blob:")
  return response
