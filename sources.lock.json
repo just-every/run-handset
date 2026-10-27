@@ -759,6 +759,10 @@
       "sha256": "66511a42573aca3226dd4a73b58f3fe193a4d32a33c4bad11f35cf5b2f9bc98a",
       "executable": false
     },
+    "migrations/core/0069_handset_flow_roles.sql": {
+      "sha256": "2f11c89bae442e6535a8f9b2a829fdaeb24041dc9a4b200f8b8c4657b7302ab6",
+      "executable": false
+    },
     "ONBOARDING.md": {
       "sha256": "4d2223ee9e22ba7315d6a6d36b2fc3d18b0ad5cb6b30e3a5d7a8946560a8c809",
       "executable": false
@@ -1456,7 +1460,11 @@
       "executable": false
     },
     "src/handset/access/custom-roles.ts": {
-      "sha256": "9149659d117957fae3786ad38dcedd4abc94e7f356285bf9a8a9194ef222acfe",
+      "sha256": "226823bcdcf686e07ef72f53169a422913acf2104980182246a31d9c49a07686",
+      "executable": false
+    },
+    "src/handset/access/flows.ts": {
+      "sha256": "5214716b22a24bc66cd57047256ce28c147291dd3872887d15de16ae0b69001c",
       "executable": false
     },
     "src/handset/access/numbers.ts": {
@@ -1464,7 +1472,7 @@
       "executable": false
     },
     "src/handset/access/role-doors.ts": {
-      "sha256": "bf6187949a7d6916a3203e57ad4fc49294e609c02514e0b99911afea581c2b7c",
+      "sha256": "46308d65762c2e5faaa1d9aa8dbad03614164e9180b20f0a570c54d130be8b7f",
       "executable": false
     },
     "src/handset/admin/access.ts": {
@@ -1788,7 +1796,7 @@
       "executable": false
     },
     "src/handset/flows/console.ts": {
-      "sha256": "2ca1c9cf5f5e8417d5205440bd17396605fb184a77c0232b7a9a7ad9af0a243d",
+      "sha256": "94521d987cd99a66be70695a0bcffe4426210fc0f50f6b86e0b9fc9ee00664b3",
       "executable": false
     },
     "src/handset/flows/definition.ts": {
@@ -1796,7 +1804,7 @@
       "executable": false
     },
     "src/handset/flows/doors.ts": {
-      "sha256": "cf67342f3c1c8f64517e6d3c9bc854c39b3100ea1f10b5d8e74249b401581795",
+      "sha256": "8f553ab6ac15d68f1725bc481bb480d7964207c952c097caca49add8a4bea6bd",
       "executable": false
     },
     "src/handset/flows/evaluation.ts": {
@@ -1808,7 +1816,7 @@
       "executable": false
     },
     "src/handset/flows/pages.ts": {
-      "sha256": "b33f00143f7e5fa05bf8585c238cc4f658efacc4deeb1ee909b3a73e348534ab",
+      "sha256": "781d7238129e8d8dccbca6303bb925b9b8fc3445e7293f2ca7521b42de5920ae",
       "executable": false
     },
     "src/handset/followups/caller.ts": {
@@ -1968,7 +1976,7 @@
       "executable": false
     },
     "src/handset/prompts/console.ts": {
-      "sha256": "668a3b25f161bfbd1dfe58875b664da77ce203b6c0dc927c2e6ea8145196dd9a",
+      "sha256": "5e2e7147c5f731536644781769bb1a06d05ed88c8adcbe42d72425f9660b3f6c",
       "executable": false
     },
     "src/handset/prompts/doors.ts": {
@@ -4264,11 +4272,11 @@
       "executable": false
     },
     "tests/handset-prompts.mjs": {
-      "sha256": "0958da9aa12febc9ba31fd48c4f76632f45d1a57657cb5d90de8f909fdcf66ac",
+      "sha256": "85f63d4533fb4b800bf760f4f658fdf68b7d82feed3cb55ab05b9df94ec3a3df",
       "executable": false
     },
     "tests/handset-queues.mjs": {
-      "sha256": "a78bc4d9c214b5100c47b07985f0891b95c71a01f7f23c5368ed582113f8503f",
+      "sha256": "8ace4e87039b8dea42ff1f6bf7d7169efc5ac35a2c4163c1bc4809565dc6ff49",
       "executable": false
     },
     "tests/handset-receptionist-browser.mjs": {
@@ -4355,12 +4363,16 @@
       "sha256": "89f69572ee18991ea1a8ff80899b9c0ebea5f34963f5b473cc31e2d14693f4f4",
       "executable": false
     },
+    "tests/helpers/handset-flow-access.mjs": {
+      "sha256": "f2973cc1604647ecc204f5698d65b8c51e911c468fe9c9b3a1a0cf0a52110e9d",
+      "executable": false
+    },
     "tests/helpers/handset-flow-browser.mjs": {
-      "sha256": "7d781801ebfe72ee51d99816119b4495027a484fe17089ebe1e07b066b21facc",
+      "sha256": "8a8155ccf6fa95850e685e7a5eff4cfca3ac5c6a28e066373f1d76f3e5073646",
       "executable": false
     },
     "tests/helpers/handset-greeting-role-browser.mjs": {
-      "sha256": "fa2e26d0626a704d14602aec83d8b6793e61f65ec675ccaffc0ba2185564f59b",
+      "sha256": "5d945c4185973d6d4571c4f292949c0ee6c58f2c17ab8fae26cdf57eb122e6a7",
       "executable": false
     },
     "tests/helpers/handset-import.mjs": {

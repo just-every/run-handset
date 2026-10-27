@@ -24,8 +24,8 @@ export async function flowDoor(request:Request,env:Bindings,actor:Session,value?
   return json({versions,publications,tests,bounded:true,qualification:'native path tests only; no carrier routing or audible test calls'})
  }
  if(path===base&&request.method==='POST'){
+  if(!value?.flowId)owner(actor)
   keys(value!,['flowId','previousVersionId','definition']);const d=definition(value!.definition),target=id(),flow=value!.flowId?text(value!.flowId,'flowId'):id()
-  if(!value!.flowId)owner(actor)
   const permission=await authorizeFlow(env,actor,flow,'flow.draft')
   await authorizeFlowDefinition(env,actor,flow,d)
   for(const n of d.nodes)if(n.prompt&&!await sql(env,"SELECT 1 FROM hnd_prompt_versions WHERE id=? AND prompt_id=? AND state='approved'",n.prompt.versionId,n.prompt.promptId).first())throw new Fault('flow_prompt_unapproved',409)
