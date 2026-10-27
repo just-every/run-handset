@@ -1,3 +1,4 @@
+import { numbersJourney } from './helpers/handset-numbers-browser.mjs'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { mkdir } from 'node:fs/promises'
@@ -17,8 +18,8 @@ import { analyticsFixture,analyticsStart,analyticsEnd,analyticsNow } from './hel
 import { metricDataset,metricStart,metricConfig } from './helpers/handset-metrics.mjs'
 import { importDataset } from './helpers/handset-import.mjs'
 
-for(const width of [1440,390])for(const domain of ['administration','queues','queue-media','flows','prompts','callbacks','metrics','protection','dialer'])test(`${domain} console at ${width}`,async()=>{
- const runtime=await openHandset({twilio:true,callingClock:domain==='dialer',...(domain==='metrics'?{clockTime:analyticsNow}:{}),...(domain==='prompts'?{ttsEdge:speechEdge}:{})}),browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic',...(domain==='prompts'?['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']:[])]})
+for(const width of [1440,390])for(const domain of ['numbers','administration','queues','queue-media','flows','prompts','callbacks','metrics','protection','dialer'])test(`${domain} console at ${width}`,async()=>{
+ const runtime=await openHandset({twilio:true,callingClock:domain==='dialer',...(domain==='metrics'?{clockTime:analyticsNow}:domain==='numbers'?{clockTime:Date.UTC(2026,9,27,12)}:{}),...(domain==='prompts'?{ttsEdge:speechEdge}:{})}),browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic',...(domain==='prompts'?['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']:[])]})
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage()
  page.setDefaultTimeout(10000)
  const directory=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-console'
@@ -36,6 +37,7 @@ for(const width of [1440,390])for(const domain of ['administration','queues','qu
  try{
   const {cookie}=await signIn(runtime),[cookieName,...cookieValue]=cookie.split('=')
   await context.addCookies([{name:cookieName,value:cookieValue.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
+  if(domain==='numbers')await numbersJourney({runtime,page,context,cookie,proof,click})
   if(domain==='administration'){
   const admin=await adminFixture(runtime,{cookie})
   await page.goto(runtime.origin+'/app');await proof('workspace-navigation')

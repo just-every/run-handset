@@ -1,3 +1,4 @@
+import { numberFixture } from './helpers/handset-numbers.mjs'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { openHandset } from './helpers/handset-worker.mjs'
@@ -165,5 +166,78 @@ test('Native admins can apply member configuration but cannot change owner or ad
   assert.equal((await owner.read('/bulk')).profiles.length,5)
   const native=(await runtime.sql('SELECT role,version FROM oa_operators WHERE id=?','synthetic-handset-1')).results[0]
   assert.equal(native.role,'owner');assert.equal(native.version,1,'administration does not alter owner role or admission version')
+ }finally{await runtime.close()}
+})
+
+test('Number purchases reserve once across concurrent requests and preserve uncertain carrier outcomes through restart',async()=>{
+ const runtime=await openHandset({twilio:true})
+ try{
+  const f=await numberFixture(runtime),quotes=await f.search()
+  assert.deepEqual(quotes.map(q=>[q.e164,q.monthly_usd,JSON.parse(q.capabilities)]),[['+15125550125','1.15',{voice:true,SMS:true,MMS:true}]])
+  const input=f.approval(quotes[0]),responses=await Promise.all([f.send('/purchase',input),f.send('/purchase',input)])
+  const results=await Promise.all(responses.map(f.value)),key=results[0].number.id
+  assert.equal(results[1].number.id,key)
+  assert.equal(f.calls.filter(c=>c.method==='POST').length,1,'one paid creation for a concurrent repeated purchase')
+  assert.equal((await f.inventory()).length,1)
+  assert.equal((await f.send('/purchase',{...input,purpose:'Changed request'})).status,409)
+  assert.equal((await f.send('/purchase',{...input,requestKey:'synthetic-handset-7099'})).status,409,'another key cannot allocate the same number')
+  const exact=await f.value(await f.send('/purchase',input));assert.equal(exact.replay,true);assert.equal(exact.number.state,'owned')
+  f.setUncertain(true)
+  const tollfree=await f.buy('tollfree');assert.equal(tollfree.number.state,'uncertain')
+  assert.equal(tollfree.number.e164,'+18335550125')
+  await runtime.restart()
+  const repeated=await f.value(await f.send('/purchase',tollfree.input));assert.equal(repeated.replay,true);assert.equal(repeated.number.state,'uncertain')
+  assert.equal(f.calls.filter(c=>c.method==='POST').length,2,'restart never retries a possibly completed paid effect')
+  const recovered=await f.value(await f.send('/'+tollfree.number.id+'/reconcile',{}));assert.equal(recovered.number.state,'owned');assert.equal(recovered.number.provider_id,tollfree.number.provider_id??[...f.owned.keys()][1])
+  assert.equal((await f.inventory()).length,2)
+ }finally{await runtime.close()}
+})
+
+test('Exact-number release preserves a review hold, refuses stale approvals and reassigns once before carrier release',async()=>{
+ const runtime=await openHandset({twilio:true,clockTime:Date.UTC(2026,9,27,12)})
+ try{
+  const f=await numberFixture(runtime),first=(await f.buy()).number,replacement=(await f.buy('tollfree')).number
+  const reviewed=(await f.value(await f.send('/'+first.id+'/review',f.review(first,replacement)))).number
+  assert.equal(reviewed.replacement_id,replacement.id);assert.equal(reviewed.release_by,'synthetic-handset-1')
+  assert.equal((await f.send('/'+first.id+'/release',f.release(reviewed))).status,409,'cooling hold refuses early execution')
+  assert.equal(f.calls.filter(c=>c.method==='DELETE').length,0)
+  const cancelled=(await f.value(await f.send('/'+first.id+'/cancel',{revision:reviewed.revision}))).number
+  assert.equal(cancelled.hold_until,null)
+  await runtime.setTime(Date.UTC(2026,9,28,13))
+  assert.equal((await f.send('/'+first.id+'/release',f.release(reviewed))).status,409,'cancelled approval never revives after its hold')
+  const current=(await f.value(await f.send('/'+first.id+'/review',f.review(cancelled,replacement)))).number
+  await runtime.setTime(Date.UTC(2026,9,29,14))
+  f.setEmergency(true);assert.equal((await f.send('/'+first.id+'/release',f.release(current))).status,409)
+  f.setEmergency(false);f.setRoute(true);assert.equal((await f.send('/'+first.id+'/release',f.release(current))).status,409)
+  f.setRoute(false)
+  const outcome=await f.value(await f.send('/'+first.id+'/release',f.release(current)))
+  assert.equal(outcome.number.state,'released');assert.ok(outcome.number.released_at)
+  assert.equal(f.calls.filter(c=>c.method==='DELETE').length,1)
+  const changed=(await f.inventory()).find(n=>n.id===replacement.id)
+  assert.equal(changed.revision,replacement.revision+1);assert.equal(changed.assignment,first.assignment)
+  assert.equal((await f.send('/'+first.id+'/release',f.release(current))).status,409)
+  assert.equal(f.calls.filter(c=>c.method==='DELETE').length,1,'stale execution cannot issue a second release')
+  const ledger=(await runtime.sql("SELECT action,outcome FROM hnd_audit WHERE action LIKE 'number.%'")).results
+  assert.ok(ledger.some(r=>r.action==='number.review'&&r.outcome==='completed'));assert.ok(ledger.some(r=>r.action==='number.release'&&r.outcome==='completed'))
+ }finally{await runtime.close()}
+})
+
+test('Number ownership and protected dependencies refuse unauthorized or unsafe carrier effects',async()=>{
+ const runtime=await openHandset({twilio:true})
+ try{
+  assert.equal((await post(runtime,'/api/handset/numbers/purchase',{})).status,401)
+  const f=await numberFixture(runtime),first=(await f.buy()).number,replacement=(await f.buy('tollfree')).number
+  assert.equal((await post(runtime,'/api/handset/numbers/search',{}, {cookie:f.cookie,origin:'https://example.test'})).status,403)
+  await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
+  const member=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'})
+  assert.equal((await runtime.request('/api/handset/numbers',{headers:{cookie:member.cookie}})).status,403)
+  for(const operation of ['purchase','search',first.id+'/review',first.id+'/release'])assert.equal((await post(runtime,'/api/handset/numbers/'+operation,{}, {cookie:member.cookie})).status,403)
+  const native=await post(runtime,'/api/handset/records',{kind:'number',sourceId:'synthetic-handset-7110',occurredAt:Date.now(),data:{e164:first.e164}},{cookie:f.cookie})
+  const number=(await native.json()).record;assert.ok(number.id)
+  const source=await post(runtime,'/api/handset/sources',{accountId:f.account,numberId:number.id,confirm:'authorize signed inbound records'},{cookie:f.cookie});assert.equal(source.status,201,await source.clone().text())
+  assert.equal((await f.send('/'+first.id+'/review',f.review(first,replacement))).status,409,'active inbound source blocks release review')
+  assert.equal(f.calls.filter(c=>c.method==='DELETE').length,0)
+  await runtime.sql('UPDATE oa_operators SET version=version+1 WHERE id=?','synthetic-handset-1')
+  assert.equal((await f.send('/'+first.id+'/review',f.review(first,replacement))).status,401)
  }finally{await runtime.close()}
 })

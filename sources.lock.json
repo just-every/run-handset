@@ -1496,7 +1496,7 @@
       "executable": false
     },
     "src/handset/audit/store.ts": {
-      "sha256": "ceb14b4dbb0110d3916ff342d8de424407e9b03bd36957cfea4b01eb55e3b49f",
+      "sha256": "3015ddaba152f0f8651b06923789f8c27c081a383837a181a595bdf7d3034309",
       "executable": false
     },
     "src/handset/authority/application.ts": {
@@ -1796,7 +1796,7 @@
       "executable": false
     },
     "src/handset/http/product.ts": {
-      "sha256": "b55ee9db28d36d62ddc9a85e8f8b3286947d5ceb3dc4b300bcf7eedc16be7878",
+      "sha256": "dfaed8300863a5647ff8a0e1d5a7a90bc4e211f2cd83bb8934df942d6e36287c",
       "executable": false
     },
     "src/handset/import/bridge.ts": {
@@ -2196,7 +2196,7 @@
       "executable": false
     },
     "src/handset/shell.ts": {
-      "sha256": "83c73b5ed35633ff3afb048e36440717573dd121afbfe2872f59acdb49259ad4",
+      "sha256": "a32ae60ce7be690a5b1aa55c30e00bde61c1091b091d057b789202df1284cfe3",
       "executable": false
     },
     "src/handset/surveys/doors.ts": {
@@ -4132,7 +4132,7 @@
       "executable": false
     },
     "tests/handset-admin.mjs": {
-      "sha256": "feca2e574f4fef5034a6e38669da71b3e926efa755ff45772aa25f62239f50c7",
+      "sha256": "d4c3a53363e7397a19640706af0edf79f50c54a9d1562dcec15f768a372017fd",
       "executable": false
     },
     "tests/handset-agent-outcomes.mjs": {
@@ -4160,7 +4160,7 @@
       "executable": false
     },
     "tests/handset-console-browser.mjs": {
-      "sha256": "c46d2ef107ada6e07357dc58d38f14c800f9090e499948dfd4d3ade4ebfe8ad6",
+      "sha256": "698bffde6d249f46780ce6a3135468fcd11641de175ca70d3a6ba568199d5774",
       "executable": false
     },
     "tests/handset-import.mjs": {
@@ -4336,7 +4336,7 @@
       "executable": false
     },
     "tests/helpers/handset-worker.mjs": {
-      "sha256": "e23a1d468cecb41779fb24f61fa0ca103e9287b5d2cf56c4cebca648a39e6b3b",
+      "sha256": "7d050b6e024d3a0b9200501cc92723fa270466524bc5628799f87d4af7d00ea3",
       "executable": false
     },
     "tests/helpers/handset-workflows-browser.mjs": {

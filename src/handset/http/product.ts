@@ -1,6 +1,7 @@
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { session, owner, json, input, Fault, page } from '../core'
+import { numbersDoor } from '../numbers/doors'
 import { exportDoor } from '../exports/doors'
 import { consentDoor } from '../consent/doors'
 import { surveyDoor } from '../surveys/doors'
@@ -44,11 +45,12 @@ export async function productResponse(request: Request, original: Bindings): Pro
 
 async function route(request: Request, original: Bindings): Promise<Response|null> {
  const url = new URL(request.url), path = url.pathname, html = path.startsWith('/app/')
- if (!/^\/(api\/handset|app\/(exports|consent|surveys|cases|records|audit|grants|sources|admin|queues|reports\/queues|protection|dialer|front-desk|recordings|transcripts|flows|prompts|receptionist|rules|followups|recovery|callbacks|operations))(\/|$)/.test(path)) return null
+ if (!/^\/(api\/handset|app\/(numbers|exports|consent|surveys|cases|records|audit|grants|sources|admin|queues|reports\/queues|protection|dialer|front-desk|recordings|transcripts|flows|prompts|receptionist|rules|followups|recovery|callbacks|operations))(\/|$)/.test(path)) return null
  let auth: {env:Bindings;session:Session}|undefined
  try {
   auth = await session(request,original)
   const {env,session:actor} = auth, db=env.DB
+  if(path==='/app/numbers'||path.startsWith('/app/numbers/')||path==='/api/handset/numbers'||path.startsWith('/api/handset/numbers/'))return await numbersDoor(request,env,actor,request.method==='GET'?undefined:await input(request))
   for(const [root,door] of [['consent',consentDoor],['surveys',surveyDoor],['exports',exportDoor]] as const) {
    if(path==='/api/handset/'+root||path.startsWith('/api/handset/'+root+'/')||path==='/app/'+root||path.startsWith('/app/'+root+'/'))return await door(request,env,actor,request.method==='GET'?undefined:await input(request))
   }
