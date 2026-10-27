@@ -26,11 +26,12 @@ type Door = (request: Request, env: Bindings, actor: Session, value?: ObjectValu
 const pages: Record<string, (snapshot: Snapshot, url: URL, request: Request, env: Bindings, actor: Session) => Promise<Response>> = { rules: rulesPage, followups: followupsPage, recovery: recoveryPage, callbacks: callbacksPage, operations: operationsPage }
 function formValue(root: string, suffix: string, raw: ObjectValue): ObjectValue {
  const value = { ...raw }
- for (const key of ['revision', 'expectedRevision', 'delayMinutes', 'startMinute', 'endMinute', 'maxAttempts', 'retrySeconds']) if (key in value) value[key] = Number(value[key])
+ for (const key of ['revision', 'expectedRevision', 'delayMinutes', 'startMinute', 'endMinute', 'maxAttempts', 'retrySeconds','personVersion']) if (key in value) value[key] = Number(value[key])
  if (root === 'recovery' && suffix === '/policies') {
   keys(value, ['sourceId','revision','timezone','opens','closes','day1','day2','day3','day4','day5','day6','day7','confirm'])
   return { sourceId: value.sourceId, revision: value.revision, timezone: value.timezone, hours: intakeHours(value), confirm: value.confirm }
  }
+ if(root==='recovery'&&suffix==='/access'){value.capabilities=String(value.capabilities).split(',').map(c=>c.trim());value.expiresAt=Date.parse(String(value.expiresAt)+':00Z')}
  if ('dueAt' in value) {
   if (typeof value.dueAt !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(value.dueAt)) throw new Fault('invalid_dueAt')
   value.dueAt = Date.parse(value.dueAt + ':00Z')

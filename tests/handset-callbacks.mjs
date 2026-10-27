@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { createHmac } from 'node:crypto'
 import { test } from 'node:test'
-import { post } from './helpers/handset-auth.mjs'
+import { post, signIn } from './helpers/handset-auth.mjs'
 import { openHandset } from './helpers/handset-worker.mjs'
 import { sourceFixture } from './helpers/handset-sources.mjs'
 import { authorizeQueueMedia, queueFixture } from './helpers/handset-queues.mjs'
@@ -171,6 +171,11 @@ test('A scheduled callback honors the recipient hours, survives restart without 
   state = await t.state(); assert.equal(state.callbacks.find(c => c.recipient === one.recipient).state, 'completed')
   assert.equal(state.callbacks.find(c => c.recipient === two.recipient).state, 'dialing')
   assert.equal((await t.read('/api/handset/recovery')).cases.find(r => r.id === two.recovery.id).state, 'open')
+  const waitingNeed=await open(50);await t.review(waitingNeed.recipient,0,1440);await schedule(waitingNeed,callbackClock+7200000)
+  const takeover=await api('/api/handset/recovery/'+waitingNeed.recovery.id+'/takeover',{revision:waitingNeed.recovery.revision,note:'A person is handling this need'},200)
+  const beforeTakeover=t.placed.length;await t.tick(callbackClock+7200000);await runtime.restart();await t.tick(callbackClock+7200000)
+  assert.equal(t.placed.length,beforeTakeover,'takeover fences a callback that was already waiting across restart')
+  assert.equal((await t.read('/api/handset/recovery')).cases.find(r=>r.id===waitingNeed.recovery.id).state,'human')
   // After a restart, a callback whose create response was lost is uncertain, is never retried and needs the owner.
   const stay = t.attempt(ranFor(two.recipient)); await stay.answer(); await stay.press('2')
   assert.equal((await t.state()).callbacks.find(c => c.recipient === two.recipient).state, 'declined')
@@ -186,6 +191,24 @@ test('A scheduled callback honors the recipient hours, survives restart without 
   await api(`/api/handset/callbacks/${lost.id}/resolve-uncertain`, { revision: lost.revision, note: 'Carrier console shows no call', outcome: 'not_placed' }, 200)
   await fresh()
   await t.tick(callbackClock + 7500000); assert.equal(t.placed.length, placedBefore + 1, 'only the owner decision makes it eligible again')
+  const scoped=await open(51);await t.review(scoped.recipient,0,1440)
+  await post(runtime,'/auth/operator/status',{operatorId:'synthetic-handset-2',status:'active'},f.headers)
+  const worker=(await runtime.sql("SELECT version FROM oa_operators WHERE id='synthetic-handset-2'")).results[0]
+  const access=await api('/api/handset/recovery/access',{personId:'synthetic-handset-2',personVersion:worker.version,numberId:source.numberId,capabilities:['read','work','schedule','cancel'],fallbackId:'synthetic-handset-1',expiresAt:Date.now()+3600000,confirm:'approve scoped recovery work'})
+  await api('/api/handset/recovery/'+scoped.recovery.id+'/assign',{revision:scoped.recovery.revision,ownerId:'synthetic-handset-2',note:'Staff callback work'},200)
+  const signed=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'}),staffHeaders={cookie:signed.cookie}
+  const scheduled=await post(runtime,'/api/handset/recovery/'+scoped.recovery.id+'/requested-callback',{dueAt:callbackClock+7600000,evidence:'Caller requested a service callback',confirm:'the customer asked for this callback'},staffHeaders)
+  assert.equal(scheduled.status,201,await scheduled.clone().text())
+  const staffConsent=JSON.parse((await scheduled.json()).callback.consent);assert.equal(staffConsent.kind,'native_person_attested');assert.equal(staffConsent.attestedBy,'synthetic-handset-2');assert.equal(staffConsent.purpose,'callback')
+  const staffDialCount=t.placed.filter(c=>c.To===scoped.recipient).length
+  await fresh();await t.tick(callbackClock+7600000)
+  assert.equal(t.placed.filter(c=>c.To===scoped.recipient).length,staffDialCount,'staff attestation alone cannot bypass the missing qualification gate')
+  assert.match((await t.state()).callbacks.find(c=>c.recipient===scoped.recipient).reason,/Callback qualification pending/)
+  await api('/api/handset/recovery/access/revoke',{accessId:access.grant.id,fallbackId:'synthetic-handset-1',confirm:'confirm recovery fallback'},200)
+  const countBeforeScopeEnd=t.placed.filter(c=>c.To===scoped.recipient).length
+  await fresh();await t.tick(callbackClock+7600000);await runtime.restart();await t.tick(callbackClock+7600000)
+  assert.equal(t.placed.filter(c=>c.To===scoped.recipient).length,countBeforeScopeEnd,'scope withdrawal cancels the pending effect')
+  assert.equal((await t.read('/api/handset/recovery')).cases.find(r=>r.id===scoped.recovery.id).owner_id,'synthetic-handset-1')
   // A definitive provider rejection is a failed attempt, not an uncertain one.
   const five = await open(5); await t.review(five.recipient, 480, 1020); await schedule(five, callbackClock + 7500000); t.create.reject = true
   await fresh(); await t.tick(callbackClock + 7500000)
