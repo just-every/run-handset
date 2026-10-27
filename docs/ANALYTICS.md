@@ -103,9 +103,15 @@ attribution, while other handling paths still need qualification. Complete recep
 session completion and human-handoff proof remain beyond the bounded native booking
 measure. HND-019 supplies the real live-wallboard comparison; stored queue observations
 are not a live wallboard. Real survey SMS and handset receipt remain held on toll-free
-verification. No real text is sent by these reporting proofs. The existing HND-092
-live-mail proof does not establish a newly delivered HND-022 report; these journeys
-exercise the official mail edge. HND-023 retains advertising-platform attribution.
+verification. No real text is sent by these reporting proofs. The HND-022 scheduled report now has its own independent live-mail proof. The
+controlled receiver authenticated the sender and its full MIME body matched the
+immutable per-queue snapshot, including six canonical calls, six source entries,
+service level 2 of 5, one confirmed recovery case and America/Chicago timezone.
+Scheduler replay submitted no duplicate. The source and journey commit is
+`1b79f970f72bfaf4e4dabd649965322e63e31b55`; receiver receipt is
+`8d89c4b4-a8ec-4930-a2d1-87909c26511d` with DMARC pass.
+`tests/journeys/handset-report-mail.mjs` exercises the real emitted Worker and
+mail transport; call and business-system fixtures remain network-edge test data. HND-023 retains advertising-platform attribution.
 
 Receptionist execution now exposes the existing business-effect readbacks separately
 from booking containment. Exact canonical call and case linkage is required for
