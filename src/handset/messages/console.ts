@@ -38,7 +38,7 @@ export async function messageConsole(request:Request,env:Bindings,actor:Session,
  const snapshot=async()=>await (await api('')).json() as MessageSnapshot
  const render=async(data:MessageSnapshot,threadId:string|null,refusal?:Refusal) => {
   if(!threadId)return messagesPage(data,undefined,undefined,refusal)
-  const detail=await (await api('/threads/'+encodeURIComponent(threadId))).json() as Detail
+  const detail=await (await api('/threads/'+encodeURIComponent(threadId)+(url.searchParams.has('cursor')?'?cursor='+encodeURIComponent(url.searchParams.get('cursor')!):''))).json() as Detail
   const suppression=await (await api('/thread-suppression?threadId='+encodeURIComponent(detail.thread.id))).json() as {suppressed:boolean}
   return messagesPage(data,detail,suppression.suppressed,refusal)
  }
