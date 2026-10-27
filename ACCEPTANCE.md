@@ -1,6 +1,6 @@
 # Acceptance requirements
 
-Target edition: **20 October 2026**. Current clause totals are **5 done, 28 partial and 67 missing**. This checklist covers the full CONTRACT.md destination and mirrors its Status rows. Each journey is a build requirement, not evidence already executed. Follow the contract’s exact public-door, provider, consent, human-approval and migration qualifications; provider acknowledgment alone is not an operating phone system.
+Target edition: **20 October 2026**. Current clause totals are **5 done, 30 partial and 65 missing**. This checklist covers the full CONTRACT.md destination and mirrors its Status rows. Each journey is a build requirement, not evidence already executed. Follow the contract’s exact public-door, provider, consent, human-approval and migration qualifications; provider acknowledgment alone is not an operating phone system.
 
 Use actual product routes, UI, API and CLI with fakes only at paid or network edges made from the provider’s official schema. Real carrier activation and porting, real native OS ringing and authentic-source migration require the separately stated authorized evidence. At 1440 and 390 inspect all relevant screens with realistic populated US, English and Spanish data, success and refusal or failure states, focus, labels and accessibility tree and no overflow. Do not place unsolicited 911 test calls or charge real customer cards.
 
@@ -272,7 +272,7 @@ Perform authorized receiving-side readback for Orbit, HappyToHelp, Dial and a re
 
 Run the 200-call receptionist evaluation against the exact knowledge, policy and tool versions. Cover English and Spanish, interruptions, prompt injection, competing bookings, withheld consent, unavailable staff, emergency requests, policy exceptions, lost provider replies and explicit human takeover. Evaluate QA coverage with exclusions and unknowns in its denominator and retain human overrides. Every mandatory person decision binds exact reviewed state, and stale or revoked authority blocks work. Never count a promised action as completed until the named receiving system or customer outcome supplies evidence.
 
-Clause totals: **100 total; 5 done, 27 partial, 68 missing.**
+Clause totals: **100 total; 5 done, 30 partial, 65 missing.**
 
 ## Buyer review 1 end states
 
