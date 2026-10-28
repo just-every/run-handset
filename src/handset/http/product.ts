@@ -1,4 +1,6 @@
 import { messageDoor } from '../messages/doors'
+import { supervisionDoor } from '../supervision/doors'
+import { supervisionConsole } from '../supervision/console'
 import { directoryDoor } from '../directory/doors'
 import { voicemailDoor } from '../voicemail/doors'
 import type { Bindings } from '../../auth.server'
@@ -50,11 +52,17 @@ export async function productResponse(request: Request, original: Bindings): Pro
 
 async function route(request: Request, original: Bindings): Promise<Response|null> {
  const url = new URL(request.url), path = url.pathname, html = path.startsWith('/app/')
- if (!/^\/(api\/handset|app\/(messages|numbers|exports|consent|surveys|cases|records|audit|grants|sources|admin|queues|reports\/queues|protection|dialer|front-desk|recordings|transcripts|flows|prompts|receptionist|rules|followups|recovery|callbacks|operations))(\/|$)/.test(path)) return null
+ if (!/^\/(api\/handset|app\/(supervision|messages|numbers|exports|consent|surveys|cases|records|audit|grants|sources|admin|queues|reports\/queues|protection|dialer|front-desk|recordings|transcripts|flows|prompts|receptionist|rules|followups|recovery|callbacks|operations))(\/|$)/.test(path)) return null
  let auth: {env:Bindings;session:Session}|undefined
  try {
   auth = await session(request,original)
   const {env,session:actor} = auth, db=env.DB
+  if(path==='/app/supervision'||path.startsWith('/app/supervision/')||path==='/api/handset/supervision'||path.startsWith('/api/handset/supervision/')){
+   const value=request.method==='GET'?undefined:await input(request)
+   const console=await supervisionConsole(request,env,actor,value)
+   if(console)return console
+   return await supervisionDoor(request,env,actor,value)
+  }
   if(path==='/app/messages'||path.startsWith('/app/messages/')||path==='/api/handset/messages'||path.startsWith('/api/handset/messages/'))return await messageDoor(request,env,actor,request.method==='GET'?undefined:await input(request))
   if(path==='/app/numbers'||path.startsWith('/app/numbers/')||path==='/api/handset/numbers'||path.startsWith('/api/handset/numbers/'))return await numbersDoor(request,env,actor,request.method==='GET'?undefined:await input(request))
   for(const [root,door] of [['consent',consentDoor],['surveys',surveyDoor],['exports',exportDoor]] as const) {

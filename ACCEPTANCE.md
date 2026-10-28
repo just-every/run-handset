@@ -8,10 +8,10 @@ The primary journey: a US business moves its numbers and call flows from its inc
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 1 | 34 | 63 | 98 |
+| Core | 1 | 35 | 62 | 98 |
 | Agent surface | 0 | 0 | 5 | 5 |
 | Later | 2 | 1 | 9 | 12 |
-| Full target | 3 | 35 | 77 | 115 |
+| Full target | 3 | 36 | 76 | 115 |
 
 Judged from the code and tests at commit `bb8cb8afae24afe1126c0a106513b26bf25ec6b0` (27 October 2026). Field proof register: 19 rows; 0 passed, 0 failed, 19 not run.
 
@@ -608,7 +608,7 @@ Core · target · **missing** · Rules D-2, D-4 · Register R-10
 
 #### HND-019 — Supervisor tools and live wallboards
 
-Core · target · **missing** · Rules D-2
+Core · target · **partial** · Rules D-2
 
 **Requirement.** Supervisors view permitted queues, agent states, wait and abandonment and service-level breaches; they can listen, whisper privately, barge or take over only within explicitly granted teams and consent policy. Agent state interventions are attributable, and wallboards hide sensitive caller details by default. Real-time stale or unavailable data is marked and never zeroed to healthy. Long waits and abandonment spikes create routed alerts with an owner and delivery outcome.
 
@@ -619,8 +619,8 @@ Core · target · **missing** · Rules D-2
 4. As the permitted supervisor force an agent from available to unavailable and back, inspect actor, time and reason on the state timeline and verify dispatch uses the new state.
 5. Reconcile wallboard queue and agent measures with HND-086's known-leg dataset and show stale values instead of healthy zeros on update loss.
 
-**Evidence.** None.
-**Gap.** No implementation: supervisor tools and live wallboards and the complete acceptance journey are missing.
+**Evidence.** Explicit queue scopes, read-only and foreign-team denial, current identity and credential revocation, attributable dispatch interventions, preserved active work and self-service, HND-086 known-leg totals and both methods, erased-source replay refusal: `tests/handset-supervision.mjs` — Explicit team supervision reconciles reviewed legs, fences foreign and revoked control, and attributes dispatch interventions without dropping active calls. Official Twilio schema-edge active calls survive interventions and foreign or revoked direct control attempts make no provider request: `tests/handset-queues.mjs` — A lost Dial response is never replayed after restart; verified active calls survive logout and maximum wait cancels only an unanswered child once. Supervisor and TV breach visibility within ten seconds, retained stale values on interrupted updates, attributed transitions and revoked display clearing at both widths: `tests/handset-console-browser.mjs` — supervision console at 1440; supervision console at 390.
+**Gap.** Native acceptance points 2–5 are implemented; full HND-019 remains unqualified. Account-held device and carrier remainder: Whisper and barge audio on the caller’s independent leg. Acceptance point 1 still needs a controlled speaking agent, private whisper verified on independent caller audio, audible barge and takeover, applicable consent and their audit qualification. Routed long-wait and abandonment-spike alert delivery remains unproved. Conservative standing-policy default: current-owner-issued exact-person and exact-queue scopes, separate intervention, current identity versions and expiry within one day; global state intervention requires every affected queue scope. HND-105 retains broader role administration and delegated scope; this slice grants no qualified media authority. See docs/SUPERVISION.md.
 
 #### HND-020 — Quality review and coaching
 

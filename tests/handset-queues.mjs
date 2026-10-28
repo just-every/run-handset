@@ -280,6 +280,31 @@ test('A lost Dial response is never replayed after restart; verified active call
   const sid=edge.child(10,call,destinations[f.spanish],'in-progress')
   await f.write(f.base+'/offers/'+offer.id+'/reconcile',{})
   state=await f.read();assert.equal(state.entries.find(e=>e.id===offer.entry_id).state,'active')
+  const supervision='/api/handset/supervision',grant=async q=>{
+   const response=await post(runtime,supervision+'/grants',{operatorId:f.english,queueId:q.id,canIntervene:true,expiresAt:Date.now()+3600000,confirm:'approve supervision scope'},f.headers)
+   assert.equal(response.status,201,await response.clone().text());return response.json()
+  }
+  await grant(f.support)
+  let requests=runtime.sourceRequests.length
+  for(const operation of ['listen','whisper','barge','takeover'])assert.equal((await post(runtime,supervision+'/queues/'+f.sales.id+'/calls/'+offer.entry_id+'/'+operation,{},f.headers)).status,403)
+  assert.equal(runtime.sourceRequests.length,requests,'foreign-team control refuses before the official provider edge')
+  const salesScope=await grant(f.sales)
+  for(const [availability,reason] of [['away','Supervisor coaching break'],['available','Coaching complete']]){
+   const agent=state.agents.find(a=>a.operator_id===f.spanish)
+   const changed=await post(runtime,supervision+'/queues/'+f.sales.id+'/agents/'+f.spanish+'/state',{availability,revision:agent.revision,reason},f.headers)
+   assert.equal(changed.status,200,await changed.clone().text())
+   state=await f.read()
+   assert.equal(state.agents.find(a=>a.operator_id===f.spanish).availability,availability)
+   assert.equal(state.entries.find(e=>e.id===offer.entry_id).state,'active','supervision preserves a provider-read-back active call')
+   assert.equal(state.offers.find(o=>o.id===offer.id).state,'active')
+  }
+  requests=runtime.sourceRequests.length
+  const held=await post(runtime,supervision+'/queues/'+f.sales.id+'/calls/'+offer.entry_id+'/whisper',{},f.headers)
+  assert.equal(held.status,409);assert.equal((await held.json()).error,'supervision_media_qualification_held')
+  assert.equal(runtime.sourceRequests.length,requests,'an explicit team grant still cannot invent qualified whisper audio')
+  assert.equal((await post(runtime,supervision+'/grants/'+salesScope.id+'/revoke',{},f.headers)).status,200)
+  for(const operation of ['listen','whisper','barge','takeover'])assert.equal((await post(runtime,supervision+'/queues/'+f.sales.id+'/calls/'+offer.entry_id+'/'+operation,{},f.headers)).status,403)
+  assert.equal(runtime.sourceRequests.length,requests,'revoked authority makes no provider attempt')
   await f.changeMembership(f.sales,f.spanish,0);await f.presence(f.spanish,'offline')
   state=await f.read()
   assert.equal(state.memberships.find(m=>m.queue_id===f.support.id&&m.operator_id===f.spanish).logged_in,1)

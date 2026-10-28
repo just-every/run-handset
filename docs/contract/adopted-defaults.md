@@ -1,5 +1,17 @@
 # Adopted defaults awaiting a ct ruling
 
+## Native supervision (HND-019)
+
+The standing 27 October conservative-default policy governs this native slice:
+only the current owner issues exact-person and exact-queue read grants, with
+separate state intervention and an explicit expiry within one day. Every read
+and intervention checks native session, recipient and issuer identity versions,
+expiry and revocation. A global agent-state change requires intervention scopes
+for all the agent's queue memberships. No scope authorizes qualified media.
+HND-105 retains broader role administration; controlled audio, consent and
+provider boundaries remain named in HND-019's Gap. This default counts nothing
+beyond the native behavior proved by the supervision journeys.
+
 Defaults a build round adopted where no ct ruling existed yet, moved here from CONTRACT.md and its Status Gap cells in the 28 October 2026 contract cleanup. Each stays in force until ct rules; a ct ruling goes to RULINGS.md. Defaults ct has since ruled on (HND-017, HND-032, HND-034 inbound routing, HND-047 audit access, HND-049, HND-050, HND-071, HND-072, HND-073, HND-075, HND-077 and HND-087) are RULINGS.md RL-101 to RL-112.
 
 ## Number purchase and release (HND-001)
