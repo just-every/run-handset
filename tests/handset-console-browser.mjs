@@ -4,6 +4,7 @@ import { renderedQueueMetrics, assertKnownRenderedQueueMetrics } from './helpers
 import { messageJourney } from './helpers/handset-messages-browser.mjs'
 import { messageNow } from './helpers/handset-messages.mjs'
 import { numbersJourney } from './helpers/handset-numbers-browser.mjs'
+import { complianceJourney } from './helpers/handset-compliance-browser.mjs'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { mkdir } from 'node:fs/promises'
@@ -25,7 +26,7 @@ import { importDataset } from './helpers/handset-import.mjs'
 import { createEdges } from './helpers/handset-edges.mjs'
 import { reportingDashboardJourney } from './helpers/handset-reporting-browser.mjs'
 
-for(const width of [1440,390])for(const domain of ['supervision','messages','numbers','administration','queues','queue-media','flows','prompts','callbacks','metrics','protection','dialer'])test(`${domain} console at ${width}`,async()=>{
+for(const width of [1440,390])for(const domain of ['supervision','compliance','messages','numbers','administration','queues','queue-media','flows','prompts','callbacks','metrics','protection','dialer'])test(`${domain} console at ${width}`,async()=>{
  const reportingEdges=domain==='metrics'?createEdges():null
  const runtime=await openHandset({twilio:true,edges:reportingEdges,callingClock:domain==='dialer',...(domain==='messages'?{clockTime:messageNow}:domain==='metrics'?{clockTime:analyticsNow}:domain==='numbers'?{clockTime:Date.UTC(2026,9,27,12)}:{}),...(domain==='prompts'?{ttsEdge:speechEdge}:{})}),browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic',...(domain==='prompts'?['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']:[])]})
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage()
@@ -37,6 +38,7 @@ for(const width of [1440,390])for(const domain of ['supervision','messages','num
   assert.equal(await page.locator('h1').count(),1,name+' has a single page heading')
   if(domain==='metrics')assert.equal(await page.locator('button, a, summary').evaluateAll(controls=>controls.every(c=>c.textContent.trim().length>2)),true,'Reporting controls have visible labels')
   await page.screenshot({path:`${directory}/${width}-${name}.png`,fullPage:true})
+  if(domain==='compliance')await page.screenshot({path:`${directory}/${width}-${name}-viewport.png`})
   if(domain==='numbers')await page.screenshot({path:`${directory}/${width}-${name}-viewport.png`})
   if(domain==='flows')await page.screenshot({path:`${directory}/${width}-${name}-viewport.png`})
   if(focus)await focus.screenshot({path:`${directory}/${width}-${name}-focus.png`})
@@ -50,6 +52,7 @@ for(const width of [1440,390])for(const domain of ['supervision','messages','num
   if(domain==='supervision')await supervisionJourney({runtime,page,context,cookie,proof,click})
   if(domain==='messages')await messageJourney({runtime,page,context,cookie,proof,click})
   if(domain==='numbers')await numbersJourney({runtime,page,context,cookie,proof,click})
+  if(domain==='compliance')await complianceJourney({runtime,page,context,cookie,proof,click})
   if(domain==='administration'){
   const admin=await adminFixture(runtime,{cookie})
   await page.goto(runtime.origin+'/app');await proof('workspace-navigation')
@@ -238,7 +241,7 @@ for(const width of [1440,390])for(const domain of ['supervision','messages','num
   await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
   const member=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'}),[memberName,...memberValue]=member.cookie.split('=')
   await context.clearCookies();await context.addCookies([{name:memberName,value:memberValue.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
-  const privatePaths={supervision:[['/app/supervision/settings','supervision']],messages:[['/app/messages','messages']],numbers:[['/app/numbers','numbers']],flows:[['/app/flows','flows']],administration:[['/app/admin/bulk','bulk'],['/app/admin/templates','template']],queues:[['/app/queues','queue']],'queue-media':[['/app/queues/media','queue-media']],metrics:[['/app/reports/queues','report'],['/app/import','import']],protection:[['/app/protection','protection']],dialer:[['/app/dialer','dialer']],prompts:[['/app/prompts','prompts']],callbacks:[['/app/callbacks','callbacks']]}
+  const privatePaths={compliance:[['/app/compliance','compliance']],supervision:[['/app/supervision/settings','supervision']],messages:[['/app/messages','messages']],numbers:[['/app/numbers','numbers']],flows:[['/app/flows','flows']],administration:[['/app/admin/bulk','bulk'],['/app/admin/templates','template']],queues:[['/app/queues','queue']],'queue-media':[['/app/queues/media','queue-media']],metrics:[['/app/reports/queues','report'],['/app/import','import']],protection:[['/app/protection','protection']],dialer:[['/app/dialer','dialer']],prompts:[['/app/prompts','prompts']],callbacks:[['/app/callbacks','callbacks']]}
   for(const [path,name] of privatePaths[domain]){
    await page.goto(runtime.origin+path);await page.getByRole('alert').waitFor();await proof(name+'-permission-denied')
   }
