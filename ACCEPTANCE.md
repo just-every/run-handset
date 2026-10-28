@@ -8,12 +8,12 @@ The primary journey: a US business moves its numbers and call flows from its inc
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 1 | 34 | 63 | 98 |
+| Core | 2 | 33 | 63 | 98 |
 | Agent surface | 0 | 0 | 5 | 5 |
 | Later | 2 | 1 | 9 | 12 |
-| Full target | 3 | 35 | 77 | 115 |
+| Full target | 4 | 34 | 77 | 115 |
 
-Judged from the code and tests at commit `bb8cb8afae24afe1126c0a106513b26bf25ec6b0` (27 October 2026). Field proof register: 19 rows; 0 passed, 0 failed, 19 not run.
+Judged from the code and tests at commit `428a50de184cbebd8fb369f54680409821fd4fe7` (28 October 2026). Field proof register: 19 rows; 0 passed, 0 failed, 19 not run.
 
 ## Core
 
@@ -21,7 +21,7 @@ Judged from the code and tests at commit `bb8cb8afae24afe1126c0a106513b26bf25ec6
 
 #### HND-086 — Queue and agent metric formulas
 
-Core · published · **partial** · Rules D-2
+Core · published · **done** · Rules D-2
 
 **Requirement.** Configure a per-queue answer target T and short-abandon threshold S with documented interval and timezone. An offered queue entry is counted once for that queue; transfer and overflow create a new offered entry only in the receiving queue, with stable parent call identity. With the exclude-abandons method, service level is answered within T divided by all answered entries; with the include-abandons method it is answered within T divided by answered entries plus eligible abandons at or after S. Setting S to zero includes every abandon in that method. Zero denominators are unavailable, never 100%. Show the chosen method and raw totals. ASA is answered-entry wait time divided by answered entries; average abandon time is abandoned-entry wait time divided by abandoned entries, with short-exclusion selection explicit. Abandonment rate is eligible abandons divided by eligible answered plus abandoned entries using the same selected short-abandon policy. Completed handled-entry AHT is total talk plus hold plus wrap seconds divided by completed handled entries; show every component. Agent answered and missed offers, logged-in and available, ringing, talk, hold, wrap, break and unavailable durations come from nonoverlapping state segments. Occupancy is talk plus hold plus wrap divided by logged-in staffed time, with excluded states named. Callback work retains offered-call correlation and is never counted as a new inbound arrival. Live values mark provisional entries and finalized historical reports use the same event and formula versions.
 
@@ -34,8 +34,8 @@ Core · published · **partial** · Rules D-2
 6. Supply a 600-second staffed agent timeline with 160 talk, 40 hold and 40 wrap seconds and verify 40% occupancy, exact state durations and expected answered and missed offers.
 7. At 1440 and 390 compare live and final historical values after all entries close, change the configured thresholds and method without rewriting original legs, and receive a scheduled per-queue report containing these formulas and totals.
 
-**Evidence.** Target and short-abandon methods and every stated fixture ratio and component, receiving queue and callback correlation, 600 staffed seconds/40% occupancy and exact states and offers, immutable live and final versions, threshold changes and scheduled formula and totals: `tests/handset-reporting.mjs` — “Reviewed queue observations reconcile exact service levels, agent durations, historical snapshots and scheduled report contents”. Provisional and invalid-source refusal: `tests/handset-reporting.mjs` — “Metric sources reject overlapping states and inconsistent correlation; provisional entries cannot be finalized and formulas reject stale edits”. Public reviewed import: `tests/handset-import.mjs` — “Reviewed native imports plan without writes, reject changed fingerprints, resume across sign-out, reconcile and Undo from shared history”. Live and final values, changed method and thresholds, scheduled receipt and unavailable denominators at 1440 and 390: `tests/handset-console-browser.mjs` — “metrics console at 1440”; `tests/handset-console-browser.mjs` — “metrics console at 390”.
-**Gap.** Carried-done audit: at 1440 and 390 the final-history page after Save final report is captured but never read, so live-versus-final agreement is asserted only at the API door (tests/handset-reporting.mjs). Asserted: every fixture ratio, component, state duration and offer, queue-B correlation, method and threshold changes at both widths without rewriting legs, and the scheduled report contents.
+**Evidence.** Target and short-abandon methods and every stated fixture ratio and component, receiving queue and callback correlation, 600 staffed seconds/40% occupancy and exact states and offers, immutable live and final versions, threshold changes and scheduled formula and totals: `tests/handset-reporting.mjs` — “Reviewed queue observations reconcile exact service levels, agent durations, historical snapshots and scheduled report contents”. Provisional and invalid-source refusal: `tests/handset-reporting.mjs` — “Metric sources reject overlapping states and inconsistent correlation; provisional entries cannot be finalized and formulas reject stale edits”. Public reviewed import: `tests/handset-import.mjs` — “Reviewed native imports plan without writes, reject changed fingerprints, resume across sign-out, reconcile and Undo from shared history”. Rendered completed live and final historical formula and configuration versions, source identities, service-level numerator and denominator, ASA, abandonment, mean abandon wait, AHT components, exact agent durations and offers, 600 staffed seconds and 40% occupancy; retained history and original source legs unchanged after live method and threshold changes; scheduled receipt and unavailable denominators at 1440 and 390: `tests/handset-console-browser.mjs` — “metrics console at 1440”; `tests/handset-console-browser.mjs` — “metrics console at 390”.
+**Gap.** None.
 
 ### Sign-in and public doors
 
