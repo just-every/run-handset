@@ -1,6 +1,7 @@
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
-import { Fault, consolePage, escape as e, owner, text, type ObjectValue } from '../core'
+import { Fault, consolePage, escape as e, text, type ObjectValue } from '../core'
+import { authorizeFlow, flowAccess, flowReferences } from '../access/flows'
 import { sql } from '../delegation/store'
 import { flowDoor } from './doors'
 import { definition, type FlowDefinition } from './definition'
@@ -20,21 +21,34 @@ function fromForm(v:ObjectValue):FlowDefinition {
  }) as FlowDefinition['nodes'],overrides:Array.from({length:overrideCount},(_,i)=>({date:String(v['date'+i]??''),entry:String(v['override'+i]??'')})).filter(o=>o.date||o.entry)}
 }
 export async function flowConsole(request:Request,env:Bindings,actor:Session,v?:ObjectValue){
- owner(actor)
  const url=new URL(request.url),suffix=url.pathname.slice('/app/flows'.length)
  if(url.search)throw new Fault('unexpected_flow_query')
  const api=(path:string,value?:ObjectValue)=>flowDoor(new Request(new URL('/api/handset/flows'+path,url),{method:value?'POST':'GET'}),env,actor,value)
- const inventory=await (await api('')).json() as FlowSnapshot
- const queues=(await sql(env,'SELECT id,name FROM hnd_queues ORDER BY name LIMIT 100').all<{id:string;name:string}>()).results
- inventory.people=(await sql(env,"SELECT id,display_name FROM oa_operators WHERE status='active' ORDER BY display_name LIMIT 100").all<{id:string;display_name:string}>()).results
+ let inventory:FlowSnapshot
+ try{inventory=await (await api('')).json() as FlowSnapshot}catch(error){
+  if(error instanceof Fault&&error.code==='flow_access_required')return consolePage('Flow access needed','<p role="alert">Your current role does not permit reading any call flows. Ask an owner to review your assignment.</p><p><a href="/app">Return to workspace</a></p>',403)
+  throw error
+ }
+ const isOwner=actor.operator.role==='owner',references=flowReferences(inventory.versions.map(v=>JSON.parse(v.definition) as FlowDefinition))
+ const filter=isOwner?'':' WHERE id IN (SELECT value FROM json_each(?))'
+ const access=await flowAccess(env,actor),flowIds=[...new Set(inventory.versions.map(v=>v.flow_id))]
+ const permission=access.permission(flowIds,'flow.read')
+ const metadata=await env.DB.batch([...permission.fences,
+  sql(env,'SELECT id,name FROM hnd_queues'+filter+' ORDER BY name'+(isOwner?' LIMIT 100':''),...(isOwner?[]:[JSON.stringify(references.queues)])),
+  sql(env,'SELECT id,display_name FROM oa_operators'+filter+(isOwner?" WHERE status='active'":" AND status='active'")+' ORDER BY display_name'+(isOwner?' LIMIT 100':''),...(isOwner?[]:[JSON.stringify(references.people)])),sql(env,'DELETE FROM hnd_guard')])
+ const queues=metadata.at(-3)!.results as unknown as {id:string;name:string}[]
+ inventory.people=metadata.at(-2)!.results as unknown as {id:string;display_name:string}[]
+ inventory.owner=isOwner;inventory.draftFlows=[];inventory.testFlows=[]
+ for(const id of flowIds){if(access.allows(id,'flow.draft'))inventory.draftFlows.push(id);if(access.allows(id,'flow.test'))inventory.testFlows.push(id)}
  const personName=(id:string)=>inventory.people!.find(p=>p.id===id)?.display_name??id
  const parts=suffix.split('/').filter(Boolean),selected=parts[0]&&parts[0]!=='save'?inventory.versions.find(row=>row.id===parts[0]):undefined
- if(parts[0]&&parts[0]!=='save'&&!selected)throw new Fault('flow_version_missing',404)
+ if(parts[0]&&parts[0]!=='save'&&!selected)return consolePage('Flow unavailable','<p role="alert">This flow version is unavailable under your current access.</p><p><a href="/app/flows">Return to permitted flows</a></p>',404)
  if(request.method==='GET')return flowsPage(inventory,queues,selected)
  if(request.method!=='POST')throw new Fault('method_not_allowed',405)
  let draft:FlowDefinition|undefined,editing=selected
  try{
   if(suffix==='/save'){
+   if(!isOwner)await authorizeFlow(env,actor,text(v!.flowId,'flowId'),'flow.draft')
    const d=fromForm(v!);draft=d
    if(v!.previousVersionId)editing=inventory.versions.find(row=>row.id===v!.previousVersionId)
    // The form has no prompt controls: keep the previous version's pins on steps that still exist.

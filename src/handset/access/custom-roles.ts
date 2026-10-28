@@ -4,7 +4,7 @@ import { commit } from '../audit/store'
 import { Fault, id, integer, keys, owner, ownerFence, text, type ObjectValue } from '../core'
 import { guard, nativeFence, sql } from '../delegation/store'
 
-export interface CustomRole { id:string; revision:number; name:string; capabilities:string; prompt_ids:string; created_by:string; owner_version:number }
+export interface CustomRole { id:string; revision:number; name:string; capabilities:string; prompt_ids:string; flow_ids:string; created_by:string; owner_version:number }
 const live=`p.status='active' AND p.role='member' AND p.version=m.person_version
  AND m.role_revision=r.revision AND issuer.status='active' AND issuer.role='owner' AND issuer.version=r.owner_version`
 const joined='FROM hnd_custom_roles r JOIN hnd_custom_role_members m ON m.role_id=r.id JOIN oa_operators p ON p.id=m.person_id JOIN oa_operators issuer ON issuer.id=r.created_by'
@@ -30,31 +30,36 @@ export async function roleSnapshot(env:Bindings,actor:Session){
   sql(env,'SELECT * FROM hnd_custom_roles ORDER BY created_at,id'),
   sql(env,`SELECT m.*,p.display_name,CASE WHEN ${live} THEN 'active' ELSE 'suspended' END AS state ${joined} ORDER BY p.display_name`),
   sql(env,"SELECT id,version,display_name FROM oa_operators WHERE role='member' AND status='active' ORDER BY display_name,id"),
-  sql(env,'SELECT id,name FROM hnd_prompts ORDER BY name,id'),sql(env,'DELETE FROM hnd_guard')])
- return {roles:result[1].results as unknown as CustomRole[],members:result[2].results as unknown as {role_id:string;person_id:string;display_name:string;state:string}[],people:result[3].results as unknown as {id:string;version:number;display_name:string}[],prompts:result[4].results as unknown as {id:string;name:string}[]}
+  sql(env,'SELECT id,name FROM hnd_prompts ORDER BY name,id'),
+  sql(env,"SELECT flow_id AS id,json_extract(definition,'$.name') AS name FROM hnd_flow_versions v WHERE version=(SELECT max(version) FROM hnd_flow_versions latest WHERE latest.flow_id=v.flow_id) ORDER BY name,id"),sql(env,'DELETE FROM hnd_guard')])
+ return {roles:result[1].results as unknown as CustomRole[],members:result[2].results as unknown as {role_id:string;person_id:string;display_name:string;state:string}[],people:result[3].results as unknown as {id:string;version:number;display_name:string}[],prompts:result[4].results as unknown as {id:string;name:string}[],flows:result[5].results as unknown as {id:string;name:string}[]}
 }
 
 export async function saveRole(env:Bindings,actor:Session,v:ObjectValue,roleId?:string){
- owner(actor);keys(v,['revision','name','capabilities','promptIds','confirm'])
- if(v.confirm!=='approve greeting draft role')throw new Fault('exact_role_approval_required',403)
+ owner(actor);keys(v,['revision','name','capabilities','promptIds','flowIds','confirm'])
+ if(v.confirm!=='approve exact custom role')throw new Fault('exact_role_approval_required',403)
  const revision=integer(v.revision,'revision',0),name=text(v.name,'name',80)
- if(!Array.isArray(v.capabilities)||v.capabilities.some(c=>c!=='greeting.draft')||new Set(v.capabilities).size!==v.capabilities.length)throw new Fault('unsupported_role_capability',403)
- if(!Array.isArray(v.promptIds)||!v.promptIds.length||v.promptIds.length>100||new Set(v.promptIds).size!==v.promptIds.length)throw new Fault('exact_prompt_scope_required')
- const prompts=v.promptIds.map(p=>text(p,'promptId',36)),target=roleId??id()
+ if(!Array.isArray(v.capabilities)||v.capabilities.some(c=>!['greeting.draft','flow.read','flow.draft','flow.test'].includes(String(c)))||new Set(v.capabilities).size!==v.capabilities.length)throw new Fault('unsupported_role_capability',403)
+ const ids=(value:unknown,name:string)=>{if(!Array.isArray(value)||value.length>100||new Set(value).size!==value.length)throw new Fault('exact_'+name+'_scope_required');return value.map(p=>text(p,name+'Id',36))}
+ const prompts=ids(v.promptIds??[],'prompt'),flows=ids(v.flowIds??[],'flow'),target=roleId??id()
+ if(v.capabilities.includes('greeting.draft')&&!prompts.length)throw new Fault('exact_prompt_scope_required')
+ if(v.capabilities.some(c=>String(c).startsWith('flow.'))&&(!flows.length||!v.capabilities.includes('flow.read')))throw new Fault('exact_flow_read_scope_required')
+ if(!prompts.length&&!flows.length)throw new Fault('exact_role_scope_required')
  if(!roleId&&revision!==0)throw new Fault('role_revision_changed',409)
  const current=roleId?await sql(env,'SELECT revision FROM hnd_custom_roles WHERE id=?',target).first<{revision:number}>():null
  if(roleId&&current?.revision!==revision)throw new Fault('role_revision_changed',409)
  await commit(env,actor,'scope.grant',target,'completed',[
   ...(roleId?[guard(env,'SELECT count(*) FROM hnd_custom_roles WHERE id=? AND revision=?',target,revision)]:[]),
   ...prompts.map(p=>guard(env,'SELECT count(*) FROM hnd_prompts WHERE id=?',p)),
-  sql(env,'INSERT INTO hnd_custom_roles VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,name=excluded.name,capabilities=excluded.capabilities,prompt_ids=excluded.prompt_ids,created_by=excluded.created_by,owner_version=excluded.owner_version',target,revision+1,name,JSON.stringify(v.capabilities),JSON.stringify(prompts),actor.operator.id,actor.operator.version,Date.now()),
+  ...flows.map(p=>guard(env,'SELECT count(*)>0 FROM hnd_flow_versions WHERE flow_id=?',p)),
+  sql(env,'INSERT INTO hnd_custom_roles(id,revision,name,capabilities,prompt_ids,created_by,owner_version,created_at,flow_ids) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,name=excluded.name,capabilities=excluded.capabilities,prompt_ids=excluded.prompt_ids,flow_ids=excluded.flow_ids,created_by=excluded.created_by,owner_version=excluded.owner_version',target,revision+1,name,JSON.stringify(v.capabilities),JSON.stringify(prompts),actor.operator.id,actor.operator.version,Date.now(),JSON.stringify(flows)),
  ],true,{access:{id:target,revision:revision+1,ownerVersion:actor.operator.version}})
- return {id:target,revision:revision+1,name,capabilities:v.capabilities,promptIds:prompts}
+ return {id:target,revision:revision+1,name,capabilities:v.capabilities,promptIds:prompts,flowIds:flows}
 }
 
 export async function assignRole(env:Bindings,actor:Session,v:ObjectValue,roleId:string){
  owner(actor);keys(v,['revision','personId','personVersion','confirm'])
- if(v.confirm!=='assign exact greeting role')throw new Fault('exact_role_assignment_required',403)
+ if(v.confirm!=='assign exact custom role')throw new Fault('exact_role_assignment_required',403)
  const revision=integer(v.revision,'revision',1),person=text(v.personId,'personId'),version=integer(v.personVersion,'personVersion',1)
  await commit(env,actor,'scope.grant',roleId,'completed',[
   guard(env,'SELECT count(*) FROM hnd_custom_roles WHERE id=? AND revision=? AND created_by=? AND owner_version=?',roleId,revision,actor.operator.id,actor.operator.version),

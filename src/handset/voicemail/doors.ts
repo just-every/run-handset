@@ -11,6 +11,7 @@ const allowed=`SELECT b.* FROM hnd_mailboxes b WHERE b.id=? AND (${ownerAccess} 
 const values=(a:Session,key:string)=>[key,a.operator.id,a.operator.role,a.operator.id,a.operator.role,a.operator.id]
 const access=(env:Bindings,a:Session,key:string)=>env.DB.prepare(allowed).bind(...values(a,key))
 const fence=(env:Bindings,a:Session,key:string)=>env.DB.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM ('+allowed+')').bind(...values(a,key))
+const itemFence=(db:D1Database,item:Item)=>db.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_voicemail_items WHERE id=? AND revision=?').bind(item.id,item.revision)
 function operationSql(operation:'work'|'assign'){
  let query=allowed.replace('WHERE m.box_id=b.id AND',`WHERE m.can_${operation}=1 AND m.box_id=b.id AND`)
  if(operation==='assign')query=query.replace(ownerAccess+' OR ', '')
@@ -43,7 +44,7 @@ export async function voicemailDoor(request:Request,env:Bindings,a:Session,v?:Ob
  const match=path.match(/^\/boxes\/([^/]+)(?:\/(members|owner|observations|items)(?:\/([^/]+)(?:\/(claim|handle|reopen|assign|note))?)?)?$/)
  if(!match)throw new Fault('not_found',404)
  const box=await access(env,a,match[1]).first<Box>();if(!box)throw new Fault('mailbox_refused',403)
- const guards=[nativeFence(db,a),fence(env,a,box.id)]
+ const guards=[nativeFence(db,a),fence(env,a,box.id),db.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_mailboxes WHERE id=? AND revision=? AND owner_id=?').bind(box.id,box.revision,box.owner_id)]
  if(request.method==='GET'&&!match[2]){
   const items=(await db.prepare('SELECT * FROM hnd_voicemail_items WHERE box_id=? ORDER BY id').bind(box.id).all<Item>()).results
   const history=(await db.prepare('SELECT h.* FROM hnd_voicemail_history h JOIN hnd_voicemail_items i ON i.id=h.item_id WHERE i.box_id=? ORDER BY h.created_at,h.id').bind(box.id).all()).results
@@ -57,7 +58,7 @@ export async function voicemailDoor(request:Request,env:Bindings,a:Session,v?:Ob
   if(integer(v.revision,'revision',1)!==box.revision)throw new Fault('mailbox_revision_conflict',409)
   const person=text(v.personId,'personId')
   // Designation stays within this box's current work membership.
-  guards.push(...await targetWorker(env,a,box.id,person),db.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_mailboxes WHERE id=? AND revision=?').bind(box.id,box.revision),db.prepare('UPDATE hnd_mailboxes SET owner_id=?,revision=revision+1 WHERE id=?').bind(person,box.id))
+  guards.push(...await targetWorker(env,a,box.id,person),db.prepare('UPDATE hnd_mailboxes SET owner_id=?,revision=revision+1 WHERE id=?').bind(person,box.id))
   await commit(env,a,'voicemail.assign',box.id,'completed',guards)
   return json({boxId:box.id,ownerId:person,revision:box.revision+1})
  }
@@ -66,7 +67,7 @@ export async function voicemailDoor(request:Request,env:Bindings,a:Session,v?:Ob
   owner(a);if(box.admin_id!==a.operator.id)throw new Fault('box_administrator_required',403)
   if(integer(v.revision,'revision',1)!==box.revision)throw new Fault('mailbox_revision_conflict',409)
   const person=text(v.personId,'personId'),enabled=integer(v.enabled,'enabled',0,1)
-  guards.push(db.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_mailboxes WHERE id=? AND revision=?').bind(box.id,box.revision),db.prepare('DELETE FROM hnd_mailbox_members WHERE box_id=? AND person_id=?').bind(box.id,person))
+  guards.push(db.prepare('DELETE FROM hnd_mailbox_members WHERE box_id=? AND person_id=?').bind(box.id,person))
   if(enabled){
    const p=await db.prepare("SELECT version FROM oa_operators WHERE id=? AND status='active'").bind(person).first<{version:number}>();if(!p)throw new Fault('active_person_required',409)
    guards.push(db.prepare("INSERT INTO hnd_guard(ok) SELECT count(*) FROM oa_operators WHERE id=? AND version=? AND status='active'").bind(person,p.version),db.prepare('INSERT INTO hnd_mailbox_members VALUES (?,?,?,?,?,?,?)').bind(box.id,person,p.version,a.operator.id,a.operator.version,integer(v.allowWork??1,'allowWork',0,1),integer(v.allowAssign??0,'allowAssign',0,1)))
@@ -80,9 +81,9 @@ export async function voicemailDoor(request:Request,env:Bindings,a:Session,v?:Ob
   guards.push(await requireOperation(env,a,box.id,'work'))
   const source=text(v.sourceId,'sourceId'),observation=text(v.text,'text',10000),language=choice(v.language,['en','es'],'language')
   const old=await db.prepare('SELECT * FROM hnd_voicemail_items WHERE box_id=? AND source_id=?').bind(box.id,source).first<Item>()
-  if(old){if(old.observation!==observation||old.language!==language)throw new Fault('observation_replay_conflict',409);await commit(env,a,'voicemail.read',old.id,'completed',guards,false);return json({item:presented(old),replay:true})}
+  if(old){if(old.observation!==observation||old.language!==language)throw new Fault('observation_replay_conflict',409);guards.push(itemFence(db,old));await commit(env,a,'voicemail.read',old.id,'completed',guards,false);return json({item:presented(old),replay:true})}
   const item:Item={id:id(),box_id:box.id,source_id:source,observation,language,claimant:null,state:'open',revision:1}
-  guards.push(db.prepare('INSERT INTO hnd_voicemail_items VALUES (?,?,?,?,?,?,?,?)').bind(...Object.values(item)),db.prepare('INSERT INTO hnd_voicemail_history VALUES (?,?,?,?,?,?,?)').bind(id(),item.id,a.operator.id,'observed',1,Date.now(),''))
+  guards.push(db.prepare('INSERT INTO hnd_guard(ok) SELECT NOT EXISTS(SELECT 1 FROM hnd_voicemail_items WHERE box_id=? AND source_id=?)').bind(box.id,source),db.prepare('INSERT INTO hnd_voicemail_items VALUES (?,?,?,?,?,?,?,?)').bind(...Object.values(item)),db.prepare('INSERT INTO hnd_voicemail_history VALUES (?,?,?,?,?,?,?)').bind(id(),item.id,a.operator.id,'observed',1,Date.now(),''))
   await commit(env,a,'voicemail.observe',item.id,'completed',guards,false)
   return json({item:presented(item),replay:false},201)
  }
@@ -101,7 +102,7 @@ export async function voicemailDoor(request:Request,env:Bindings,a:Session,v?:Ob
   guards.push(...await targetWorker(env,a,box.id,assigned))
  }
  const note=op==='note'?text(v.note,'note',2000):''
- guards.push(db.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_voicemail_items WHERE id=? AND revision=?').bind(item.id,item.revision),db.prepare('UPDATE hnd_voicemail_items SET claimant=?,state=?,revision=revision+1 WHERE id=?').bind(op==='claim'?a.operator.id:op==='reopen'?null:assigned,op==='handle'?'handled':op==='reopen'?'open':item.state,item.id),db.prepare('INSERT INTO hnd_voicemail_history VALUES (?,?,?,?,?,?,?)').bind(id(),item.id,a.operator.id,op,item.revision+1,Date.now(),note))
+ guards.push(itemFence(db,item),db.prepare('UPDATE hnd_voicemail_items SET claimant=?,state=?,revision=revision+1 WHERE id=?').bind(op==='claim'?a.operator.id:op==='reopen'?null:assigned,op==='handle'?'handled':op==='reopen'?'open':item.state,item.id),db.prepare('INSERT INTO hnd_voicemail_history VALUES (?,?,?,?,?,?,?)').bind(id(),item.id,a.operator.id,op,item.revision+1,Date.now(),note))
  await commit(env,a,'voicemail.'+op,item.id,'completed',guards,false)
  return json({item:presented((await db.prepare('SELECT * FROM hnd_voicemail_items WHERE id=?').bind(item.id).first<Item>())!)})
 }

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { post,signIn } from './handset-auth.mjs'
+import { flowRoleJourney } from './handset-flow-role-browser.mjs'
 import { queueFixture } from './handset-queues.mjs'
 
 export async function flowJourney({runtime,page,proof,cookie}){
@@ -58,4 +59,5 @@ export async function flowJourney({runtime,page,proof,cookie}){
  await page.context().clearCookies();await page.context().addCookies([{name,value:value.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
  const denied=await page.goto(firstUrl);assert.equal(denied.status(),403);await page.getByRole('alert').waitFor();await proof('flows-owner-only-refused')
  assert.equal((await post(runtime,base+'/'+first+'/test',{path:['hours','after']},{cookie:other.cookie})).status,403)
+ await flowRoleJourney({runtime,page,proof,cookie,q:f})
 }
