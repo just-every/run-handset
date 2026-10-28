@@ -51,7 +51,7 @@ for(const width of [1440,390])for(const domain of ['directory','supervision','co
  try{
   let {cookie}=await signIn(runtime);const [cookieName,...cookieValue]=cookie.split('=')
   await context.addCookies([{name:cookieName,value:cookieValue.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
-  if(domain==='directory')await directoryJourney({runtime,page,context,cookie,proof,click})
+  const directoryPrivatePath=domain==='directory'?await directoryJourney({runtime,page,context,cookie,proof,click}):undefined
   if(domain==='supervision')await supervisionJourney({runtime,page,context,cookie,proof,click})
   if(domain==='messages')await messageJourney({runtime,page,context,cookie,proof,click})
   if(domain==='numbers')await numbersJourney({runtime,page,context,cookie,proof,click})
@@ -244,7 +244,7 @@ for(const width of [1440,390])for(const domain of ['directory','supervision','co
   await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
   const member=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'}),[memberName,...memberValue]=member.cookie.split('=')
   await context.clearCookies();await context.addCookies([{name:memberName,value:memberValue.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
-  const privatePaths={compliance:[['/app/compliance','compliance']],supervision:[['/app/supervision/settings','supervision']],messages:[['/app/messages','messages']],numbers:[['/app/numbers','numbers']],flows:[['/app/flows','flows']],administration:[['/app/admin/bulk','bulk'],['/app/admin/templates','template']],queues:[['/app/queues','queue']],'queue-media':[['/app/queues/media','queue-media']],metrics:[['/app/reports/queues','report'],['/app/import','import']],protection:[['/app/protection','protection']],dialer:[['/app/dialer','dialer']],prompts:[['/app/prompts','prompts']],callbacks:[['/app/callbacks','callbacks']]}
+  const privatePaths={directory:[[directoryPrivatePath,'directory']],compliance:[['/app/compliance','compliance']],supervision:[['/app/supervision/settings','supervision']],messages:[['/app/messages','messages']],numbers:[['/app/numbers','numbers']],flows:[['/app/flows','flows']],administration:[['/app/admin/bulk','bulk'],['/app/admin/templates','template']],queues:[['/app/queues','queue']],'queue-media':[['/app/queues/media','queue-media']],metrics:[['/app/reports/queues','report'],['/app/import','import']],protection:[['/app/protection','protection']],dialer:[['/app/dialer','dialer']],prompts:[['/app/prompts','prompts']],callbacks:[['/app/callbacks','callbacks']]}
   for(const [path,name] of privatePaths[domain]){
    await page.goto(runtime.origin+path);await page.getByRole('alert').waitFor();await proof(name+'-permission-denied')
   }

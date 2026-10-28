@@ -262,4 +262,5 @@ export async function directoryJourney({ runtime, page, context, cookie, proof: 
  await proof('directory-retained-after-restart')
  assert.equal(runtime.sourceRequests.length, sourceRequests, 'native directory work makes no external source requests')
  assert.deepEqual((await runtime.sql('SELECT * FROM hnd_text_permissions')).results, permissions, 'contacts and sharing do not grant messaging permission')
+ return root + '/' + personal
 }
