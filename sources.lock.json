@@ -4508,7 +4508,7 @@
       "executable": false
     },
     "tests/helpers/handset-flow-role-browser.mjs": {
-      "sha256": "c5a310f3e3a17f2b53eed393608c72a7dcb316a913725ea56f0cf7b20936c6c8",
+      "sha256": "f49198164b1a40c39e2bd5a257f88a9081101afa059564955b6a80957ee5be0c",
       "executable": false
     },
     "tests/helpers/handset-greeting-role-browser.mjs": {
