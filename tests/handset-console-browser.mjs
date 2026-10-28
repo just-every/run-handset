@@ -1,3 +1,4 @@
+import { directoryJourney } from './helpers/handset-directory-browser.mjs'
 import { callReportsBrowserJourney } from './helpers/handset-call-reports-browser.mjs'
 import { supervisionJourney } from './helpers/handset-supervision-browser.mjs'
 import { renderedQueueMetrics, assertKnownRenderedQueueMetrics } from './helpers/handset-metrics-browser.mjs'
@@ -26,7 +27,7 @@ import { importDataset } from './helpers/handset-import.mjs'
 import { createEdges } from './helpers/handset-edges.mjs'
 import { reportingDashboardJourney } from './helpers/handset-reporting-browser.mjs'
 
-for(const width of [1440,390])for(const domain of ['supervision','compliance','messages','numbers','administration','queues','queue-media','flows','prompts','callbacks','metrics','protection','dialer'])test(`${domain} console at ${width}`,async()=>{
+for(const width of [1440,390])for(const domain of ['directory','supervision','compliance','messages','numbers','administration','queues','queue-media','flows','prompts','callbacks','metrics','protection','dialer'])test(`${domain} console at ${width}`,async()=>{
  const reportingEdges=domain==='metrics'?createEdges():null
  const runtime=await openHandset({twilio:true,edges:reportingEdges,callingClock:domain==='dialer',...(domain==='messages'?{clockTime:messageNow}:domain==='metrics'?{clockTime:analyticsNow}:domain==='supervision'?{clockTime:Date.UTC(2026,9,28,12)}:domain==='numbers'?{clockTime:Date.UTC(2026,9,27,12)}:{}),...(domain==='prompts'?{ttsEdge:speechEdge}:{})}),browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic',...(domain==='prompts'?['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']:[])]})
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage()
@@ -38,6 +39,7 @@ for(const width of [1440,390])for(const domain of ['supervision','compliance','m
   assert.equal(await page.locator('h1').count(),1,name+' has a single page heading')
   if(domain==='metrics')assert.equal(await page.locator('button, a, summary').evaluateAll(controls=>controls.every(c=>c.textContent.trim().length>2)),true,'Reporting controls have visible labels')
   await page.screenshot({path:`${directory}/${width}-${name}.png`,fullPage:true})
+  if(domain==='directory')await page.screenshot({path:`${directory}/${width}-${name}-viewport.png`})
   if(domain==='compliance')await page.screenshot({path:`${directory}/${width}-${name}-viewport.png`})
   if(domain==='numbers')await page.screenshot({path:`${directory}/${width}-${name}-viewport.png`})
   if(domain==='flows')await page.screenshot({path:`${directory}/${width}-${name}-viewport.png`})
@@ -49,6 +51,7 @@ for(const width of [1440,390])for(const domain of ['supervision','compliance','m
  try{
   let {cookie}=await signIn(runtime);const [cookieName,...cookieValue]=cookie.split('=')
   await context.addCookies([{name:cookieName,value:cookieValue.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
+  if(domain==='directory')await directoryJourney({runtime,page,context,cookie,proof,click})
   if(domain==='supervision')await supervisionJourney({runtime,page,context,cookie,proof,click})
   if(domain==='messages')await messageJourney({runtime,page,context,cookie,proof,click})
   if(domain==='numbers')await numbersJourney({runtime,page,context,cookie,proof,click})
