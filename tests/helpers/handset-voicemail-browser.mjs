@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict'
 import { mailLink, post, signIn } from './handset-auth.mjs'
 
-export async function voicemailJourney({ runtime, page, context, cookie, proof }) {
+export async function voicemailJourney({ runtime, page, context, cookie, proof: capture }) {
+ const proof = async (...args) => {
+  await page.waitForLoadState('load')
+  await page.evaluate(async () => { await document.fonts.ready })
+  return capture(...args)
+ }
  const root = '/app/voicemail', api = '/api/handset/voicemail/boxes', owner = { cookie }
  const read = async (path, headers = owner) => {
   const response = await runtime.request(path, { headers })
@@ -177,6 +182,9 @@ export async function voicemailJourney({ runtime, page, context, cookie, proof }
   assert.equal(await page.getByLabel('Note', { exact: true }).inputValue(), draft)
   assert.equal((await read(boxApi)).history.some(event => event.note === draft), false)
   await proof('voicemail-stale-note-retained')
+  await page.getByRole('checkbox', { name: 'I compared my draft with the current history', exact: true }).check()
+  await submit(page, 'Add note')
+  assert.equal((await read(boxApi)).history.filter(event => event.note === draft).length, 1)
   await reload(page)
 
   await authenticate(context, first.cookie)

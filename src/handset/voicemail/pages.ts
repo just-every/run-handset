@@ -44,10 +44,11 @@ export function mailboxDetail(view:MailboxView,itemId?:string,refusal?:Refusal){
 }
 function itemActions(view:MailboxView,item:Item,refusal?:Refusal){
  const path=boxPath(view.box.id)+'/items/'+encodeURIComponent(item.id),caps=view.capabilities
- const revision=(action:string)=>hidden('revision',refusal?.action===action?refusal.values.revision:item.revision)
+ const reconcile=refusal?.action==='note'&&refusal.status===409
+ const revision=(action:string)=>hidden('revision',refusal?.action===action&&!reconcile?refusal.values.revision:item.revision)
  const raw=(action:string)=>refusal?.action===action?refusal.values:{}
  const canHandle=caps.work&&(item.claimant===view.actorId||view.box.owner_id===view.actorId)
- return `${caps.work&&item.state==='open'&&!item.claimant?form(path+'/claim','Claim item',revision('claim')):''}${canHandle?form(path+(item.state==='open'?'/handle':'/reopen'),item.state==='open'?'Mark handled':'Reopen item',revision(item.state==='open'?'handle':'reopen')):''}${caps.work?`<details${refusal?.action==='note'?' open':''}><summary>Add a note</summary>${form(path+'/note','Add note',revision('note')+area('Note','note',raw('note').note))}</details>`:''}${caps.assign&&item.state==='open'?`<details${refusal?.action==='assign'?' open':''}><summary>Assignment</summary>${form(path+'/assign','Assign item',revision('assign')+select('Assign to','personId',view.people.filter(p=>p.can_work).map(p=>[p.id,p.display_name]),raw('assign').personId??item.claimant))}</details>`:''}`
+ return `${caps.work&&item.state==='open'&&!item.claimant?form(path+'/claim','Claim item',revision('claim')):''}${canHandle?form(path+(item.state==='open'?'/handle':'/reopen'),item.state==='open'?'Mark handled':'Reopen item',revision(item.state==='open'?'handle':'reopen')):''}${caps.work?`<details${refusal?.action==='note'?' open':''}><summary>Add a note</summary>${form(path+'/note','Add note',revision('note')+area('Note','note',raw('note').note)+(reconcile?'<label><input type="checkbox" name="confirm" value="compared current history" required> I compared my draft with the current history</label>':''))}</details>`:''}${caps.assign&&item.state==='open'?`<details${refusal?.action==='assign'?' open':''}><summary>Assignment</summary>${form(path+'/assign','Assign item',revision('assign')+select('Assign to','personId',view.people.filter(p=>p.can_work).map(p=>[p.id,p.display_name]),raw('assign').personId??item.claimant))}</details>`:''}`
 }
 export function mailboxSettings(view:MailboxView,refusal?:Refusal){
  const {box}=view,path=base+'/settings/'+encodeURIComponent(box.id),raw=refusal?.values??{}

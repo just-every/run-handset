@@ -35,8 +35,8 @@ export async function voicemailConsole(request:Request,env:Bindings,actor:Sessio
       value={revision:Number(raw.revision),personId:raw.personId,enabled,allowWork:['work','work_assign'].includes(capability)?1:0,allowAssign:['assign','work_assign'].includes(capability)?1:0}
      }else if(action==='observations'){keys(raw,['sourceId','text','language']);value=raw}
      else{
-      keys(raw,['revision',...(action==='note'?['note']:action==='assign'||action==='owner'?['personId']:[])])
-      value={...raw,revision:Number(raw.revision)}
+      keys(raw,['revision',...(action==='note'?['note','confirm']:action==='assign'||action==='owner'?['personId']:[])])
+      value={revision:Number(raw.revision),...(action==='note'?{note:raw.note}:action==='assign'||action==='owner'?{personId:raw.personId}:{})}
      }
     }
     const response=await api(path,value)
