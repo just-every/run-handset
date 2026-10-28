@@ -4,7 +4,7 @@
 frame, fonts and theme. No marketing or logo is changed. JSON clients use the
 same current-session checks under `/api/handset`. Writes require the configured
 origin; every transaction repeats current native session, version, role and
-expiry checks. Native roles grant no implicit teammate or external-application access. Owners can explicitly grant exact-number canonical work and inbound source consent, or separate exact-person installation audit read/export. These capabilities expire within 24 hours and bind target and issuing-owner native versions. HND-027 retains finer company/location/team and custom-role scopes; the 24-hour capability ceilings are conservative defaults pending ct.
+expiry checks. Native roles grant no implicit teammate or external-application access. Owners can explicitly grant exact-number canonical work and inbound source consent, or separate exact-person installation audit read/export. These capabilities expire within 24 hours and bind target and issuing-owner native versions. HND-105 retains finer company/location/team and custom-role scopes; the 24-hour capability ceilings are conservative defaults pending ct.
 
 ## Records and shared work
 

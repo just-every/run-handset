@@ -160,7 +160,7 @@ namespace or media access was added. Signed existing missed-call and STOP
 ingress only queues native work or suppresses obsolete contact. Worker
 scheduled handling retains the rule outbox and owned overdue escalation.
 See FOLLOWUPS.md, RECOVERY.md, RULES.md and DELIVERY.md for limits and held
-customer/receiving-system obligations. HND-027 inherits finer role scope;
+customer/receiving-system obligations. HND-105 inherits finer role scope;
 HND-013/018/089 retain actual capture/contact consent and caller identity.
 
 `/api/handset/operations` and `/api/handset/compliance` require native owners

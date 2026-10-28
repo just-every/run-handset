@@ -37,6 +37,8 @@ jobs:
           persist-credentials: false
       - name: Check reusable workflow permissions
         run: node scripts/verify-ci.mjs --check-workflows
+      - name: Check generated contract documents
+        run: node src/base/contract-docs.mjs check
       - name: Reuse successful branch verification on main
         id: duplicate
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}

@@ -304,7 +304,7 @@
       "executable": false
     },
     ".github/workflows/verify.yml": {
-      "sha256": "8a7c7e662a7e21cd9cc4c4fd93ae3a39ed89a6bfd2e39df66da446d35334ff08",
+      "sha256": "68e68b16c725d964a3928122a35a74e549357451d82891c16a1afdb2e948e70a",
       "executable": false
     },
     ".gitignore": {
@@ -316,19 +316,19 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "bcdc61800277312ffddb04d206f0b9eac4119f9481f0487930a71dcf0ced2c6e",
+      "sha256": "d1586df1c7f9ea6352406ab6efc6f9e29a091a8acab5bca0dbb06b05f1d5abb4",
       "executable": false
     },
     "AGENTS.md": {
-      "sha256": "b30ef31083323fe3b1c4f1f6b88af8b1101853fe95e88efa77def004bdb9ec30",
+      "sha256": "2983f9d9a45d25780153db0c1bef390a1a59e57b0816ee14a6c0e629c8e36588",
       "executable": false
     },
     "base-copies.json": {
-      "sha256": "406388b806c0b918118c97a3ba8ce0c08a2db11bbf42211159b8718d87992a1e",
+      "sha256": "3b5ff8563ac2b864cd51dda2ad3a7d024f86bbf755ea3429563149d78eac1f9c",
       "executable": false
     },
-    "CLAIMS.md": {
-      "sha256": "90e6535626a6dacee3ed22ed37f9a29b43c0461d60c15a3b3370e9d2a6a3e06b",
+    "CHANGELOG.md": {
+      "sha256": "2e07771bc97e2462c49a5b209bfde9fe1190ad36e9b2c94f46bcf4329b31e008",
       "executable": false
     },
     "CLAUDE.md": {
@@ -336,7 +336,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "cddc15422aeb0c8bb027421e20eec67912357a51ea4207d8be70a15fa1a3d7c9",
+      "sha256": "38d72507d4255be0df1cd19f815fa3f6a35d50dec6f8a02a9145ca61e55925a1",
       "executable": false
     },
     "deploy-demo.json": {
@@ -356,7 +356,7 @@
       "executable": false
     },
     "docs/API.md": {
-      "sha256": "84ed6f836130911fee3b3b5695f23e6c5f46dd673f32dfd851bc2bd8d6fb22b0",
+      "sha256": "af777c446d0dd62ef263874bc3aa81f7a25b312da347c5f402ee7f3bd01bcc88",
       "executable": false
     },
     "docs/backup.md": {
@@ -364,7 +364,7 @@
       "executable": false
     },
     "docs/CALL-CONSENT.md": {
-      "sha256": "5fab7f77fb6e2ccd85629edf65f31f1f941b63b61d7880deac4ff0802c37c794",
+      "sha256": "b0b8feb309201592e6d0a69fba6c36678f1d529d59145e3c30d4dddc27254c15",
       "executable": false
     },
     "docs/CALL-EXPORTS.md": {
@@ -373,6 +373,22 @@
     },
     "docs/CALLBACKS.md": {
       "sha256": "b3779391517c4d600dc857c05feb54c0ea7d43343e7839cad36846807ebcb6c9",
+      "executable": false
+    },
+    "docs/CLAIMS.md": {
+      "sha256": "a7408dcd88b28a459da1ef5d250e1e6f36fa3349423aba0d9c258d0dccfe287f",
+      "executable": false
+    },
+    "docs/contract/acceptance-before-cleanup.md": {
+      "sha256": "bcdc61800277312ffddb04d206f0b9eac4119f9481f0487930a71dcf0ced2c6e",
+      "executable": false
+    },
+    "docs/contract/COVERAGE.json": {
+      "sha256": "5e956c66710e0a1f6826dabb86b7e99c7feb0192a1aef4e24dd50fa906fd7f36",
+      "executable": false
+    },
+    "docs/contract/ID-MAP.json": {
+      "sha256": "728a4a2c06e51f96299e97cc9301c4fa97fd0559bf71145b170b29c67994efb9",
       "executable": false
     },
     "docs/DELIVERY.md": {
@@ -384,7 +400,7 @@
       "executable": false
     },
     "docs/FOLLOWUPS.md": {
-      "sha256": "46eaa8f23f92447db2042e968d7e3dcf87a5b26b85ad780e617bc384e46284cd",
+      "sha256": "f33c62936a2ecc9de3c3fd4e376d95baf9255fe51592c6a6d2878627e8126c98",
       "executable": false
     },
     "docs/getting-started.md": {
@@ -392,15 +408,15 @@
       "executable": false
     },
     "docs/HANDSET-CONSOLES.md": {
-      "sha256": "155777338037bec408d6523bdd0116b1c47e765d4ef9f6e8f0edfcba0c12d5eb",
+      "sha256": "c1127f3038fde4c78affa59de47c1da5495295e90f64e7bf7aceae1eddd09dc3",
       "executable": false
     },
     "docs/HANDSET-FLOWS.md": {
-      "sha256": "be0380231519eb4f29094583908fc1ba027c753c96206df641bf9cc9f467b0fe",
+      "sha256": "4e25d38d17fc9f4c899fa53d7c74eacf0385ce2ededbcbd7661ea7bc47b88cf0",
       "executable": false
     },
     "docs/HANDSET-RECORDS.md": {
-      "sha256": "1bfde234f7a06ecdcb3df679fb349b4373ffcbb20b8f74bb72e8b4bb296a4a0a",
+      "sha256": "d8b12c49dc8a0275b55786619855625543d04764c939e5e569010a4bc89a85b2",
       "executable": false
     },
     "docs/HANDSET-TRANSCRIPTS.md": {
@@ -408,7 +424,7 @@
       "executable": false
     },
     "docs/HTTP-DOORS.md": {
-      "sha256": "8a869c9574b6bad27fd32e0f126d8b8238a3d8d4a650eaf7f9726264bf0f6c81",
+      "sha256": "6698c1cef8eab1d5c404f82920b5b3aecd73a4f146636cae8e19ff6733dd368d",
       "executable": false
     },
     "docs/KNOWLEDGE.md": {
@@ -424,7 +440,7 @@
       "executable": false
     },
     "docs/NATIVE-DIRECTORY-VOICEMAIL.md": {
-      "sha256": "b3a3a14d16a95c01bcdafae19f7ef3b128699d8ba9687278eb308a9dbd50079c",
+      "sha256": "caab21027e1b212da62af10d293124a6ada69e90312bed09b8e478af5da2200a",
       "executable": false
     },
     "docs/NUMBER-COMPLIANCE.md": {
@@ -432,7 +448,7 @@
       "executable": false
     },
     "docs/NUMBER-LIFECYCLE.md": {
-      "sha256": "80382e95b4c975c8aa64cb069250ef52c7049d898414925dfe49c255e68ee109",
+      "sha256": "ced8d1d63cbed104ec0a0ff7821a39cfc8a11f9d0fd0b2144106fd0681e04032",
       "executable": false
     },
     "docs/OPERATIONS.md": {
@@ -440,11 +456,11 @@
       "executable": false
     },
     "docs/PROMPTS.md": {
-      "sha256": "b95a113fa41dc82832ccab093184afcfdcb3b29fc4821dfb75f7b5ea10a1a867",
+      "sha256": "2ff45a23add79959ef593b7d5d476b994e5a03e95fb26e857bd4f536786b75d0",
       "executable": false
     },
     "docs/QUALITY.md": {
-      "sha256": "e35ee70d82ee6a514dc94020861a3bba39fde55bd0e04f44f41d8a7d131628a8",
+      "sha256": "ac6bf5fe54a11e76c45b5441d68a5fe6af858c70a519708b0595424f0cd07c53",
       "executable": false
     },
     "docs/RECOVERY.md": {
@@ -1361,6 +1377,10 @@
     },
     "src/base/command-receipts.ts": {
       "sha256": "2f2411c94af00854c4d040ae74a8e6bd11da98308e7d5b0211473f46679d791a",
+      "executable": false
+    },
+    "src/base/contract-docs.mjs": {
+      "sha256": "d98e14f489c57f60446c2cc68310db09f298f7974d77026dbaa2c62868cc4838",
       "executable": false
     },
     "src/base/contract-filter.ts": {

@@ -40,7 +40,7 @@ supplied eligibility is scenario input, never staffing or carrier authority.
 The evaluator is a pure calculation and makes no live routing or outbound call.
 
 The approved preparatory boundary grants no prompt, number assignment, carrier,
-outbound or live-routing authority. HND-027 retains broader scoped flow
+outbound or live-routing authority. HND-105 retains broader scoped flow
 administration and greeting-only separation; HND-047 retains live-flow audit.
 
 Remaining work includes caller-ID rules, complete live scheduling and US-holiday

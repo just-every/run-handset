@@ -30,7 +30,7 @@ the delegated Orbit handoff is not advertised as a task. HappyToHelp remains
 a conversation-note handoff until a documented task mechanism is available.
 No external browser session is copied to make these integrations work.
 Owner-only administration and exact internal disclosure approval are the
-conservative defaults pending a contract-policy ruling. HND-027 owns wider
+conservative defaults pending a contract-policy ruling. HND-105 owns wider
 role scope; HND-013/089 own capture and contact consent; HND-050 owns rules.
 
 The native owner review screen is `/app/followups`. It creates a draft from

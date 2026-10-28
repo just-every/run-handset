@@ -85,5 +85,5 @@ boundaries are declared in `docs/MEDIA-SECURITY.md`.
 
 Real audible test calls, real record-by-phone calls and real ringing of the
 registered destination need a carrier number and controlled receivers. HND-078
-personal rules, HND-006 live schedule routing and HND-027 role scoping remain with
+personal rules, HND-006 live schedule routing and HND-105 role scoping remain with
 their clauses.

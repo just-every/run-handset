@@ -12,7 +12,7 @@ Release review names one exact number, its current revision, one owned replaceme
 
 Twilio documents Console recovery within ten days and a new billing cycle on recovery. Its number API does not expose the actual recycling hold. The console distinguishes that carrier recovery guidance from the local review hold; it promises no undo after release.
 
-Conservative default ADOPTED pending CT: current installation owners alone approve exact purchases and exact release with a local 24-hour cancellable hold; no autonomous purchase, release, retry or routing activation; no unqualified recovery promise. This is interim. HND-027 retains the original scoped administrator and custom-role destination. HND-031 and HND-088 retain real carrier qualification, responsibility and direct-owner contracting obligations. HND-047 retains complete audit composition and restoration; the new native request families use its existing opaque append-only transaction path.
+Conservative default ADOPTED pending CT: current installation owners alone approve exact purchases and exact release with a local 24-hour cancellable hold; no autonomous purchase, release, retry or routing activation; no unqualified recovery promise. This is interim. HND-105 retains the original scoped administrator and custom-role destination. HND-031 and HND-088 retain real carrier qualification, responsibility and direct-owner contracting obligations. HND-047 retains complete audit composition and restoration; the new native request families use its existing opaque append-only transaction path.
 
 Original acceptance and remaining proof:
 

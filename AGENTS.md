@@ -141,6 +141,15 @@ A change that ships or alters a contract clause updates that clause's row in
 `CONTRACT.md`'s Status table in the same PR; `rer check` refuses a table that
 disagrees with the contract.
 
+CONTRACT.md follows the RER contract standard. ACCEPTANCE.md and docs/CLAIMS.md
+are generated from it: never edit them by hand. After any CONTRACT.md change run
+the generator, then `node src/base/contract-docs.mjs check`, and relock last.
+Rulings are in RULINGS.md and history in CHANGELOG.md; adopted defaults, the
+carried-done audit and the coverage and id maps are in docs/contract/.
+
+Lander-Regenerate: node src/base/contract-docs.mjs write
+Lander-Regenerate: node scripts/edition-authoring/cli.mjs lock
+
 When adding private HTTP routes or Start functions, reuse native sessions and
 enforce authorization in every server function handler, including direct
 transport calls; route guards alone are insufficient. Use server-only modules

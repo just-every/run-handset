@@ -57,4 +57,4 @@ and message state subscriptions, consent-filtered media streams, number
 management, flow publication, recording and transcript reads, and standard
 MCP authorization remain HND-030 work. HND-011, HND-013, HND-027, HND-031,
 HND-048 and HND-049 permissions and provider safeguards apply at every future
-door. Scoped sponsors and manager standing approval remain HND-049 gaps.
+door. Scoped sponsors remain an HND-049 gap, and the manager list policy is HND-107.

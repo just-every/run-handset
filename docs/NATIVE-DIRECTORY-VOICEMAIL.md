@@ -8,7 +8,7 @@ Use the existing native session and same-origin POST rules. Every response is
 noncacheable. Writes and reads repeat current session authority in the audited
 transaction. Company creation, contact-grant administration, shared-box creation and mailbox
 membership administration retain the native-owner boundary. Explicit exact-record
-grants permit staff work without the installation-owner role. HND-027 still
+grants permit staff work without the installation-owner role. HND-105 still
 owes the broader company, location, department, queue and number capability catalog.
 
 ## Directory

@@ -30,7 +30,7 @@ call state, flow versions or native role grants.
 
 Native owners and admins use this console. Admins can manage member profiles,
 but cannot change owner/admin targets or grant elevated roles. Members and
-greeting-only phone profiles get no bulk authority. HND-027 inherits finer
+greeting-only phone profiles get no bulk authority. HND-105 inherits finer
 company/location/team/number capabilities and the greeting self-service door;
 HND-001/004/006/007 retain their separately qualified activation obligations.
 
@@ -65,7 +65,7 @@ not establish voicemail capture or receptionist receipt. Actual receiver,
 bidirectional audio, announcements and delivery remain unqualified. An unavailable
 selected destination is disclosed, never represented by a fabricated delivery. HND-006/007/031 provide
 the qualified flow, endpoint and carrier paths; HND-019/069 retain actual media
-and capacity qualification. HND-027 inherits scoped non-owner administration.
+and capacity qualification. HND-105 inherits scoped non-owner administration.
 
 ## Queue metrics and reviewed move-in
 
@@ -124,7 +124,7 @@ never human identity or outbound consent. The console shows progress without the
 expected response. Actual audible screening, pre-reception fax admission, SIP
 registrar enforcement and paid carrier qualification remain unqualified.
 HND-001/003/011/024/031 must apply current protection and consent at their actual
-effect boundaries; HND-004 retains qualified emergency delivery and HND-027
+effect boundaries; HND-004 retains qualified emergency delivery and HND-105
 inherits scoped personal-policy administration.
 
 ## Blended outbound controls
@@ -160,7 +160,7 @@ and permitted real-traffic qualification remain required before a live campaign
 is qualified. ct’s 22 October ruling governs specificity-first nuisance policy, post-911
 callback windows, exact source/queue/budget approvals and separate licensed
 compliance results. Owner administration remains separate from agent self-service. HND-021 inherits the remaining campaign/CRM
-controls, HND-027 scoped representatives, HND-031 actual carrier qualification,
+controls, HND-105 scoped representatives, HND-031 actual carrier qualification,
 and HND-065/066 complete dialer and screening custody/erasure. No automatic
 campaign launch, recording or data pruning is introduced.
 

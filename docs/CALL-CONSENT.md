@@ -46,7 +46,7 @@ participant-recording-permission attestation, current native owner authority and
 that person's current transcript access are required. This attestation records
 what the human verified; it does not qualify otherwise unconsented capture or
 speech accuracy. A model bearer credential cannot reach this door. HND-013 retains
-capture qualification and HND-027 retains broader receptionist role scope.
+capture qualification and HND-105 retains broader receptionist role scope.
 
 At `/app/surveys`, the owner approves one optional invitation for an actual call.
 A completed, independently read-back staff conversation returns to the existing
