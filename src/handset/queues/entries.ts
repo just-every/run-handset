@@ -3,6 +3,10 @@ import { entry, entryGuard, event, guard, queue, statement, write, type Context 
 import { language, list, strings, type Entry, type Queue, type Reservation } from './model'
 import { newVisit, visitState } from './visits'
 
+async function checkAdmission(ctx:Context,q:Queue){
+ const current=await statement(ctx,"SELECT q.max_waiting,count(e.id) AS occupied FROM hnd_queues q LEFT JOIN hnd_queue_entries e ON e.queue_id=q.id AND e.state IN ('waiting','reserved') WHERE q.id=? AND q.revision=? GROUP BY q.id",q.id,q.revision).first<{max_waiting:number;occupied:number}>()
+ if(current&&current.occupied>=current.max_waiting)throw new Fault('queue_capacity_exceeded',409,{queueId:q.id,limit:current.max_waiting,occupied:current.occupied})
+}
 export async function enqueue(ctx:Context,queueId:string,value:ObjectValue){
  keys(value,['callId','language','skills','priority'])
  const q=await queue(ctx,queueId),callId=text(value.callId,'callId'),lang=language(value.language??'en'),skills=JSON.stringify(list(value.skills??[],'skills')),priority=integer(value.priority??0,'priority',0,100)
@@ -14,7 +18,8 @@ export async function enqueue(ctx:Context,queueId:string,value:ObjectValue){
   return {entry:existing,replay:true}
  }
  const now=Date.now(),target=id(),visitId=id()
- await write(ctx,target,[
+ await checkAdmission(ctx,q)
+ try{await write(ctx,target,[
   guard(ctx,'SELECT count(*) FROM hnd_queues WHERE id=? AND revision=?',q.id,q.revision),
   // Bounded admission counts every native assignment, rather than reading a
   // caller-supplied capacity or inventing available media legs.
@@ -23,7 +28,12 @@ export async function enqueue(ctx:Context,queueId:string,value:ObjectValue){
   newVisit(ctx,visitId,target,q.id,1,now),
   statement(ctx,'UPDATE hnd_queue_entries SET current_visit_id=? WHERE id=?',visitId,target),
   event(ctx,'entry.admitted',q.id,target,null,{priority,language:lang,deadlineAt:now+q.max_wait_seconds*1000}),
- ])
+ ])}catch(error){
+  // The transactional guard still decides concurrent admission. Classify a
+  // capacity loss after rollback without treating other stale state as full.
+  if(error instanceof Fault&&error.code==='state_changed')await checkAdmission(ctx,q)
+  throw error
+ }
  return {entry:await entry(ctx,target),replay:false}
 }
 export async function overflow(ctx:Context,row:Entry,q:Queue,reason:string,now=Date.now()){

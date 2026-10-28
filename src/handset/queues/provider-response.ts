@@ -27,7 +27,15 @@ export async function voiceInstructions(ctx:Context,source:BoundSource,p:URLSear
   await observeUnansweredCall(ctx.env,source.source_id,callId)
   return '<Hangup/>'
  }
- if(!row)row=(await enqueue(ctx,source.queue_id,{callId,language:p.get('Digits')===source.spanish_digit?'es':source.language,skills:[],priority:0})).entry
+ if(!row){
+  const language=p.get('Digits')===source.spanish_digit?'es':source.language
+  try{row=(await enqueue(ctx,source.queue_id,{callId,language,skills:[],priority:0})).entry}
+  catch(error){
+   if(!(error instanceof Fault)||error.code!=='queue_capacity_exceeded')throw error
+   await write(ctx,callId,[event(ctx,'admission.refused',source.queue_id,null,null,{callId,reason:'queue_capacity_exceeded',...error.detail as Record<string,unknown>})])
+   return `<Say language="${language.startsWith('es')?'es-MX':'en-US'}">${language.startsWith('es')?'La cola está llena. Por favor, vuelva a llamar más tarde.':'The queue is full. Please call again later.'}</Say><Hangup/>`
+  }
+ }
  return continueVoice(ctx,source,row,parentSid)
 }
 export async function continueVoice(ctx:Context,source:BoundSource,initial:Entry,parentSid:string):Promise<string>{
