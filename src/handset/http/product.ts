@@ -1,6 +1,7 @@
 import { messageDoor } from '../messages/doors'
 import { supervisionDoor } from '../supervision/doors'
 import { supervisionConsole } from '../supervision/console'
+import { directoryConsole } from '../directory/console'
 import { directoryDoor } from '../directory/doors'
 import { voicemailDoor } from '../voicemail/doors'
 import type { Bindings } from '../../auth.server'
@@ -53,7 +54,7 @@ export async function productResponse(request: Request, original: Bindings): Pro
 
 async function route(request: Request, original: Bindings): Promise<Response|null> {
  const url = new URL(request.url), path = url.pathname, html = path.startsWith('/app/')
- if (!/^\/(api\/handset|app\/(supervision|messages|numbers|exports|consent|surveys|cases|records|audit|grants|sources|admin|queues|reports\/queues|protection|dialer|front-desk|recordings|transcripts|flows|prompts|receptionist|rules|followups|recovery|callbacks|operations|compliance))(\/|$)/.test(path)) return null
+ if (!/^\/(api\/handset|app\/(directory|supervision|messages|numbers|exports|consent|surveys|cases|records|audit|grants|sources|admin|queues|reports\/queues|protection|dialer|front-desk|recordings|transcripts|flows|prompts|receptionist|rules|followups|recovery|callbacks|operations|compliance))(\/|$)/.test(path)) return null
  let auth: {env:Bindings;session:Session}|undefined
  try {
   auth = await session(request,original)
@@ -70,6 +71,7 @@ async function route(request: Request, original: Bindings): Promise<Response|nul
   for(const [root,door] of [['consent',consentDoor],['surveys',surveyDoor],['exports',exportDoor]] as const) {
    if(path==='/api/handset/'+root||path.startsWith('/api/handset/'+root+'/')||path==='/app/'+root||path.startsWith('/app/'+root+'/'))return await door(request,env,actor,request.method==='GET'?undefined:await input(request))
   }
+  if(path==='/app/directory'||path.startsWith('/app/directory/'))return await directoryConsole(request,env,actor,request.method==='GET'?undefined:await input(request))
   if(path==='/api/handset/directory'||path.startsWith('/api/handset/directory/'))return await directoryDoor(request,env,actor,request.method==='GET'?undefined:await input(request))
   if(path==='/api/handset/voicemail'||path.startsWith('/api/handset/voicemail/'))return await voicemailDoor(request,env,actor,request.method==='GET'?undefined:await input(request))
   if(path==='/api/handset/knowledge'||path.startsWith('/api/handset/knowledge/'))return await knowledgeDoor(request,env,actor,request.method==='GET'?undefined:await input(request,200000))

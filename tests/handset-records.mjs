@@ -1201,7 +1201,18 @@ test('Exact-contact staff capabilities independently bound edits exports and mer
   const create=async(number)=>(await f.write(base+'/contacts',{name:'Scoped contact',number,visibility:'company'},f.ownerHeaders,201)).contact
   const a=await create('+15125550194'),b=await create('+15125550195'),foreign=await create('+15125550196')
   const grant=(c,caps={})=>f.write(base+'/contacts/'+c.id+'/grant',{revision:c.revision,personId:'synthetic-handset-2',...caps})
+  const consolePath='/app/directory/'+a.id
+  const page=async(path,headers,status)=>{const r=await runtime.request(path,{headers});assert.equal(r.status,status);assert.equal(r.headers.get('cache-control'),'no-store');return r.text()}
+  assert.ok(!(await page(consolePath,f.memberHeaders,403)).includes(a.number))
   await grant(a)
+  assert.ok((await page(consolePath,f.memberHeaders,200)).includes(a.number))
+  for(const action of ['edit','merge'])assert.ok(!(await page(consolePath+'/'+action,f.memberHeaders,403)).includes(a.number))
+  const refused=await post(runtime,consolePath+'/edit',{revision:1,name:'Forbidden console edit',number:a.number,timezone:''},f.memberHeaders)
+  assert.equal(refused.status,403);assert.ok(!(await refused.text()).includes(a.number))
+  assert.equal((await f.read(base+'/contacts/'+a.id)).contact.name,a.name)
+  const crossSite=await post(runtime,consolePath+'/edit',{revision:1,name:'Cross origin',number:a.number,timezone:''},{...f.ownerHeaders,origin:'https://foreign.example'})
+  assert.equal(crossSite.status,403)
+  assert.equal((await f.read(base+'/contacts/'+a.id)).contact.name,a.name)
   assert.deepEqual((await f.read(base+'/contacts',f.memberHeaders)).contacts.map(c=>c.id),[a.id])
   assert.deepEqual((await f.read(base+'/export',f.memberHeaders)).contacts,[])
   await f.write(base+'/contacts/'+a.id,{revision:1,name:'Forbidden'},f.memberHeaders,403)
@@ -1232,6 +1243,9 @@ test('Exact-contact staff capabilities independently bound edits exports and mer
   await runtime.sql('DROP TRIGGER synthetic_handset_contact_cap_loss')
   await grant(a,{allowEdit:1,allowExport:1,allowMerge:1})
   await f.write(base+'/contacts/'+a.id+'/revoke',{revision:3,personId:'synthetic-handset-2'})
+  assert.ok(!(await page(consolePath,f.memberHeaders,403)).includes('Delegated edit'))
+  const cached=await post(runtime,consolePath+'/edit',{revision:3,name:'Cached private changes',number:a.number,timezone:''},f.memberHeaders)
+  assert.equal(cached.status,403);assert.ok(!(await cached.text()).includes('Cached private changes'))
   await f.write(base+'/contacts/'+a.id,{revision:3,name:'After withdrawal'},f.memberHeaders,403)
   assert.deepEqual((await f.read(base+'/export',f.memberHeaders)).contacts,[])
   // The creator's former owner role is not permanent company-contact authority.
