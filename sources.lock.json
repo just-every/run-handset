@@ -5000,7 +5000,7 @@
       "executable": false
     },
     "tests/handset-console-browser.mjs": {
-      "sha256": "c557c5d29865a5b37c9b3d2493c398daf30a17a225b8781ba244d8a506fb3e51",
+      "sha256": "b5052b9a99397b6cc6b91d7777e07962d66408dee337716b271bf97217fea184",
       "executable": false
     },
     "tests/handset-import.mjs": {
@@ -5157,6 +5157,10 @@
     },
     "tests/helpers/handset-messages.mjs": {
       "sha256": "0a87595e0204c7be399727d7496da0b4f3cd307dfba97c711d81a88c3cdf3b9c",
+      "executable": false
+    },
+    "tests/helpers/handset-metric-history-browser.mjs": {
+      "sha256": "2fe6bdc0df5e29079923da5946269cc293a82c154551ab40e25d4010f1db00dc",
       "executable": false
     },
     "tests/helpers/handset-metrics.mjs": {

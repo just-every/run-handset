@@ -22,6 +22,7 @@ import { metricDataset,metricStart,metricConfig } from './helpers/handset-metric
 import { importDataset } from './helpers/handset-import.mjs'
 import { createEdges } from './helpers/handset-edges.mjs'
 import { reportingDashboardJourney } from './helpers/handset-reporting-browser.mjs'
+import { readMetricReport,assertKnownMetricReport } from './helpers/handset-metric-history-browser.mjs'
 
 for(const width of [1440,390])for(const domain of ['messages','numbers','administration','queues','queue-media','flows','prompts','callbacks','metrics','protection','dialer'])test(`${domain} console at ${width}`,async()=>{
  const reportingEdges=domain==='metrics'?createEdges():null
@@ -157,15 +158,35 @@ for(const width of [1440,390])for(const domain of ['messages','numbers','adminis
   await page.getByLabel('Interval end (UTC, excluded)',{exact:true}).fill(new Date(metricStart+1200000).toISOString().slice(0,16))
   await click('Save versioned formula');assert.ok((await page.locator('main').innerText()).includes('40.00%'))
   assert.equal(await page.locator('dd').first().evaluate(el=>{const range=document.createRange();range.selectNodeContents(el);return range.getClientRects().length}),1,'service-level ratio is readable on one line')
+  const completedLive=await readMetricReport(page);assertKnownMetricReport(completedLive)
   await proof('metrics-live')
-  await click('Save final report');await proof('metrics-final-history')
+  await click('Save final report');await page.getByRole('heading',{name:'Historical queue report',exact:true}).waitFor()
+  const retainedReportUrl=page.url(),completedHistory=await readMetricReport(page)
+  assertKnownMetricReport(completedHistory)
+  assert.deepEqual(completedHistory,completedLive,'Final history preserves every rendered metric, version and source leg from the completed live report')
+  await proof('metrics-final-history')
   await page.goto(runtime.origin+'/app/reports/queues/live?queueId=queue-A')
   await page.getByLabel('Service-level method',{exact:true}).selectOption('exclude-abandons');await click('Save versioned formula')
+  const changedMethod=await readMetricReport(page)
+  assertKnownMetricReport(changedMethod,{configuration:completedLive.configuration+1,serviceLevel:'50.00% (2 / 4)',method:'exclude-abandons'})
+  assert.equal(changedMethod.formulaVersion,completedLive.formulaVersion)
+  assert.deepEqual(changedMethod.sources,completedLive.sources,'Changing the method preserves the original rendered source legs')
+  assert.equal(changedMethod.provenance,completedLive.provenance)
   assert.ok((await page.locator('main').innerText()).includes('50.00%'));await proof('metrics-changed-method')
   await page.getByLabel('Answer target T (seconds)',{exact:true}).fill('30')
   await page.getByLabel('Short-abandon threshold S (seconds)',{exact:true}).fill('0')
   await page.getByLabel('Service-level method',{exact:true}).selectOption('include-abandons');await click('Save versioned formula')
+  const changedThresholds=await readMetricReport(page)
+  assertKnownMetricReport(changedThresholds,{configuration:completedLive.configuration+2,serviceLevel:'66.67% (4 / 6)',abandonment:'33.33% (2 / 6)',abandonWait:'21.5 (43 / 2)',target:30,short:0})
+  assert.equal(changedThresholds.formulaVersion,completedLive.formulaVersion)
+  assert.deepEqual(changedThresholds.sources,completedLive.sources,'Changing thresholds preserves the original rendered source legs')
+  assert.equal(changedThresholds.provenance,completedLive.provenance)
   assert.ok((await page.locator('main').innerText()).includes('66.67%'));await proof('metrics-changed-thresholds')
+  await page.goto(retainedReportUrl)
+  const retainedHistory=await readMetricReport(page);assertKnownMetricReport(retainedHistory)
+  assert.deepEqual(retainedHistory,completedHistory,'Retained history keeps the saved values, versions and original source legs after live reconfiguration')
+  await proof('metrics-retained-history')
+  await page.goto(runtime.origin+'/app/reports/queues/live?queueId=queue-A')
   await page.getByLabel('Send at (UTC)',{exact:true}).fill(localDateTime(domain==='metrics'?analyticsNow+60000:Date.now()+60000))
   await page.getByRole('checkbox',{name:'I consent to this exact scheduled report and recipient',exact:true}).check();await click('Schedule report');await page.waitForURL(runtime.origin+'/app/reports/queues');await proof('report-scheduled')
   await click('Run due reports');assert.ok(!(await page.locator('main').innerText()).includes('accepted'))
