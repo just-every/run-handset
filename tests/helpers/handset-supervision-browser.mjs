@@ -77,6 +77,7 @@ export async function supervisionJourney({runtime,page,context,cookie,proof,clic
  await page.locator('#supervision-freshness').filter({hasText:'Access unavailable'}).waitFor()
  assert.equal(await page.locator('#supervision-metrics').count(),0,'revoked authority clears retained data')
  assert.equal(await page.locator('form[data-supervision-action]').count(),0)
+ assert.equal((await page.locator('main').innerText()).includes('Mara Patel'),false,'revocation removes agent names from control cards as well as live values')
  await proof('supervision-revoked')
  const foreignCookie=await f.personSession(f.spanish),[name,...parts]=foreignCookie.split('=')
  await context.clearCookies();await context.addCookies([{name,value:parts.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])

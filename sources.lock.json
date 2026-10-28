@@ -316,7 +316,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "b6ce91732586e2b2777b6253019877ba89522f3a755bf723f6636bf06fec24e4",
+      "sha256": "46cf5f73bdb43a0526e7066260b53443ce970c5ecce58fe954ef2b78e9f9e130",
       "executable": false
     },
     "AGENTS.md": {
@@ -336,7 +336,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "c8eb304ea84129cf2fdc7ebd0fa195a31d8f98b24ef5f40d44257484720e9b7d",
+      "sha256": "cab249db654c3d764fc382926e81adaf115fdbb9bbafd12809760b9c22e3b643",
       "executable": false
     },
     "deploy-demo.json": {
@@ -2996,7 +2996,7 @@
       "executable": false
     },
     "src/handset/supervision/client.ts": {
-      "sha256": "05eab538250d83967e6b303c009ea93b94e809aea37e31733cbb517ece4960a7",
+      "sha256": "301cf1fb2d30232c25063ecb6eb7864b5d1f6c7a78f44c1e87ab351167ef92d1",
       "executable": false
     },
     "src/handset/supervision/console.ts": {
@@ -5268,7 +5268,7 @@
       "executable": false
     },
     "tests/helpers/handset-supervision-browser.mjs": {
-      "sha256": "2d14d9d72ac2f5790bfdf4329db2b67021cd1dca19f39f5657aef9dd22400a86",
+      "sha256": "4bcbb630c5ab2c6b1792b3164d0c3535597809d8980d3a7d9b88938a31b10d83",
       "executable": false
     },
     "tests/helpers/handset-supervision.mjs": {

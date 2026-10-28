@@ -22,7 +22,7 @@ if (root) {
    if ([401,403,404].includes(response.status)) {
     stopped = true;
     live.replaceChildren();
-    document.querySelectorAll('[data-supervision-action]').forEach(form => form.remove());
+    document.querySelectorAll('[data-supervision-action]').forEach(form => form.closest('section').remove());
     status.textContent = 'Access unavailable — the current supervision scope is no longer valid. Reload after the owner grants access.';
     status.setAttribute('role','alert');
     return;
