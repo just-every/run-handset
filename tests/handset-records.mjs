@@ -1263,7 +1263,7 @@ test('Exact-contact staff capabilities independently bound edits exports and mer
 test('Explicit mailbox work and assignment capabilities permit scoped staff ownership notes and owner override without granting membership administration',async()=>{
  const runtime=await openHandset()
  try{
-  const f=await preparationFixture(runtime),base='/api/handset/voicemail/boxes'
+  const f=await preparationFixture(runtime),base='/api/handset/voicemail/boxes',memberEmail=['synthetic-handset-2','example.test'].join('@')
   const box=(await f.write(base,{name:'Scoped support',kind:'shared'},f.ownerHeaders,201)).box,path=base+'/'+box.id
   const view=async(headers=f.memberHeaders)=>{
    const detail=await f.read(path,headers),listed=(await f.read(base,headers)).boxes.find(b=>b.id===box.id)
@@ -1343,11 +1343,11 @@ test('Explicit mailbox work and assignment capabilities permit scoped staff owne
   await f.read(base,f.memberHeaders,401)
   // Re-activating or changing native versions never resurrects a cached grant.
   await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
-  let refreshed={cookie:(await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'})).cookie}
+  let refreshed={cookie:(await signIn({...runtime,ownerEmail:memberEmail})).cookie}
   assert.deepEqual((await f.read(base,refreshed)).boxes,[])
   await f.write(path+'/members',{revision:10,personId:'synthetic-handset-2',enabled:1,allowWork:1,allowAssign:1})
   await runtime.sql("UPDATE oa_operators SET version=version+1 WHERE id='synthetic-handset-2'")
-  refreshed={cookie:(await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'})).cookie}
+  refreshed={cookie:(await signIn({...runtime,ownerEmail:memberEmail})).cookie}
   assert.deepEqual((await f.read(base,refreshed)).boxes,[])
   assert.deepEqual((await f.read(path)).people.map(p=>p.id),['synthetic-handset-1'])
   await f.read(path,refreshed,403)
@@ -1357,7 +1357,7 @@ test('Explicit mailbox work and assignment capabilities permit scoped staff owne
   assert.deepEqual((await f.read(path)).people.map(p=>p.id),['synthetic-handset-1'])
   await f.read(base,refreshed,401)
   await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
-  refreshed={cookie:(await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'})).cookie}
+  refreshed={cookie:(await signIn({...runtime,ownerEmail:memberEmail})).cookie}
   await runtime.sql("UPDATE oa_operators SET version=version+1 WHERE id='synthetic-handset-1'")
   const renewedOwner={cookie:(await signIn(runtime)).cookie}
   assert.deepEqual((await f.read(base,refreshed)).boxes,[])
