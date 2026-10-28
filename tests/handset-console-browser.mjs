@@ -35,6 +35,8 @@ for(const width of [1440,390])for(const domain of ['supervision','compliance','m
  const directory=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-console'
  await mkdir(directory,{recursive:true})
  async function proof(name,focus){
+  await page.waitForLoadState('load')
+  await page.evaluate(async()=>{await document.fonts.ready})
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name+' fits viewport')
   assert.equal(await page.locator('h1').count(),1,name+' has a single page heading')
   if(domain==='metrics')assert.equal(await page.locator('button, a, summary').evaluateAll(controls=>controls.every(c=>c.textContent.trim().length>2)),true,'Reporting controls have visible labels')
@@ -286,6 +288,8 @@ for(const width of [1440,390])test(`Owner dataset erasure settings and committed
  const directory=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-console'
  await mkdir(directory,{recursive:true})
  async function proof(name){
+  await page.waitForLoadState('load')
+  await page.evaluate(async()=>{await document.fonts.ready})
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name)
   assert.equal(await page.locator('button').evaluateAll(rows=>rows.every(row=>row.textContent.trim().length>0)),true,'every control has a visible label')
   await page.screenshot({path:`${directory}/${width}-erasure-${name}.png`,fullPage:true})
