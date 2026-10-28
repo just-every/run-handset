@@ -31,10 +31,12 @@ export async function voicemailJourney({ runtime, page, context, cookie, proof }
  const create = async (name, kind) => {
   await page.goto(runtime.origin + root)
   await page.getByRole('link', { name: 'Mailbox settings', exact: true }).click()
+  await proof('voicemail-settings-list')
   await page.getByRole('link', { name: 'New mailbox', exact: true }).click()
   assert.equal(new URL(page.url()).pathname, root + '/settings/new')
   await page.getByLabel('Mailbox name', { exact: true }).fill(name)
   await page.getByLabel('Mailbox kind', { exact: true }).selectOption(kind)
+  await proof('voicemail-create-'+kind)
   await submit(page, 'Create mailbox')
   await page.getByRole('heading', { name, exact: true }).waitFor()
   return new URL(page.url()).pathname
@@ -72,6 +74,7 @@ export async function voicemailJourney({ runtime, page, context, cookie, proof }
  const itemPath = boxPath + '/items/' + item.id, itemApi = boxApi + '/items/' + item.id
  await page.goto(runtime.origin + root)
  await due(page, 2)
+ await proof('voicemail-mailboxes')
  await page.getByRole('link', { name, exact: true }).click()
  assert.equal(new URL(page.url()).pathname, boxPath)
  await page.getByRole('link', { name: 'Open observation', exact: true }).and(page.locator(`a[href="${itemPath}"]`)).click()

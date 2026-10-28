@@ -5,8 +5,8 @@ export type Refusal={code:string;status:number;values:ObjectValue;action:string}
 const base='/app/voicemail'
 const boxPath=(id:string)=>base+'/'+encodeURIComponent(id)
 const form=(action:string,label:string,body='')=>`<form method="post" action="${e(action)}">${body}<button>${e(label)}</button></form>`
-const select=(label:string,name:string,options:[string,string][],value:unknown='')=>`<label>${e(label)}<select name="${e(name)}" required>${options.map(([v,l])=>`<option value="${e(v)}"${v===value?' selected':''}>${e(l)}</option>`).join('')}</select></label>`
-const area=(label:string,name:string,value:unknown='',max=2000)=>`<label>${e(label)}<textarea name="${e(name)}" rows="4" maxlength="${max}" required>${e(value)}</textarea></label>`
+const select=(label:string,name:string,options:[string,string][],value:unknown='')=>`<label>${e(label)}<select aria-label="${e(label)}" name="${e(name)}" required>${options.map(([v,l])=>`<option value="${e(v)}"${v===value?' selected':''}>${e(l)}</option>`).join('')}</select></label>`
+const area=(label:string,name:string,value:unknown='',max=2000)=>`<label>${e(label)}<textarea aria-label="${e(label)}" name="${e(name)}" rows="4" maxlength="${max}" required>${e(value)}</textarea></label>`
 const kind=(v:string)=>v==='personal'?'Personal · Private':v==='group'?'Group':'Shared'
 const state=(item:Item)=>item.state==='handled'?'Handled':'Open'
 const name=(view:MailboxView,id:string|null)=>id?view.people.find(p=>p.id===id)?.display_name??'Former mailbox member':'Unclaimed'

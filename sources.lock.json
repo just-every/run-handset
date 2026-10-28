@@ -3047,8 +3047,16 @@
       "sha256": "a0d8d08702783f9c6ff2662086f626de42303bc1d7b202866482f3fd3b15e9c5",
       "executable": false
     },
+    "src/handset/voicemail/console.ts": {
+      "sha256": "85cb2e92ec947741328fb5eea986086e74b12929a5084f40ecc13dbf13cbacc3",
+      "executable": false
+    },
     "src/handset/voicemail/doors.ts": {
       "sha256": "a0ad398babf2bfb1a96598878f1ff84809d40d41b1480e43bd1fea0a9111fe0a",
+      "executable": false
+    },
+    "src/handset/voicemail/pages.ts": {
+      "sha256": "58d0923a9d1d67d18b799e933d53fd8c8bd936aee65ba54798354884f38abe7d",
       "executable": false
     },
     "src/identity.ts": {
@@ -5289,6 +5297,10 @@
     },
     "tests/helpers/handset-transcripts.mjs": {
       "sha256": "4a3b05833a07aaea2134478abc278271822bae8a4bf2a79ade11d47e2d9aac2c",
+      "executable": false
+    },
+    "tests/helpers/handset-voicemail-browser.mjs": {
+      "sha256": "66132a6140b52a6ce244806f72681cec84c84d9bb5f7812fcf6807e0996637b6",
       "executable": false
     },
     "tests/helpers/handset-worker.mjs": {
