@@ -27,6 +27,13 @@ export async function supervisionJourney({runtime,page,context,cookie,proof,clic
  assert.equal(await value('Eligible abandonment'),'20.00% (1 of 5)')
  assert.equal(await value('Mean eligible abandon wait (seconds)'),'40 (40 of 1)')
  assert.equal(await value('Average handled time (seconds)'),'60 (240 of 4)')
+ for(const [label,expected] of Object.entries({offered:6,arrivals:6,transfers:0,overflows:0,callbacks:0,answered:4,abandoned:2,'eligible Abandons':1,'short Abandons':1,'within Target':2,'completed Handled':4,'talk Seconds':160,'hold Seconds':40,'wrap Seconds':40})){
+  assert.equal(await value(label),String(expected),'reviewed queue '+label)
+ }
+ assert.deepEqual(await metrics.locator('li').allTextContents(),Array.from({length:6},(_,index)=>'synthetic-handset-entry-'+(index+1)),'exact known source legs appear on the wallboard')
+ const agentMeasures=page.locator('#supervision-live article').filter({has:page.getByRole('heading',{name:f.english,exact:true})})
+ const agentValues=await agentMeasures.locator('dl').evaluate(dl=>Object.fromEntries([...dl.querySelectorAll('dt')].map(dt=>[dt.textContent,dt.nextElementSibling.textContent])))
+ assert.deepEqual(agentValues,{'Occupancy':'40.00% (240 of 600)','Staffed seconds':'600','Logged-in seconds':'630','Answered offers':'4','Missed offers':'1',available:'200',ringing:'60',talk:'160',hold:'40',wrap:'40',unavailable:'100',break:'30','logged-out':'60'},'rendered agent offers, staffing and durations reconcile with known legs')
  const text=await page.locator('main').innerText()
  for(const expected of ['40.00% (240 of 600)','600','160','40','synthetic-handset-entry-1','synthetic-handset-entry-6'])assert.ok(text.includes(expected),expected)
  assert.equal(text.includes(f.dataset.entries[0].callId),false,'no caller record identity in wallboard')
@@ -69,6 +76,35 @@ export async function supervisionJourney({runtime,page,context,cookie,proof,clic
   await context.unroute(interrupt)
   await page.locator('#supervision-freshness').filter({hasText:'Live'}).waitFor()
   await proof('supervision-reconnected')
+  // A real native waiting entry crosses a fixed target without changing that
+  // target. Only the isolated Worker clock advances; browser elapsed time does not.
+  revision=(await f.read('/queues/'+f.sales.id)).metrics.config.revision
+  assert.equal((await post(runtime,'/api/handset/metrics/config',metricConfig(f.sales.id,revision,{targetSeconds:60}),{cookie})).status,201)
+  const waiting=await f.admit(f.sales,'en'),queuedAt=Date.now()
+  await Promise.all([page.goto(board),tv.goto(board+'/tv')])
+  assert.equal(await page.locator('[data-breach="true"]').count(),0)
+  assert.equal(await tv.locator('[data-breach="true"]').count(),0)
+  const waitStarted=performance.now()
+  await runtime.setTime(queuedAt+61000)
+  await Promise.all([page.locator('[data-breach="true"]').waitFor({timeout:10000}),tv.locator('[data-breach="true"]').waitFor({timeout:10000})])
+  const waitingVisibleMs=performance.now()-waitStarted
+  assert.ok(waitingVisibleMs<10000,'a native waiting breach reaches supervisor and TV within ten seconds')
+  for(const display of [page,tv]){
+   const now=display.locator('#supervision-live section').filter({has:display.getByRole('heading',{name:'Queue now',exact:true})})
+   const values=await now.locator('dl').evaluate(dl=>Object.fromEntries([...dl.querySelectorAll('dt')].map(dt=>[dt.textContent,dt.nextElementSibling.textContent])))
+   assert.equal(values.Waiting,'1');assert.equal(values['Waiting entries past answer target'],'1')
+   assert.equal(values['Reviewed entries past answer target'],'0');assert.equal(values['Active calls'],'1')
+  }
+  assert.equal((await f.queueRead()).entries.find(e=>e.id===waiting.id).state,'waiting')
+  console.log(JSON.stringify({journey:'supervision-native-wait-breach',width:page.viewportSize().width,visibleMs:waitingVisibleMs}))
+  await proof('supervision-native-wait-breach')
+  await context.route(interrupt,route=>route.abort())
+  const retainedAgent=await agentMeasures.innerText(),retainedTv=await tv.locator('#supervision-metrics').innerText()
+  await Promise.all([page.locator('#supervision-freshness').filter({hasText:'Stale'}).waitFor(),tv.locator('#supervision-freshness').filter({hasText:'Stale'}).waitFor()])
+  assert.equal(await agentMeasures.innerText(),retainedAgent,'update loss retains agent durations and occupancy')
+  assert.equal(await tv.locator('#supervision-metrics').innerText(),retainedTv,'TV retains all source measures instead of healthy zeros')
+  await proof('supervision-native-wait-stale')
+  await context.unroute(interrupt)
  }finally{await tv.close()}
  await page.goto(board+'/tv');assert.equal(await page.locator('form[data-supervision-action]').count(),0);await proof('supervision-tv')
  await page.goto(board)

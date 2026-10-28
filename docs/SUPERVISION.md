@@ -42,5 +42,9 @@ The API journey is `tests/handset-supervision.mjs`. Official Twilio schema-edge
 active-call preservation and refusal are composed into `tests/handset-queues.mjs`.
 The supervisor and TV screen journey is registered in
 `tests/handset-console-browser.mjs` at 1440 and 390. Its breach visibility
-measurement uses the browser's elapsed clock; it also interrupts the actual
-update transport and checks retained values and subsequent revocation.
+measurement uses the browser's elapsed clock. It checks both a reviewed threshold
+change and a native waiting call crossing an unchanged answer target, advancing
+only the isolated Worker clock for the latter. It reconciles displayed source
+legs, every queue total, agent durations, offers, staffing and occupancy against
+the known dataset. Interrupted update transport retains those queue and agent
+values on the supervisor and TV views; subsequent revocation clears access.
