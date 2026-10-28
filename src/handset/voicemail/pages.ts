@@ -13,7 +13,7 @@ const name=(view:MailboxView,id:string|null)=>id?view.people.find(p=>p.id===id)?
 const qualification='<p>Supplied observations only. Capture and transcription are unqualified; audio playback, scheduled greetings and notices are unavailable.</p>'
 function refusalView(refusal?:Refusal,current?:number){
  if(!refusal)return ''
- return `<section role="alert"><h2>Action refused</h2><p>${e(refusal.code.replaceAll('_',' '))}. Your draft is retained. Reload the mailbox to compare the current record before submitting a fresh revision.</p>${refusal.values.revision!==undefined?`<p>Submitted revision: ${e(refusal.values.revision)} · Current revision: ${e(current??'unavailable')}</p>`:''}</section>`
+ return `<section role="alert"><h2>Action refused</h2><p>${e(refusal.code.replaceAll('_',' '))}. Your draft is retained beside the current history. Compare before submitting a fresh revision, or reload the mailbox.</p>${refusal.values.revision!==undefined?`<p>Submitted revision: ${e(refusal.values.revision)} · Current revision: ${e(current??'unavailable')}</p>`:''}</section>`
 }
 export function mailboxUnavailable(status=403,reload=base){
  return consolePage('Mailbox unavailable',`<p role="alert">${status>=500?'Mailbox could not be loaded. Reload to try again.':'You no longer have access to this mailbox.'}</p><p><a href="${e(reload)}">Reload mailbox</a> · <a href="${base}">Return to voicemail</a></p>`,status)
@@ -35,12 +35,17 @@ function history(view:MailboxView,item?:Item){
  const entries=view.history.filter(h=>!item||h.item_id===item.id)
  return `<section><h2>Retained history</h2>${entries.length?`<ol>${entries.map(h=>`<li><strong>${e(h.action)}</strong> · ${e(name(view,h.actor))} · ${e(new Date(h.created_at).toISOString())} · Revision ${e(h.revision)}${h.note?`<p>${e(h.note)}</p>`:''}</li>`).join('')}</ol>`:'<p>No history yet.</p>'}</section>`
 }
+function observations(view:MailboxView,refusal?:Refusal){
+ const path=boxPath(view.box.id),due=view.items.filter(i=>view.due.includes(i.id)),handled=view.items.filter(i=>i.state==='handled')
+ const list=(items:Item[])=>`<ul>${items.map(i=>`<li><strong>${e(i.observation)}</strong><p>${i.language==='es'?'Spanish':'English'} · ${state(i)} · ${e(name(view,i.claimant))}</p><a href="${path}/items/${encodeURIComponent(i.id)}">Open observation</a></li>`).join('')}</ul>`
+ return `<section><h2>Due observations</h2>${due.length?list(due):'<p>No due observations.</p>'}${observationForm(view,refusal)}</section>${handled.length?`<section><details><summary>Handled observations</summary>${list(handled)}</details></section>`:''}`
+}
 export function mailboxDetail(view:MailboxView,itemId?:string,refusal?:Refusal){
  const {box,capabilities:caps}=view,path=boxPath(box.id),item=itemId?view.items.find(i=>i.id===itemId):undefined
  if(itemId&&!item)return consolePage('Observation unavailable',`<p role="alert">This observation is not in the current mailbox.</p><a href="${path}">Reload mailbox</a>`,404)
  const actions=item?itemActions(view,item,refusal):''
- const observations=item?`<section><h2>Supplied observation</h2><p>${e(item.observation)}</p><p>${item.language==='es'?'Spanish':'English'} · <span>${state(item)}</span> · ${e(name(view,item.claimant))} · Revision ${e(item.revision)}</p><details><summary>Source reference</summary><p>${e(item.source_id)}</p></details>${actions}</section>`:`<section><h2>Observations</h2>${view.items.length?`<ul>${view.items.map(i=>`<li><strong>${e(i.observation)}</strong><p>${i.language==='es'?'Spanish':'English'} · ${state(i)} · ${e(name(view,i.claimant))}</p><a href="${path}/items/${encodeURIComponent(i.id)}">Open observation</a></li>`).join('')}</ul>`:'<p>No supplied observations yet.</p>'}${observationForm(view,refusal)}</section>`
- return consolePage(box.name,`<nav><a href="${base}">All mailboxes</a>${item?`<a href="${path}">Mailbox observations</a>`:''}<a href="${path}${item?'/items/'+encodeURIComponent(item.id):''}">Reload mailbox</a>${caps.admin?`<a href="${base}/settings/${encodeURIComponent(box.id)}">Mailbox settings</a>`:''}</nav><p role="status">${kind(box.kind)} · <span>${view.due.length} due</span> · Box owner: ${e(name(view,box.owner_id))}</p>${qualification}${refusalView(refusal,item?.revision??box.revision)}${observations}${history(view,item)}`,refusal?.status??200)
+ const content=item?`<section><h2>Supplied observation</h2><p>${e(item.observation)}</p><p>${item.language==='es'?'Spanish':'English'} · <span>${state(item)}</span> · ${e(name(view,item.claimant))} · Revision ${e(item.revision)}</p><details><summary>Source reference</summary><p>${e(item.source_id)}</p></details>${actions}</section>`:observations(view,refusal)
+ return consolePage(box.name,`<nav><a href="${base}">All mailboxes</a>${item?`<a href="${path}">Mailbox observations</a>`:''}<a href="${path}${item?'/items/'+encodeURIComponent(item.id):''}">Reload mailbox</a>${caps.admin?`<a href="${base}/settings/${encodeURIComponent(box.id)}">Mailbox settings</a>`:''}</nav><p role="status">${kind(box.kind)} · <span>${view.due.length} due</span> · Box owner: ${e(name(view,box.owner_id))}</p>${qualification}${refusalView(refusal,item?.revision??box.revision)}${content}${history(view,item)}`,refusal?.status??200)
 }
 function itemActions(view:MailboxView,item:Item,refusal?:Refusal){
  const path=boxPath(view.box.id)+'/items/'+encodeURIComponent(item.id),caps=view.capabilities

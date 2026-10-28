@@ -162,6 +162,16 @@ export async function voicemailJourney({ runtime, page, context, cookie, proof: 
   await Promise.all([reload(page), reload(peer)])
   for (const target of [page, peer]) { await state(target, 'Handled'); await due(target, 1) }
   await proof('voicemail-handled')
+  for (const target of [page, peer]) {
+   await target.goto(runtime.origin + boxPath)
+   const dueList = target.locator('section').filter({ has: target.getByRole('heading', { name: 'Due observations', exact: true }) })
+   assert.equal((await dueList.innerText()).includes(observations[0].text), false)
+   assert.ok((await dueList.innerText()).includes(observations[1].text))
+   await target.getByText('Handled observations', { exact: true }).click()
+   assert.equal(await target.locator(`a[href="${itemPath}"]`).count(), 1, 'handled observation remains retrievable')
+  }
+  await proof('voicemail-cleared-due-list')
+  await Promise.all([page.goto(runtime.origin + itemPath), peer.goto(runtime.origin + itemPath)])
   await submit(page, 'Reopen item'); await state(page, 'Open'); await due(page, 2)
   await Promise.all([reload(page), reload(peer)])
   for (const target of [page, peer]) { await state(target, 'Open'); await due(target, 2) }
