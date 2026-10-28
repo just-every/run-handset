@@ -96,6 +96,11 @@ test('A 200-person roster and 100 configured agents admit a concurrent twenty-ca
   assert.deepEqual(state.entries,retained.entries);assert.deepEqual(state.reservations,retained.reservations);assert.deepEqual(state.offers,retained.offers)
   const replay=await f.edge.callback(calls[1]);assert.equal(replay.status,200);assert.ok(!(await replay.text()).includes('<Dial'))
   assert.equal((await f.read()).offers.length,21)
+  await f.write(f.base+'/sources/revoke',{bindingId:f.binding.id})
+  assert.equal((await f.edge.callback(f.edge.resource(320))).status,403)
+  assert.equal((await f.edge.callback(calls[1])).status,403,'revocation fences retained callers as well as fresh admission')
+  state=await f.read()
+  assert.deepEqual(state.entries,retained.entries);assert.deepEqual(state.reservations,retained.reservations);assert.deepEqual(state.offers,retained.offers)
   assert.ok(runtime.sourceRequests.every(r=>r.method==='GET'),'qualification creates no paid outbound API effects')
   t.diagnostic(JSON.stringify({people:200,agents:100,concurrentInbound:20,accepted:20,refused:20,boundaryAccepted:1,boundaryRefused:19,retainedReservations:21,configuredMs:Math.round(configuredMs),surgeMs:Math.round(surgeMs),refusalMs:Math.round(refusalMs),hostedCarrierCapacity:'unmeasured'}))
  }finally{await runtime.close()}
