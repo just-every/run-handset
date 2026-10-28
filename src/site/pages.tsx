@@ -4,6 +4,7 @@
 import type { ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { contractPageHtml } from '../base/contract-page'
+import { runPricing } from '../base/run-pricing'
 import { runPageHtml, siteNotFoundHtml, type RunData, type SiteBuild, type SiteContext } from '../base/run-site'
 import { identity } from '../identity'
 import { wearSite } from './base-pages'
@@ -37,7 +38,7 @@ const sharedHead = (title: string, description: string) => <>
 </>
 
 export function sitePages({ styles, contract }: SiteContext): SiteBuild {
-  const data: RunData = run
+  const data: RunData = { ...run, pricing: runPricing }
   const document = (title: string, description: string, body: ReactElement, script = '') => '<!doctype html>' + renderToStaticMarkup(
     <html lang="en">
       <head>

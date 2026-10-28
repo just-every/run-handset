@@ -2,9 +2,9 @@
   "name": "Handset",
   "repository": "https://github.com/just-every/run-handset",
   "clone": "npx -y @runeditrun/rer dev just-every/run-handset",
-  "folder": "run-handset",
-  "requirements": "Runs on macOS, Linux or Windows with WSL2, with git. The installer brings Node when it is missing, and rer brings pnpm.",
   "licence": "MIT",
   "docs": true,
-  "hosted": []
+  "paths": {
+    "product": null
+  }
 }
