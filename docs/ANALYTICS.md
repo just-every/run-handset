@@ -125,7 +125,7 @@ must not be summed as distinct calls or complete customer resolutions.
 
 The execution details filter intersects the existing call filters. Custom dashboards
 can show distinct calls with confirmed recorded handoffs and pending receptionist
-work in every existing group. CSV carries confirmed and pending step IDs and open
+work in every existing group. CSV carries confirmed, pending and rejected step IDs and open
 exception IDs; API, retained history and scheduled snapshots preserve the same
 selection and captured provenance. These observations qualify recorded effects only;
 they do not establish human acceptance, a complete receptionist session or audio.

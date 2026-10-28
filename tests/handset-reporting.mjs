@@ -392,6 +392,13 @@ test('Call-bound reports attribute verified handlers and reconcile booking conta
   assert.equal((await runtime.request('/api/handset/metrics/live?queueId=*&receptionistState=done',{headers})).status,400)
   const pendingCsv=await (await runtime.request('/api/handset/metrics/csv?queueId=*&receptionistState=pending',{headers})).text()
   assert.equal(pendingCsv.trim().split('\r\n').length,2);assert.ok(pendingCsv.includes(calls[3].recordId));assert.ok(pendingCsv.includes(f.uncertain.step.id));assert.ok(!pendingCsv.includes(f.crm.step.id));assert.ok(!pendingCsv.includes(f.rejected.step.id))
+  const rejectedCsvResponse=await runtime.request('/api/handset/metrics/csv?queueId=*&receptionistState=rejected',{headers})
+  assert.equal(rejectedCsvResponse.status,200)
+  const rejectedCsv=await rejectedCsvResponse.text(),[rejectedHeader,rejectedRow]=rejectedCsv.trim().split('\r\n').map(line=>JSON.parse('['+line+']'))
+  assert.equal(rejectedRow[rejectedHeader.indexOf('call_id')],calls[4].recordId)
+  assert.equal(rejectedRow[rejectedHeader.indexOf('rejected_receptionist_effect_ids')],f.rejected.step.id)
+  assert.equal(rejectedRow[rejectedHeader.indexOf('pending_receptionist_effect_ids')],'')
+  assert.ok(!rejectedCsv.includes(f.uncertain.step.id));assert.ok(!rejectedCsv.includes(f.crm.step.id))
 
   assert.deepEqual([n.conversion.numerator,n.conversion.denominator,n.conversion.value],[3,6,0.5])
   assert.deepEqual(n.conversion.convertedCallIds,[calls[1],calls[2],calls[4]].map(c=>c.recordId));assert.deepEqual(n.conversion.eligibleCallIds,calls.map(c=>c.recordId))
