@@ -383,8 +383,16 @@
       "sha256": "bcdc61800277312ffddb04d206f0b9eac4119f9481f0487930a71dcf0ced2c6e",
       "executable": false
     },
+    "docs/contract/adopted-defaults.md": {
+      "sha256": "733643307671b20dffc7f72408788ccb5db312a81a419387cac99fdfaffa1af9",
+      "executable": false
+    },
     "docs/contract/COVERAGE.json": {
       "sha256": "5e956c66710e0a1f6826dabb86b7e99c7feb0192a1aef4e24dd50fa906fd7f36",
+      "executable": false
+    },
+    "docs/contract/DONE-AUDIT.md": {
+      "sha256": "f55ef2edb58160ca7e19b076e18a926e0435c65d09d5283374ed121c22c20e1b",
       "executable": false
     },
     "docs/contract/ID-MAP.json": {
@@ -1149,6 +1157,10 @@
     },
     "rer-setup.json": {
       "sha256": "6d5f53b24ddb543d934edd066ad54d9848437040d4cb48d3610a081cbe253e71",
+      "executable": false
+    },
+    "RULINGS.md": {
+      "sha256": "10060c782344b5ba03e348b9d13faee4d73f7ed673475b04c0c163b1423a9435",
       "executable": false
     },
     "RUN-LOCALLY.md": {
