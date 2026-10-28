@@ -1,5 +1,5 @@
 import { Fault } from '../core'
-import { entryGuard, event, guard, queue, statement, write, type Context } from './storage'
+import { entry, entryGuard, event, guard, queue, statement, write, type Context } from './storage'
 import { overflow } from './entries'
 import { currentOffer } from './offers'
 import { recoverOffer } from './offer-readback'
@@ -55,7 +55,7 @@ export async function dispatch(ctx:Context,queueId:string){
   const {agent:a,slot}=selected
   const claimNow=Date.now()
   if(row.deadline_at<=claimNow){await overflow(ctx,row,q,'maximum_wait',claimNow);overflowed.push(row.id);continue}
-  await write(ctx,row.id,[entryGuard(ctx,row),
+  try{await write(ctx,row.id,[entryGuard(ctx,row),
    guard(ctx,'SELECT count(*) FROM hnd_queues WHERE id=? AND revision=?',q.id,q.revision),
    guard(ctx,`SELECT count(*) FROM hnd_queue_agents a JOIN hnd_queue_memberships m ON m.operator_id=a.operator_id JOIN oa_operators o ON o.id=a.operator_id WHERE a.operator_id=? AND a.revision=? AND a.availability='available' AND a.heartbeat_at>? AND a.wrap_until<=? AND a.capacity>=? AND m.queue_id=? AND m.logged_in=1 AND m.revision=? AND o.status='active'`,a.operator_id,a.revision,claimNow-presenceFreshMs,claimNow,slot,q.id,a.membership_revision),
    guard(ctx,'SELECT CASE WHEN EXISTS(SELECT 1 FROM hnd_queue_reservations WHERE agent_id=? AND slot=?) THEN 0 ELSE 1 END',a.operator_id,slot),
@@ -63,7 +63,10 @@ export async function dispatch(ctx:Context,queueId:string){
    statement(ctx,"UPDATE hnd_queue_entries SET state='reserved',agent_id=?,reserved_at=?,reason='',revision=revision+1 WHERE id=?",a.operator_id,claimNow,row.id),
    statement(ctx,'UPDATE hnd_queue_agents SET last_assignment_at=?,idle_since=?,revision=revision+1 WHERE operator_id=?',claimNow,claimNow,a.operator_id),
    event(ctx,'entry.reserved',q.id,row.id,a.operator_id,{slot,leaseUntil:claimNow+reservationLeaseMs,deadlineAt:row.deadline_at},claimNow),
-  ])
+  ])}catch(error){
+   if(error instanceof Fault&&error.code==='state_changed'&&(await entry(ctx,row.id)).state!=='waiting')continue
+   throw error
+  }
   assigned.push(row.id)
  }
  return {...recovery,assigned,overflowed,transport:'unknown'}

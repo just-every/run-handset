@@ -81,3 +81,32 @@ export async function authorizeQueueMedia(f,source){
  const binding=await f.write(f.base+'/sources',{sourceId:source.source.id,queueId:f.sales.id,language:'en',spanishDigit:'2',confirm:'authorize signed inbound queue routing'},201)
  return {destinations,overflowUrl,binding,edge:queueProviderFixture(f.runtime,source,binding)}
 }
+
+// People are fixture data; agent capabilities, presence, membership, source
+// consent and exact destinations all use the native configuration doors.
+export async function capacityFixture(runtime,source){
+ const headers=source.headers,base='/api/handset/queues'
+ async function write(path,value,status=200){
+  const response=await post(runtime,path,value,headers)
+  assert.equal(response.status,status,await response.clone().text());return response.json()
+ }
+ async function read(path=base){
+  const response=await runtime.request(path,{headers})
+  assert.equal(response.status,200,await response.clone().text());return response.json()
+ }
+ const people=Array.from({length:198},(_,i)=>'synthetic-handset-'+(2000+i))
+ await runtime.db.batch(people.map((operatorId,i)=>runtime.db.prepare('INSERT INTO oa_operators(id,email,display_name,role,status,created_at) VALUES (?,?,?,?,?,?)').bind(operatorId,[operatorId,'example.test'].join('@'),'Service agent '+(i+1),'member','active',Date.now())))
+ await write('/auth/operator/status',{operatorId:'synthetic-handset-2',status:'active'})
+ const agents=people.slice(0,100),destinations={}
+ const queue=await write(base,{name:'Capacity qualification',mode:'round_robin',skills:[],maxWaitSeconds:3600,wrapSeconds:0,maxWaiting:20,overflowKind:'voicemail',confirm:'approve native queue policy'},201)
+ for(const operatorId of agents){
+  const agent=await write(base+'/agents',{operatorId,languages:['en'],skills:[],capacity:1,confirm:'approve native agent capabilities'},201)
+  await write(base+'/presence',{operatorId,availability:'available',revision:agent.revision})
+  await write(base+'/'+queue.id+'/memberships',{operatorId,loggedIn:1,confirm:'approve queue membership'})
+  destinations[operatorId]='sip:'+operatorId+'@synthetic-handset-2300.example.test'
+  await write(base+'/agents/'+operatorId+'/route',{sourceId:source.source.id,kind:'sip',destination:destinations[operatorId],confirm:'approve exact queue agent route'})
+ }
+ await write(base+'/overflow/'+queue.id+'/route',{url:'https://synthetic-handset-2301.example.test/voicemail',confirm:'approve exact queue overflow route'})
+ const binding=await write(base+'/sources',{sourceId:source.source.id,queueId:queue.id,language:'en',spanishDigit:'2',confirm:'authorize signed inbound queue routing'},201)
+ return {agents,destinations,queue,binding,edge:queueProviderFixture(runtime,source,binding),read,write,headers,base}
+}

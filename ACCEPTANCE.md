@@ -8,10 +8,10 @@ The primary journey: a US business moves its numbers and call flows from its inc
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 2 | 34 | 62 | 98 |
+| Core | 2 | 35 | 61 | 98 |
 | Agent surface | 0 | 0 | 5 | 5 |
 | Later | 2 | 1 | 9 | 12 |
-| Full target | 4 | 35 | 76 | 115 |
+| Full target | 4 | 36 | 75 | 115 |
 
 Judged from the code and tests at commit `16fcbb49d66e143a234947a97c0e88d8e7add2ff` (29 October 2026). Field proof register: 19 rows; 0 passed, 0 failed, 19 not run.
 
@@ -199,7 +199,7 @@ Core · target · **missing** · Rules D-1, D-2 · Register R-8
 
 #### HND-069 — Capacity crash recovery and service restoration
 
-Core · target · **missing** · Rules D-1, D-5, D-6 · Register R-17
+Core · target · **partial** · Rules D-1, D-5, D-6 · Register R-17
 
 **Requirement.** Qualify a 200-person business with a 100-agent contact center and the HND-016 surge using declared simultaneous-call, message throughput, recording and storage and archive bounds. Publish measured limits and admission behavior in the installation rather than borrowing carrier SLA figures. Durable call-leg reservations, callback leases, schedules and connector outboxes survive restart without duplicate paid effects; uncertain active calls remain uncertain until provider readback. Region, carrier, worker and media-component failure is exercised separately. Backup and recovery objectives and restore times are owner-visible and measured against realistic retained history; recovery does not replay outreach or silently lose consent.
 
@@ -208,8 +208,8 @@ Core · target · **missing** · Rules D-1, D-5, D-6 · Register R-17
 2. Interrupt Worker, media gateway and carrier independently at dial, connect and commit boundaries, restart and reconcile actual outcomes once.
 3. Restore the complete archive and report measured recovery and any unmeasured hosted-carrier capacity honestly.
 
-**Evidence.** None.
-**Gap.** No implementation: capacity crash recovery and service restoration and the complete acceptance journey are missing.
+**Evidence.** Native roster, capacity readback, concurrent signed admission, unique source identities, bounded refusal without disturbing accepted calls and retained reservations after Worker restart: `tests/handset-queues.mjs` — A 200-person roster and 100 configured agents admit a concurrent twenty-call signed surge, refuse saturation and retain unique reservations after restart. Fixture bounds and measurement boundary: `docs/CAPACITY.md`.
+**Gap.** Acceptance 1 is qualified only for a seeded 200-person business, 100 natively configured active agents and a concurrent 20-call official-schema ingress fixture. Remaining load and carrier residual: continued emergency and callback qualification under saturation; message throughput and recording, storage and archive bounds; complete region, carrier, media and Worker fault matrix at dial, connect and commit; complete archive restore (shares Base-held HND-065), including unadopted Base restore and custody-retirement doors, consent and outreach preservation, measured recovery objectives and retained-history restore times. Measured hosted-carrier capacity remains unmeasured; Field proof register R-17 remains not run.
 
 ### Routing, people and endpoints
 
