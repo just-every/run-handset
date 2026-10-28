@@ -235,6 +235,66 @@
           }
         ]
       }
+    },
+    {
+      "id": "runeditrun/agent-door",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/modules/agent-door"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "d555e789cffb744a9f83d76ebe42a2e3bdd7a055",
+          "path": "modules/agent-door"
+        }
+      }
+    },
+    {
+      "id": "runeditrun/business-settings",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/modules/business-settings"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "d555e789cffb744a9f83d76ebe42a2e3bdd7a055",
+          "path": "modules/business-settings"
+        }
+      }
+    },
+    {
+      "id": "runeditrun/business-theme",
+      "role": "module",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/foundation/runtime/theme-frame.ts",
+          "src/foundation/runtime/icon-head.ts"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "d555e789cffb744a9f83d76ebe42a2e3bdd7a055",
+          "path": "foundation/runtime",
+          "paths": [
+            "theme-frame.ts",
+            "icon-head.ts"
+          ]
+        },
+        "mappings": [
+          {
+            "path": "src/foundation/runtime/theme-frame.ts",
+            "originPath": "theme-frame.ts"
+          },
+          {
+            "path": "src/foundation/runtime/icon-head.ts",
+            "originPath": "icon-head.ts"
+          }
+        ]
+      }
     }
   ]
 }

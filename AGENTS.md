@@ -181,3 +181,6 @@ their maintenance.
 
 Pinned reference: https://github.com/runeditrun/base/blob/d1249b3d696c4011e9c72de2097f3757436074a6/TANSTACK-START-MIGRATION.md
 Native-session/runtime evidence: https://github.com/runeditrun/base/tree/d1249b3d696c4011e9c72de2097f3757436074a6/default-seed
+
+See [Agent access](docs/AGENT-ACCESS.md) for the current scoped application
+doors, signed Business people binding and the limits of shared-door adoption.
