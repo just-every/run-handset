@@ -41,7 +41,7 @@ The primary journey: a US business moves its numbers and call flows from its inc
 | BASE-ACCESS-004 | Server-side authorisation | HND-064, HND-030 | not run |
 | BASE-INPUT-001 | Validation | none | not run |
 | BASE-INPUT-002 | HTML | none | not run |
-| BASE-INPUT-003 | Uploads | HND-048, HND-087 | not run |
+| BASE-INPUT-003 | Uploads | HND-087, HND-048 | not run |
 | BASE-SECRET-001 | No leakage | HND-048 | not run |
 | BASE-SECRET-002 | Startup | HND-063 | not run |
 | BASE-DATA-001 | Export and import | HND-065 | not run |
@@ -50,7 +50,7 @@ The primary journey: a US business moves its numbers and call flows from its inc
 | BASE-DATA-004 | Outbound flows | HND-048 | not run |
 | BASE-DATA-005 | Independence | HND-063 | not run |
 | BASE-DATA-006 | Erasure respects retention and legal hold | HND-046, HND-066 | not run |
-| BASE-PUBLIC-001 | Privacy | HND-023 | not run |
+| BASE-PUBLIC-001 | Privacy | HND-023, HND-070 | not run |
 | BASE-PUBLIC-002 | Origins | HND-023 | not run |
 | BASE-PUBLIC-003 | Accessibility | HND-070 | not run |
 | BASE-OPS-001 | Health | HND-063 | not run |
@@ -61,12 +61,12 @@ The primary journey: a US business moves its numbers and call flows from its inc
 | BASE-ROLE-001 | Roles through every door | HND-027, HND-105 | not run |
 | BASE-AUDIT-001 | Searchable, durable audit | HND-047 | not run |
 | BASE-BACKUP-001 | Independent backup, restore and rollback | HND-065 | not run |
-| BASE-SIGNIN-001 | Standards-based SSO and lifecycle | HND-042 | not run |
+| BASE-SIGNIN-001 | Standards-based SSO and lifecycle | HND-027, HND-042 | not run |
 | BASE-SIGNIN-002 | Native multi-factor authentication | HND-042 | not run |
 | BASE-INSTALL-001 | Free self-host and removal | HND-063 | not run |
 | BASE-MAIL-001 | Truthful mail outcomes | HND-104, HND-072 | not run |
 | BASE-ACCESSIBILITY-001 | One accessibility bar | HND-070 | not run |
-| BASE-DOCS-001 | On-site docs from one contract | none | not run |
+| BASE-DOCS-001 | On-site docs from one contract | HND-070 | not run |
 | BASE-AGENT-001 | One MCP door per seed | SURFACE-001 | not run |
 | BASE-AGENT-002 | The seed's jobs are tools | SURFACE-001 | not run |
 | BASE-AGENT-003 | Records are resources | SURFACE-001 | not run |
