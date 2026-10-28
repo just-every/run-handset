@@ -8,11 +8,12 @@ const escape = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, c => 
 
 // Daily work stays in the bar; configuration and oversight live under Settings.
 export const work = [
- ['/app/followups', 'Follow-ups'], ['/app/cases', 'Cases'], ['/app/messages', 'Messages'], ['/app/recovery', 'Recovery'], ['/app/callbacks', 'Callbacks'],
+ ['/app/followups', 'Follow-ups'], ['/app/cases', 'Cases'], ['/app/messages', 'Messages'], ['/app/voicemail', 'Voicemail'], ['/app/recovery', 'Recovery'], ['/app/callbacks', 'Callbacks'],
  ['/app/queues', 'Queues'], ['/app/front-desk', 'Front desk'], ['/app/recordings', 'Recordings'], ['/app/receptionist', 'Caller outcomes'],
 ] as const
 export const settings = [
  ['/app/numbers', 'Numbers'],
+ ['/app/voicemail/settings', 'Mailbox setup'],
  ['/app/queues/settings', 'Queue setup'], ['/app/queues/media', 'Media routes'], ['/app/flows', 'Call flows'], ['/app/front-desk/settings', 'Front desk setup'], ['/app/receptionist/settings', 'Caller outcome limits'], ['/app/callbacks/settings', 'Callback policy'],
  ['/app/rules', 'Rules'], ['/app/operations', 'Continuity'], ['/app/compliance', 'Number compliance'], ['/app/dialer', 'Dialer'], ['/app/protection', 'Protection'],
  ['/app/sources', 'Sources'], ['/app/grants', 'Application grants'], ['/app/admin/templates', 'Templates'], ['/app/admin/bulk', 'Bulk administration'],

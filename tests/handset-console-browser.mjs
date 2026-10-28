@@ -25,8 +25,9 @@ import { metricDataset,metricStart,metricConfig } from './helpers/handset-metric
 import { importDataset } from './helpers/handset-import.mjs'
 import { createEdges } from './helpers/handset-edges.mjs'
 import { reportingDashboardJourney } from './helpers/handset-reporting-browser.mjs'
+import { voicemailJourney } from './helpers/handset-voicemail-browser.mjs'
 
-for(const width of [1440,390])for(const domain of ['supervision','compliance','messages','numbers','administration','queues','queue-media','flows','prompts','callbacks','metrics','protection','dialer'])test(`${domain} console at ${width}`,async()=>{
+for(const width of [1440,390])for(const domain of ['supervision','compliance','messages','numbers','administration','queues','queue-media','flows','prompts','callbacks','metrics','protection','dialer','voicemail'])test(`${domain} console at ${width}`,async()=>{
  const reportingEdges=domain==='metrics'?createEdges():null
  const runtime=await openHandset({twilio:true,edges:reportingEdges,callingClock:domain==='dialer',...(domain==='messages'?{clockTime:messageNow}:domain==='metrics'?{clockTime:analyticsNow}:domain==='supervision'?{clockTime:Date.UTC(2026,9,28,12)}:domain==='numbers'?{clockTime:Date.UTC(2026,9,27,12)}:{}),...(domain==='prompts'?{ttsEdge:speechEdge}:{})}),browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic',...(domain==='prompts'?['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']:[])]})
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage()
@@ -50,6 +51,7 @@ for(const width of [1440,390])for(const domain of ['supervision','compliance','m
   let {cookie}=await signIn(runtime);const [cookieName,...cookieValue]=cookie.split('=')
   await context.addCookies([{name:cookieName,value:cookieValue.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
   if(domain==='supervision')await supervisionJourney({runtime,page,context,cookie,proof,click})
+  if(domain==='voicemail')await voicemailJourney({runtime,page,context,cookie,proof,click})
   if(domain==='messages')await messageJourney({runtime,page,context,cookie,proof,click})
   if(domain==='numbers')await numbersJourney({runtime,page,context,cookie,proof,click})
   if(domain==='compliance')await complianceJourney({runtime,page,context,cookie,proof,click})
@@ -242,7 +244,7 @@ for(const width of [1440,390])for(const domain of ['supervision','compliance','m
   const member=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'}),[memberName,...memberValue]=member.cookie.split('=')
   await context.clearCookies();await context.addCookies([{name:memberName,value:memberValue.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
   const privatePaths={compliance:[['/app/compliance','compliance']],supervision:[['/app/supervision/settings','supervision']],messages:[['/app/messages','messages']],numbers:[['/app/numbers','numbers']],flows:[['/app/flows','flows']],administration:[['/app/admin/bulk','bulk'],['/app/admin/templates','template']],queues:[['/app/queues','queue']],'queue-media':[['/app/queues/media','queue-media']],metrics:[['/app/reports/queues','report'],['/app/import','import']],protection:[['/app/protection','protection']],dialer:[['/app/dialer','dialer']],prompts:[['/app/prompts','prompts']],callbacks:[['/app/callbacks','callbacks']]}
-  for(const [path,name] of privatePaths[domain]){
+  for(const [path,name] of domain==='voicemail'?[]:privatePaths[domain]){
    await page.goto(runtime.origin+path);await page.getByRole('alert').waitFor();await proof(name+'-permission-denied')
   }
  }finally{await context.close();await browser.close();await runtime.close()}
