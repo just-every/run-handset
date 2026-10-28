@@ -10,6 +10,7 @@ CONTRACT.md was rewritten to the RER contract standard from main `3f0fa40d5a6f02
 - Rulings moved to RULINGS.md (RL-1 to RL-13 from the contract; ct's RL-101 to RL-112 moved in verbatim); builder defaults awaiting ct moved to `docs/contract/adopted-defaults.md`; the hand-written ACCEPTANCE.md is kept as `docs/contract/acceptance-before-cleanup.md`; the hand-written root CLAIMS.md became the Homepage claims table, and docs/CLAIMS.md is generated.
 - The Agent surface was written: the front-office phone operator specialist, its class computation, tool table and SURFACE-001 to SURFACE-005.
 - HND-027 became missing: its old Gap names the role matrix, SSO and SCIM, the 120-second deprovisioning bound and US data readback as unbuilt, and its delivered greeting-draft slice moved to HND-105.
+- Judge round 1 fix: approval wording in D-3, HND-011, HND-049 point 3, HND-072 point 1 and HND-075 point 2 now names the company's policy or the held policy, so no step an agent takes waits for a person by default. No status, point scope or audit row changed.
 
 ## Contract source before 3f0fa40d5a6f029f3aaa26c65f6f3b19bc2d8ad5
 
