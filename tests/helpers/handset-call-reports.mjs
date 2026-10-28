@@ -43,7 +43,7 @@ export async function callReportsFixture(runtime,edges){
  }
  await runtime.setTime(callReportStart+6*3600000)
  source.cookie=(await signIn(runtime)).cookie;source.headers.cookie=source.cookie
- await write('/api/handset/receptionist/policy',{policy:policyFor('synthetic-handset-1'),expectedVersion:0,confirm:'set receptionist limits'})
+ await write('/api/handset/receptionist/policy',{policy:policyFor('synthetic-handset-1',calls.map(c=>({caseId:c.caseId,conversationId:'synthetic-handset-710'}))),expectedVersion:0,confirm:'set receptionist limits'})
  const issued=await write('/api/handset/mcp/consent',{name:'Call-bound reporting outcomes',definition:{scopes:['send'],tools:['outcome.work'],records:[...new Set(calls.map(c=>c.caseId))],numbers:[],recipients:[],budgetCents:0,policyRevision:'owner-only-v1'},expiresAt:Date.now()+3600000,confirm:'approve scoped credential'})
  const agent=(path,value,status=200)=>write('/api/handset/application/receptionist/'+path,value,status,{authorization:'Bearer '+issued.token})
  const outcomes=[]
@@ -59,6 +59,20 @@ export async function callReportsFixture(runtime,edges){
   }
   if(index===2)await agent('outcomes/'+opened.outcome.id+'/escalations',{kind:'human_request',detail:'Customer asked for staff'})
  }
+ // Receiving systems retain their own effect records. A confirmed handoff is
+ // distinct from human acceptance; a lost acknowledgement stays outstanding.
+ const initial=await (await runtime.request('/api/handset/metrics/live?queueId=*',{headers:source.headers})).json()
+ assert.deepEqual(initial.native.receptionist.states.unstarted,[calls[3].recordId],'opening work without an effect never becomes completed work')
+ const crm=await agent('outcomes/'+outcomes[1].id+'/handoffs/crm',{summary:'Booked furnace visit; staff must call back'})
+ assert.equal(crm.step.state,'confirmed');assert.ok(edges.effects.has(crm.step.externalId))
+ const support=await agent('outcomes/'+outcomes[1].id+'/handoffs/support',{conversationId:'synthetic-handset-710',summary:'Customer requested staff'})
+ assert.equal(support.step.state,'confirmed');assert.ok(edges.conversations.get('synthetic-handset-710').messages.some(m=>m.id===support.step.externalId))
+ edges.drop.add('orbit')
+ const uncertain=await agent('outcomes/'+outcomes[2].id+'/handoffs/crm',{summary:'Please follow up this unresolved call'})
+ assert.equal(uncertain.step.state,'uncertain');assert.ok(edges.effects.has('handset-'+outcomes[2].id+'-crm'))
+ edges.orbitMissingScope=true
+ const rejected=await agent('outcomes/'+outcomes[3].id+'/handoffs/crm',{summary:'Recovery needs staff follow-up'})
+ assert.equal(rejected.step.state,'rejected');edges.orbitMissingScope=false
  const unlinked=await agent('outcomes',{callId:'synthetic-handset-unlinked',caseId:calls[1].caseId,language:'en',callerName:'Jordan Lee',callerEmail:'synthetic-handset-unlinked@example.test',identityBasis:'callback_to_number_on_file',identityVerified:true},201)
  const wrongCase=await agent('outcomes',{callId:calls[0].recordId,caseId:calls[1].caseId,language:'en',callerName:'Jordan Lee',callerEmail:'synthetic-handset-wrong-case@example.test',identityBasis:'callback_to_number_on_file',identityVerified:true},201)
  const wrongSlot=new Date(callReportStart+3*86400000).toISOString();edges.slots.push(wrongSlot)
@@ -84,5 +98,5 @@ export async function callReportsFixture(runtime,edges){
  await runtime.setTime(callReportNow)
  source.cookie=(await signIn(runtime)).cookie;source.headers.cookie=source.cookie
  const assignment=await write('/api/handset/metrics/groups',{number:'+15125550125',team:'Support',location:'Austin',trackingSource:'Winter repairs',revision:0})
- return {source,calls,dataset,outcomes,recoveries,failedRecording,wrongCase:wrongCase.outcome,unlinked:unlinked.outcome,assignment,handler:f.spanish,write}
+ return {source,calls,dataset,outcomes,recoveries,failedRecording,crm,support,uncertain,rejected,wrongCase:wrongCase.outcome,unlinked:unlinked.outcome,assignment,handler:f.spanish,write}
 }
