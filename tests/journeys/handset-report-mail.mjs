@@ -14,7 +14,7 @@ try {
  const f=await callReportsFixture(runtime,edges)
  const config=await f.write('/api/handset/metrics/config',metricConfig('queue-A',0,{startAt:callReportStart,endAt:callReportNow,repeatWindowHours:24}))
  const schedule={queueId:'queue-A',configRevision:config.revision,recipient:runtime.ownerEmail,dueAt:callReportNow,confirm:'schedule this owner report'}
- await f.write('/api/handset/metrics/schedule',{...schedule,recipient:'synthetic-handset-restricted@example.test'},403)
+ await f.write('/api/handset/metrics/schedule',{...schedule,recipient:runtime.ownerEmail.replace('@','+restricted@')},403)
  const approved=await f.write('/api/handset/metrics/schedule',schedule)
  await runtime.scheduled()
  const submitted=runtime.mails.filter(m=>m.subject==='Handset queue report: queue-A')
