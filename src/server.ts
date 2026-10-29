@@ -1,3 +1,4 @@
+import { handsetAgentDoor } from './handset/agents/door'
 import { groupProviderResponse } from './handset/messages/groups'
 import { withDemo } from './modules/demo/index.mjs'
 import { seedDemo } from './demo'
@@ -54,6 +55,8 @@ function noTransform(response: Response): Response {
 export default withDemo<Bindings, ExportedHandler<Bindings>>({
   async fetch(request, env, execution) {
     return observeProduct(request,env,async()=>{
+    const agent = await handsetAgentDoor(env).handle(request)
+    if (agent) return agent
     const business = await businessSettings(runtimeBindings(env)).handle(request)
     if (business) return business
     const groups = await groupProviderResponse(request,env)
@@ -113,3 +116,5 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     await tickRules(runtimeBindings(env), event.scheduledTime)
   },
 } satisfies ExportedHandler<Bindings>, { seed: seedDemo })
+
+export { HandsetAgentJobs } from './handset/agents/jobs'

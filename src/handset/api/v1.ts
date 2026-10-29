@@ -9,7 +9,7 @@ import { Fault, input, integer, json, keys, text } from '../core'
 
 const root = '/api/handset/v1'
 const spec = {
- openapi: '3.1.0', info: { title: 'Handset scoped work API', version: '1.0.0', description: 'Current native cases, unpublished drafts and held reviewed work. Qualified calling, messaging, numbers, flow publication, recording/media and standard MCP authorization remain pending.' },
+ openapi: '3.1.0', info: { title: 'Handset scoped work API', version: '1.0.0', description: 'Current native cases, unpublished drafts and held reviewed work. Qualified calling, messaging, numbers, flow publication, recording/media remain pending. MCP aliases use the shared company-policy door.' },
  servers: [{ url: root }], security: [{ scopedCredential: [] }], components: { securitySchemes: { scopedCredential: { type: 'http', scheme: 'bearer', description: 'Explicit native-owner issued revocable application credential. No human cookies or inherited account permissions.' } } },
  paths: {
   '/openapi.json': { get: { summary: 'Read this current capability contract', responses: { '200': { description: 'OpenAPI document' }, '401': { description: 'Inactive credential' } } } },
@@ -19,7 +19,7 @@ const spec = {
   '/drafts': { post: { summary: 'Create one unpublished draft under comment.draft', parameters: [{ name: 'Idempotency-Key', in: 'header', required: true, schema: { type: 'string', maxLength: 100 } }], requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['caseId','text'], additionalProperties: false, properties: { caseId: { type: 'string' }, text: { type: 'string', maxLength: 4000 } } } } } }, responses: { '201': { description: 'Unpublished draft' }, '200': { description: 'Same key and same request replay the original draft' }, '409': { description: 'Changed payload or concurrent claim; retry the same unchanged key' } } } },
   '/prepare': { post: { summary: 'Prepare exact reviewed work; unqualified provider effects stay held', responses: { '202': { description: 'Held job with stable idempotency key' }, '403': { description: 'Current scope, grant or exact approval refused' } } } },
   '/execute': { post: { summary: 'Recheck current reviewed work; provider effects remain held', responses: { '202': { description: 'Held, no external effect' }, '403': { description: 'Inactive authority' } } } },
-  '/mcp': { post: { summary: 'Existing scoped JSON-RPC MCP tools; standard MCP authorization pending', responses: { '200': { description: 'Scoped tool result' }, '401': { description: 'Credential revoked or expired' } } } },
+  '/mcp': { post: { summary: 'Shared company-policy MCP door; protocol 2026-07-28 or 2025-11-25', responses: { '200': { description: 'Scoped tool result' }, '401': { description: 'Credential revoked or expired' } } } },
  },
 }
 /** Versioned public door: current application credentials, per-grant rate limits,

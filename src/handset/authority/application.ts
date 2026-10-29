@@ -6,7 +6,7 @@ import { append } from '../audit/store'
 import type { AppliedPolicy } from '../audit/policy'
 import { getCase } from '../records/store'
 import { scopeFor, state, type State, type Definition, type Bounds, type Tool } from './model'
-import { mcpTools, mcpToolResult } from '../api/mcp'
+import type { ToolContext } from '../../modules/agent-door/index.ts'
 import { agentDoor } from '../receptionist/doors'
 import { humanAuthority } from './sponsors'
 import { checkState, grantFence, grantPolicy, policyMatches, type Grant, type Approval, type Standing, type Job } from './store'
@@ -19,17 +19,20 @@ export async function applicationAuth(request:Request,env:Bindings,applied:Appli
  const grant=await env.DB.prepare('SELECT * FROM hnd_grants WHERE token_hash=?').bind(hash).first<Grant>()
  if(!grant)throw new Fault('application_credential_inactive',401)
  Object.assign(applied,grantPolicy(grant))
- if(grant.revoked_at||grant.expires_at<=Date.now()||grant.credential_expires_at<=Date.now()||!await env.DB.prepare(`SELECT g.id FROM hnd_grants g JOIN oa_operators o ON o.id=g.created_by WHERE g.id=? AND o.status='active' AND o.version=g.owner_version AND ${humanAuthority('g')}`).bind(grant.id).first())throw new Fault('application_credential_inactive',401)
+ await currentGrant(env,grant)
  return grant
 }
-export async function applicationRead(env:Bindings,g:Grant,caseId:string){
+export async function currentGrant(env:Bindings,grant:Grant){
+ if(grant.revoked_at||grant.expires_at<=Date.now()||grant.credential_expires_at<=Date.now()||!await env.DB.prepare(`SELECT g.id FROM hnd_grants g JOIN oa_operators o ON o.id=g.created_by WHERE g.id=? AND o.status='active' AND o.version=g.owner_version AND ${humanAuthority('g')}`).bind(grant.id).first())throw new Fault('application_credential_inactive',401)
+}
+export async function applicationRead(env:Bindings,g:Grant,caseId:string,ctx?:ToolContext){
  const d=JSON.parse(g.definition) as Definition
  if(!d.scopes.includes('read')||!d.tools.includes('case.read')||!d.records.includes(caseId))throw new Fault('record_out_of_scope',403)
  const detail=await getCase(env.DB,caseId)
- await append(env,g.id,'application.read',caseId,'completed',[grantFence(env,g)],null,grantPolicy(g))
+ await append(env,g.id,'application.read',caseId,'completed',[grantFence(env,g)],null,grantPolicy(g),ctx)
  return detail
 }
-export async function draft(env:Bindings,g:Grant,value:ObjectValue,idempotencyKey?:string){
+export async function draft(env:Bindings,g:Grant,value:ObjectValue,idempotencyKey?:string,ctx?:ToolContext){
  keys(value,['caseId','text'])
  const caseId=text(value.caseId,'caseId'),content=text(value.text,'text',4000),d=JSON.parse(g.definition) as Definition
  if(!d.scopes.includes('draft')||!d.tools.includes('comment.draft')||!d.records.includes(caseId))throw new Fault('draft_out_of_scope',403)
@@ -37,13 +40,13 @@ export async function draft(env:Bindings,g:Grant,value:ObjectValue,idempotencyKe
  const hash=await digest({caseId,content})
  if(idempotencyKey){
   const existing=await env.DB.prepare('SELECT request_hash,response FROM hnd_api_idempotency WHERE grant_id=? AND key=?').bind(g.id,idempotencyKey).first<{request_hash:string;response:string}>()
-  if(existing){if(existing.request_hash!==hash)throw new Fault('idempotency_payload_conflict',409);await append(env,g.id,'application.read',caseId,'completed',[grantFence(env,g)],null,grantPolicy(g));return {...JSON.parse(existing.response),replay:true}}
+  if(existing){if(existing.request_hash!==hash)throw new Fault('idempotency_payload_conflict',409);await append(env,g.id,'application.read',caseId,'completed',[grantFence(env,g)],null,grantPolicy(g),ctx);return {...JSON.parse(existing.response),replay:true}}
  }
  const draftId=id(),result={id:draftId,status:'draft',published:false}
  await append(env,g.id,'application.draft',caseId,'completed',[
-  grantFence(env,g),env.DB.prepare('INSERT INTO hnd_drafts VALUES (?,?,?,?,?)').bind(draftId,g.id,caseId,content,Date.now()),
+  grantFence(env,g),env.DB.prepare('INSERT INTO hnd_drafts(id,grant_id,case_id,text,created_at,prepared_by) VALUES (?,?,?,?,?,?)').bind(draftId,g.id,caseId,content,Date.now(),ctx?JSON.stringify(ctx.actor):null),
   ...(idempotencyKey?[env.DB.prepare('INSERT INTO hnd_api_idempotency VALUES (?,?,?,?,?)').bind(g.id,idempotencyKey,hash,JSON.stringify(result),Date.now())]:[]),
- ],null,grantPolicy(g))
+ ],null,grantPolicy(g),ctx)
  return result
 }
 async function authority(env:Bindings,g:Grant,s:State,value:ObjectValue,applied:AppliedPolicy){
@@ -67,7 +70,7 @@ function jobPolicy(job:Job,applied:AppliedPolicy){
  if(job.standing_id)applied.standing={id:job.standing_id,revision:job.standing_revision!,ownerVersion:job.approved_owner_version}
  else if(job.approval_id)applied.approval={id:job.approval_id,revision:1,ownerVersion:job.approved_owner_version}
 }
-async function prepare(env:Bindings,g:Grant,value:ObjectValue,applied:AppliedPolicy){
+export async function prepare(env:Bindings,g:Grant,value:ObjectValue,applied:AppliedPolicy,ctx?:ToolContext){
  keys(value,['state','approvalId','standingId','idempotencyKey','callerInstructions'])
  // Caller content is inert data; it is never parsed as a grant or approval.
  if(value.callerInstructions!==undefined)text(value.callerInstructions,'callerInstructions',4000,true)
@@ -77,7 +80,7 @@ async function prepare(env:Bindings,g:Grant,value:ObjectValue,applied:AppliedPol
  if(['number.port','recording.read','commitment.make','outcome.work'].includes(s.operation))throw new Fault('qualified_human_or_media_door_required',403)
  if(s.operation==='message.send')await requireCaseNoStop(env,s.caseId)
  const existing=await env.DB.prepare('SELECT * FROM hnd_jobs WHERE grant_id=? AND idempotency_key=?').bind(g.id,key).first<Job>()
- if(existing){jobPolicy(existing,applied);if(existing.state_hash!==hash)throw new Fault('idempotency_state_changed',409);await append(env,g.id,'application.read',existing.id,'completed',[grantFence(env,g)],null,applied);return {job:existing,replay:true,effectOccurred:false}}
+ if(existing){jobPolicy(existing,applied);if(existing.state_hash!==hash)throw new Fault('idempotency_state_changed',409);await append(env,g.id,'application.read',existing.id,'completed',[grantFence(env,g)],null,applied,ctx);return {job:existing,replay:true,effectOccurred:false}}
  const a=await authority(env,g,s,value,applied),jobId=id(),now=Date.now()
  await append(env,g.id,'application.attempt',jobId,'completed',[
   grantFence(env,g),a.fence,...(s.operation==='message.send'?[noCaseStopFence(env,s.caseId)]:[]),
@@ -85,14 +88,17 @@ async function prepare(env:Bindings,g:Grant,value:ObjectValue,applied:AppliedPol
   env.DB.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_grants WHERE id=? AND reserved_cents+?<=?').bind(g.id,s.amountCents,d.budgetCents),
   env.DB.prepare('UPDATE hnd_grants SET reserved_cents=reserved_cents+? WHERE id=?').bind(s.amountCents,g.id),
   env.DB.prepare('INSERT INTO hnd_jobs VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(jobId,g.id,g.revision,key,hash,JSON.stringify(s),a.approvalId,a.standingId,a.standingRevision,a.approvedBy,a.ownerVersion,'held_adapter_unqualified',s.amountCents,now),
+  ...(ctx?[env.DB.prepare('INSERT INTO hnd_agent_jobs(job_id,identity,idempotency_key) VALUES (?,?,?)').bind(jobId,JSON.stringify({person:{id:ctx.person.id},agent:ctx.agent,consent:ctx.consent,scopes:ctx.scopes,clientId:ctx.clientId,operationId:ctx.operationId}),ctx.idempotencyKey)]:[]),
   ...(a.approvalId?[env.DB.prepare('UPDATE hnd_approvals SET consumed_by=? WHERE id=? AND consumed_by IS NULL').bind(jobId,a.approvalId)]:[]),
- ],null,applied)
+ ],null,applied,ctx)
  return {job:await env.DB.prepare('SELECT * FROM hnd_jobs WHERE id=?').bind(jobId).first(),replay:false,effectOccurred:false}
 }
-async function execute(env:Bindings,g:Grant,value:ObjectValue,applied:AppliedPolicy){
+export async function execute(env:Bindings,g:Grant,value:ObjectValue,applied:AppliedPolicy,ctx?:ToolContext){
  keys(value,['jobId','state'])
  const job=await env.DB.prepare('SELECT * FROM hnd_jobs WHERE id=? AND grant_id=?').bind(text(value.jobId,'jobId'),g.id).first<Job>()
  if(job)jobPolicy(job,applied)
+ const bound=job&&await env.DB.prepare('SELECT identity FROM hnd_agent_jobs WHERE job_id=?').bind(job.id).first<{identity:string}>()
+ if(bound){const who=JSON.parse(bound.identity);if(!ctx||ctx.consent!==who.consent||ctx.person.id!==who.person.id||ctx.agent.id!==who.agent.id||ctx.operationId!==who.operationId)throw new Fault('agent_continuation_required',403)}
  if(!job||job.status!=='held_adapter_unqualified'||job.grant_revision!==g.revision)throw new Fault('job_inactive',403)
  const s=state(value.state)
  if(await digest(s)!==job.state_hash)throw new Fault('reviewed_state_changed',409)
@@ -108,30 +114,9 @@ async function execute(env:Bindings,g:Grant,value:ObjectValue,applied:AppliedPol
  }
  await append(env,g.id,'application.execute',job.id,'refused',[
   grantFence(env,g),approvalFence,...(s.operation==='message.send'?[noCaseStopFence(env,s.caseId)]:[]),env.DB.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_cases WHERE id=? AND version=?').bind(s.caseId,s.caseVersion),
- ],null,applied)
+ ],null,applied,ctx)
  // No qualified provider exists yet. This is never a successful paid effect.
  return {status:'held_adapter_unqualified',effectOccurred:false,jobId:job.id}
-}
-async function mcp(env:Bindings,g:Grant,value:ObjectValue,applied:AppliedPolicy,idempotencyKey?:string){
- keys(value,['jsonrpc','id','method','params'])
- if(value.jsonrpc!=='2.0'||!['string','number'].includes(typeof value.id))throw new Fault('invalid_mcp_request')
- const method=text(value.method,'method'),params=value.params===undefined?{}:object(value.params)
- if(method==='initialize')return {protocolVersion:'2025-06-18',capabilities:{tools:{}},serverInfo:{name:'handset-scoped-work',version:'1'}}
- const d=JSON.parse(g.definition) as Definition
- if(method==='tools\/list')return {tools:mcpTools(d)}
- if(method==='ping')return {}
- if(method!=='tools\/call')throw new Fault('unsupported_mcp_method',404)
- keys(params,['name','arguments'])
- const name=text(params.name,'name') as Tool,args=object(params.arguments)
- if(!d.tools.includes(name)||!d.scopes.includes(scopeFor(name)))throw new Fault('tool_out_of_scope',403)
- if(name==='case.read'){keys(args,['caseId']);return mcpToolResult(await applicationRead(env,g,text(args.caseId,'caseId')))}
- if(name==='comment.draft'){
-  if(!idempotencyKey)throw new Fault('idempotency_key_required')
-  return mcpToolResult(await draft(env,g,args,idempotencyKey))
- }
- const proposed=state(args.state)
- if(proposed.operation!==name)throw new Fault('tool_operation_mismatch',403)
- return mcpToolResult(await prepare(env,g,args,applied))
 }
 export async function applicationResponse(request:Request,original:Bindings):Promise<Response|null>{
  const url=new URL(request.url)
@@ -153,18 +138,6 @@ export async function applicationResponse(request:Request,original:Bindings):Pro
   if(path===base+'/drafts')return json(await draft(env,grant,data),201)
   if(path===base+'/prepare')return json(await prepare(env,grant,data,applied),202)
   if(path===base+'/execute')return json(await execute(env,grant,data,applied),202)
-  if(path===base+'/mcp'){
-   if(data.jsonrpc==='2.0'&&data.method==='notifications\/initialized'&&data.id===undefined){
-    keys(data,['jsonrpc','method','params'])
-    await append(env,grant.id,'application.read','installation','completed',[grantFence(env,grant)],null,applied)
-    return new Response(null,{status:202,headers:{'cache-control':'no-store'}})
-   }
-   const key=request.headers.get('idempotency-key')??undefined
-   if(key&&(!/^[A-Za-z0-9._:-]+$/.test(key)||key.length>100))throw new Fault('invalid_idempotencyKey')
-   const result=await mcp(env,grant,data,applied,key)
-   await append(env,grant.id,'application.read','installation','completed',[grantFence(env,grant)],null,applied)
-   return json({jsonrpc:'2.0',id:data.id,result})
-  }
   throw new Fault('not_found',404)
  }catch(error){
   if(error instanceof Fault){await append(env,grant?.id??applied.grant?.id??'anonymous','application.attempt','installation','refused',[],null,applied);return json({error:error.code},error.status)}
