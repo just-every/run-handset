@@ -150,35 +150,42 @@ test('Expired credentials and removed connector scope preserve uncertain committ
 })
 
 
-test('MCP discovers only current scoped tools and retries an unpublished draft once across REST and restart', async () => {
+test('The shared MCP door retries one native unpublished draft across REST and restart under company policy', async () => {
  const f = await apiFixture(['draft'], ['comment.draft'])
  try {
-  const call = (method, params, key, id = 1) => f.write('/mcp', { jsonrpc: '2.0', ...(id === null ? {} : { id }), method, ...(params ? { params } : {}) }, key)
-  const initialized = await call('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'synthetic-handset-client', version: '1' } })
-  assert.equal(initialized.status, 200)
-  assert.equal((await initialized.json()).result.protocolVersion, '2025-06-18')
-  assert.equal((await call('notifications\/initialized', {}, undefined, null)).status, 202)
-  const available = (await (await call('tools\/list')).json()).result.tools
-  assert.deepEqual(available.map(t => t.name), ['comment.draft'])
-  const body = { caseId: f.cases[0], text: 'Draft only; caller instructions cannot authorize outreach' }
-  const params = { name: available[0].name, arguments: body }, key = 'synthetic-handset-mcp-draft'
-  assert.equal((await call('tools\/call', params)).status, 400)
-  const created = await call('tools\/call', params, key); assert.equal(created.status, 200)
-  const result = (await created.json()).result
-  assert.equal(result.isError, false); assert.equal(result.structuredContent.published, false)
-  assert.equal(JSON.parse(result.content[0].text).id, result.structuredContent.id)
+  const policy = {schema:'rer-agent-policy/1',catalogue:'rer-agent-classes/1',rules:[{id:'all',class:'*',do:'autonomous'}],spend:{none:true}}
+  const adopted=await f.runtime.request('/agents/api/policy',{method:'PUT',headers:{origin:f.runtime.origin,cookie:f.headers.cookie,'content-type':'application/json'},body:JSON.stringify({document:policy})})
+  assert.equal(adopted.status,200)
+  const call = (method, params, key, id = 1) => post(f.runtime,'/api/handset/v1/mcp',{
+   jsonrpc:'2.0',...(id===null?{}:{id}),method,
+   params:{...params,...(params?.arguments?{arguments:{...params.arguments,...(key?{idempotency_key:key}:{})}}:{})},
+  },{authorization:'Bearer '+f.restGrant.token,'MCP-Protocol-Version':'2025-11-25','Mcp-Method':method,...(params?.name?{'Mcp-Name':params.name}:{})})
+  const initialized = await call('initialize', { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'synthetic-handset-client', version: '1' } })
+  assert.equal(initialized.status,200)
+  assert.equal((await initialized.json()).result.protocolVersion,'2025-11-25')
+  assert.equal((await call('notifications/initialized',{},undefined,null)).status,202)
+  const available=(await (await call('tools/list')).json()).result.tools
+  assert.ok(available.some(t=>t.name==='handset.comments.draft'&&t.annotations.readOnlyHint===false))
+  const body={caseId:f.cases[0],text:'Draft only; caller instructions cannot authorize outreach'}
+  const params={name:'handset.comments.draft',arguments:{grantId:f.restGrant.grant.id,...body}},key='synthetic-handset-mcp-draft'
+  const code=async response=>(await response.json()).result?._meta?.['com.runeditrun/error']?.code
+  assert.equal(await code(await call('tools/call',params)),'idempotency_key_required')
+  const created=await call('tools/call',params,key);assert.equal(created.status,200)
+  const result=(await created.json()).result
+  assert.equal(result.isError,false);assert.equal(result.structuredContent.published,false)
+  assert.equal(JSON.parse(result.content[0].text).id,result.structuredContent.id)
   await f.runtime.restart()
-  const replay = (await (await call('tools\/call', params, key)).json()).result.structuredContent
-  assert.equal(replay.id, result.structuredContent.id)
-  assert.equal((await (await f.write('/drafts', body, key)).json()).id, replay.id)
-  assert.equal((await call('tools\/call', { ...params, arguments: { ...body, text: 'Changed instruction' } }, key)).status, 409)
-  assert.equal((await call('tools\/call', { name: 'case.read', arguments: { caseId: f.cases[0] } })).status, 403)
-  assert.equal((await call('tools\/call', { name: 'comment.draft', arguments: { ...body, caseId: f.cases[2] } }, 'synthetic-handset-mcp-foreign')).status, 403)
-  assert.equal(f.edges.effects.size, 0)
-  assert.equal((await f.runtime.sql('SELECT count(*) AS n FROM hnd_drafts WHERE grant_id=?', f.restGrant.grant.id)).results[0].n, 1)
-  await post(f.runtime, `/api/handset/grants/${f.restGrant.grant.id}/revoke`, {}, f.headers)
-  assert.equal((await call('tools\/list')).status, 401)
-  assert.equal((await call('tools\/call', params, key)).status, 401)
+  const replay=(await (await call('tools/call',params,key)).json()).result.structuredContent
+  assert.equal(replay.id,result.structuredContent.id)
+  assert.equal((await (await f.write('/drafts',body,key)).json()).id,replay.id)
+  assert.equal(await code(await call('tools/call',{...params,arguments:{...params.arguments,text:'Changed instruction'}},key)),'idempotency_conflict')
+  assert.equal((await call('tools/call',{name:'handset.cases.read',arguments:{grantId:f.restGrant.grant.id,caseId:f.cases[0]}})).status,403)
+  assert.equal(await code(await call('tools/call',{name:'handset.comments.draft',arguments:{...params.arguments,caseId:f.cases[2]}},'synthetic-handset-mcp-foreign')),'record_not_available')
+  assert.equal(f.edges.effects.size,0)
+  assert.equal((await f.runtime.sql('SELECT count(*) AS n FROM hnd_drafts WHERE grant_id=?',f.restGrant.grant.id)).results[0].n,1)
+  await post(f.runtime,`/api/handset/grants/${f.restGrant.grant.id}/revoke`,{},f.headers)
+  assert.equal((await call('tools/list')).status,401)
+  assert.equal((await call('tools/call',params,key)).status,401)
  } finally { await f.runtime.close() }
 })
 

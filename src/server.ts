@@ -1,3 +1,4 @@
+import { handsetAgentDoor } from './handset/agents/door'
 import { groupProviderResponse } from './handset/messages/groups'
 import { withDemo } from './modules/demo/index.mjs'
 import { seedDemo } from './demo'
@@ -37,6 +38,7 @@ import { tickRules } from './handset/integrations/delivery/outbox'
 import { expireKnowledge } from './handset/knowledge/retention'
 import { tickRecovery } from './handset/recovery/doors'
 import { receptionistProviderResponse } from './handset/receptionist/authorization'
+import { businessSettings } from './business.server'
 
 const api = new Hono<{ Bindings: Bindings }>()
 api.get('/health', (context) => context.json({ status: 'ok', ...deploymentHealth(context.env) }))
@@ -53,6 +55,10 @@ function noTransform(response: Response): Response {
 export default withDemo<Bindings, ExportedHandler<Bindings>>({
   async fetch(request, env, execution) {
     return observeProduct(request,env,async()=>{
+    const agent = await handsetAgentDoor(env).handle(request)
+    if (agent) return agent
+    const business = await businessSettings(runtimeBindings(env)).handle(request)
+    if (business) return business
     const groups = await groupProviderResponse(request,env)
     if (groups) return groups
     const consent = await consentProviderResponse(request, env)
@@ -110,3 +116,5 @@ export default withDemo<Bindings, ExportedHandler<Bindings>>({
     await tickRules(runtimeBindings(env), event.scheduledTime)
   },
 } satisfies ExportedHandler<Bindings>, { seed: seedDemo })
+
+export { HandsetAgentJobs } from './handset/agents/jobs'

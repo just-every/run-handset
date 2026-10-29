@@ -244,3 +244,13 @@ grant or revoke recovery scope. Staff scheduling and waiting cancellation use
 the recovery child actions and retain the callback policy checks. Before a
 provider creation the claim rechecks the current worker and scope. No recovery
 grant changes contact policy or grants outbound authority by itself.
+
+## Company agent door
+
+`/mcp` and the two native MCP aliases share one dispatcher.
+`/.well-known/oauth-protected-resource/mcp` names its canonical resource.
+`/api/rer/agent-policy` authenticates signed Business policy independently of
+browser sessions. `/agents` and `/agents/api/*` retain native person sessions,
+same-origin mutation controls and named-person approval checks. Agent tokens
+cannot act as a person's approval or Pause control. See AGENT-ACCESS.md for the
+current core capability declaration and the held native preparation limits.
