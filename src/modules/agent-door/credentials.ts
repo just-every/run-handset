@@ -87,20 +87,22 @@ export async function authenticate(
         claims.exp <= now || claims.exp <= claims.iat || claims.exp - claims.iat > 900) return null
       if (!nonempty(claims.consent)) return null
       const person = await options.people.sponsor({ sub: claims.sub })
-      if (!person?.active) return null
+      // A token outlives no change of address: its email must still be the subject's current native email.
+      if (!person?.active || person.email.trim().toLowerCase() !== claims.email) return null
       return {
         person,
         agent: { id: claims.act.sub, name: claims.act.name, specialist: claims.act.specialist as string | null | undefined },
-        scopes: claims.scope === '' ? [] : claims.scope.split(' '), consent: claims.consent,
+        scopes: claims.scope === '' ? [] : claims.scope.split(' '), clientId: claims.client_id, consent: claims.consent,
       }
     }
     const local = await options.localCredentials?.(request)
     if (!local || !nonempty(local.sponsor.id) || !nonempty(local.agent.id) || !nonempty(local.agent.name) ||
       (local.agent.specialist !== undefined && local.agent.specialist !== null && !nonempty(local.agent.specialist)) ||
+      (local.clientId !== undefined && !nonempty(local.clientId)) ||
       !Array.isArray(local.scopes) || !local.scopes.every(nonempty)) return null
     const person = await options.people.person(local.sponsor.id)
     if (!person?.active) return null
-    return { person, agent: local.agent, scopes: local.scopes }
+    return { person, agent: local.agent, scopes: local.scopes, clientId: local.clientId }
   } catch {
     return null
   }

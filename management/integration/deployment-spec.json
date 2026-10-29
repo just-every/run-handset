@@ -465,21 +465,45 @@
     },
     {
       "binding": "DB",
-      "name": "core-0072_agent_door.sql",
+      "name": "core-0072_handset_supervision.sql",
+      "sha256": "3143c62f3d277be3e8e62b4204a9ec71091378b562fb68f3d69d43f2085de344",
+      "sql": "-- Explicit native queue scopes; ownership alone confers no supervision read.\nCREATE TABLE hnd_supervision_grants (\n id TEXT PRIMARY KEY,\n operator_id TEXT NOT NULL REFERENCES oa_operators(id), operator_version INTEGER NOT NULL,\n queue_id TEXT NOT NULL REFERENCES hnd_queues(id), can_intervene INTEGER NOT NULL CHECK(can_intervene IN (0,1)),\n issued_by TEXT NOT NULL REFERENCES oa_operators(id), issuer_version INTEGER NOT NULL,\n created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, revoked_at INTEGER,\n CHECK(expires_at>created_at AND expires_at<=created_at+86400000)\n);\nCREATE INDEX hnd_supervision_person_queue ON hnd_supervision_grants(operator_id,queue_id,expires_at);\nCREATE TRIGGER hnd_supervision_grant_immutable BEFORE UPDATE ON hnd_supervision_grants\n WHEN NEW.id<>OLD.id OR NEW.operator_id<>OLD.operator_id OR NEW.operator_version<>OLD.operator_version\n OR NEW.queue_id<>OLD.queue_id OR NEW.can_intervene<>OLD.can_intervene OR NEW.issued_by<>OLD.issued_by\n OR NEW.issuer_version<>OLD.issuer_version OR NEW.created_at<>OLD.created_at OR NEW.expires_at<>OLD.expires_at\n OR OLD.revoked_at IS NOT NULL\n BEGIN SELECT RAISE(ABORT,'immutable_supervision_scope'); END;\nCREATE TABLE hnd_supervision_interventions (\n id TEXT PRIMARY KEY, queue_id TEXT NOT NULL REFERENCES hnd_queues(id), agent_id TEXT NOT NULL REFERENCES hnd_queue_agents(operator_id),\n actor_ref TEXT NOT NULL, occurred_at INTEGER NOT NULL, reason TEXT NOT NULL,\n before_state TEXT NOT NULL, availability TEXT NOT NULL, agent_revision INTEGER NOT NULL,\n grant_id TEXT NOT NULL REFERENCES hnd_supervision_grants(id)\n);\nCREATE INDEX hnd_supervision_timeline ON hnd_supervision_interventions(queue_id,occurred_at,id);\nCREATE TRIGGER hnd_supervision_history_no_update BEFORE UPDATE ON hnd_supervision_interventions BEGIN SELECT RAISE(ABORT,'append_only'); END;\nCREATE TRIGGER hnd_supervision_history_no_delete BEFORE DELETE ON hnd_supervision_interventions BEGIN SELECT RAISE(ABORT,'append_only'); END;\n"
+    },
+    {
+      "binding": "DB",
+      "name": "core-0073_agent_door.sql",
       "sha256": "016d8a98b964385f5c4a13447361c3c783910a76aaf4606b0e0081482bc819cc",
       "sql": "CREATE TABLE IF NOT EXISTS agent_door_state (\n  id INTEGER PRIMARY KEY CHECK(id=1), envelope TEXT, local_document TEXT,\n  local_revision INTEGER NOT NULL DEFAULT 0, local_paused INTEGER NOT NULL DEFAULT 0,\n  decision_lock TEXT, decision_until INTEGER\n);\nCREATE TABLE IF NOT EXISTS agent_door_agents (\n  id TEXT PRIMARY KEY, name TEXT NOT NULL, specialist TEXT, sponsor TEXT NOT NULL,\n  sponsor_name TEXT NOT NULL, revoked INTEGER NOT NULL DEFAULT 0,\n  window INTEGER NOT NULL DEFAULT 0, requests INTEGER NOT NULL DEFAULT 0\n);\nCREATE TABLE IF NOT EXISTS agent_door_audit (\n  sequence INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, at TEXT NOT NULL,\n  agent TEXT NOT NULL, classes TEXT NOT NULL, row TEXT NOT NULL, evidence TEXT\n);\nCREATE INDEX IF NOT EXISTS agent_door_audit_agent ON agent_door_audit(agent,sequence);\nCREATE TABLE IF NOT EXISTS agent_door_calls (\n  agent TEXT NOT NULL, key TEXT NOT NULL, digest TEXT NOT NULL, decision_id TEXT NOT NULL,\n  created_at INTEGER NOT NULL, state TEXT NOT NULL, outcome TEXT, PRIMARY KEY(agent,key)\n);\nCREATE TABLE IF NOT EXISTS agent_door_approvals (\n  id TEXT PRIMARY KEY, state TEXT NOT NULL, saved TEXT NOT NULL, approvals TEXT NOT NULL DEFAULT '[]',\n  result TEXT, version INTEGER NOT NULL DEFAULT 0\n);\nCREATE TABLE IF NOT EXISTS agent_door_reviews (\n  id TEXT PRIMARY KEY, state TEXT NOT NULL, saved TEXT NOT NULL, marked_by TEXT, marked_at TEXT\n);\nCREATE TABLE IF NOT EXISTS agent_door_events (\n  sequence INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, uri TEXT NOT NULL, event TEXT NOT NULL\n);\nCREATE INDEX IF NOT EXISTS agent_door_events_uri ON agent_door_events(uri,sequence);\nCREATE TABLE IF NOT EXISTS agent_door_usage (\n  decision_id TEXT PRIMARY KEY, at INTEGER NOT NULL, seed TEXT NOT NULL, specialist TEXT, agent TEXT NOT NULL,\n  classes TEXT NOT NULL\n);\nCREATE INDEX IF NOT EXISTS agent_door_usage_day ON agent_door_usage(at);\n"
     },
     {
       "binding": "DB",
-      "name": "core-0073_business_settings.sql",
+      "name": "core-0074_business_settings.sql",
       "sha256": "a16f736a781aa3fe02a2e090c993f8c360c904f9fb6d86126acdab6e1f24e773",
       "sql": "CREATE TABLE bs_settings (\n  singleton INTEGER PRIMARY KEY CHECK(singleton=1),\n  rev INTEGER NOT NULL DEFAULT 0,\n  document TEXT,\n  applied_at TEXT,\n  stopped INTEGER NOT NULL DEFAULT 0 CHECK(stopped IN(0,1)),\n  token TEXT NOT NULL DEFAULT ''\n);\nCREATE TABLE bs_overrides (\n  field TEXT PRIMARY KEY CHECK(field IN('display_name','owner_name','brand_color','logo','timezone')),\n  value TEXT NOT NULL,\n  actor TEXT NOT NULL,\n  changed_at TEXT NOT NULL\n);\nCREATE TABLE bs_logo (\n  singleton INTEGER PRIMARY KEY CHECK(singleton=1),\n  sha256 TEXT NOT NULL,\n  type TEXT NOT NULL,\n  bytes BLOB NOT NULL\n);\nCREATE TABLE bs_team (\n  email TEXT PRIMARY KEY,\n  operator_id TEXT,\n  invite INTEGER NOT NULL,\n  state TEXT NOT NULL CHECK(state IN('invited','active','inactive','conflict'))\n);\nCREATE TABLE bs_audit (\n  id INTEGER PRIMARY KEY,\n  actor TEXT NOT NULL,\n  action TEXT NOT NULL,\n  field TEXT,\n  changed_at TEXT NOT NULL\n);\n-- An INSERT of NULL fails the transaction if a concurrent write invalidated its fence.\nCREATE TABLE bs_assert (value INTEGER NOT NULL);\n"
     },
     {
       "binding": "DB",
-      "name": "core-0074_business_people.sql",
+      "name": "core-0075_business_people.sql",
       "sha256": "51aa39622d866b987d71b6e37c9a8300e7f24c54a55611edaab669ed051b01cd",
       "sql": "ALTER TABLE bs_settings ADD COLUMN owner_id TEXT CHECK(owner_id IS NULL OR owner_id <> '');\nALTER TABLE bs_team ADD COLUMN business_id TEXT CHECK(business_id IS NULL OR business_id <> '');\nALTER TABLE bs_team ADD COLUMN business_role TEXT CHECK(business_role IS NULL OR business_role IN('admin','member'));\nCREATE UNIQUE INDEX bs_team_business_id ON bs_team(business_id) WHERE business_id IS NOT NULL;\n"
+    },
+    {
+      "binding": "DB",
+      "name": "core-0076_handset_agent_identity.sql",
+      "sha256": "9e7d9686e237e0e4b601ede382525286af19659c1947cdfd7dabf3eca1fd9aaa",
+      "sql": "-- Originating authority is retained atomically with native held work and activity.\nCREATE TABLE hnd_agent_jobs (\n job_id TEXT PRIMARY KEY REFERENCES hnd_jobs(id), identity TEXT NOT NULL CHECK(json_valid(identity)),\n idempotency_key TEXT NOT NULL\n);\nCREATE TABLE hnd_agent_activity (\n audit_id TEXT PRIMARY KEY REFERENCES hnd_audit(id), operation_id TEXT NOT NULL,\n agent_id TEXT NOT NULL, agent_name TEXT NOT NULL, sponsor_id TEXT NOT NULL,\n sponsor_name TEXT NOT NULL, label TEXT NOT NULL, consent TEXT,\n approvers TEXT NOT NULL CHECK(json_valid(approvers))\n);\nCREATE INDEX hnd_agent_activity_operation ON hnd_agent_activity(operation_id);\nCREATE TABLE hnd_agent_invocations (\n id TEXT PRIMARY KEY, name TEXT NOT NULL, arguments TEXT NOT NULL CHECK(json_valid(arguments)),\n identity TEXT NOT NULL CHECK(json_valid(identity)), state TEXT NOT NULL CHECK(state IN ('queued','running','done')),\n result TEXT CHECK(result IS NULL OR json_valid(result)), created_at INTEGER NOT NULL\n);\n"
+    },
+    {
+      "binding": "DB",
+      "name": "core-0077_agent_door_runtime.sql",
+      "sha256": "016d8a98b964385f5c4a13447361c3c783910a76aaf4606b0e0081482bc819cc",
+      "sql": "CREATE TABLE IF NOT EXISTS agent_door_state (\n  id INTEGER PRIMARY KEY CHECK(id=1), envelope TEXT, local_document TEXT,\n  local_revision INTEGER NOT NULL DEFAULT 0, local_paused INTEGER NOT NULL DEFAULT 0,\n  decision_lock TEXT, decision_until INTEGER\n);\nCREATE TABLE IF NOT EXISTS agent_door_agents (\n  id TEXT PRIMARY KEY, name TEXT NOT NULL, specialist TEXT, sponsor TEXT NOT NULL,\n  sponsor_name TEXT NOT NULL, revoked INTEGER NOT NULL DEFAULT 0,\n  window INTEGER NOT NULL DEFAULT 0, requests INTEGER NOT NULL DEFAULT 0\n);\nCREATE TABLE IF NOT EXISTS agent_door_audit (\n  sequence INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, at TEXT NOT NULL,\n  agent TEXT NOT NULL, classes TEXT NOT NULL, row TEXT NOT NULL, evidence TEXT\n);\nCREATE INDEX IF NOT EXISTS agent_door_audit_agent ON agent_door_audit(agent,sequence);\nCREATE TABLE IF NOT EXISTS agent_door_calls (\n  agent TEXT NOT NULL, key TEXT NOT NULL, digest TEXT NOT NULL, decision_id TEXT NOT NULL,\n  created_at INTEGER NOT NULL, state TEXT NOT NULL, outcome TEXT, PRIMARY KEY(agent,key)\n);\nCREATE TABLE IF NOT EXISTS agent_door_approvals (\n  id TEXT PRIMARY KEY, state TEXT NOT NULL, saved TEXT NOT NULL, approvals TEXT NOT NULL DEFAULT '[]',\n  result TEXT, version INTEGER NOT NULL DEFAULT 0\n);\nCREATE TABLE IF NOT EXISTS agent_door_reviews (\n  id TEXT PRIMARY KEY, state TEXT NOT NULL, saved TEXT NOT NULL, marked_by TEXT, marked_at TEXT\n);\nCREATE TABLE IF NOT EXISTS agent_door_events (\n  sequence INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, uri TEXT NOT NULL, event TEXT NOT NULL\n);\nCREATE INDEX IF NOT EXISTS agent_door_events_uri ON agent_door_events(uri,sequence);\nCREATE TABLE IF NOT EXISTS agent_door_usage (\n  decision_id TEXT PRIMARY KEY, at INTEGER NOT NULL, seed TEXT NOT NULL, specialist TEXT, agent TEXT NOT NULL,\n  classes TEXT NOT NULL\n);\nCREATE INDEX IF NOT EXISTS agent_door_usage_day ON agent_door_usage(at);\n"
+    },
+    {
+      "binding": "DB",
+      "name": "core-0078_handset_draft_attribution.sql",
+      "sha256": "0a97da9584f08f301ed8437cf18021d0bc1a8292fb196484fbabb5a19c03b47f",
+      "sql": "ALTER TABLE hnd_drafts ADD COLUMN prepared_by TEXT CHECK(prepared_by IS NULL OR json_valid(prepared_by));\n"
     }
   ],
   "compatibilityDate": "2026-09-08",
@@ -498,8 +522,7 @@
     "MAIL_ACCOUNT_ID": "",
     "HANDSET_DIAL_ORIGIN": "",
     "HANDSET_ORBIT_ORIGIN": "",
-    "HANDSET_HELPDESK_ORIGIN": "",
-    "OWNER_EMAIL": ""
+    "HANDSET_HELPDESK_ORIGIN": ""
   },
   "secretNames": [
     "SESSION_SECRET",

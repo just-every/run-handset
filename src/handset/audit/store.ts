@@ -1,3 +1,5 @@
+import { agentEffectFence } from '../agents/fence'
+import type { ToolContext } from '../../modules/agent-door/index.ts'
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { digest, id, ownerFence, Fault } from '../core'
@@ -16,18 +18,22 @@ export async function actorRef(db: D1Database, operatorId: string) {
 export async function commit(env: Bindings, actor: Session, action: string, subject: string, outcome: string, statements: D1PreparedStatement[] = [], fence = true, applied:AppliedPolicy = {}) {
  return append(env, await actorRef(env.DB, actor.operator.id), action, subject, outcome, [...(fence ? [ownerFence(env.DB,actor)] : []), ...statements],null,{...applied,native:{role:actor.operator.role,version:actor.operator.version}})
 }
-export async function append(env: Bindings, pseudonym: string, action: string, subject: string, outcome: string, statements: D1PreparedStatement[] = [], principal: string | null = null, applied:AppliedPolicy = {}) {
+export async function append(env: Bindings, pseudonym: string, action: string, subject: string, outcome: string, statements: D1PreparedStatement[] = [], principal: string | null = null, applied:AppliedPolicy = {}, agent?:ToolContext) {
  if (principal && !/^[0-9a-f-]{36}$/.test(principal)) throw new Error('Invalid audit principal')
  if (!actions.includes(action) || !['completed','refused','failed','uncertain'].includes(outcome) || !(subject === 'installation' || /^[0-9a-f-]{36}$/.test(subject))) throw new Error('Invalid server audit event')
+ if(agent)principal=await actorRef(env.DB,agent.person.id)
  const db = env.DB
+ const agentFence=agent?await agentEffectFence(env,agent):null
  for (let retry = 0; retry < 8; retry++) {
   const last = await db.prepare('SELECT sequence,hash FROM hnd_audit ORDER BY sequence DESC LIMIT 1').first<{sequence:number;hash:string}>()
   const row = { sequence: (last?.sequence ?? 0) + 1, id: id(), actor: pseudonym, action, policy:policyRevision(applied), subject, outcome, occurred_at: Date.now(), previous_hash: last?.hash ?? zero, principal }
   const hash = await digest(auditBody(row))
   try {
    await db.batch([
+    ...(agentFence?[agentFence]:[]),
     ...statements,
     db.prepare('INSERT INTO hnd_audit(sequence,id,actor,action,policy,subject,outcome,occurred_at,previous_hash,hash,principal) VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(row.sequence, row.id, row.actor, row.action, row.policy, row.subject, row.outcome, row.occurred_at, row.previous_hash, hash, principal),
+    ...(agent?[db.prepare('INSERT INTO hnd_agent_activity(audit_id,operation_id,agent_id,agent_name,sponsor_id,sponsor_name,label,consent,approvers) VALUES (?,?,?,?,?,?,?,?,?)').bind(row.id,agent.operationId,agent.agent.id,agent.agent.name,agent.person.id,agent.person.name,agent.actor.label,agent.consent??null,JSON.stringify(agent.approvers))]:[]),
     db.prepare('DELETE FROM hnd_guard'),
    ])
    return { ...row, hash }

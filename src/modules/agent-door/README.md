@@ -58,8 +58,16 @@ External content can carry untrusted result metadata:
 ```json
 {"_meta":{"com.runeditrun/untrusted":true}}
 ```
- Embedded calls
-use the same execution pipeline and audit attribution.
+Embedded calls supply explicit principal scopes and use the same execution
+pipeline and audit attribution. Resource authorization, events and subscriptions
+retain the originating agent/client and scopes; `currentScopes` can intersect
+these with current native grants, including at approval execution.
+
+Access/security tools may declare a checked target-only `widens: false` contract
+with a native grant-subset journey instead of sponsor escalation. Tools declaring
+`proof: 'native'` require the seed's named proof verifier and human handoff, even
+under autonomous policy or after approval. See [adoption](ADOPTING.md) for the
+runtime hooks, wire reference and test module declarations.
 
 Business access tokens are ES256 `at+jwt` credentials verified against existing
 owner-claim trust, with the canonical MCP audience, sponsor, agent, scopes and
@@ -114,8 +122,12 @@ Undo is a reviewer act with `UndoContext.agent: null` and a person actor.
 Mutating tools require `idempotency_key`; `expected_revision` is optional for
 tools with native revision lookup. Same agent and key and arguments return the
 recorded outcome; changed arguments conflict. Recorded outcomes are retained
-indefinitely. A `running` audit row, usage reservation and idempotency claim commit in one
-D1 batch before execution. The recorded outcome precedes finalising that row.
+indefinitely. Completed mutation retries still run the native classifier for current
+sponsor authority. Its optional third argument carries the original effect's
+classes and facts, so it can classify consumed preparation state after enforcing
+current access. Current policy admission uses the recorded effect, and the
+approval receipt retains its original decision separately. A `running` audit row,
+usage reservation and idempotency claim commit in one D1 batch before execution. The recorded outcome precedes finalising that row.
 A replay completes a non-final audit from the durable outcome; without an outcome
 it returns `call_in_progress` and runs nothing. Every attempt captures its key,
 traceparent and ignored argument names before early policy refusals. Native
@@ -173,7 +185,7 @@ They are not evidence that every clause or every adopting edition has passed.
 Module tests under `tests/`, this reusable journey and an edition's integrated
 browser and native journey are separate evidence.
 
-Remaining work includes full clause and tier and role and UI parity, grant narrowing,
+Remaining work includes full clause and tier and role and UI parity, Business delivery of grant narrowing,
 Business revocation delivery, provider-spend caps and byte budgets, long jobs,
 outside-mail attribution, standalone credential issuance,
 self-host delivery, stranger-specialist completion, generated agent docs, and

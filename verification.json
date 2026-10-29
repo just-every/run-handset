@@ -25,7 +25,8 @@
       "commands": [
         "pnpm run build",
         "pnpm run test:runtime",
-        "pnpm run test:site"
+        "pnpm run test:site",
+        "node node_modules/@runeditrun/rer/cli/agent-door.mjs . deploy.json"
       ]
     },
     {
