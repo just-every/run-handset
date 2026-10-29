@@ -12,7 +12,7 @@ const plans = {
  tollfree_verification: 'Review rejection with the named representative; obtain attested facts and receiving-carrier verification before enabling this sender.',
  reputation: 'Gather per-network observations and follow the provider remediation case. Free Caller Registry is direct business-representative submission only. No replacement purchase or rotation without exact human authority; preserve consent and number obligations.',
 }
-interface Compliance { id: string; source_id: string; number_id: string; kind: keyof typeof plans; reference: string; report: string; owner_id: string; owner_version: number; due_at: number; status: string; plan: string; approval_note: string; provider_state: string; readback: string | null; revision: number; created_at: number; updated_at: number }
+export interface Compliance { id: string; source_id: string; number_id: string; kind: keyof typeof plans; reference: string; report: string; owner_id: string; owner_version: number; due_at: number; status: string; plan: string; approval_note: string; provider_state: string; readback: string | null; revision: number; created_at: number; updated_at: number }
 const event = (env: Bindings, actor: Session, key: string, kind: string, evidence: unknown) => env.DB.prepare('INSERT INTO hnd_number_compliance_events VALUES (?,?,?,?,?,?,?)').bind(id(), key, kind, JSON.stringify(evidence), actor.operator.id, actor.operator.version, Date.now())
 async function create(env: Bindings, actor: Session, v: ObjectValue) {
  keys(v, ['sourceId','kind','report','dueAt','confirm'])

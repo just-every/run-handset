@@ -1149,10 +1149,13 @@ test('Shared voicemail races one claimant and preserves handled history across n
    const view=await f.read('/api/handset/voicemail/boxes/'+box.id,h)
    assert.equal(view.items.find(i=>i.id===item.id).state,'handled')
    assert.equal(view.due.length,1);assert.ok(!view.due.includes(item.id))
+   const listed=(await f.read('/api/handset/voicemail/boxes',h)).boxes.find(b=>b.id===box.id)
+   assert.equal(listed.dueCount,view.due.length);assert.deepEqual(listed.capabilities,view.capabilities)
    assert.ok(view.history.some(e=>e.item_id===item.id&&e.action==='handle'))
   }
   await f.write(target+'/reopen',{revision:handled.item.revision})
   assert.equal((await f.read('/api/handset/voicemail/boxes/'+box.id)).due.length,2)
+  assert.equal((await f.read('/api/handset/voicemail/boxes',f.memberHeaders)).boxes.find(b=>b.id===box.id).dueCount,2)
   assert.equal((await f.write('/api/handset/voicemail/boxes/'+box.id+'/observations',observation)).replay,true)
   await f.write('/api/handset/voicemail/boxes/'+box.id+'/observations',{...observation,text:'Changed'},f.ownerHeaders,409)
   await assert.rejects(runtime.sql("DELETE FROM hnd_voicemail_history WHERE item_id=?",item.id),/append_only/)
@@ -1165,15 +1168,28 @@ test('Shared voicemail races one claimant and preserves handled history across n
 test('Voicemail privacy and live membership refuse unauthorized handling reopening and cached reads without accepting supplied capture claims',async()=>{
  const runtime=await openHandset()
  try{
-  const f=await preparationFixture(runtime)
+  const f=await preparationFixture(runtime),base='/api/handset/voicemail/boxes'
+  await f.read(base,{},401)
+  const listed=async(headers)=>(await f.read(base,headers)).boxes.map(b=>b.id).sort()
   const personal=(await f.write('/api/handset/voicemail/boxes',{name:'Personal',kind:'personal'},f.memberHeaders,201)).box
+  const personalView=await f.read(base+'/'+personal.id,f.memberHeaders)
+  assert.deepEqual(personalView.capabilities,{work:true,assign:false,admin:false,observe:true})
+  assert.deepEqual(personalView.people.map(p=>({id:p.id,can_work:p.can_work,can_assign:p.can_assign,is_owner:p.is_owner})),[{id:'synthetic-handset-2',can_work:true,can_assign:false,is_owner:true}])
+  assert.deepEqual(await listed(f.memberHeaders),[personal.id])
+  assert.deepEqual(await listed(f.ownerHeaders),[])
+  assert.deepEqual(await listed(f.otherHeaders),[])
   await f.read('/api/handset/voicemail/boxes/'+personal.id,f.ownerHeaders,403)
   await f.write('/api/handset/voicemail/boxes/'+personal.id+'/members',{personId:'synthetic-handset-1',revision:1,enabled:1},f.memberHeaders,403)
   await f.write('/api/handset/voicemail/boxes',{name:'Shared',kind:'shared'},f.memberHeaders,403)
   const box=(await f.write('/api/handset/voicemail/boxes',{name:'Group',kind:'group'},f.ownerHeaders,201)).box
   const path='/api/handset/voicemail/boxes/'+box.id
   await f.read(path,f.memberHeaders,403)
+  assert.deepEqual(await listed(f.memberHeaders),[personal.id])
+  assert.deepEqual(await listed(f.ownerHeaders),[box.id])
+  assert.deepEqual(await listed(f.otherHeaders),[])
   await f.write(path+'/members',{revision:1,personId:'synthetic-handset-2',enabled:1})
+  assert.deepEqual(await listed(f.memberHeaders),[personal.id,box.id].sort())
+  assert.deepEqual((await f.read(path)).people.map(p=>p.id).sort(),['synthetic-handset-1','synthetic-handset-2'])
   await f.write(path+'/observations',{sourceId:'synthetic-handset-942',text:'Supplied',language:'en',captureQualified:true},f.ownerHeaders,400)
   const item=(await f.write(path+'/observations',{sourceId:'synthetic-handset-942',text:'Supplied',language:'en'},f.ownerHeaders,201)).item
   const target=path+'/items/'+item.id
@@ -1182,6 +1198,8 @@ test('Voicemail privacy and live membership refuse unauthorized handling reopeni
   await f.write(target+'/handle',{revision:2})
   await f.write(target+'/reopen',{revision:3},f.memberHeaders,403)
   await f.write(path+'/members',{revision:2,personId:'synthetic-handset-2',enabled:0})
+  assert.deepEqual(await listed(f.memberHeaders),[personal.id])
+  assert.deepEqual((await f.read(path)).people.map(p=>p.id),['synthetic-handset-1'])
   await f.read(path,f.memberHeaders,403)
   await f.write(target+'/reopen',{revision:3},f.memberHeaders,403)
   await f.write(path+'/members',{revision:3,personId:'synthetic-handset-2',enabled:1})
@@ -1189,6 +1207,7 @@ test('Voicemail privacy and live membership refuse unauthorized handling reopeni
   await f.write(path+'/observations',{sourceId:'synthetic-handset-943',text:'Must not persist after authority loss',language:'en'},f.ownerHeaders,409)
   assert.equal((await runtime.sql('SELECT count(*) AS n FROM hnd_voicemail_items WHERE source_id=?','synthetic-handset-943')).results[0].n,0)
   await runtime.sql('DROP TRIGGER synthetic_handset_mailbox_loss')
+  assert.deepEqual(await listed(f.memberHeaders),[personal.id],'withdrawn issuer authority removes the group from discovery')
   await f.read(path,f.memberHeaders,403)
   await f.write(target+'/reopen',{revision:3},f.ownerHeaders,401)
  }finally{await runtime.close()}
@@ -1244,27 +1263,50 @@ test('Exact-contact staff capabilities independently bound edits exports and mer
 test('Explicit mailbox work and assignment capabilities permit scoped staff ownership notes and owner override without granting membership administration',async()=>{
  const runtime=await openHandset()
  try{
-  const f=await preparationFixture(runtime),base='/api/handset/voicemail/boxes'
+  const f=await preparationFixture(runtime),base='/api/handset/voicemail/boxes',memberEmail=['synthetic-handset-2','example.test'].join('@')
   const box=(await f.write(base,{name:'Scoped support',kind:'shared'},f.ownerHeaders,201)).box,path=base+'/'+box.id
+  const view=async(headers=f.memberHeaders)=>{
+   const detail=await f.read(path,headers),listed=(await f.read(base,headers)).boxes.find(b=>b.id===box.id)
+   assert.ok(listed);assert.deepEqual(listed.capabilities,detail.capabilities);assert.equal(listed.dueCount,detail.due.length)
+   assert.deepEqual(detail.people.map(p=>p.id).sort(),[...new Set(detail.people.map(p=>p.id))].sort())
+   for(const p of detail.people)assert.equal(typeof p.display_name,'string')
+   return detail
+  }
+  const capability=async(work,assign,admin=false,observe=false,headers=f.memberHeaders)=>assert.deepEqual((await view(headers)).capabilities,{work,assign,admin,observe})
+  const person=async(id)=> (await view()).people.find(p=>p.id===id)
   await f.write(path+'/members',{revision:1,personId:'synthetic-handset-2',enabled:1,allowWork:0,allowAssign:0})
+  await capability(false,false)
+  await capability(true,true,true,true,f.ownerHeaders)
+  assert.deepEqual((await view()).people.map(p=>p.id).sort(),['synthetic-handset-1','synthetic-handset-2'])
+  assert.equal((await person('synthetic-handset-2')).can_work,false);assert.equal((await person('synthetic-handset-2')).can_assign,false);assert.equal((await person('synthetic-handset-2')).is_owner,false)
   const observation={sourceId:'synthetic-handset-944',text:'Staff work',language:'en'}
   const item=(await f.write(path+'/observations',observation,f.ownerHeaders,201)).item,target=path+'/items/'+item.id
   assert.deepEqual((await f.read(path,f.memberHeaders)).due,[item.id])
   await f.write(target+'/claim',{revision:1},f.memberHeaders,403)
   await f.write(target+'/note',{revision:1,note:'Not permitted'},f.memberHeaders,403)
   await f.write(path+'/members',{revision:2,personId:'synthetic-handset-2',enabled:1,allowWork:1,allowAssign:0})
+  await capability(true,false)
+  assert.equal((await person('synthetic-handset-2')).can_work,true)
+  assert.equal((await person('synthetic-handset-2')).can_assign,false)
   const claimed=await f.write(target+'/claim',{revision:1},f.memberHeaders)
   assert.equal(claimed.item.claimant,'synthetic-handset-2')
   await f.write(target+'/assign',{revision:2,personId:'synthetic-handset-930'},f.memberHeaders,403)
   await f.write(target+'/note',{revision:2,note:'Needs a colleague'},f.memberHeaders)
   assert.equal((await f.read(path)).history.find(h=>h.action==='note').note,'Needs a colleague')
   await f.write(path+'/members',{revision:3,personId:'synthetic-handset-2',enabled:1,allowWork:1,allowAssign:1})
+  await capability(true,true)
+  assert.equal((await person('synthetic-handset-2')).can_assign,true)
+  assert.equal(await person('synthetic-handset-930'),undefined,'an installation owner outside this exact box is not a target')
   await f.write(target+'/assign',{revision:3,personId:'synthetic-handset-930'},f.memberHeaders,403)
   await f.write(path+'/members',{revision:4,personId:'synthetic-handset-930',enabled:1,allowWork:1})
+  assert.equal((await person('synthetic-handset-930')).can_work,true)
+  assert.equal((await person('synthetic-handset-930')).can_assign,false)
   const reassigned=await f.write(target+'/assign',{revision:3,personId:'synthetic-handset-930'},f.memberHeaders)
   assert.equal(reassigned.item.claimant,'synthetic-handset-930')
   await f.write(target+'/handle',{revision:4},f.memberHeaders,403)
   await f.write(path+'/owner',{revision:5,personId:'synthetic-handset-2'})
+  await capability(true,true,false,true)
+  assert.equal((await person('synthetic-handset-2')).is_owner,true)
   // A scoped staff box owner may handle another current worker's claim.
   const handled=await f.write(target+'/handle',{revision:4},f.memberHeaders)
   assert.equal(handled.item.state,'handled')
@@ -1277,7 +1319,11 @@ test('Explicit mailbox work and assignment capabilities permit scoped staff owne
   // The original native administrator retains only the explicit administrative boundary.
   await f.write(path+'/members',{revision:6,personId:'synthetic-handset-930',enabled:0})
   await f.read(path,f.otherHeaders,403)
+  assert.deepEqual((await f.read(base,f.otherHeaders)).boxes,[])
+  assert.equal(await person('synthetic-handset-930'),undefined)
   await f.write(path+'/members',{revision:7,personId:'synthetic-handset-2',enabled:1,allowWork:0})
+  await capability(false,false)
+  assert.equal((await person('synthetic-handset-2')).can_work,false)
   await f.write(path+'/observations',{sourceId:'synthetic-handset-945',text:'Read is not work',language:'en'},f.memberHeaders,403)
   await f.write(target+'/handle',{revision:7},f.memberHeaders,403)
   await f.write(path+'/members',{revision:8,personId:'synthetic-handset-2',enabled:1,allowWork:1,allowAssign:1})
@@ -1293,5 +1339,34 @@ test('Explicit mailbox work and assignment capabilities permit scoped staff owne
   const current=await f.read(path)
   assert.equal(current.items[0].state,'open');assert.equal(current.items[0].claimant,null)
   assert.equal(current.history.filter(h=>h.action==='note').length,2)
+  assert.deepEqual(current.people.map(p=>p.id),['synthetic-handset-1'])
+  await f.read(base,f.memberHeaders,401)
+  // Re-activating or changing native versions never resurrects a cached grant.
+  await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
+  let refreshed={cookie:(await signIn({...runtime,ownerEmail:memberEmail})).cookie}
+  assert.deepEqual((await f.read(base,refreshed)).boxes,[])
+  await f.write(path+'/members',{revision:10,personId:'synthetic-handset-2',enabled:1,allowWork:1,allowAssign:1})
+  await runtime.sql("UPDATE oa_operators SET version=version+1 WHERE id='synthetic-handset-2'")
+  refreshed={cookie:(await signIn({...runtime,ownerEmail:memberEmail})).cookie}
+  assert.deepEqual((await f.read(base,refreshed)).boxes,[])
+  assert.deepEqual((await f.read(path)).people.map(p=>p.id),['synthetic-handset-1'])
+  await f.read(path,refreshed,403)
+  await f.write(path+'/members',{revision:11,personId:'synthetic-handset-2',enabled:1,allowWork:1,allowAssign:1})
+  assert.ok((await f.read(base,refreshed)).boxes.some(b=>b.id===box.id))
+  await runtime.sql("UPDATE oa_operators SET status='inactive' WHERE id='synthetic-handset-2'")
+  assert.deepEqual((await f.read(path)).people.map(p=>p.id),['synthetic-handset-1'])
+  await f.read(base,refreshed,401)
+  await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
+  refreshed={cookie:(await signIn({...runtime,ownerEmail:memberEmail})).cookie}
+  await runtime.sql("UPDATE oa_operators SET version=version+1 WHERE id='synthetic-handset-1'")
+  const renewedOwner={cookie:(await signIn(runtime)).cookie}
+  assert.deepEqual((await f.read(base,refreshed)).boxes,[])
+  assert.deepEqual((await f.read(path,renewedOwner)).people.map(p=>p.id),['synthetic-handset-1'])
+  await f.read(path,refreshed,403)
+  await f.write(path+'/members',{revision:12,personId:'synthetic-handset-2',enabled:1,allowWork:1,allowAssign:1},renewedOwner)
+  assert.ok((await f.read(base,refreshed)).boxes.some(b=>b.id===box.id))
+  await runtime.sql("UPDATE oa_operators SET status='inactive' WHERE id='synthetic-handset-1'")
+  assert.deepEqual((await f.read(base,refreshed)).boxes,[])
+  await f.read(path,refreshed,403)
  }finally{await runtime.close()}
 })

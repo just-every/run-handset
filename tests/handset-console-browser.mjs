@@ -1,7 +1,10 @@
 import { callReportsBrowserJourney } from './helpers/handset-call-reports-browser.mjs'
+import { supervisionJourney } from './helpers/handset-supervision-browser.mjs'
+import { renderedQueueMetrics, assertKnownRenderedQueueMetrics } from './helpers/handset-metrics-browser.mjs'
 import { messageJourney } from './helpers/handset-messages-browser.mjs'
 import { messageNow } from './helpers/handset-messages.mjs'
 import { numbersJourney } from './helpers/handset-numbers-browser.mjs'
+import { complianceJourney } from './helpers/handset-compliance-browser.mjs'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { mkdir } from 'node:fs/promises'
@@ -22,19 +25,23 @@ import { metricDataset,metricStart,metricConfig } from './helpers/handset-metric
 import { importDataset } from './helpers/handset-import.mjs'
 import { createEdges } from './helpers/handset-edges.mjs'
 import { reportingDashboardJourney } from './helpers/handset-reporting-browser.mjs'
+import { voicemailJourney } from './helpers/handset-voicemail-browser.mjs'
 
-for(const width of [1440,390])for(const domain of ['messages','numbers','administration','queues','queue-media','flows','prompts','callbacks','metrics','protection','dialer'])test(`${domain} console at ${width}`,async()=>{
+for(const width of [1440,390])for(const domain of ['supervision','compliance','messages','numbers','administration','queues','queue-media','flows','prompts','callbacks','metrics','protection','dialer','voicemail'])test(`${domain} console at ${width}`,async()=>{
  const reportingEdges=domain==='metrics'?createEdges():null
- const runtime=await openHandset({twilio:true,edges:reportingEdges,callingClock:domain==='dialer',...(domain==='messages'?{clockTime:messageNow}:domain==='metrics'?{clockTime:analyticsNow}:domain==='numbers'?{clockTime:Date.UTC(2026,9,27,12)}:{}),...(domain==='prompts'?{ttsEdge:speechEdge}:{})}),browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic',...(domain==='prompts'?['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']:[])]})
+ const runtime=await openHandset({twilio:true,edges:reportingEdges,callingClock:domain==='dialer',...(domain==='messages'?{clockTime:messageNow}:domain==='metrics'?{clockTime:analyticsNow}:domain==='supervision'?{clockTime:Date.UTC(2026,9,28,12)}:domain==='numbers'?{clockTime:Date.UTC(2026,9,27,12)}:{}),...(domain==='prompts'?{ttsEdge:speechEdge}:{})}),browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic',...(domain==='prompts'?['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']:[])]})
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage()
  page.setDefaultTimeout(10000)
  const directory=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-console'
  await mkdir(directory,{recursive:true})
  async function proof(name,focus){
+  await page.waitForLoadState('load')
+  await page.evaluate(async()=>{await document.fonts.ready})
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name+' fits viewport')
   assert.equal(await page.locator('h1').count(),1,name+' has a single page heading')
   if(domain==='metrics')assert.equal(await page.locator('button, a, summary').evaluateAll(controls=>controls.every(c=>c.textContent.trim().length>2)),true,'Reporting controls have visible labels')
   await page.screenshot({path:`${directory}/${width}-${name}.png`,fullPage:true})
+  if(domain==='compliance')await page.screenshot({path:`${directory}/${width}-${name}-viewport.png`})
   if(domain==='numbers')await page.screenshot({path:`${directory}/${width}-${name}-viewport.png`})
   if(domain==='flows')await page.screenshot({path:`${directory}/${width}-${name}-viewport.png`})
   if(focus)await focus.screenshot({path:`${directory}/${width}-${name}-focus.png`})
@@ -45,8 +52,11 @@ for(const width of [1440,390])for(const domain of ['messages','numbers','adminis
  try{
   let {cookie}=await signIn(runtime);const [cookieName,...cookieValue]=cookie.split('=')
   await context.addCookies([{name:cookieName,value:cookieValue.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
+  if(domain==='supervision')await supervisionJourney({runtime,page,context,cookie,proof,click})
+  if(domain==='voicemail')await voicemailJourney({runtime,page,context,cookie,proof,click})
   if(domain==='messages')await messageJourney({runtime,page,context,cookie,proof,click})
   if(domain==='numbers')await numbersJourney({runtime,page,context,cookie,proof,click})
+  if(domain==='compliance')await complianceJourney({runtime,page,context,cookie,proof,click})
   if(domain==='administration'){
   const admin=await adminFixture(runtime,{cookie})
   await page.goto(runtime.origin+'/app');await proof('workspace-navigation')
@@ -158,7 +168,12 @@ for(const width of [1440,390])for(const domain of ['messages','numbers','adminis
   await click('Save versioned formula');assert.ok((await page.locator('main').innerText()).includes('40.00%'))
   assert.equal(await page.locator('dd').first().evaluate(el=>{const range=document.createRange();range.selectNodeContents(el);return range.getClientRects().length}),1,'service-level ratio is readable on one line')
   await proof('metrics-live')
-  await click('Save final report');await proof('metrics-final-history')
+  const renderedLive=await renderedQueueMetrics(page);assertKnownRenderedQueueMetrics(renderedLive)
+  await click('Save final report')
+  const retainedHistoryUrl=page.url(),renderedHistory=await renderedQueueMetrics(page)
+  assertKnownRenderedQueueMetrics(renderedHistory)
+  assert.deepEqual(renderedHistory,renderedLive,'the rendered historical report preserves all live measures, versions and source legs')
+  await proof('metrics-final-history')
   await page.goto(runtime.origin+'/app/reports/queues/live?queueId=queue-A')
   await page.getByLabel('Service-level method',{exact:true}).selectOption('exclude-abandons');await click('Save versioned formula')
   assert.ok((await page.locator('main').innerText()).includes('50.00%'));await proof('metrics-changed-method')
@@ -166,6 +181,11 @@ for(const width of [1440,390])for(const domain of ['messages','numbers','adminis
   await page.getByLabel('Short-abandon threshold S (seconds)',{exact:true}).fill('0')
   await page.getByLabel('Service-level method',{exact:true}).selectOption('include-abandons');await click('Save versioned formula')
   assert.ok((await page.locator('main').innerText()).includes('66.67%'));await proof('metrics-changed-thresholds')
+  const changedLiveUrl=page.url()
+  await page.goto(retainedHistoryUrl)
+  assert.deepEqual(await renderedQueueMetrics(page),renderedHistory,'later thresholds and method cannot rewrite the retained display or original source legs')
+  await proof('metrics-history-retained-after-policy-change')
+  await page.goto(changedLiveUrl)
   await page.getByLabel('Send at (UTC)',{exact:true}).fill(localDateTime(domain==='metrics'?analyticsNow+60000:Date.now()+60000))
   await page.getByRole('checkbox',{name:'I consent to this exact scheduled report and recipient',exact:true}).check();await click('Schedule report');await page.waitForURL(runtime.origin+'/app/reports/queues');await proof('report-scheduled')
   await click('Run due reports');assert.ok(!(await page.locator('main').innerText()).includes('accepted'))
@@ -225,7 +245,7 @@ for(const width of [1440,390])for(const domain of ['messages','numbers','adminis
   await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
   const member=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'}),[memberName,...memberValue]=member.cookie.split('=')
   await context.clearCookies();await context.addCookies([{name:memberName,value:memberValue.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
-  const privatePaths={messages:[['/app/messages','messages']],numbers:[['/app/numbers','numbers']],flows:[['/app/flows','flows']],administration:[['/app/admin/bulk','bulk'],['/app/admin/templates','template']],queues:[['/app/queues','queue']],'queue-media':[['/app/queues/media','queue-media']],metrics:[['/app/reports/queues','report'],['/app/import','import']],protection:[['/app/protection','protection']],dialer:[['/app/dialer','dialer']],prompts:[['/app/prompts','prompts']],callbacks:[['/app/callbacks','callbacks']]}
+  const privatePaths={voicemail:[],compliance:[['/app/compliance','compliance']],supervision:[['/app/supervision/settings','supervision']],messages:[['/app/messages','messages']],numbers:[['/app/numbers','numbers']],flows:[['/app/flows','flows']],administration:[['/app/admin/bulk','bulk'],['/app/admin/templates','template']],queues:[['/app/queues','queue']],'queue-media':[['/app/queues/media','queue-media']],metrics:[['/app/reports/queues','report'],['/app/import','import']],protection:[['/app/protection','protection']],dialer:[['/app/dialer','dialer']],prompts:[['/app/prompts','prompts']],callbacks:[['/app/callbacks','callbacks']]}
   for(const [path,name] of privatePaths[domain]){
    await page.goto(runtime.origin+path);await page.getByRole('alert').waitFor();await proof(name+'-permission-denied')
   }
@@ -268,6 +288,8 @@ for(const width of [1440,390])test(`Owner dataset erasure settings and committed
  const directory=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-console'
  await mkdir(directory,{recursive:true})
  async function proof(name){
+  await page.waitForLoadState('load')
+  await page.evaluate(async()=>{await document.fonts.ready})
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,name)
   assert.equal(await page.locator('button').evaluateAll(rows=>rows.every(row=>row.textContent.trim().length>0)),true,'every control has a visible label')
   await page.screenshot({path:`${directory}/${width}-erasure-${name}.png`,fullPage:true})

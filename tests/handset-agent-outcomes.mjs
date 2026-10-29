@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { post } from './helpers/handset-auth.mjs'
+import { post, signIn } from './helpers/handset-auth.mjs'
 import { mailText, mailTo, receptionistFixture } from './helpers/handset-receptionist.mjs'
 
 const slot = days => { const d = new Date(Date.now() + days * 86400000); d.setUTCMinutes(0, 0, 0); return d.toISOString() }
@@ -404,13 +404,70 @@ test('Number correction cases preserve named follow-up and withhold port, emerge
   // No PIN is accepted through this preparation or receipt API.
   assert.equal((await post(f.runtime, '/api/handset/compliance', { sourceId: source.source.id, kind: 'port_pin', report: { ...reports[0][1], port_out_pin: 'synthetic-handset-private-pin' }, dueAt, confirm: 'prepare exact compliance case' }, f.headers)).status, 400)
   const port = cases[0]
-  f.runtime.twilioResources.set('https://numbers.twilio.com/v1/Porting/PortIn/synthetic-handset-port-1/PhoneNumber/synthetic-handset-port-number-1', { port_in_request_sid: 'synthetic-handset-port-1', phone_number_sid: 'synthetic-handset-port-number-1', account_sid: source.account, phone_number: '+15125550125', port_in_phone_number_status: 'port_pending', port_date: '2026-11-02T18:00:00Z', port_out_pin: 'synthetic-handset-private-pin' })
+  const portUrl = 'https://numbers.twilio.com/v1/Porting/PortIn/synthetic-handset-port-1/PhoneNumber/synthetic-handset-port-number-1'
+  const portReceipt = { port_in_request_sid: 'synthetic-handset-port-1', phone_number_sid: 'synthetic-handset-port-number-1', account_sid: source.account, phone_number: '+15125550125', port_in_phone_number_status: 'port_pending', port_date: '2026-11-02T18:00:00Z', port_out_pin: 'synthetic-handset-private-pin' }
+  const detail = async () => {
+   const response = await f.runtime.request(`/api/handset/compliance/${port.id}`, { headers: f.headers })
+   assert.equal(response.status, 200)
+   return response.json()
+  }
+  f.runtime.twilioResources.set(portUrl, portReceipt)
   const response = await post(f.runtime, `/api/handset/compliance/${port.id}/readback`, { revision: port.revision, confirm: 'read exact compliance receipt' }, f.headers)
   assert.equal(response.status, 200)
   const observed = (await response.json()).case
   assert.equal(observed.provider_state, 'port_pending'); assert.equal(observed.status, 'follow_up')
   assert.match(observed.readback, /unproved/); assert.ok(!JSON.stringify(observed).includes('synthetic-handset-private-pin'))
+  // Once a receipt is retained, unavailable or foreign provider evidence must
+  // leave the same correction, named due time and observation history intact.
+  const beforeFailedReadback = await detail()
+  for (const [patch, status] of [
+   [null, 503],
+   [{ account_sid: 'synthetic-handset-3101' }, 502],
+   [{ phone_number: '+15125550126' }, 502],
+   [{ port_in_request_sid: 'synthetic-handset-3102' }, 502],
+   [{ phone_number_sid: 'synthetic-handset-3103' }, 502],
+  ]) {
+   if (patch) f.runtime.twilioResources.set(portUrl, { ...portReceipt, ...patch })
+   else f.runtime.twilioResources.delete(portUrl)
+   const refused = await post(f.runtime, `/api/handset/compliance/${port.id}/readback`, { revision: observed.revision, confirm: 'read exact compliance receipt' }, f.headers)
+   assert.equal(refused.status, status, await refused.clone().text())
+   assert.deepEqual(await detail(), beforeFailedReadback, 'failed receipt readback preserves the retained case and its due follow-up')
+  }
+  f.runtime.twilioResources.set(portUrl, portReceipt)
+  const correctionNote = 'Named representative must correct the PIN privately and sign the exact-number LOA'
+  const correction = await post(f.runtime, `/api/handset/compliance/${port.id}/review`, { revision: observed.revision, note: correctionNote, confirm: 'review exact correction preparation' }, f.headers)
+  assert.equal(correction.status, 200)
+  const corrected = await detail()
+  assert.equal(corrected.case.approval_note, correctionNote)
+  const staleReview = await post(f.runtime, `/api/handset/compliance/${port.id}/review`, { revision: observed.revision, note: 'synthetic-handset-3104 obsolete correction', confirm: 'review exact correction preparation' }, f.headers)
+  assert.equal(staleReview.status, 409)
+  assert.deepEqual(await detail(), corrected, 'an obsolete review cannot overwrite the current correction or append a review')
   await f.runtime.sql("UPDATE oa_operators SET role='member' WHERE id='synthetic-handset-2'")
+  const member = await signIn({ ...f.runtime, ownerEmail: f.runtime.ownerEmail.replace('synthetic-handset-1', 'synthetic-handset-2') })
+  const preparation = { sourceId: source.source.id, kind: 'port_pin', report: reports[0][1], dueAt, confirm: 'prepare exact compliance case' }
+  const newPreparation = { ...preparation, report: { ...reports[0][1], port_in_request_sid: 'synthetic-handset-3105' } }
+  const writes = [
+   ['/api/handset/compliance', newPreparation],
+   [`/api/handset/compliance/${port.id}/review`, { revision: corrected.case.revision, note: 'synthetic-handset-3106 unauthorized correction', confirm: 'review exact correction preparation' }],
+   [`/api/handset/compliance/${port.id}/readback`, { revision: corrected.case.revision, confirm: 'read exact compliance receipt' }],
+   [`/api/handset/compliance/${port.id}/submit`, { revision: corrected.case.revision }],
+   [`/api/handset/compliance/${port.id}/follow-up`, { revision: corrected.case.revision, ownerId: 'synthetic-handset-1', dueAt: Date.now() + 3600000, nextAction: 'synthetic-handset-3107 unauthorized reassignment', confirm: 'assign exact continued follow-up' }],
+  ]
+  const beforeUnauthorized = await (await f.runtime.request('/api/handset/compliance', { headers: f.headers })).json()
+  const beforeUnauthorizedRequests = f.runtime.sourceRequests.length
+  for (const [headers, status] of [[{ cookie: member.cookie }, 403], [{}, 401], [{ authorization: 'Bearer ' + f.issued.token }, 401]]) {
+   const refused = []
+   for (const path of ['/api/handset/compliance', `/api/handset/compliance/${port.id}`]) refused.push(await f.runtime.request(path, { headers }))
+   for (const [path, input] of writes) refused.push(await post(f.runtime, path, input, headers))
+   for (const response of refused) {
+    assert.equal(response.status, status)
+    const body = await response.text()
+    for (const privateValue of [port.id, source.source.id, port.reference, port.plan, corrected.case.approval_note]) assert.ok(!body.includes(privateValue), 'direct unauthorized compliance transport discloses no case evidence')
+   }
+   assert.deepEqual(await detail(), corrected)
+   assert.deepEqual(await (await f.runtime.request('/api/handset/compliance', { headers: f.headers })).json(), beforeUnauthorized, 'unauthorized writes neither alter cases nor create a new one')
+  }
+  assert.equal(f.runtime.sourceRequests.length, beforeUnauthorizedRequests, 'unauthorized readback never reaches the provider')
   for(const [kind,path,receipt] of [
    ['brand_registration','https://messaging.twilio.com/v1/a2p/BrandRegistrations',{sid:'synthetic-handset-brand-1',account_sid:source.account,status:'APPROVED',customer_profile_bundle_sid:'synthetic-handset-private-profile'}],
    ['tollfree_verification','https://messaging.twilio.com/v1/Tollfree/Verifications',{sid:'synthetic-handset-tfv-1',account_sid:source.account,tollfree_phone_number:'+15125550125',status:'TWILIO_APPROVED',business_contact_email:'synthetic-handset-private@example.test'}],
@@ -437,6 +494,22 @@ test('Number correction cases preserve named follow-up and withhold port, emerge
   assert.equal(all.cases.length, 5); assert.equal(all.cleanCompliance, false); assert.equal(all.cleanReputation, false)
   assert.ok(all.cases.every(r => r.due_at >= dueAt && r.owner_id === 'synthetic-handset-1'))
   assert.equal(all.cases.filter(r=>r.due_at===dueAt).length,3);assert.equal(all.cases.filter(r=>r.due_at>dueAt).length,2)
+  assert.equal((await post(f.runtime, '/api/handset/sources/revoke', { sourceId: source.source.id }, f.headers)).status, 200)
+  const revokedSources = await (await f.runtime.request('/api/handset/sources', { headers: f.headers })).json()
+  assert.equal(revokedSources.sources.find(s => s.id === source.source.id).status, 'revoked')
+  const beforeRevoked = await detail(), beforeRevokedRequests = f.runtime.sourceRequests.length
+  for (const [path, input] of [...writes.slice(1), ['/api/handset/compliance', newPreparation], ['/api/handset/compliance', preparation]]) {
+   const response = await post(f.runtime, path, input, f.headers)
+   assert.equal(response.status, 409)
+   assert.equal((await response.json()).error, 'source_inactive', 'revocation prevents new work and preparation replay before effects')
+  }
+  assert.equal(f.runtime.sourceRequests.length, beforeRevokedRequests, 'revocation prevents even a provider receipt read')
+  assert.deepEqual(await detail(), beforeRevoked)
+  assert.deepEqual(await (await f.runtime.request('/api/handset/compliance', { headers: f.headers })).json(), all)
+  assert.deepEqual(await (await f.runtime.request('/api/handset/sources', { headers: f.headers })).json(), revokedSources, 'replaying preparation cannot recreate source authority')
+  await f.runtime.restart()
+  assert.deepEqual(await detail(), beforeRevoked, 'revoked cases retain the correction, due time and evidence through restart')
+  assert.deepEqual(await (await f.runtime.request('/api/handset/sources', { headers: f.headers })).json(), revokedSources)
   assert.equal(f.runtime.sourceRequests.filter(r => r.method !== 'GET').length, 0, 'no port, address, replacement number or rotation mutation')
  } finally { await f.runtime.close() }
 })

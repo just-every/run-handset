@@ -1,0 +1,120 @@
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
+import { openHandset } from './helpers/handset-worker.mjs'
+import { post } from './helpers/handset-auth.mjs'
+import { supervisionFixture } from './helpers/handset-supervision.mjs'
+import { metricConfig } from './helpers/handset-metrics.mjs'
+import { importCall, uploadDataset } from './helpers/handset-import.mjs'
+
+test('Explicit team supervision reconciles reviewed legs, fences foreign and revoked control, and attributes dispatch interventions without dropping active calls',async()=>{
+ const runtime=await openHandset({twilio:true})
+ try{
+  const f=await supervisionFixture(runtime)
+  assert.deepEqual((await f.read()).queues,[],'ownership alone gives no supervision read')
+  assert.equal((await runtime.request(f.base+'/queues/'+f.sales.id)).status,401)
+  await f.read('/queues/'+f.sales.id,f.cookie,403)
+  const supervisor=await f.personSession(f.spanish)
+  const supportGrant=await f.grant(f.spanish,f.support.id)
+  assert.deepEqual((await f.read('',supervisor)).queues.map(q=>q.id),[f.support.id])
+  const beforeShared=(await f.queueRead()).agents.find(a=>a.operator_id===f.english)
+  const sharedDenied=await f.send('/queues/'+f.support.id+'/agents/'+f.english+'/state',{availability:'away',revision:beforeShared.revision,reason:'Foreign membership attempt'},supervisor,403)
+  assert.equal(sharedDenied.error,'supervision_shared_agent_scope_required')
+  assert.equal((await f.queueRead()).agents.find(a=>a.operator_id===f.english).availability,'available')
+  const entry=await f.admit(f.sales,'en')
+  await f.write(f.queueBase+'/'+f.sales.id+'/dispatch',{})
+  await f.action(entry.id,'accept')
+  const providerBefore=runtime.sourceRequests.length
+  for(const operation of ['listen','whisper','barge','takeover']){
+   const denied=await f.send('/queues/'+f.sales.id+'/calls/'+entry.id+'/'+operation,{},supervisor,403)
+   assert.equal(denied.error,'supervision_scope_required')
+  }
+  assert.equal(runtime.sourceRequests.length,providerBefore,'foreign control refuses before any provider attempt')
+  const salesGrant=await f.grant(f.spanish,f.sales.id)
+  const report=await f.read('/queues/'+f.sales.id,supervisor),m=report.metrics
+  assert.equal(m.serviceLevel.numerator,2);assert.equal(m.serviceLevel.denominator,5)
+  assert.equal(m.asaSeconds.value,17.5);assert.equal(m.abandonment.numerator,1);assert.equal(m.abandonment.denominator,5)
+  assert.equal(m.averageAbandonSeconds.value,40);assert.equal(m.ahtSeconds.value,60)
+  assert.deepEqual([m.totals.offered,m.totals.arrivals,m.totals.answered,m.totals.abandoned,m.totals.talkSeconds,m.totals.holdSeconds,m.totals.wrapSeconds],[6,6,4,2,160,40,40])
+  const a=m.agents[f.english]
+  assert.equal(a.staffedSeconds,600);assert.equal(a.occupancy.value,0.4)
+  assert.deepEqual([a.answeredOffers,a.missedOffers,a.durations.available,a.durations.ringing,a.durations.talk,a.durations.hold,a.durations.wrap,a.durations.unavailable,a.durations.break,a.durations['logged-out']],[4,1,200,60,160,40,40,100,30,60])
+  assert.deepEqual(m.sourceEntryIds,f.dataset.entries.filter(e=>e.queueId===f.sales.id).map(e=>e.id))
+  const other=(await f.read('/queues/'+f.support.id,supervisor)).metrics
+  assert.deepEqual([other.totals.arrivals,other.totals.transfers,other.totals.overflows,other.totals.callbacks],[0,1,1,1])
+  assert.equal((await post(runtime,'/api/handset/metrics/config',metricConfig(f.sales.id,1,{method:'exclude-abandons'}),f.headers)).status,201)
+  const excluding=(await f.read('/queues/'+f.sales.id,supervisor)).metrics
+  assert.deepEqual(excluding.serviceLevel,{numerator:2,denominator:4,value:0.5})
+  assert.equal((await post(runtime,'/api/handset/metrics/config',metricConfig(f.sales.id,2,{shortSeconds:0}),f.headers)).status,201)
+  const allAbandons=(await f.read('/queues/'+f.sales.id,supervisor)).metrics
+  assert.deepEqual(allAbandons.serviceLevel,{numerator:2,denominator:6,value:1/3})
+  assert.deepEqual(allAbandons.abandonment,{numerator:2,denominator:6,value:1/3})
+  assert.equal(allAbandons.averageAbandonSeconds.value,21.5)
+  assert.deepEqual(allAbandons.sourceEntryIds,m.sourceEntryIds,'threshold changes keep original source entries')
+  const payload=JSON.stringify(report)
+  for(const sensitive of ['caller','from_number','to_number','callId','record_id','email'])assert.equal(payload.includes('"'+sensitive+'"'),false,'wallboards hide '+sensitive)
+  const ownHeld=await f.send('/queues/'+f.sales.id+'/calls/'+entry.id+'/whisper',{},supervisor,409)
+  assert.equal(ownHeld.error,'supervision_media_qualification_held')
+  assert.equal(runtime.sourceRequests.length,providerBefore)
+  let agent=report.agents.find(a=>a.operator_id===f.english)
+  const unavailable=await f.send('/queues/'+f.sales.id+'/agents/'+f.english+'/state',{availability:'away',revision:agent.revision,reason:'Coaching break requested'},supervisor)
+  assert.equal(unavailable.activeCallsPreserved,true)
+  const active=await f.read('/queues/'+f.sales.id,supervisor)
+  assert.equal(active.live.active,1,'intervention preserves active call')
+  assert.equal(active.agents.find(a=>a.operator_id===f.english).dispatchEligible,false)
+  await f.action(entry.id,'complete')
+  await runtime.sql('UPDATE hnd_queue_agents SET wrap_until=0 WHERE operator_id=?',f.english)
+  // Leave another eligible but occupied agent in the queue. Away prevents new
+  // English assignments without turning the queue into an unstaffed overflow.
+  await f.write(f.queueBase+'/agents',{operatorId:f.spanish,languages:['en','es'],skills:['service'],capacity:1,revision:(await f.queueRead()).agents.find(a=>a.operator_id===f.spanish).revision,confirm:'approve native agent capabilities'},201)
+  const spanishEntry=await f.admit(f.sales,'es')
+  await f.write(f.queueBase+'/'+f.sales.id+'/dispatch',{});await f.action(spanishEntry.id,'accept')
+  const waiting=await f.admit(f.sales,'en')
+  await f.write(f.queueBase+'/'+f.sales.id+'/dispatch',{})
+  assert.equal((await f.read('/queues/'+f.sales.id,supervisor)).live.waiting,1,'unavailable agent receives no new assignment')
+  agent=(await f.read('/queues/'+f.sales.id,supervisor)).agents.find(a=>a.operator_id===f.english)
+  await f.send('/queues/'+f.sales.id+'/agents/'+f.english+'/state',{availability:'available',revision:agent.revision,reason:'Coaching completed'},supervisor)
+  await f.write(f.queueBase+'/'+f.sales.id+'/dispatch',{})
+  const queueState=await (await runtime.request(f.queueBase,{headers:{cookie:f.cookie}})).json()
+  assert.equal(queueState.entries.find(e=>e.id===waiting.id).agent_id,f.english,'restored availability reaches native dispatch')
+  assert.equal(queueState.entries.find(e=>e.id===spanishEntry.id).state,'active')
+  const timeline=await f.read('/queues/'+f.sales.id+'/timeline',supervisor)
+  assert.equal(timeline.events.length,2)
+  assert.deepEqual(new Set(timeline.events.map(e=>e.reason)),new Set(['Coaching break requested','Coaching completed']))
+  assert.ok(timeline.events.every(e=>e.actor===unavailable.actor&&e.occurred_at>0&&e.agent_id===f.english))
+  assert.deepEqual(new Set(timeline.events.map(e=>e.to_state)),new Set(['away','available']))
+  await runtime.restart()
+  assert.equal((await f.read('/queues/'+f.sales.id+'/timeline',supervisor)).events.length,2,'attribution survives restart')
+  // Existing agent self-service remains independent of supervisory authority.
+  const self=await (await runtime.request(f.queueBase+'/self',{headers:{cookie:supervisor}})).json()
+  assert.equal((await post(runtime,f.queueBase+'/presence',{availability:'away',revision:self.agent.revision},{cookie:supervisor})).status,200)
+  await f.send('/grants/'+salesGrant.id+'/revoke',{})
+  await f.read('/queues/'+f.sales.id,supervisor,403)
+  await f.send('/queues/'+f.sales.id+'/agents/'+f.english+'/state',{availability:'away',revision:1,reason:'Revoked attempt'},supervisor,403)
+  for(const operation of ['listen','whisper','barge','takeover'])await f.send('/queues/'+f.sales.id+'/calls/'+entry.id+'/'+operation,{},supervisor,403)
+  assert.equal(runtime.sourceRequests.length,providerBefore)
+  await f.send('/grants/'+supportGrant.id+'/revoke',{})
+  assert.deepEqual((await f.read('',supervisor)).queues,[])
+  await f.grant(f.spanish,f.sales.id,false)
+  assert.equal((await f.read('/queues/'+f.sales.id,supervisor)).canIntervene,false)
+  await f.send('/queues/'+f.sales.id+'/agents/'+f.english+'/state',{availability:'away',revision:1,reason:'Read-only attempt'},supervisor,403)
+  await f.send('/grants',{operatorId:f.spanish,queueId:f.sales.id,canIntervene:true,expiresAt:Date.now()+3600000,confirm:'approve supervision scope'},supervisor,403)
+  assert.equal((await post(runtime,'/auth/signout',{}, {cookie:supervisor})).status,204)
+  await f.read('/queues/'+f.sales.id,supervisor,401)
+  const currentSupervisor=await f.personSession(f.spanish)
+  assert.equal((await f.read('/queues/'+f.sales.id,currentSupervisor)).canIntervene,false)
+  assert.equal((await post(runtime,'/auth/operator/status',{operatorId:f.spanish,status:'inactive'},f.headers)).status,200)
+  await f.read('/queues/'+f.sales.id,currentSupervisor,401)
+  assert.equal((await post(runtime,'/auth/operator/status',{operatorId:f.spanish,status:'active'},f.headers)).status,200)
+  const reactivated=await f.personSession(f.spanish)
+  await f.read('/queues/'+f.sales.id,reactivated,403)
+  await f.grant(f.english,f.sales.id)
+  assert.equal((await post(runtime,'/api/handset/erasure/erase',{entity:'queue-dataset',targetId:f.dataset.id,revision:1,confirm:'erase this exact dataset and retained copies'},f.headers)).status,200)
+  const erased=(await f.read('/queues/'+f.sales.id)).metrics
+  assert.deepEqual(erased.sourceEntryIds,[]);assert.deepEqual(erased.agents,{})
+  assert.equal(erased.serviceLevel.value,null,'erased observations never become a healthy percentage')
+  const uploadId=await uploadDataset(runtime,f.cookie,f.dataset)
+  const replay=await importCall(runtime,f.cookie,'plan',{uploadId})
+  assert.equal(replay.status,409);assert.equal((await replay.json()).error,'source_erased')
+  assert.deepEqual((await f.read('/queues/'+f.sales.id)).metrics.sourceEntryIds,[],'replayed capture cannot resurrect erased observations')
+ }finally{await runtime.close()}
+})

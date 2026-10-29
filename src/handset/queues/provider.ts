@@ -25,21 +25,32 @@ export async function queueProviderResponse(request:Request,original:Bindings):P
   const body=await request.text();if(new TextEncoder().encode(body).length>16384)throw new Fault('body_too_large',413)
   const p=new URLSearchParams(body)
   await verifyQueueRequest(request,env,p)
-  const source=await boundSource(env,match[1]);knownSource=source
-  if(!source||p.get('AccountSid')!==source.account_id)throw new Fault('invalid_queue_source_proof',403)
-  const ctx=sourceContext(env,source)
-  if(match[2]){
-   const offer=await offerById(ctx,match[2])
-   if(offer.binding_id!==source.id||offer.source_id!==source.source_id)throw new Fault('queue_offer_source_mismatch',403)
-   const action=match[3]==='action',sid=text(p.get('CallSid'),'CallSid')
-   if(action&&sid!==offer.parent_call_sid||!action&&p.get('ParentCallSid')!==offer.parent_call_sid)throw new Fault('queue_parent_identity_mismatch',403)
-   const child=action?(p.get('DialCallSid')?text(p.get('DialCallSid'),'DialCallSid'):undefined):sid
-   await recoverOffer(ctx,offer,child,action&&p.get('DialBridged')!=='true'?p.get('DialCallStatus')??undefined:undefined)
-   if(!action)return new Response(null,{status:204,headers})
-   return xml(await continueVoice(ctx,source,await entry(ctx,offer.entry_id),offer.parent_call_sid))
+  // Independent Voice requests can contend on the native audit head or the
+  // same dispatcher reservation. Retry only rolled-back optimistic writes;
+  // each attempt rechecks current source authority and durable offer state.
+  for(let attempt=0;;attempt++){
+   try{
+    const source=await boundSource(env,match[1]);knownSource=source
+    if(!source||p.get('AccountSid')!==source.account_id)throw new Fault('invalid_queue_source_proof',403)
+    const ctx=sourceContext(env,source)
+    if(match[2]){
+     const offer=await offerById(ctx,match[2])
+     if(offer.binding_id!==source.id||offer.source_id!==source.source_id)throw new Fault('queue_offer_source_mismatch',403)
+     const action=match[3]==='action',sid=text(p.get('CallSid'),'CallSid')
+     if(action&&sid!==offer.parent_call_sid||!action&&p.get('ParentCallSid')!==offer.parent_call_sid)throw new Fault('queue_parent_identity_mismatch',403)
+     const child=action?(p.get('DialCallSid')?text(p.get('DialCallSid'),'DialCallSid'):undefined):sid
+     await recoverOffer(ctx,offer,child,action&&p.get('DialBridged')!=='true'?p.get('DialCallStatus')??undefined:undefined)
+     if(!action)return new Response(null,{status:204,headers})
+     return xml(await continueVoice(ctx,source,await entry(ctx,offer.entry_id),offer.parent_call_sid))
+    }
+    text(p.get('CallSid'),'CallSid')
+    return xml(await voiceInstructions(ctx,source,p))
+   }catch(error){
+    const contention=error instanceof Fault&&['state_changed','audit_busy_retry'].includes(error.code)||/UNIQUE constraint failed: hnd_(?:queue_|source_|records)/.test(String(error))
+    if(!contention||attempt>=7)throw error
+    await new Promise(resolve=>setTimeout(resolve,20*(attempt+1)+Math.floor(Math.random()*40)))
+   }
   }
-  text(p.get('CallSid'),'CallSid')
-  return xml(await voiceInstructions(ctx,source,p))
  }catch(error){
   if(error instanceof Fault){if(knownSource)await append(env,knownSource.source_id,'source.refuse','installation','refused');return json({error:error.code,...(error.detail?{detail:error.detail}:{})},error.status)}
   if(String(error).includes('CHECK constraint failed'))return json({error:'queue_authority_changed'},409)

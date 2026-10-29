@@ -3,8 +3,12 @@ import type { Session } from '../../modules/operator-auth/index.mjs'
 import { choice, Fault, id, integer, json, keys, owner, text, type ObjectValue } from '../core'
 import { commit } from '../audit/store'
 import { nativeFence } from '../preparation/access'
-interface Box {id:string;owner_id:string;admin_id:string;kind:string;name:string;revision:number}
-interface Item {id:string;box_id:string;source_id:string;observation:string;language:string;claimant:string|null;state:string;revision:number}
+export interface Box {id:string;owner_id:string;admin_id:string;kind:string;name:string;revision:number}
+export interface Item {id:string;box_id:string;source_id:string;observation:string;language:string;claimant:string|null;state:string;revision:number}
+export interface Capabilities {work:boolean;assign:boolean;admin:boolean;observe:boolean}
+export interface BoxPerson {id:string;display_name:string;can_work:boolean;can_assign:boolean;is_owner:boolean}
+export interface MailboxView {actorId:string;box:Box;items:Item[];due:string[];history:{id:string;item_id:string;actor:string;action:string;revision:number;created_at:number;note:string}[];capabilities:Capabilities;people:BoxPerson[]}
+export type ListedBox=Box&{dueCount:number;capabilities:Capabilities}
 const root='/api/handset/voicemail'
 const ownerAccess=`(b.owner_id=? AND (b.kind='personal' OR (b.owner_id=b.admin_id AND ?='owner') OR EXISTS(SELECT 1 FROM hnd_mailbox_members om JOIN oa_operators op ON op.id=om.person_id JOIN oa_operators oi ON oi.id=om.issuer_id WHERE om.box_id=b.id AND om.person_id=b.owner_id AND om.can_work=1 AND op.status='active' AND op.version=om.person_version AND oi.status='active' AND oi.role='owner' AND oi.version=om.issuer_version)))`
 const allowed=`SELECT b.* FROM hnd_mailboxes b WHERE b.id=? AND (${ownerAccess} OR (b.admin_id=? AND ?='owner') OR (b.kind<>'personal' AND EXISTS(SELECT 1 FROM hnd_mailbox_members m JOIN oa_operators p ON p.id=m.person_id JOIN oa_operators i ON i.id=m.issuer_id WHERE m.box_id=b.id AND m.person_id=? AND p.status='active' AND p.version=m.person_version AND i.status='active' AND i.role='owner' AND i.version=m.issuer_version)))`
@@ -33,8 +37,36 @@ async function requireOperation(env:Bindings,a:Session,key:string,operation:'wor
  return operationQuery(env,a,key,operation,true)
 }
 const presented=(item:Item)=>({...item,captureQualified:false,transcriptionQualified:false,outboundAuthority:false})
+async function capabilities(env:Bindings,a:Session,box:Box):Promise<Capabilities>{
+ const work=!!await operationQuery(env,a,box.id,'work').first()
+ return {work,assign:box.kind!=='personal'&&!!await operationQuery(env,a,box.id,'assign').first(),admin:box.kind!=='personal'&&box.admin_id===a.operator.id&&a.operator.role==='owner',observe:work&&box.owner_id===a.operator.id}
+}
+async function people(env:Bindings,a:Session,box:Box):Promise<BoxPerson[]>{
+ // Names come only from this box's current readers, never the company directory.
+ const candidates=(await env.DB.prepare(`SELECT DISTINCT p.id,p.display_name,p.role,p.version FROM oa_operators p WHERE p.status='active' AND (
+ p.id=? OR (?<>'personal' AND (p.id=? AND p.role='owner' OR EXISTS(SELECT 1 FROM hnd_mailbox_members m JOIN oa_operators i ON i.id=m.issuer_id WHERE m.box_id=? AND m.person_id=p.id AND m.person_version=p.version AND i.status='active' AND i.role='owner' AND i.version=m.issuer_version)))) ORDER BY p.display_name,p.id`).bind(box.owner_id,box.kind,box.admin_id,box.id).all<{id:string;display_name:string;role:Session['operator']['role'];version:number}>()).results
+ const result:BoxPerson[]=[]
+ for(const p of candidates){
+  const target={...a,operator:{...a.operator,...p}}
+  if(!await access(env,target,box.id).first())continue
+  const caps=await capabilities(env,target,box)
+  result.push({id:p.id,display_name:p.display_name,can_work:caps.work,can_assign:caps.assign,is_owner:p.id===box.owner_id})
+ }
+ return result
+}
 export async function voicemailDoor(request:Request,env:Bindings,a:Session,v?:ObjectValue):Promise<Response>{
  const path=new URL(request.url).pathname.slice(root.length),db=env.DB
+ if(request.method==='GET'&&path==='/boxes'){
+  const boxes=(await db.prepare(allowed.replace('b.id=? AND ', '')+' ORDER BY b.name,b.id').bind(...values(a,'').slice(1)).all<Box>()).results
+  const listed:ListedBox[]=[],guards=[nativeFence(db,a)]
+  for(const box of boxes){
+   const count=await db.prepare("SELECT count(*) AS n FROM hnd_voicemail_items WHERE box_id=? AND state='open'").bind(box.id).first<{n:number}>()
+   listed.push({...box,dueCount:count!.n,capabilities:await capabilities(env,a,box)})
+   guards.push(fence(env,a,box.id))
+  }
+  await commit(env,a,'voicemail.read','installation','completed',guards,false)
+  return json({boxes:listed})
+ }
  if(request.method==='POST'&&path==='/boxes'&&v){
   keys(v,['name','kind']);const kind=choice(v.kind,['personal','shared','group'],'kind');if(kind!=='personal')owner(a)
   const box:Box={id:id(),owner_id:a.operator.id,admin_id:a.operator.id,kind,name:text(v.name,'name'),revision:1}
@@ -48,8 +80,9 @@ export async function voicemailDoor(request:Request,env:Bindings,a:Session,v?:Ob
  if(request.method==='GET'&&!match[2]){
   const items=(await db.prepare('SELECT * FROM hnd_voicemail_items WHERE box_id=? ORDER BY id').bind(box.id).all<Item>()).results
   const history=(await db.prepare('SELECT h.* FROM hnd_voicemail_history h JOIN hnd_voicemail_items i ON i.id=h.item_id WHERE i.box_id=? ORDER BY h.created_at,h.id').bind(box.id).all()).results
+  const caps=await capabilities(env,a,box),readers=await people(env,a,box)
   await commit(env,a,'voicemail.read',box.id,'completed',guards,false)
-  return json({box,items:items.map(presented),due:items.filter(i=>i.state==='open').map(i=>i.id),history})
+  return json({actorId:a.operator.id,box,items:items.map(presented),due:items.filter(i=>i.state==='open').map(i=>i.id),history,capabilities:caps,people:readers})
  }
  if(request.method!=='POST'||!v)throw new Fault('method_not_allowed',405)
  if(match[2]==='owner'){

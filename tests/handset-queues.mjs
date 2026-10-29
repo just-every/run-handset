@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { openHandset } from './helpers/handset-worker.mjs'
 import { post, signIn } from './helpers/handset-auth.mjs'
 import { sourceFixture } from './helpers/handset-sources.mjs'
-import { queueFixture, authorizeQueueMedia } from './helpers/handset-queues.mjs'
+import { queueFixture, authorizeQueueMedia, capacityFixture } from './helpers/handset-queues.mjs'
 
 // Small batches exercise independent ingress without turning ledger contention
 // into a CPU load test on the shared development machine.
@@ -13,6 +13,98 @@ async function surge(count,action){
  return result
 }
 const counts=(data,state)=>data.entries.filter(e=>e.state===state).length
+
+test('A 200-person roster and 100 configured agents admit a concurrent twenty-call signed surge, refuse saturation and retain unique reservations after restart',async t=>{
+ const runtime=await openHandset({twilio:true})
+ try{
+  const started=performance.now(),source=await sourceFixture(runtime),f=await capacityFixture(runtime,source)
+  const roster=await f.read('/auth/operators')
+  assert.equal(roster.length,200)
+  assert.ok(roster.every(p=>p.status==='active'))
+  let state=await f.read()
+  assert.equal(state.agents.length,100)
+  assert.ok(state.agents.every(a=>a.operator_status==='active'&&a.availability==='available'&&a.presenceFresh&&a.capacity===1))
+  assert.equal(state.memberships.filter(m=>m.queue_id===f.queue.id&&m.logged_in).length,100)
+  assert.equal(state.capacity[0].admissionLimit,20);assert.equal(state.capacity[0].remaining,20)
+  const configuredMs=performance.now()-started,calls=Array.from({length:20},(_,i)=>f.edge.resource(200+i)),surgeStart=performance.now()
+  const responses=await Promise.all(calls.map(call=>f.edge.callback(call)))
+  const instructions=await Promise.all(responses.map(async r=>({status:r.status,body:await r.text()})))
+  assert.ok(instructions.every(r=>r.status===200),JSON.stringify(instructions))
+  state=await f.read()
+  assert.equal(state.entries.length,20);assert.equal(state.reservations.length,20)
+  assert.equal(new Set(state.reservations.map(r=>r.agent_id+':'+r.slot)).size,20)
+  assert.equal(new Set(state.entries.map(e=>e.call_id)).size,20)
+  assert.ok(state.entries.every(e=>e.state==='reserved'&&f.agents.includes(e.agent_id)))
+  // Fetch each accepted caller again so every reserved caller receives its own
+  // Dial exactly once, even when another ingress request dispatched its entry.
+  for(const entry of state.entries){
+   const record=await f.read('/api/handset/records/'+entry.call_id)
+   const call=calls.find(c=>record.record.source_id===source.source.id+':queue:'+c.CallSid)
+   assert.ok(call,'each entry retains one of the signed surge source identities')
+   assert.equal(JSON.parse(record.record.data).from,call.From)
+   assert.equal(JSON.parse(record.record.data).to,call.To)
+   assert.equal(record.record.source_id,source.source.id+':queue:'+call.CallSid)
+  }
+  for(const [i,call] of calls.entries()){
+   if(!instructions[i].body.includes('<Dial')){
+    const r=await f.edge.callback(call);assert.equal(r.status,200);instructions[i].body=await r.text()
+   }
+   assert.match(instructions[i].body,/<Dial /)
+  }
+  state=await f.read()
+  assert.equal(state.offers.length,20)
+  assert.equal(state.capacity[0].pending,20);assert.equal(state.capacity[0].remaining,0)
+  for(const offer of state.offers){
+   assert.equal(offer.source_id,source.source.id);assert.equal(offer.binding_id,f.binding.id)
+   assert.equal(offer.destination,f.destinations[offer.agent_id]);assert.equal(offer.state,'uncertain')
+   assert.ok(calls.some(c=>c.CallSid===offer.parent_call_sid))
+  }
+  const accepted=state.entries,reservations=state.reservations,offers=state.offers
+  const surgeMs=performance.now()-surgeStart,refusalStart=performance.now()
+  const refused=await Promise.all(Array.from({length:20},(_,i)=>f.edge.callback(f.edge.resource(240+i))))
+  for(const response of refused){
+   assert.equal(response.status,200,await response.clone().text())
+   const body=await response.text();assert.match(body,/<Say[^>]*>[^<]+<\/Say><Hangup\/>/)
+   assert.ok(!body.includes('<Dial')&&!body.includes('<Redirect'))
+  }
+  const refusalMs=performance.now()-refusalStart
+  state=await f.read()
+  assert.deepEqual(state.entries,accepted);assert.deepEqual(state.reservations,reservations);assert.deepEqual(state.offers,offers)
+  const manual=await f.write('/api/handset/records',{kind:'call_session',sourceId:'synthetic-handset-2400',occurredAt:Date.now(),data:{direction:'inbound',state:'unknown'}},201)
+  const denied=await f.write(f.base+'/'+f.queue.id+'/entries',{callId:manual.record.id,language:'en'},409)
+  assert.equal(denied.error,'queue_capacity_exceeded');assert.equal(denied.detail.limit,20);assert.equal(denied.detail.occupied,20)
+  // A connected call retains its independent slot while the pending budget
+  // admits just one winner from another concurrent surge at the boundary.
+  const activeOffer=offers.find(o=>o.parent_call_sid===calls[0].CallSid)
+  const child=f.edge.child(500,calls[0],activeOffer.destination,'in-progress',{date_created:new Date(activeOffer.emitted_at).toUTCString()})
+  assert.equal((await f.edge.status(activeOffer,child)).status,204)
+  state=await f.read();assert.equal(state.entries.find(e=>e.id===activeOffer.entry_id).state,'active')
+  const activeReservation=state.reservations.find(r=>r.entry_id===activeOffer.entry_id)
+  assert.equal(state.capacity[0].remaining,1)
+  const boundary=await Promise.all(Array.from({length:20},(_,i)=>f.edge.callback(f.edge.resource(280+i))))
+  const endings=await Promise.all(boundary.map(async response=>{assert.equal(response.status,200,await response.clone().text());return response.text()}))
+  assert.equal(endings.filter(body=>body.includes('<Dial ')).length,1)
+  assert.equal(endings.filter(body=>body.includes('<Hangup/>')).length,19)
+  state=await f.read()
+  assert.equal(state.entries.length,21);assert.equal(state.reservations.length,21);assert.equal(state.offers.length,21)
+  assert.equal(state.capacity[0].pending,20);assert.equal(state.capacity[0].remaining,0)
+  assert.deepEqual(state.reservations.find(r=>r.entry_id===activeOffer.entry_id),activeReservation)
+  assert.equal(new Set(state.reservations.map(r=>r.agent_id+':'+r.slot)).size,21)
+  const retained=state
+  await runtime.restart()
+  state=await f.read()
+  assert.deepEqual(state.entries,retained.entries);assert.deepEqual(state.reservations,retained.reservations);assert.deepEqual(state.offers,retained.offers)
+  const replay=await f.edge.callback(calls[1]);assert.equal(replay.status,200);assert.ok(!(await replay.text()).includes('<Dial'))
+  assert.equal((await f.read()).offers.length,21)
+  await f.write(f.base+'/sources/revoke',{bindingId:f.binding.id})
+  assert.equal((await f.edge.callback(f.edge.resource(320))).status,403)
+  assert.equal((await f.edge.callback(calls[1])).status,403,'revocation fences retained callers as well as fresh admission')
+  state=await f.read()
+  assert.deepEqual(state.entries,retained.entries);assert.deepEqual(state.reservations,retained.reservations);assert.deepEqual(state.offers,retained.offers)
+  assert.ok(runtime.sourceRequests.every(r=>r.method==='GET'),'qualification creates no paid outbound API effects')
+  t.diagnostic(JSON.stringify({people:200,agents:100,concurrentInbound:20,accepted:20,refused:20,boundaryAccepted:1,boundaryRefused:19,retainedReservations:21,configuredMs:Math.round(configuredMs),surgeMs:Math.round(surgeMs),refusalMs:Math.round(refusalMs),hostedCarrierCapacity:'unmeasured'}))
+ }finally{await runtime.close()}
+})
 
 test('Twenty native inbound calls retain fair language and priority reservations across restart, abandonment, wrap-up and maximum wait',async()=>{
  const runtime=await openHandset()
@@ -280,6 +372,31 @@ test('A lost Dial response is never replayed after restart; verified active call
   const sid=edge.child(10,call,destinations[f.spanish],'in-progress')
   await f.write(f.base+'/offers/'+offer.id+'/reconcile',{})
   state=await f.read();assert.equal(state.entries.find(e=>e.id===offer.entry_id).state,'active')
+  const supervision='/api/handset/supervision',grant=async q=>{
+   const response=await post(runtime,supervision+'/grants',{operatorId:f.english,queueId:q.id,canIntervene:true,expiresAt:Date.now()+3600000,confirm:'approve supervision scope'},f.headers)
+   assert.equal(response.status,201,await response.clone().text());return response.json()
+  }
+  await grant(f.support)
+  let requests=runtime.sourceRequests.length
+  for(const operation of ['listen','whisper','barge','takeover'])assert.equal((await post(runtime,supervision+'/queues/'+f.sales.id+'/calls/'+offer.entry_id+'/'+operation,{},f.headers)).status,403)
+  assert.equal(runtime.sourceRequests.length,requests,'foreign-team control refuses before the official provider edge')
+  const salesScope=await grant(f.sales)
+  for(const [availability,reason] of [['away','Supervisor coaching break'],['available','Coaching complete']]){
+   const agent=state.agents.find(a=>a.operator_id===f.spanish)
+   const changed=await post(runtime,supervision+'/queues/'+f.sales.id+'/agents/'+f.spanish+'/state',{availability,revision:agent.revision,reason},f.headers)
+   assert.equal(changed.status,200,await changed.clone().text())
+   state=await f.read()
+   assert.equal(state.agents.find(a=>a.operator_id===f.spanish).availability,availability)
+   assert.equal(state.entries.find(e=>e.id===offer.entry_id).state,'active','supervision preserves a provider-read-back active call')
+   assert.equal(state.offers.find(o=>o.id===offer.id).state,'active')
+  }
+  requests=runtime.sourceRequests.length
+  const held=await post(runtime,supervision+'/queues/'+f.sales.id+'/calls/'+offer.entry_id+'/whisper',{},f.headers)
+  assert.equal(held.status,409);assert.equal((await held.json()).error,'supervision_media_qualification_held')
+  assert.equal(runtime.sourceRequests.length,requests,'an explicit team grant still cannot invent qualified whisper audio')
+  assert.equal((await post(runtime,supervision+'/grants/'+salesScope.id+'/revoke',{},f.headers)).status,200)
+  for(const operation of ['listen','whisper','barge','takeover'])assert.equal((await post(runtime,supervision+'/queues/'+f.sales.id+'/calls/'+offer.entry_id+'/'+operation,{},f.headers)).status,403)
+  assert.equal(runtime.sourceRequests.length,requests,'revoked authority makes no provider attempt')
   await f.changeMembership(f.sales,f.spanish,0);await f.presence(f.spanish,'offline')
   state=await f.read()
   assert.equal(state.memberships.find(m=>m.queue_id===f.support.id&&m.operator_id===f.spanish).logged_in,1)

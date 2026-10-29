@@ -29,7 +29,6 @@
     "MAIL_ACCOUNT_ID": "",
     "HANDSET_DIAL_ORIGIN": "",
     "HANDSET_ORBIT_ORIGIN": "",
-    "HANDSET_HELPDESK_ORIGIN": "",
-    "OWNER_EMAIL": ""
+    "HANDSET_HELPDESK_ORIGIN": ""
   }
 }

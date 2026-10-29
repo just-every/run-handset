@@ -47,6 +47,10 @@ export async function snapshot(ctx:Context,queueId?:string){
   queues:queues.results,agents:agents.results.map(a=>({...a,presenceFresh:a.heartbeat_at>now-presenceFreshMs,wrapping:a.wrap_until>now})),
   memberships:memberships.results,entries:entries.results.slice(0,1000),limited:entries.results.length>1000,reservations:reservations.results,announcements,
   offers:offers.results,visits:visits.results,agentRoutes:agentRoutes.results,overflowRoutes:overflowRoutes.results,bindings:bindings.results,sources:sources.results,counts,observedAt:now,transport:'unknown',countsMeaning:'Native queue entries and occupied assignment slots; actual media legs are unverified.',
+  capacity:queues.results.map(q=>{
+   const pending=counts.filter(c=>c.queue_id===q.id&&['waiting','reserved'].includes(c.state)).reduce((total,c)=>total+c.count,0)
+   return {queueId:q.id,admissionLimit:q.max_waiting,pending,remaining:Math.max(0,q.max_waiting-pending),refusal:'queue_capacity_exceeded',meaning:'Waiting and reserved entries share the admission limit. Active calls retain their occupied agent slots. Hosted carrier capacity is unmeasured.'}
+  }),
   alerts:(await statement(ctx,'SELECT * FROM hnd_queue_alerts ORDER BY created_at DESC LIMIT 100').all()).results,
   gaps:['Live receiver and bidirectional audio qualification are outstanding.','Emitted Dial, Say and Redirect instructions are separate from actual audio and destination receipt.'],
  }
