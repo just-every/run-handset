@@ -29,6 +29,7 @@ export interface Bindings {
  RER_OWNER_CLAIM_ISSUER?: string
  RER_OWNER_CLAIM_INSTALLATION_ID?: string
  RER_OWNER_CLAIM_PUBLIC_KEYS?: string
+ RER_BUSINESS_TRUST?: string
  RER_DEV_KEY?: string
  RER_DEV_IDENTITY?: string
  RER_INSTALLATION_ID?: string
