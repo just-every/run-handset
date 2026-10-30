@@ -547,6 +547,10 @@
       "sha256": "49844309eebbb3f59e2a4e53e4d785bbb93d78c956af5c4a9d7e2bdd0bd19d76",
       "executable": false
     },
+    "docs/PARTNERS.md": {
+      "sha256": "59832f4805c6e05a183120fca7768cf0642fdf3f5fadb7d03d1d4899ef980efb",
+      "executable": false
+    },
     "docs/PROMPTS.md": {
       "sha256": "2ff45a23add79959ef593b7d5d476b994e5a03e95fb26e857bd4f536786b75d0",
       "executable": false
@@ -2345,6 +2349,14 @@
     },
     "src/handset/automation/rules.ts": {
       "sha256": "0ce0e15d86cacbb97fb341b927ebf89ac5566e733759210ddf3c28243136aad0",
+      "executable": false
+    },
+    "src/handset/boundaries/doors.ts": {
+      "sha256": "a3149009f8762bb8d13368e9abb4bb96f0c72a01870cf40a26f0eaa38cb70d2e",
+      "executable": false
+    },
+    "src/handset/boundaries/pages.ts": {
+      "sha256": "f148c2fab83e50fa0827a29ae0d884ecfc50eba2916e3d72fb737955f5e20c40",
       "executable": false
     },
     "src/handset/callbacks/dial.ts": {
