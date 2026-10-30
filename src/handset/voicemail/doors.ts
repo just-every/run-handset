@@ -12,9 +12,10 @@ export type ListedBox=Box&{dueCount:number;capabilities:Capabilities}
 const root='/api/handset/voicemail'
 const ownerAccess=`(b.owner_id=? AND (b.kind='personal' OR (b.owner_id=b.admin_id AND ?='owner') OR EXISTS(SELECT 1 FROM hnd_mailbox_members om JOIN oa_operators op ON op.id=om.person_id JOIN oa_operators oi ON oi.id=om.issuer_id WHERE om.box_id=b.id AND om.person_id=b.owner_id AND om.can_work=1 AND op.status='active' AND op.version=om.person_version AND oi.status='active' AND oi.role='owner' AND oi.version=om.issuer_version)))`
 const allowed=`SELECT b.* FROM hnd_mailboxes b WHERE b.id=? AND (${ownerAccess} OR (b.admin_id=? AND ?='owner') OR (b.kind<>'personal' AND EXISTS(SELECT 1 FROM hnd_mailbox_members m JOIN oa_operators p ON p.id=m.person_id JOIN oa_operators i ON i.id=m.issuer_id WHERE m.box_id=b.id AND m.person_id=? AND p.status='active' AND p.version=m.person_version AND i.status='active' AND i.role='owner' AND i.version=m.issuer_version)))`
-const values=(a:Session,key:string)=>[key,a.operator.id,a.operator.role,a.operator.id,a.operator.role,a.operator.id]
-const access=(env:Bindings,a:Session,key:string)=>env.DB.prepare(allowed).bind(...values(a,key))
-const fence=(env:Bindings,a:Session,key:string)=>env.DB.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM ('+allowed+')').bind(...values(a,key))
+type MailboxActor={operator:Pick<Session['operator'],'id'|'role'|'version'>}
+const values=(a:MailboxActor,key:string)=>[key,a.operator.id,a.operator.role,a.operator.id,a.operator.role,a.operator.id]
+const access=(env:Bindings,a:MailboxActor,key:string)=>env.DB.prepare(allowed).bind(...values(a,key))
+const fence=(env:Bindings,a:MailboxActor,key:string)=>env.DB.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM ('+allowed+')').bind(...values(a,key))
 const itemFence=(db:D1Database,item:Item)=>db.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_voicemail_items WHERE id=? AND revision=?').bind(item.id,item.revision)
 function operationSql(operation:'work'|'assign'){
  let query=allowed.replace('WHERE m.box_id=b.id AND',`WHERE m.can_${operation}=1 AND m.box_id=b.id AND`)
@@ -54,7 +55,18 @@ async function people(env:Bindings,a:Session,box:Box):Promise<BoxPerson[]>{
  }
  return result
 }
+/** Exact-box checks for a queued recipient do not create a session or a grant. */
+export async function mailboxDeliveryAccess(env:Bindings,personId:string,version:number,boxId:string,boxOwner=false){
+ const p=await env.DB.prepare("SELECT id,role,version FROM oa_operators WHERE id=? AND version=? AND status='active'").bind(personId,version).first<MailboxActor['operator']>()
+ if(!p)throw new Fault('current_mailbox_person_required',403)
+ const a={operator:p},box=await access(env,a,boxId).first<Box>()
+ if(!box||boxOwner&&box.owner_id!==personId)throw new Fault('mailbox_refused',403)
+ const fences=()=>[fence(env,a,box.id),env.DB.prepare("INSERT INTO hnd_guard(ok) SELECT count(*) FROM oa_operators WHERE id=? AND version=? AND status='active'").bind(personId,version),env.DB.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_mailboxes WHERE id=? AND revision=? AND owner_id=?').bind(box.id,box.revision,box.owner_id)]
+ return {box,fences}
+}
 export async function voicemailDoor(request:Request,env:Bindings,a:Session,v?:ObjectValue):Promise<Response>{
+ const delivery=await (await import('./delivery')).voicemailDeliveryDoor(request,env,a,v)
+ if(delivery)return delivery
  const path=new URL(request.url).pathname.slice(root.length),db=env.DB
  if(request.method==='GET'&&path==='/boxes'){
   const boxes=(await db.prepare(allowed.replace('b.id=? AND ', '')+' ORDER BY b.name,b.id').bind(...values(a,'').slice(1)).all<Box>()).results

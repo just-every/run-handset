@@ -1,3 +1,4 @@
+import { voicemailDeliveryBrowserJourney } from './helpers/handset-voicemail-delivery-browser.mjs'
 import { callReportsBrowserJourney } from './helpers/handset-call-reports-browser.mjs'
 import { supervisionJourney } from './helpers/handset-supervision-browser.mjs'
 import { renderedQueueMetrics, assertKnownRenderedQueueMetrics } from './helpers/handset-metrics-browser.mjs'
@@ -94,7 +95,7 @@ for(const width of [1440,390])for(const domain of ['partners','supervision','com
    assert.equal(await page.getByRole('button',{name:'Find responsible provider',exact:true}).count(),0)
   }
   if(domain==='supervision')await supervisionJourney({runtime,page,context,cookie,proof,click})
-  if(domain==='voicemail')await voicemailJourney({runtime,page,context,cookie,proof,click})
+  if(domain==='voicemail'){await voicemailJourney({runtime,page,context,cookie,proof,click});await voicemailDeliveryBrowserJourney({runtime,page,context,proof})}
   if(domain==='messages')await messageJourney({runtime,page,context,cookie,proof,click})
   if(domain==='numbers')await numbersJourney({runtime,page,context,cookie,proof,click})
   if(domain==='compliance')await complianceJourney({runtime,page,context,cookie,proof,click})

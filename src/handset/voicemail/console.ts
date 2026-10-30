@@ -2,14 +2,35 @@ import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
 import { Fault, choice, keys, type ObjectValue } from '../core'
 import { denied } from '../audit/store'
+import { deliverySettingsPage } from './delivery-pages'
+import { deliveryView } from './delivery'
+import { voicemailLinkDoor } from './links'
 import { voicemailDoor, type ListedBox, type MailboxView } from './doors'
 import { mailboxCreate, mailboxDetail, mailboxList, mailboxSettings, mailboxUnavailable, type Refusal } from './pages'
 
 /** HTML forms use the same current-authority and transaction fences as the API. */
 export async function voicemailConsole(request:Request,env:Bindings,actor:Session,raw?:ObjectValue):Promise<Response>{
  const url=new URL(request.url),base='/app/voicemail',suffix=url.pathname.slice(base.length)
+ if(suffix.startsWith('/links/'))return voicemailLinkDoor(request,env,actor,raw)
+ const delivery=suffix.match(/^\/settings\/([0-9a-f-]{36})\/delivery(?:\/(policy|links\/([0-9a-f-]{36})\/revoke))?$/)
+ if(delivery){
+  const boxId=delivery[1],view=await (await voicemailDoor(new Request(new URL('/api/handset/voicemail/boxes/'+boxId,url)),env,actor)).json() as MailboxView
+  let refusal:Refusal|undefined
+  if(request.method==='POST'&&raw){
+   try{
+    if(delivery[3])await voicemailLinkDoor(new Request(new URL('/api/handset/voicemail/links/'+delivery[3]+'/revoke',url),{method:'POST'}),env,actor,{})
+    else {
+     let choice:ObjectValue={}
+     if(delivery[2]!=='policy'){try{choice=JSON.parse(String(raw.recipientChoice)) as ObjectValue}catch{throw new Fault('invalid_recipient_choice')}keys(raw,['recipientChoice','mode','enabled','linkSeconds','confirm'])}
+     await voicemailDoor(new Request(new URL('/api/handset/voicemail/boxes/'+boxId+'/'+(delivery[2]==='policy'?'delivery-policy':'delivery'),url),{method:'POST'}),env,actor,delivery[2]==='policy'?{...raw,revision:Number(raw.revision),linkOnly:Number(raw.linkOnly)}:{...choice,mode:raw.mode,confirm:raw.confirm,enabled:Number(raw.enabled),linkSeconds:Number(raw.linkSeconds)})
+    }
+    return new Response(null,{status:303,headers:{location:base+'/settings/'+boxId+'/delivery','cache-control':'no-store'}})
+   }catch(error){if(!(error instanceof Fault)||[401,403].includes(error.status))throw error;refusal={code:error.code,status:error.status,values:raw,action:'delivery'}}
+  }else if(request.method!=='GET')throw new Fault('method_not_allowed',405)
+  return deliverySettingsPage(view,await deliveryView(env,actor,boxId),refusal)
+ }
  const creating=suffix==='/settings/new',settings=suffix==='/settings'||suffix.startsWith('/settings/')
- const match=suffix.match(/^\/(?:settings\/)?([0-9a-f-]{36})(?:\/(members|owner|observations|items)(?:\/([0-9a-f-]{36})(?:\/(claim|handle|reopen|assign|note))?)?)?$/)
+ const match=suffix.match(/^\/(?:settings\/)?([0-9a-f-]{36})(?:\/(members|owner|observations|items)(?:\/([0-9a-f-]{36})(?:\/(claim|handle|reopen|assign|note|content|deliver))?)?)?$/)
  if(!['GET','POST'].includes(request.method))throw new Fault('method_not_allowed',405)
  if(suffix!==''&&suffix!=='/settings'&&!creating&&!match)throw new Fault('not_found',404)
  const boxId=match?.[1],itemId=match?.[2]==='items'?match[3]:undefined,action=match?.[4]??(match?.[2]==='items'?'':match?.[2]??'')
@@ -33,7 +54,9 @@ export async function voicemailConsole(request:Request,env:Bindings,actor:Sessio
       keys(raw,['revision','personId','enabled','capability'])
       const enabled=Number(raw.enabled),capability=choice(raw.capability??'read',['read','work','assign','work_assign'],'capability')
       value={revision:Number(raw.revision),personId:raw.personId,enabled,allowWork:['work','work_assign'].includes(capability)?1:0,allowAssign:['assign','work_assign'].includes(capability)?1:0}
-     }else if(action==='observations'){keys(raw,['sourceId','text','language']);value=raw}
+     }else if(action==='content'){keys(raw,['recordingId','transcriptId']);value=raw}
+     else if(action==='deliver'){keys(raw,['settingId','dueAt','confirm']);value={...raw,dueAt:new Date(String(raw.dueAt)+'Z').getTime()}}
+     else if(action==='observations'){keys(raw,['sourceId','text','language']);value=raw}
      else{
       keys(raw,['revision',...(action==='note'?['note','confirm']:action==='assign'||action==='owner'?['personId']:[])])
       value={revision:Number(raw.revision),...(action==='note'?{note:raw.note}:action==='assign'||action==='owner'?{personId:raw.personId}:{})}
@@ -50,7 +73,7 @@ export async function voicemailConsole(request:Request,env:Bindings,actor:Sessio
    }
   }
   if(creating)return mailboxCreate(actor.operator.role==='owner',refusal)
-  if(view)return settings?mailboxSettings(view,refusal):mailboxDetail(view,itemId,refusal)
+  if(view)return settings?mailboxSettings(view,refusal):mailboxDetail(view,itemId,refusal,view.box.owner_id===actor.operator.id?await deliveryView(env,actor,view.box.id):undefined)
   const data=await (await api('')).json() as {boxes:ListedBox[]}
   return mailboxList(data.boxes,settings)
  }catch(error){
