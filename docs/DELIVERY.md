@@ -103,3 +103,8 @@ SMS spending-budget exhaustion and qualified customer-email consent, version
 and budget races remain unproved under D-3. Future connectors inherit the same
 final authority barrier, current scope visibility and uncertain-effect rules;
 the current inventory does not certify an adapter that does not yet exist.
+
+Provider identity ownership is checked in the same atomic commit as local
+confirmation, across inbox jobs and call-bound texts. Concurrent repairs cannot
+use one remote message to fulfill two local promises. The losing repair returns
+a conflict and leaves its original uncertain job intact for investigation.

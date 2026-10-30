@@ -2,7 +2,7 @@ import type { Bindings } from '../../auth.server'
 import { append } from '../audit/store'
 import { sourcePolicy } from '../audit/policy'
 import { boundedBody, digest, Fault, id, text } from '../core'
-import { guard, policyAuthority, readTwilio, type ConsentPolicy } from '../consent/store'
+import { guard, policyAuthority, readTwilio, receiptIdentityFence, type ConsentPolicy } from '../consent/store'
 import { job, thread, permission, permissionFence, custodyFence, sourceFence } from './store'
 import { requireNoStop, noStopFence } from './suppression'
 import type { Media, MessageJob } from './model'
@@ -97,7 +97,7 @@ export async function refreshMessage(env:Bindings,key:string,repair?:{sid:string
   return j
  }
  const carrier=r.status==='delivered'?'delivered':['failed','undelivered'].includes(String(r.status))?'failed':'unconfirmed',state=carrier==='delivered'?'delivered':carrier==='failed'?'failed':'accepted'
- await append(env,repair?.actor??source.id,'message.receipt',key,'completed',[sourceFence(env,source),...(repair?.fences??[]),guard(env,'SELECT count(*) FROM hnd_message_jobs WHERE id=? AND revision=?',j.id,j.revision),env.DB.prepare('UPDATE hnd_message_jobs SET state=?,provider_state=?,carrier_state=?,reason=?,provider_sid=?,readback_at=?,revision=revision+1 WHERE id=?').bind(state,String(r.status),carrier,'Independent provider readback; no read receipt',sid,Date.now(),key),env.DB.prepare(`INSERT INTO hnd_inbox_messages VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(thread_id,provider_sid) DO UPDATE SET provider_state=excluded.provider_state,carrier_state=excluded.carrier_state`).bind(id(),t.id,sid,'outbound',j.body,j.media,JSON.stringify([t.business,t.peer]),String(r.status),carrier,occurredAt)],null,sourcePolicy(source))
+ await append(env,repair?.actor??source.id,'message.receipt',key,'completed',[sourceFence(env,source),receiptIdentityFence(env,'message',key,sid),...(repair?.fences??[]),guard(env,'SELECT count(*) FROM hnd_message_jobs WHERE id=? AND revision=?',j.id,j.revision),env.DB.prepare('UPDATE hnd_message_jobs SET state=?,provider_state=?,carrier_state=?,reason=?,provider_sid=?,readback_at=?,revision=revision+1 WHERE id=?').bind(state,String(r.status),carrier,'Independent provider readback; no read receipt',sid,Date.now(),key),env.DB.prepare(`INSERT INTO hnd_inbox_messages VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(thread_id,provider_sid) DO UPDATE SET provider_state=excluded.provider_state,carrier_state=excluded.carrier_state`).bind(id(),t.id,sid,'outbound',j.body,j.media,JSON.stringify([t.business,t.peer]),String(r.status),carrier,occurredAt)],null,sourcePolicy(source))
  return job(env,key)
 }
 export async function observeMessageStatus(env:Bindings,p:URLSearchParams) {

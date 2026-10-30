@@ -8,6 +8,10 @@ export interface ConsentCall { id:string; source_id:string; policy_id:string; ca
 export interface Permission { id:string; call_id:string; purpose:'one_reply'|'survey'; state:string; prompt:string; event:string; created_at:number }
 export interface ConsentPolicy { id:string; source_id:string; revision:number; business_name:string; legal_configuration:string; registration_id:string; staff_target:string; approved_by:string; owner_version:number; created_at:number; expires_at:number; revoked_at:number|null }
 export const guard=(env:Bindings,query:string,...values:(string|number|null)[])=>env.DB.prepare('INSERT INTO hnd_guard(ok) '+query).bind(...values)
+/** A receiving identity can settle only one local job, even across reply paths. */
+export const receiptIdentityFence=(env:Bindings,kind:'message'|'care',key:string,sid:string)=>guard(env,
+ `SELECT CASE WHEN EXISTS(SELECT 1 FROM hnd_message_jobs WHERE provider_sid=? AND (?<>'message' OR id<>?))
+ OR EXISTS(SELECT 1 FROM hnd_care_texts WHERE provider_sid=? AND (?<>'care' OR id<>?)) THEN 0 ELSE 1 END`,sid,kind,key,sid,kind,key)
 export async function getCall(env:Bindings,key:string) {
  const row=await env.DB.prepare('SELECT * FROM hnd_consent_calls WHERE id=?').bind(key).first<ConsentCall>()
  if(!row)throw new Fault('consent_call_not_found',404)

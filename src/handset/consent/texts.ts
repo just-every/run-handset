@@ -2,7 +2,7 @@ import type { Bindings } from '../../auth.server'
 import { append } from '../audit/store'
 import { sourcePolicy } from '../audit/policy'
 import { Fault, id, text, digest } from '../core'
-import { getCall, getPolicy, guard, policyAuthority, readTwilio, type Permission } from './store'
+import { getCall, getPolicy, guard, policyAuthority, readTwilio, receiptIdentityFence, type Permission } from './store'
 
 export interface CareText {id:string;permission_id:string;state:string;provider_sid:string|null;reason:string;created_at:number;accepted_at:number|null;delivered_at:number|null;body:string;deadline_at:number|null;submitted_at?:number|null;readback_at?:number|null;provider_state?:string}
 export async function getText(env:Bindings,key:string) {
@@ -106,7 +106,7 @@ export async function confirmText(env:Bindings,key:string,sid:string,proof?:{par
  const stale=['delivered','undelivered','failed'].includes(old)&&status!==old||statuses.indexOf(status)<statuses.indexOf(old)
  const delivered=status==='delivered',now=Date.now()
  await append(env,proof?.actor??source.id,'consent.receipt',key,'completed',[
-  ...(await policyAuthority(env,policy)).fences,...(proof?.fences??[]),...receiptFences,
+  ...(await policyAuthority(env,policy)).fences,...(proof?.fences??[]),...receiptFences,receiptIdentityFence(env,'care',key,sid),
   guard(env,"SELECT count(*) FROM hnd_care_texts WHERE id=? AND (provider_sid IS NULL OR provider_sid=?) AND state IN ('sending','uncertain','confirmed')",key,sid),
   ...(stale?[]:[env.DB.prepare("UPDATE hnd_care_texts SET state='confirmed',provider_sid=?,provider_state=?,readback_at=?,reason=?,accepted_at=COALESCE(accepted_at,?),delivered_at=CASE WHEN ? THEN COALESCE(delivered_at,?) ELSE delivered_at END WHERE id=?").bind(sid,status,now,'Provider '+status+'; receipt is not a read receipt',now,delivered?1:0,now,key),
   env.DB.prepare("UPDATE hnd_text_permissions SET state='consumed',consumed_at=COALESCE(consumed_at,?) WHERE id=?").bind(now,permission.id)]),

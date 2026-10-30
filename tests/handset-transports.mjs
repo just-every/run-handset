@@ -393,9 +393,21 @@ test('Exact reviewed snippets send MMS once and keep provider acceptance distinc
   const manualReceipt=f.receiver.sent[2]
   const manualResult=(await f.write('/jobs/'+manual.id+'/reconcile',{revision:manualLost.revision,providerSid:manualReceipt.message.sid,confirm:'read back this submitted message'},200)).job
   assert.equal(manualResult.state,'accepted');assert.equal(manualResult.provider_sid,manualReceipt.message.sid)
+  // Two concurrent repairs must not claim the same receiving message.
+  const duplicates=[]
+  for(let n=0;n<2;n++){const draft=await f.queued();f.receiver.drop=true;duplicates.push((await f.write('/jobs/'+draft.id+'/dispatch',{revision:draft.revision},200)).job)}
+  const oneIdentity=f.receiver.sent[3].message
+  let readers=0,release
+  const bothReading=new Promise(resolve=>{release=resolve})
+  runtime.twilioResources.set(`https://api.twilio.com/2010-04-01/Accounts/${f.source.account}/Messages/${oneIdentity.sid}.json`,async()=>{if(++readers===2)release();await bothReading;return oneIdentity})
+  const competing=await Promise.all(duplicates.map(j=>post(runtime,f.base+'/jobs/'+j.id+'/reconcile',{revision:j.revision,providerSid:oneIdentity.sid,confirm:'read back this submitted message'},f.headers)))
+  assert.deepEqual(competing.map(r=>r.status).sort(),[200,409],'a provider identity has exactly one local winner')
+  const claimed=(await f.get()).jobs.filter(j=>duplicates.some(d=>d.id===j.id))
+  assert.equal(claimed.filter(j=>j.state==='accepted').length,1)
+  assert.equal(claimed.filter(j=>j.state==='uncertain'&&j.provider_sid===null).length,1)
   const revoked=await f.queued()
   await f.write('/permissions/'+revoked.permission_id+'/revoke',{},200)
   assert.equal((await f.get()).jobs.find(j=>j.id===revoked.id).state,'suppressed')
-  assert.equal(f.receiver.sent.length,3)
+  assert.equal(f.receiver.sent.length,5)
  }finally{await runtime.close()}
 })

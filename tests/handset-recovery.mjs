@@ -404,9 +404,21 @@ test('Current registration and recipient hours hold texts and uncertain creates 
   assert.equal(fixed.text.state,'confirmed');assert.equal(fixed.text.provider_sid,manualSent.message.sid)
   await f.runtime.restart();await f.runtime.scheduled()
   assert.equal(f.receiver.sent.length,2,'readback and restart never create another care text')
+  const competingCalls=[]
+  for(let n=26;n<28;n++){const call=await f.start(n,{caller:manual.caller});await call.decision('1');f.receiver.drop=true;await call.missed();competingCalls.push(call)}
+  const repairSnapshot=await f.get(),competingTexts=competingCalls.map(c=>repairSnapshot.texts.find(t=>t.permission_id===repairSnapshot.permissions.find(p=>p.call_id===c.call.id).id))
+  const oneIdentity=f.receiver.sent[2].message
+  let readers=0,release
+  const bothReading=new Promise(resolve=>{release=resolve})
+  f.runtime.twilioResources.set(`https://api.twilio.com/2010-04-01/Accounts/${f.source.account}/Messages/${oneIdentity.sid}.json`,async()=>{if(++readers===2)release();await bothReading;return oneIdentity})
+  const competing=await Promise.all(competingTexts.map(t=>post(f.runtime,f.base+'/reconcile',{textId:t.id,providerSid:oneIdentity.sid,confirm:'read back this submitted message'},f.source.headers)))
+  assert.deepEqual(competing.map(r=>r.status).sort(),[200,409],'one remote care text cannot fulfill two local promises')
+  const claimed=(await f.get()).texts.filter(t=>competingTexts.some(c=>c.id===t.id))
+  assert.equal(claimed.filter(t=>t.state==='confirmed').length,1)
+  assert.equal(claimed.filter(t=>t.state==='uncertain'&&t.provider_sid===null).length,1)
   // Revocation during the independent read must prevent local confirmation.
   const revoked=await f.start(25);await revoked.decision('1');f.receiver.drop=true;await revoked.missed()
-  const revocationSent=f.receiver.sent[2],revocationRow=(await f.get()).texts.find(t=>t.state==='uncertain')
+  const revocationSent=f.receiver.sent[4],revocationReport=await f.get(),revocationRow=revocationReport.texts.find(t=>t.permission_id===revocationReport.permissions.find(p=>p.call_id===revoked.call.id).id)
   f.runtime.twilioResources.set(`https://api.twilio.com/2010-04-01/Accounts/${f.source.account}/Messages/${revocationSent.message.sid}.json`,async()=>{
    await f.write(f.base+'/revoke',{policyId:f.configured.policy.id})
    return revocationSent.message
@@ -414,7 +426,7 @@ test('Current registration and recipient hours hold texts and uncertain creates 
   const refused=await post(f.runtime,f.base+'/reconcile',{textId:revocationRow.id,providerSid:revocationSent.message.sid,confirm:'read back this submitted message'},f.source.headers)
   assert.equal(refused.status,409)
   const after=(await f.get()).texts.find(t=>t.id===revocationRow.id)
-  assert.equal(after.state,'uncertain');assert.equal(after.provider_sid,null);assert.equal(f.receiver.sent.length,3)
+  assert.equal(after.state,'uncertain');assert.equal(after.provider_sid,null);assert.equal(f.receiver.sent.length,5)
  } finally {await f.runtime.close()}
 })
 
