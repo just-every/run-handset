@@ -5568,11 +5568,11 @@
       "executable": false
     },
     "src/site/styles/base-pages.css": {
-      "sha256": "781af33db0cc4c7caf462fa9a4c092d5bb91ea95b23bae9e27c07fa689d25ae0",
+      "sha256": "a0ed50a1fbf70fc8180bdf0e5cc7eecf85ff69eed4e4f6fce426963e8366dd34",
       "executable": false
     },
     "src/site/styles/docs.css": {
-      "sha256": "8156fa325f7e593cc58b0cf645e248e2870cac5ffbe7948e2af842183f88c85b",
+      "sha256": "b0fa3d1e9374ee5662ac5beb6fa505979e99f9d0c1861576367894ee17e299bf",
       "executable": false
     },
     "src/site/styles/landing.css": {
