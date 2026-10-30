@@ -224,7 +224,8 @@ attestation and verbal consent are separate explicit native actions.
 
 Additional signed Twilio exceptions are `/providers/twilio/consent/:sourceId`,
 its `/calls/:id/decision` and `/calls/:id/outcome` descendants,
-`/providers/twilio/consent/texts/:id/status`, and
+`/providers/twilio/consent/texts/:id/status`,
+`/providers/twilio/consent/messages/:id/status`, and
 `/providers/twilio/surveys/:id` with its consent, rating and reply descendants.
 They require the installation-local exact-URL signature, scalar form fields,
 Host and origin binding and current source and policy authority. Call and message

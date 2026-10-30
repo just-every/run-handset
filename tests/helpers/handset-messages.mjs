@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHmac } from 'node:crypto'
 import { sourceFixture } from './handset-sources.mjs'
 import { post } from './handset-auth.mjs'
 export const messageNow=Date.UTC(2026,9,27,18)
@@ -29,5 +30,12 @@ export async function messagesFixture(runtime,{business='+18335550125',recipient
   if(receiver.drop){receiver.drop=false;throw new Error('synthetic-handset-lost-response')}
   return {...message,__httpStatus:201}
  })
- return {runtime,source,headers,recipient,business,base,now,write,get,incoming,current,claimed,draft,queued,receiver,registration}
+ async function receipt(sent,fields={},signature=true) {
+  const path=new URL(sent.form.get('StatusCallback')).pathname
+  const data={AccountSid:source.account,From:business,To:recipient,MessageSid:sent.message.sid,MessageStatus:sent.message.status,...fields}
+  let payload=runtime.origin+path
+  for(const name of Object.keys(data).sort())payload+=name+data[name]
+  return runtime.request(path,{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded',...(signature?{'x-twilio-signature':createHmac('sha1','synthetic-handset-500').update(payload).digest('base64')}:{})},body:new URLSearchParams(data).toString()})
+ }
+ return {runtime,source,headers,recipient,business,base,now,write,get,incoming,current,claimed,draft,queued,receiver,registration,receipt}
 }

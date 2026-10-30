@@ -6,6 +6,7 @@ import { verifyCarrierSignature } from '../protection/carrier-proof'
 import { xml } from '../protection/twiml'
 import { callUrl, capturePermission, carePrompt, ensureCall, getCall, getPolicy, policyAuthority, readTwilio, type ConsentCall, type ConsentPolicy } from './store'
 import { confirmText } from './texts'
+import { messageReceipt } from '../messages/provider'
 import { missedCall } from './outcomes'
 import { answeredStaff } from '../recovery/staff-outcomes'
 
@@ -29,6 +30,11 @@ export async function consentProviderResponse(request:Request,original:Bindings)
   if(!request.headers.get('content-type')?.startsWith('application/x-www-form-urlencoded'))throw new Fault('invalid_source_content_type',415)
   const raw=await request.text();if(new TextEncoder().encode(raw).length>16384)throw new Fault('body_too_large',413)
   const p=new URLSearchParams(raw);await verifyCarrierSignature(request,env,p)
+  const message=path.match(/^\/providers\/twilio\/consent\/messages\/([0-9a-f-]{36})\/status$/)
+  if(message) {
+   const row=await messageReceipt(env,message[1],p)
+   return json({id:row.id,state:row.state,providerSid:row.provider_sid})
+  }
   const receipt=path.match(/^\/providers\/twilio\/consent\/texts\/([0-9a-f-]{36})\/status$/)
   if(receipt) {
    const sid=text(p.get('MessageSid'),'MessageSid')

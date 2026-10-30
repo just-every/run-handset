@@ -48,3 +48,22 @@ coverage for those systems, scope-change callbacks, qualified provider receipts
 and full repair controls across every connector remain HND-036 work. The existing caller-outcomes console shows persisted step reasons, including refused credentials and confirmed readback. Existing HND-071 and future
 HND-030, HND-037 through HND-041, HND-044, HND-050, HND-072 and HND-073 effects inherit these barriers. The source
 consent and customer identity gaps of HND-013, HND-018 and HND-089 still apply.
+
+Inbox messages retain their durable job identity, submission time, independent
+readback time, provider acceptance and carrier delivery separately in the delivery
+inventory. Their status callback is bound to that exact job. After a lost create
+response, a signed callback can recover the provider identity by reading the
+message from the selected account. Unsigned callbacks, foreign parties,
+conflicting callback replays, reused provider identities, different content and
+receipts older than submission are refused. Restart never queues a started send
+again; interrupted claims become visible uncertainty after one minute.
+
+If the callback was also lost, a current native owner may use
+`POST /api/handset/messages/jobs/{id}/reconcile` with the current `revision`, the
+independently inspected `providerSid` and `confirm` set to
+`read back this submitted message`. This operation reads the receiver only.
+It verifies the exact account, parties, content, media count and submission time
+before binding the receipt, and retains the owner attribution in audit. A source
+revocation during readback refuses the commit. Older jobs with no known provider
+identity or submission time remain uncertain for human investigation. No repair
+operation creates a message or grants sending permission.

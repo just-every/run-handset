@@ -328,9 +328,48 @@ test('Exact reviewed snippets send MMS once and keep provider acceptance distinc
   const unknown=(await f.write('/jobs/'+uncertain.id+'/dispatch',{revision:uncertain.revision},200)).job
   assert.equal(unknown.state,'uncertain');assert.equal(unknown.provider_state,'unknown')
   await runtime.restart();await runtime.scheduled(messageNow);assert.equal(f.receiver.sent.length,2,'a lost create response is not sent twice')
+  const lost=f.receiver.sent[1]
+  const inventory=async()=>{const response=await runtime.request('/api/handset/delivery',{headers:f.headers});assert.equal(response.status,200);return response.json()}
+  assert.ok((await inventory()).messages.some(j=>j.id===unknown.id&&j.state==='uncertain'&&j.provider_sid===null))
+  assert.equal((await f.receipt(lost,{},false)).status,403,'unsigned repair cannot establish a provider identity')
+  assert.equal((await f.receipt(lost,{AccountSid:'synthetic-handset-foreign'})).status,403)
+  const repair='/jobs/'+unknown.id+'/reconcile',proposal={revision:unknown.revision,providerSid:lost.message.sid,confirm:'read back this submitted message'}
+  assert.equal((await post(runtime,f.base+repair,proposal)).status,401)
+  assert.equal((await post(runtime,f.base+repair,{...proposal,providerSid:m.sid},f.headers)).status,409,'one receipt cannot settle two jobs')
+  const actual=lost.message.body
+  lost.message.body='Different work';f.source.resource('Messages',lost.message.sid,lost.message)
+  assert.equal((await post(runtime,f.base+repair,proposal,f.headers)).status,502)
+  lost.message.body=actual
+  lost.message.date_created=new Date(messageNow-1000).toUTCString();f.source.resource('Messages',lost.message.sid,lost.message)
+  assert.equal((await post(runtime,f.base+repair,proposal,f.headers)).status,409,'an old matching message is not this submission')
+  lost.message.date_created=new Date(messageNow).toUTCString();f.source.resource('Messages',lost.message.sid,lost.message)
+  const readUrl=`https://api.twilio.com/2010-04-01/Accounts/${f.source.account}/Messages/${lost.message.sid}.json`
+  runtime.twilioResources.set(readUrl,{__httpStatus:401})
+  assert.equal((await f.receipt(lost)).status,503)
+  assert.equal((await f.get()).jobs.find(j=>j.id===unknown.id).state,'uncertain')
+  f.source.resource('Messages',lost.message.sid,lost.message)
+  const repaired=await f.receipt(lost);assert.equal(repaired.status,200,await repaired.clone().text())
+  assert.equal((await repaired.json()).providerSid,lost.message.sid)
+  assert.equal((await f.receipt(lost)).status,200)
+  assert.equal((await f.receipt(lost,{Body:'Altered replay'})).status,409)
+  // Provider truth may advance while an older signed status is delayed.
+  lost.message.status='delivered';f.source.resource('Messages',lost.message.sid,lost.message)
+  assert.equal((await f.receipt(lost,{MessageStatus:'sent'})).status,200)
+  const settled=(await f.get()).jobs.find(j=>j.id===unknown.id)
+  assert.equal(settled.state,'delivered');assert.equal(settled.carrier_state,'delivered');assert.equal(settled.provider_sid,lost.message.sid)
+  assert.ok((await inventory()).messages.some(j=>j.id===unknown.id&&j.readback_at===messageNow))
+  await runtime.restart();await runtime.scheduled(messageNow+120000)
+  assert.equal((await f.get()).jobs.find(j=>j.id===unknown.id).state,'delivered');assert.equal(f.receiver.sent.length,2)
+  // A current owner can supply the independently inspected identity if its
+  // callback was also lost; this API only reads and never resubmits.
+  const manual=await f.queued();f.receiver.drop=true
+  const manualLost=(await f.write('/jobs/'+manual.id+'/dispatch',{revision:manual.revision},200)).job
+  const manualReceipt=f.receiver.sent[2]
+  const manualResult=(await f.write('/jobs/'+manual.id+'/reconcile',{revision:manualLost.revision,providerSid:manualReceipt.message.sid,confirm:'read back this submitted message'},200)).job
+  assert.equal(manualResult.state,'accepted');assert.equal(manualResult.provider_sid,manualReceipt.message.sid)
   const revoked=await f.queued()
   await f.write('/permissions/'+revoked.permission_id+'/revoke',{},200)
   assert.equal((await f.get()).jobs.find(j=>j.id===revoked.id).state,'suppressed')
-  assert.equal(f.receiver.sent.length,2)
+  assert.equal(f.receiver.sent.length,3)
  }finally{await runtime.close()}
 })

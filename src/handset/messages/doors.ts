@@ -1,8 +1,8 @@
 import { bindGroup } from './groups'
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
-import { commit } from '../audit/store'
-import { choice, Fault, id, integer, json, keys, owner, text, type ObjectValue } from '../core'
+import { actorRef, commit } from '../audit/store'
+import { choice, Fault, id, integer, json, keys, owner, ownerFence, text, type ObjectValue } from '../core'
 import { activeSourceById, sourceFence } from '../providers/sources'
 import { guard } from '../consent/store'
 import { messageBody, phone, route, type Thread } from './model'
@@ -92,10 +92,16 @@ export async function messageDoor(request:Request,env:Bindings,actor:Session,v?:
  }
  const t=path.match(/^\/threads\/([0-9a-f-]{36})\/(claim|handoff|schedule)$/)
  if(t)return json(t[2]==='schedule'?await schedule(env,actor,t[1],v):await changeCustody(env,actor,t[1],t[2],v),t[2]==='schedule'?201:200)
- const j=path.match(/^\/jobs\/([0-9a-f-]{36})\/(approve|cancel|dispatch|refresh)$/)
+ const j=path.match(/^\/jobs\/([0-9a-f-]{36})\/(approve|cancel|dispatch|refresh|reconcile)$/)
  if(j) {
   if(j[2]==='approve')return json(await approve(env,actor,j[1],v))
   const current=await job(env,j[1]),{row:own,source}=await thread(env,current.thread_id)
+  if(j[2]==='reconcile') {
+   keys(v,['revision','providerSid','confirm'])
+   if(v.confirm!=='read back this submitted message')throw new Fault('message_repair_confirmation_required',403)
+   if(current.revision!==v.revision)throw new Fault('message_revision_changed',409)
+   return json({job:await refreshMessage(env,current.id,{sid:text(v.providerSid,'providerSid',200),actor:await actorRef(env.DB,actor.operator.id),fences:[ownerFence(env.DB,actor)]})})
+  }
   if(j[2]==='refresh'){keys(v,[]);return json({job:await refreshMessage(env,current.id)})}
   keys(v,['revision'])
   if(current.revision!==v.revision)throw new Fault('message_revision_changed',409)
