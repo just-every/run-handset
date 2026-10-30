@@ -18,8 +18,7 @@ export default async function ({phase,request,origin,cookie,database}) {
  for(const verb of ['call.paid','message.send','campaign.launch','number.release','flow.publish']){
   const state={operation:verb,caseId,caseVersion:1,numberId:number,recipients:[recipient],amountCents:0,flowRevision:'1',policyRevision:'owner-only-v1',content:'Prepare requested work; no provider effect'};
   const approval=await post('/api/handset/grants/approve',{grantId:grant.id,state,expiresAt:Date.now()+1800000,confirm:'approve exact reviewed state'});
-  const injected=await post('/api/handset/grants/approve',{grantId:grant.id,state,expiresAt:Date.now()+1800000,confirm:'approve exact reviewed state'});
-  values[verb]={state,approvalId:approval.id,injectionApprovalId:injected.id};
+  values[verb]={state,approvalId:approval.id};
  }
  if(phase==='negative'){
   const db=await database('DB');
