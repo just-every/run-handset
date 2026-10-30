@@ -387,6 +387,10 @@
       "sha256": "a0e27aeeac42d6102f4ff2bce40d8fb011c07e5cb28eff3c9d77e68df29e5dd6",
       "executable": false
     },
+    ".publish-check/reviewed.json": {
+      "sha256": "0fdaac11a93c1c1250b9fa18b70fe972a4cb6a251971d5099cd804b68a7a0092",
+      "executable": false
+    },
     "ACCEPTANCE.md": {
       "sha256": "b16b33a1c9bc3d1328b16c5f09e94c2137d4c997d20ca8f2472beb52f3c9c762",
       "executable": false

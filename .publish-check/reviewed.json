@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "findings": [
+    {
+      "rule": "secret.assignment",
+      "path": "base-copies.json",
+      "blob": "bb8e2708a830a180ee440b54fd795eccb87d3934",
+      "reason": "Not a credential: base-copies.json line 2363 records the SHA-256 of the Base copy src/modules/dependencies/auth.mjs (Base e881e6f66ce7cd737d17dbeb945995aab83c30d8 modules/dependencies/auth.mjs), equal to the committed file. Gitleaks 8.30.1 dir mode starts a fragment at byte 125000, mid-line, and reports the hit's column (12) from that fragment instead of the line (35), so the identity binding cannot place the digest at its copies/files location.",
+      "reviewer": "gr lane orchestrator (publication review)",
+      "date": "2026-10-30"
+    }
+  ]
+}
