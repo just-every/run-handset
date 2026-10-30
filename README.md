@@ -17,20 +17,19 @@ root contract through Base's shared parser.
 ## Run locally
 
 ```sh
-curl -fsSL https://runeditrun.com/install.sh | sh
-rer dev just-every/run-handset
+curl -fsSL https://runeditrun.com/install.sh | sh -s -- dev just-every/run-handset
 ```
 
-Follow the installer's PATH instruction before the second line. Already have
-Node 22 or later? `npx -y @runeditrun/rer dev just-every/run-handset` does both
-steps. To start again: `cd run-handset && rer dev`.
+Git is required; rer brings Node and pnpm. Already have Node 22 or later?
+`npx -y @runeditrun/rer dev just-every/run-handset` does the same. To start
+again: `cd run-handset && rer dev`.
 
 The installed `/` is the Base Lobby. Local development signs you in through the
 private link printed by rer; complete the foundation's first-run setup at
 `/setup`. Development mail is suppressed. There are no product records or
 carrier connections. See [RUN-LOCALLY.md](RUN-LOCALLY.md) for local operations.
 
-The checkout pins Node 22.20.0, pnpm 10.12.4 and `@runeditrun/rer` 0.2.74.
+The checkout pins Node 22.20.0, pnpm 10.12.4 and `@runeditrun/rer` 0.2.94.
 The CLI is consumed as a package; `src/base` and the adopted runtime modules are
 editable copies of the Base foundation pinned in `edition.json` and
 `base-copies.json`.
