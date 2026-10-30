@@ -42,6 +42,38 @@ test('Grant, STOP, case and policy changes during connector preflight prevent th
    assert.equal((await f.runtime.request('/api/handset/delivery')).status, 401)
   } finally { await f.runtime.close() }
  }
+ const { openHandset } = await import('./helpers/handset-worker.mjs')
+ const { messagesFixture, messageNow } = await import('./helpers/handset-messages.mjs')
+ for (const change of ['stop','permission','policy','custody','source','hours']) {
+  const runtime = await openHandset({ twilio: true, clockTime: messageNow })
+  try {
+   const f = await messagesFixture(runtime), queued = await f.queued()
+   const registrationUrl = 'https://messaging.twilio.com/v1/Tollfree/Verifications/' + f.registration.sid
+   runtime.twilioResources.set(registrationUrl, async () => {
+    runtime.twilioResources.set(registrationUrl, f.registration)
+    if (change === 'stop') await f.incoming('STOP')
+    if (change === 'permission') await f.write('/permissions/' + queued.permission_id + '/revoke', {}, 200)
+    if (change === 'policy') await f.write('/api/handset/consent/revoke', { policyId: queued.policy_id })
+    if (change === 'source') await f.write('/api/handset/sources/revoke', { sourceId: f.source.source.id }, 200)
+    if (change === 'custody') {
+     const t = await f.current()
+     await f.write('/threads/' + t.id + '/handoff', { revision: t.revision, custody: 'happytohelp' }, 200)
+    }
+    if (change === 'hours') await f.write('/api/handset/consent/recipients', { recipient: f.recipient, timezone: 'America/Chicago', startMinute: 840, endMinute: 900, expiresAt: messageNow + 86400000, confirm: 'approve recipient timezone and hours' })
+    return f.registration
+   })
+   const dispatched = await f.write('/jobs/' + queued.id + '/dispatch', { revision: queued.revision }, 200)
+   assert.equal(dispatched.job.state, 'suppressed', change + ' during provider preflight fences the approved send')
+   assert.equal(dispatched.job.provider_sid, null)
+   assert.equal(f.receiver.sent.length, 0)
+   assert.equal(runtime.sourceRequests.filter(r => r.method === 'POST').length, 0)
+   await runtime.restart(); await runtime.scheduled(messageNow)
+   assert.equal(f.receiver.sent.length, 0, change + ' cannot revive a send after restart')
+   const inventory = await (await runtime.request('/api/handset/delivery', { headers: f.headers })).json()
+   assert.ok(inventory.messageJobs.some(j => j.id === queued.id && j.state === 'suppressed' && j.reason === dispatched.job.reason))
+   if (change === 'source') assert.equal(inventory.sources.find(s => s.id === f.source.source.id).status, 'revoked')
+  } finally { await runtime.close() }
+ }
 })
 
 
@@ -146,6 +178,106 @@ test('Expired credentials and removed connector scope preserve uncertain committ
    assert.equal(posts(), before)
    assert.deepEqual([...f.edges.effects.keys()].sort(), original)
   }
+  // Losing read permission alone must halt repair even if a different provider
+  // endpoint still permits writes. Never infer that the first write failed.
+  for (const family of ['crm', 'support']) {
+   const opened = await f.open(family === 'crm' ? 82 : 83, 'en', f.cases[2]), base = `outcomes/${opened.outcome.id}/`
+   const host = family === 'crm' ? f.edges.origins.orbit : f.edges.origins.helpdesk
+   f.edges.drop.add(family === 'crm' ? 'orbit' : 'helpdesk')
+   const lost = await f.ok(base + (family === 'crm' ? 'handoffs/crm' : 'handoffs/support'), { summary: 'Keep one receiving record', ...(family === 'support' ? { conversationId: 'synthetic-handset-710' } : {}) })
+   assert.equal(lost.step.state, 'uncertain')
+   const path = family === 'crm' ? `/api/delegation/v1/effects/handset-${opened.outcome.id}-crm` : '/api/v1/conversations/synthetic-handset-710/messages'
+   const writes = () => f.edges.requests.filter(r => r.host === host && r.method === 'POST').length
+   const before = writes(), remoteCount = () => family === 'crm' ? f.edges.effects.size : f.edges.conversations.get('synthetic-handset-710').messages.length
+   const committed = remoteCount()
+   for (const [status, reason] of [[401, family === 'crm' ? 'orbit_credential_refused' : 'helpdesk_credential_refused'], [403, family === 'crm' ? 'orbit_target_out_of_scope' : 'helpdesk_conversation_out_of_scope']]) {
+    f.edges.readFailures.set(host + path, status)
+    await f.runtime.restart()
+    const refused = await f.ok(base + 'reconcile', { step: family })
+    assert.equal(refused.step.state, 'uncertain'); assert.equal(refused.reason, reason)
+    assert.equal(writes(), before); assert.equal(remoteCount(), committed)
+    const inventory = await (await f.runtime.request('/api/handset/delivery', { headers: f.headers })).json()
+    assert.ok(inventory.steps.some(s => s.id === lost.step.id && s.reason === reason && s.state === 'uncertain'))
+   }
+   f.edges.readFailures.delete(host + path)
+   if (family === 'crm') {
+    const effect = f.edges.effects.get(`handset-${opened.outcome.id}-crm`), target = effect.handoff.target
+    effect.handoff.target = 'opportunities/synthetic-handset-foreign/handoffs/synthetic-handset-foreign'
+    assert.equal((await f.ok(base + 'reconcile', { step: family })).step.state, 'uncertain', 'a receipt for another mapped target cannot confirm this handoff')
+    effect.handoff.target = target
+   }
+   assert.equal((await f.ok(base + 'reconcile', { step: family })).step.state, 'confirmed')
+   assert.equal(remoteCount(), committed)
+   const fresh = await f.open(family === 'crm' ? 85 : 86, 'en', f.cases[2]), freshBase = `outcomes/${fresh.outcome.id}/`
+   const freshPath = family === 'crm' ? `/api/delegation/v1/effects/handset-${fresh.outcome.id}-crm` : path
+   f.edges.readFailures.set(host + freshPath, 403)
+   const freshWrites = writes()
+   const route = family === 'crm' ? '/handoffs/crm' : '/handoffs/support', body = { summary: 'Current read scope is required', ...(family === 'support' ? { conversationId: 'synthetic-handset-710' } : {}) }
+   assert.equal((await f.ok(freshBase.slice(0, -1) + route, body)).step.state, 'rejected', 'a refusal before the first write is definitive')
+   assert.equal(writes(), freshWrites); assert.equal(remoteCount(), committed)
+   f.edges.readFailures.delete(host + freshPath)
+   const afterWrite = await f.open(family === 'crm' ? 87 : 88, 'en', f.cases[2]), afterBase = `outcomes/${afterWrite.outcome.id}/`
+   const afterPath = family === 'crm' ? `/api/delegation/v1/effects/handset-${afterWrite.outcome.id}-crm` : path
+   f.edges.readFailures.set(host + afterPath, () => remoteCount() > committed ? 403 : 0)
+   const lostRead = await f.ok(afterBase.slice(0, -1) + route, body)
+   assert.equal(lostRead.step.state, 'uncertain', 'a refusal after creation cannot establish that its effect failed')
+   assert.equal(remoteCount(), committed + 1)
+   f.edges.readFailures.delete(host + afterPath)
+   const afterPosts = writes()
+   await f.runtime.restart()
+   assert.equal((await f.ok(afterBase + 'reconcile', { step: family })).step.state, 'confirmed')
+   assert.equal(writes(), afterPosts); assert.equal(remoteCount(), committed + 1)
+  }
+  const inspect = (connector, mappingVersion = 1, cursor) => post(f.runtime, '/api/handset/delivery/inspect', { connector, mappingVersion, ...(cursor ? { cursor } : {}), confirm: 'inspect current connector read scope' }, f.headers)
+  const readsBeforeUnauthorized = f.edges.requests.length
+  const input = { connector: 'orbit', mappingVersion: 1, confirm: 'inspect current connector read scope' }
+  assert.equal((await post(f.runtime, '/api/handset/delivery/inspect', input)).status, 401)
+  assert.equal((await post(f.runtime, '/api/handset/delivery/inspect', input, { authorization: 'Bearer ' + f.issued.token })).status, 401)
+  assert.equal((await post(f.runtime, '/api/handset/delivery/inspect', input, { ...f.headers, origin: 'https://example.invalid' })).status, 403)
+  assert.equal(f.edges.requests.length, readsBeforeUnauthorized, 'unauthorized inspection sends no connector credential')
+  f.edges.orbitMissingScope = true
+  const scopeRemoved = await inspect('orbit'); assert.equal(scopeRemoved.status, 200)
+  assert.equal((await scopeRemoved.json()).observations[0].state, 'scope_removed')
+  f.edges.orbitMissingScope = false
+  await f.runtime.restart()
+  const persisted = await (await f.runtime.request('/api/handset/delivery', { headers: f.headers })).json()
+  assert.equal(persisted.connections.find(c => c.id === 'orbit').inspections[0].state, 'scope_removed')
+  const opened = await f.open(84, 'en', f.cases[2]), base = `outcomes/${opened.outcome.id}/`
+  const beforeBlocked = f.edges.requests.filter(r => r.method === 'POST').length
+  assert.equal((await f.ok(base + 'handoffs/crm', { summary: 'Held until scope is explicitly inspected again' })).step.state, 'uncertain')
+  assert.equal(f.edges.requests.filter(r => r.method === 'POST').length, beforeBlocked, 'recorded scope removal fences new dependent writes even after provider access returns')
+  f.edges.orbitExpired = true
+  assert.equal((await (await inspect('orbit')).json()).observations[0].state, 'credential_refused')
+  f.edges.orbitExpired = false
+  assert.equal((await (await inspect('orbit')).json()).observations[0].state, 'available')
+  assert.equal((await f.ok(base + 'reconcile', { step: 'crm' })).step.state, 'confirmed')
+  assert.equal(f.edges.requests.filter(r => r.method === 'POST').length, beforeBlocked + 1)
+  const mappings = Array.from({ length: 13 }, (_, i) => ({ caseId: f.cases[0], conversationId: 'synthetic-handset-inspection-' + String(i).padStart(2, '0') }))
+  for (const m of mappings) f.edges.conversations.set(m.conversationId, { revision: 1, messages: [] })
+  await f.savePolicy(policyFor('synthetic-handset-2', mappings), 1)
+  const requests = f.edges.requests.length
+  assert.equal((await inspect('helpdesk', 1)).status, 409, 'stale mapping review cannot inspect new selected records')
+  assert.equal(f.edges.requests.length, requests)
+  const changed = await (await f.runtime.request('/api/handset/delivery', { headers: f.headers })).json()
+  assert.equal(changed.connections.find(c => c.id === 'orbit').inspections[0].stale, true)
+  const observations = []
+  let cursor
+  do {
+   const page = await inspect('helpdesk', 2, cursor); assert.equal(page.status, 200)
+   const result = await page.json(); observations.push(...result.observations); cursor = result.nextCursor
+  } while (cursor)
+  assert.deepEqual(observations.map(o => o.target).sort(), mappings.map(m => m.conversationId).sort())
+  assert.ok(observations.every(o => o.state === 'available'))
+  assert.equal(f.edges.requests.filter(r => r.method === 'POST').length, beforeBlocked + 1, 'inspection pages only read selected records')
+  const countChecks = async () => (await f.runtime.sql('SELECT count(*) AS n FROM hnd_delivery_checks')).results[0].n
+  const beforeWithdrawal = await countChecks()
+  f.edges.orbitCheckHook = async () => {
+   const removed = await post(f.runtime, '/auth/operator/role', { operatorId: 'synthetic-handset-1', role: 'member' }, { cookie: f.named.cookie })
+   assert.equal(removed.status, 200, await removed.clone().text())
+  }
+  assert.equal((await inspect('orbit', 2)).status, 409, 'authority withdrawal during remote inspection prevents release or persistence of a success')
+  assert.equal(await countChecks(), beforeWithdrawal)
+  assert.equal((await f.runtime.request('/api/handset/delivery', { headers: f.headers })).status, 401)
  } finally { await f.runtime.close() }
 })
 
@@ -226,6 +358,13 @@ test('Signed call status reordering preserves one canonical call and every origi
   }
   assert.equal((await runtime.sql('SELECT count(*) AS n FROM hnd_source_receipts')).results[0].n, 13)
   assert.equal(runtime.sourceRequests.filter(request => request.method === 'POST').length, 0)
+  const source = (await (await runtime.request('/api/handset/delivery', { headers: f.headers })).json()).sources[0]
+  assert.equal(source.status, 'active'); assert.equal(source.number_id, f.numberId)
+  assert.ok(source.last_event_lag_ms >= 0); assert.equal(source.oldestPendingAgeMs, null)
+  assert.equal((await post(runtime, '/api/handset/sources/revoke', { sourceId: source.id }, f.headers)).status, 200)
+  await runtime.restart()
+  const revoked = (await (await runtime.request('/api/handset/delivery', { headers: f.headers })).json()).sources.find(s => s.id === source.id)
+  assert.equal(revoked.status, 'revoked'); assert.equal(revoked.last_receipt_at, source.last_receipt_at)
  } finally { await runtime.close() }
 })
 

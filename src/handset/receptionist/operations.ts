@@ -3,7 +3,7 @@ import { digest, Fault, integer, keys, object, text, type ObjectValue } from '..
 import type { AppliedPolicy } from '../audit/policy'
 import { append } from '../audit/store'
 import { grantFence, type Grant } from '../authority/store'
-import { charge, refund, readPayment } from '../payments/stripe'
+import { charge, refund, readPayment, readRefund } from '../payments/stripe'
 import { authorizationHash, authorizationRow, promptUrl, proposeAuthorization } from './authorization'
 import { dialAvailability, dialBook } from './dial'
 import { exceptionRow, openBlocking, raise } from './exceptions'
@@ -184,7 +184,10 @@ export async function refundDeposit(c: Ctx, value: ObjectValue) {
  const r = await runStep({ env: c.env, grant: c.grant, applied: c.applied, outcome: c.outcome, kind: 'refund', request: { exceptionId: e.id, amountCents: requested.amountCents, paymentIntent: requested.paymentIntent }, amountCents: requested.amountCents,
   claim: stepId => [c.env.DB.prepare("UPDATE hnd_rx_exceptions SET consumed_by=? WHERE id=? AND status='approved' AND (consumed_by IS NULL OR consumed_by=?)").bind(stepId, e.id, stepId), c.env.DB.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_rx_exceptions WHERE id=? AND consumed_by=?').bind(e.id, stepId)],
   effect: () => [c.env.DB.prepare("INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_rx_exceptions e JOIN oa_operators o ON o.id=e.decided_by WHERE e.id=? AND e.status='approved' AND o.status='active' AND o.role='owner' AND o.version=e.decided_owner_version").bind(e.id)],
-  execute: (key, _known, beforeEffect) => refund(c.env, { outcomeId: c.outcome.id, paymentIntent: requested.paymentIntent, amountCents: requested.amountCents, key }, beforeEffect) })
+  execute: (key, known, beforeEffect) => {
+   const input = { outcomeId: c.outcome.id, paymentIntent: requested.paymentIntent, amountCents: requested.amountCents, key }
+   return known ? readRefund(c.env, known, input) : refund(c.env, input, beforeEffect)
+  } })
  const exception = await failure(c, r, 'refund'); if (r.step.state === 'confirmed') await resolveFailures(c, 'refund')
  return reply(r, r.step.state === 'confirmed' ? 'refund_confirmed' : 'deposit_pending', { amount: requested.amountCents }, c, { exceptionId: exception?.exception.id ?? null })
 }

@@ -48,3 +48,65 @@ coverage for those systems, scope-change callbacks, qualified provider receipts
 and full repair controls across every connector remain HND-036 work. The existing caller-outcomes console shows persisted step reasons, including refused credentials and confirmed readback. Existing HND-071 and future
 HND-030, HND-037 through HND-041, HND-044, HND-050, HND-072 and HND-073 effects inherit these barriers. The source
 consent and customer identity gaps of HND-013, HND-018 and HND-089 still apply.
+
+The inventory also lists each current receptionist policy's exact booking,
+payment, CRM and support mappings and mapped field categories. Configuration is
+reported separately from authorization: an installed credential or a historical
+success is not a current remote scope check. Remote lag is unknown, rather than
+zero. Aggregate confirmed, rejected, held and uncertain counts include the full
+native step history; the detailed step list remains bounded to 200 rows. Selected
+inbound sources show active, suspended or revoked current native authority,
+latest observed event delay and the oldest unresolved parent age. Current
+reviewed-message jobs include their source, thread, receiving identity and
+provider versus carrier state, without message content or permission evidence.
+
+When creation returns a booking, payment or refund identity but its readback
+fails, that identity is retained. Reconciliation then reads that exact remote
+record without another creation POST, including after the payment key's replay
+window closes. Credential refusal, removed read scope and a record that does not
+match the original call or outcome remain uncertain; they cannot release a
+possibly committed deposit reservation or confirm a different effect. Restored
+access confirms the original effect. CRM and support read-scope refusal halts
+reconciliation before a write, even if another endpoint still accepts writes.
+Each listed step explains whether repair starts with readback, permits only its
+original key under the receiver contract, or requires human resolution. The
+inventory itself grants no new authority and performs no network effects.
+
+Reviewed customer-care messages recheck STOP, explicit permission, current
+consent policy, thread custody, selected source and recipient hours after
+provider registration preflight. The registered transport journey changes each
+of those gates while preflight is in flight, then restarts the Worker and checks
+that the suppressed job never reaches the receiving message endpoint. This is
+network-edge qualification, not a receipt from an independent physical handset.
+
+An owner may explicitly refresh current read-scope observations with
+`POST /api/handset/delivery/inspect`, using `connector`, the current
+`mappingVersion`, and `confirm: "inspect current connector read scope"`.
+The supported connector values are `dial`, `stripe`, `orbit` and `helpdesk`.
+Inspection derives its destinations exclusively from current native mappings;
+it accepts no URL or credential. It reads at most ten mapped targets per page.
+Continue with the returned `nextCursor` under the same mapping version. A
+changed policy refuses an old review before any receiving request.
+
+Orbit inspects the selected delegated target, and support inspects each selected
+existing conversation. Booking and payment inspection read an already known
+receiving identity under the current policy. Without one, their read scope is
+explicitly not checked; inspection never creates a record to discover it.
+Observations retain failed reads and the last successful check through restart.
+The inventory marks an earlier mapping version stale and exposes observation
+age. These are read-scope observations, not write grants, OAuth lifecycle
+callbacks or a guarantee of remote service health or current delivery lag.
+
+A recorded credential or selected-scope refusal fences every later dependent
+creation POST, even if a different remote endpoint is still writable. An owner
+must explicitly inspect restored read access before new writes can proceed.
+Known-effect readback can still reconcile the original effect without a write.
+Every inspection rechecks the current native owner and mapping before each
+remote read and again before saving or returning its observations. No remote
+payload, caller content or credential enters the retained check records.
+
+A read-scope refusal before the first CRM or support write is a definitive
+rejection: no effect was attempted. If creation may already have committed,
+a refused read remains uncertain. Receiving access can then be restored and
+the original effect read back without another write. Reporting retains this
+distinction between rejected work and possibly committed work.
