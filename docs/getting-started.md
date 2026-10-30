@@ -1,4 +1,5 @@
-Handset runs on your own computer: you own the copy, the data and the code. Starting it takes one line.
+Handset runs on your own computer: you own the copy, the data and the code. Starting it takes one line. To put it
+online, read [Put Handset online](/docs/hosting).
 
 ## Start Handset
 

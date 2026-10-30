@@ -496,7 +496,7 @@
       "executable": false
     },
     "docs/getting-started.md": {
-      "sha256": "917246a50b2f24f0f7d85b17e8b8f43c7831a34722cebd9888fdf08423bd3c9c",
+      "sha256": "7909eae8e58b9ef5c68315bc559ea474516c050852bca33e04f2b7efe55a93ff",
       "executable": false
     },
     "docs/HANDSET-CONSOLES.md": {
@@ -5464,7 +5464,7 @@
       "executable": false
     },
     "src/site/base-pages.tsx": {
-      "sha256": "b555c5505a594715099ffcf4966bb533b9ec38abac2176cf8eb07d9d6d8cf96a",
+      "sha256": "be31da88af2b65fb08544ae94af21354d79fd6bbfbf73b111e8ecaf856965ebb",
       "executable": false
     },
     "src/site/docs/build/manifest.ts": {
@@ -5480,7 +5480,7 @@
       "executable": false
     },
     "src/site/docs/build/site.ts": {
-      "sha256": "6838c28bd3d08102bb498be044b3ae7460ba6258d2d60b4f32387c89fe21acff",
+      "sha256": "4725190ba858fcf347ad1b0c01be188befdfed0d2005b93cda3ec6067c6e5fdc",
       "executable": false
     },
     "src/site/docs/build/slug.ts": {
@@ -5560,7 +5560,7 @@
       "executable": false
     },
     "src/site/pages.tsx": {
-      "sha256": "3db48a2c85c8ebd282a987a036e4c23ca55559e054da83ebe628ddd14d1f7466",
+      "sha256": "3c94acbfc7d20874466d102dccb45787d3cb34ff6ff63eced7236687cda957aa",
       "executable": false
     },
     "src/site/run.json": {

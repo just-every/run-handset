@@ -1,9 +1,10 @@
 // The run site (run-handset.com) `rer build --site` writes: the homepage with its Run action, /run, the docs from
-// docs/*.md, /contract from CONTRACT.md, and the not-found page. Every Run page string and command is in run.json;
-// nothing here reads installation data.
+// docs/*.md, /docs/hosting from what rer read of the deploy declarations, /contract from CONTRACT.md, and the not-found
+// page. Every Run page string and command is in run.json; nothing here reads installation data.
 import type { ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { contractPageHtml } from '../base/contract-page'
+import { hostingPageHtml } from '../base/hosting-page'
 import { runPricing } from '../base/run-pricing'
 import { runPageHtml, siteNotFoundHtml, type RunData, type SiteBuild, type SiteContext } from '../base/run-site'
 import { identity } from '../identity'
@@ -37,7 +38,7 @@ const sharedHead = (title: string, description: string) => <>
   {FONTS.map(href => <link key={href} rel="preload" href={href} as="font" type="font/woff2" crossOrigin="anonymous" />)}
 </>
 
-export function sitePages({ styles, contract }: SiteContext): SiteBuild {
+export function sitePages({ styles, contract, hosting }: SiteContext): SiteBuild {
   const data: RunData = { ...run, pricing: runPricing }
   const document = (title: string, description: string, body: ReactElement, script = '') => '<!doctype html>' + renderToStaticMarkup(
     <html lang="en">
@@ -58,7 +59,7 @@ export function sitePages({ styles, contract }: SiteContext): SiteBuild {
   )
   // Base's pages keep their composition and wear the site: its tokens, header and footer, and no floor art.
   const site = { ...identity, band: undefined }
-  const base = (page: 'run' | 'contract' | 'not-found', html: string, title: string, description: string) => wearSite(html, { page, styles, head: renderToStaticMarkup(sharedHead(title, description)) })
+  const base = (page: 'run' | 'contract' | 'hosting' | 'not-found', html: string, title: string, description: string) => wearSite(html, { page, styles, head: renderToStaticMarkup(sharedHead(title, description)) })
   const docs = (slug?: string) => docsHead(slug)
   const us = contract && usContract(contract)
   return {
@@ -67,6 +68,7 @@ export function sitePages({ styles, contract }: SiteContext): SiteBuild {
       { path: '/run', html: base('run', runPageHtml(site, data, us), 'Run Handset', 'Run Handset on your computer. 100% free and open source.') },
       ...(us ? [{ path: '/contract', html: base('contract', contractPageHtml(site, data, us), 'Contract · Handset', 'What Handset is being built to do, and how much of it the code does today.') }] : []),
       { path: '/docs', html: document(docs().title, docs().description, <DocsIndex />) },
+      { path: '/docs/hosting', html: base('hosting', hostingPageHtml(site, data, hosting ?? null, us), 'Put Handset online', 'How to run Handset on your own computer and put it online.') },
       ...docsPages.map(page => ({ path: `/docs/${page.slug}`, html: document(docs(page.slug).title, docs(page.slug).description, <DocsArticle slug={page.slug} />, COPY) })),
       { path: '/404', html: base('not-found', siteNotFoundHtml(site, data, us), 'Not found · Handset', TITLE) },
     ],
