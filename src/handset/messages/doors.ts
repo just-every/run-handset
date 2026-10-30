@@ -100,7 +100,7 @@ export async function messageDoor(request:Request,env:Bindings,actor:Session,v?:
    keys(v,['revision','providerSid','confirm'])
    if(v.confirm!=='read back this submitted message')throw new Fault('message_repair_confirmation_required',403)
    if(current.revision!==v.revision)throw new Fault('message_revision_changed',409)
-   return json({job:await refreshMessage(env,current.id,{sid:text(v.providerSid,'providerSid',200),actor:await actorRef(env.DB,actor.operator.id),fences:[ownerFence(env.DB,actor)]})})
+   return json({job:await refreshMessage(env,current.id,{sid:text(v.providerSid,'providerSid',200),actor:await actorRef(env.DB,actor.operator.id),fences:[ownerFence(env.DB,actor)],authorityFences:[ownerFence(env.DB,actor)]})})
   }
   if(j[2]==='refresh'){keys(v,[]);return json({job:await refreshMessage(env,current.id)})}
   keys(v,['revision'])

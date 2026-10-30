@@ -178,6 +178,12 @@ test('Official archive edges reconcile encrypted audio, transcripts and unavaila
    assert.equal(audio.sha256,sha(available.bytes));assert.equal(missing.state,'unavailable');assert.equal(missing.reason,'recording_media_unavailable');assert.equal(transcript.transcriptLink,'/api/handset/transcripts/'+available.transcriptId)
    for(const file of manifest.files.filter(file=>file.state==='verified')){const remote=edge.objects.get(file.name);assert.equal(sha(remote.bytes),file.cipherSha256);assert.equal(sha(await decode(file.name,remote.bytes,job.id)),file.sha256)}
    const plainTranscript=JSON.parse((await decode(transcript.name,edge.objects.get(transcript.name).bytes,job.id)).toString());assert.equal(plainTranscript.segments[0].text,'Please call on Tuesday.')
+   const delivery=await (await f.runtime.request('/api/handset/delivery',{headers:f.headers})).json()
+   const connection=delivery.supporting.exports.find(c=>c.id===connector.id)
+   assert.equal(connection.provider,provider);assert.equal(connection.authority,'current');assert.ok(connection.last_transfer_at>0)
+   const observed=delivery.supporting.archiveJobs.find(j=>j.id===job.id)
+   assert.equal(observed.state,'verified');assert.equal(observed.confirmed_files,3);assert.equal(observed.pending_files,0)
+   assert.ok(!JSON.stringify(delivery).includes(encryptionKey));assert.ok(!JSON.stringify(delivery).includes('synthetic-handset-3301'))
    const count=edge.uploads.length;await f.write('/jobs/'+job.id+'/run',{credential:'synthetic-handset-3301',encryptionKey},200);assert.equal(edge.uploads.length,count)
    const next=await f.archive(connector.id);await f.write('/connectors/'+connector.id+'/revoke',{},200);const requests=edge.requests.length
    assert.equal((await post(f.runtime,f.base+'/jobs/'+next.id+'/run',{credential:'synthetic-handset-3301',encryptionKey},f.headers)).status,409);assert.equal(edge.requests.length,requests);assert.equal(edge.objects.size,3)

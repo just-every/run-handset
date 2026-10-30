@@ -194,10 +194,11 @@ export async function openHandset({ liveMail = false, twilio = false, edges = nu
     await seed(db, ownerEmail)
     return {
       origin, ownerEmail, mails, mailResponses, get db() { return db }, close, twilioResources, sourceRequests,logs,
-      async restart() {
+      async restart(bindings = {}) {
         await runtime.dispose()
         await dispatcher.close()
         dispatcher = new Agent({ connect: { rejectUnauthorized: false } })
+        for (const [name, value] of Object.entries(bindings)) options.workers[0].config.env[name] = { type: 'text', value }
         runtime = new Miniflare(options)
         await runtime.ready
         if (clock) { await runtime.dispatchFetch(new URL('/health', origin)); await clock.attach(runtime) }

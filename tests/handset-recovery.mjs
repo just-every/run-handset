@@ -441,6 +441,20 @@ test('Queued inbox work and scoped connected attempts share durable STOP across 
   runtime.twilioResources.set(registrationUrl,async()=>{await other.incoming('STOP');return other.registration})
   const after=(await other.write('/jobs/'+racing.id+'/dispatch',{revision:racing.revision},200)).job
   assert.equal(after.state,'suppressed');assert.equal(other.receiver.sent.length,0,'STOP during provider preflight receives no POST')
+  for(const [index,change] of ['permission','source','policy','hours'].entries()) {
+   const fresh=await messagesFixture(runtime,{business:'+1833555020'+index,recipient:'+1512555020'+index,headers:a.headers}),pending=await fresh.queued()
+   const registration='https://messaging.twilio.com/v1/Tollfree/Verifications/'+fresh.registration.sid
+   runtime.twilioResources.set(registration,async()=>{
+    if(change==='permission')await fresh.write('/permissions/'+pending.permission_id+'/revoke',{},200)
+    if(change==='source')await fresh.write('/api/handset/sources/revoke',{sourceId:fresh.source.source.id},200)
+    if(change==='policy')await fresh.write('/api/handset/consent/policies',{sourceId:fresh.source.source.id,businessName:'Cedar Creek Heating',legalConfiguration:'Updated explicit customer-care policy',registrationId:fresh.registration.sid,staffTarget:'+15125551099',expiresAt:messageNow+86400000,confirm:'approve exact informational consent policy'})
+    if(change==='hours')await fresh.write('/api/handset/consent/recipients',{recipient:fresh.recipient,timezone:'America/Chicago',startMinute:0,endMinute:60,expiresAt:messageNow+86400000,confirm:'approve recipient timezone and hours'})
+    return fresh.registration
+   })
+   const result=await fresh.write('/jobs/'+pending.id+'/dispatch',{revision:pending.revision},200)
+   assert.equal(result.job.state,'suppressed',change+' withdrawal during preflight refuses submission')
+   assert.equal(fresh.receiver.sent.length,0)
+  }
   const foreign=await runtime.request('/api/handset/v1/cases/'+(await other.current()).id+'/message-suppression',{headers:auth})
   assert.equal(foreign.status,403)
   await a.write('/api/handset/grants/'+issued.grant.id+'/revoke',{},200)

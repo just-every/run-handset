@@ -93,6 +93,11 @@ test('Lost payment, booking, CRM and support responses stay uncertain until read
   assert.equal(f.edges.bookings.size, 1, 'the booking did commit at Dial; only the answer was lost')
   const notice = mailTo(f.runtime, namedEmail).at(-1)
   assert.match(mailText(notice), /Failed provider action[\s\S]*"step":"booking"[\s\S]*Callback promised by/)
+  const remoteBooking=[...f.edges.bookings.values()][0],correctName=remoteBooking.name
+  remoteBooking.name='Unrelated caller'
+  const wrongBooking=await f.ok(base+'reconcile',{step:'booking'})
+  assert.equal(wrongBooking.step.state,'uncertain','a same-slot booking for another caller cannot fulfill this promise')
+  remoteBooking.name=correctName
   const fixed = await f.ok(base + 'reconcile', { step: 'booking' })
   assert.equal(fixed.step.state, 'confirmed'); assert.equal(f.edges.bookings.size, 1, 'reconcile replays the same creation key, so there is one booking')
   const afterBooking = await (await f.agentGet(`outcomes/${id}`)).json()
@@ -114,6 +119,12 @@ test('Lost payment, booking, CRM and support responses stay uncertain until read
   const inventory = await (await f.runtime.request('/api/handset/delivery', { headers: f.headers })).json()
   assert.ok(inventory.steps.some(s => s.id === crm.step.id && s.state === 'uncertain' && s.outcome_id === id))
   assert.match(inventory.scopes.orbit, /handoff/)
+  const remoteEffect=[...f.edges.effects.values()][0],correctTarget=remoteEffect.handoff.target
+  remoteEffect.handoff.target='synthetic-handset-foreign-target'
+  const beforeWrongTarget=f.edges.requests.filter(r=>r.host===f.edges.origins.orbit&&r.method==='POST').length
+  assert.equal((await f.ok(base+'reconcile',{step:'crm'})).step.state,'uncertain','matching text does not establish the selected receiving record')
+  assert.equal(f.edges.requests.filter(r=>r.host===f.edges.origins.orbit&&r.method==='POST').length,beforeWrongTarget)
+  remoteEffect.handoff.target=correctTarget
   assert.equal((await f.ok(base + 'reconcile', { step: 'crm' })).step.state, 'confirmed'); assert.equal(f.edges.effects.size, 1)
   f.edges.drop.add('helpdesk')
   assert.equal((await f.ok(base + 'handoffs/support', { conversationId: 'synthetic-handset-710', summary: 'Furnace call' })).step.state, 'uncertain')

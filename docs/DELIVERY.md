@@ -67,3 +67,21 @@ before binding the receipt, and retains the owner attribution in audit. A source
 revocation during readback refuses the commit. Older jobs with no known provider
 identity or submission time remain uncertain for human investigation. No repair
 operation creates a message or grants sending permission.
+
+The connection inventory reads the current owner-selected service, opportunity
+and conversation mappings, current source authority and observed receiver
+results. Successful readback time and oldest unresolved work age are distinct
+from remote health. Knowledge sources show exact source references, revisions,
+cache age and unavailable authority; archive destinations show selected folder,
+custody and transfer state. Message, call-bound text, model and notice projections
+omit bodies, credentials and recipients. Each list advertises its bound and
+links to the existing domain repair door.
+
+A receptionist attempt also retains its receiving origin. Reconfiguring the
+connector cannot redirect a previously started operation or even its readback
+correlation to a replacement receiver. Restore the original configuration to
+reconcile it. Historical attempts without a recorded origin remain held for
+human investigation. A matching booking slot alone is insufficient: the caller,
+service and call correlation must match. CRM confirmation requires the exact
+operation receipt and selected target as well as the handoff content; a
+conflicting existing receipt stays uncertain without another write.

@@ -9,15 +9,17 @@ export async function orbitHandoff(env: Bindings, target: string, operationKey: 
  if (!o) return held('orbit_connector_unconfigured')
  if (!target) return held('orbit_target_unselected')
  const headers = { ...bearer(env.HANDSET_ORBIT_TOKEN), 'content-type': 'application/json' }
+ let conflictingReceipt=false
  const receipt = async (): Promise<EdgeResult> => {
   const read = await send(`${o}/api/delegation/v1/effects/${encodeURIComponent(operationKey)}`, { method: 'GET', headers })
   if (!read) return uncertain('orbit_readback_unavailable')
-  const handoff = (read.body.handoff ?? {}) as Record<string, unknown>
-  if (read.status !== 200 || handoff.content !== content) return uncertain('orbit_readback_mismatch')
+  const handoff = (read.body.handoff ?? {}) as Record<string, unknown>, proof=(read.body.receipt??{}) as Record<string,unknown>
+  if(read.status===200&&(handoff.content!==content||handoff.target!==target||proof.operationKey!==operationKey||proof.target!==target||proof.status!=='applied'))conflictingReceipt=true
+  if (read.status !== 200 || conflictingReceipt) return uncertain('orbit_readback_mismatch')
   return { state: 'confirmed', externalId: operationKey, readback: { operationKey, target, content: handoff.content }, reason: 'readback_matched' }
  }
  const existing = await receipt()
- if (existing.state === 'confirmed') return existing
+ if (existing.state === 'confirmed'||conflictingReceipt) return existing
  for (let attempt = 0; attempt < 2; attempt++) {
   const check = await send(`${o}/api/delegation/v1/check?target=${encodeURIComponent(target)}`, { method: 'GET', headers })
   if (!check) return uncertain('orbit_check_unavailable')

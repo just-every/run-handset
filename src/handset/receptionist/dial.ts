@@ -19,7 +19,7 @@ async function readback(env: Bindings, o: string, id: string, request: Request):
  const wire = await send(`${o}/api/app/bookings/${encodeURIComponent(id)}`, { method: 'GET', headers: { ...bearer(env.HANDSET_DIAL_TOKEN), accept: 'application/json' } })
  if (!wire) return uncertain('dial_readback_unavailable')
  const b = wire.body
- if (wire.status !== 200 || b.id !== id || instant(b.startAt) !== Date.parse(request.startAt) || b.state === 'cancelled') return uncertain('dial_readback_mismatch')
+ if (wire.status !== 200 || b.id !== id || instant(b.startAt) !== Date.parse(request.startAt) || b.state === 'cancelled' || b.name !== request.name || b.email !== request.email || b.eventTypeId !== request.eventTypeId || (b.answers as Record<string, unknown> | undefined)?.handsetCall !== request.answers.handsetCall) return uncertain('dial_readback_mismatch')
  return { state: 'confirmed', externalId: id, readback: { id, startAt: new Date(Date.parse(request.startAt)).toISOString(), state: b.state ?? 'confirmed' }, reason: 'readback_matched' }
 }
 export async function dialBook(env: Bindings, request: Request, known?: string | null, beforeEffect: () => Promise<void> = async () => {}): Promise<EdgeResult> {

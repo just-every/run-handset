@@ -21,7 +21,7 @@ export interface Outcome {
 }
 export interface Step {
  id: string; outcome_id: string; kind: StepKind; state: string; request: string; request_hash: string; external_id: string | null
- readback: string | null; reason: string; attempts: number; amount_cents: number; version: number; created_at: number; updated_at: number
+ readback: string | null; destination_origin: string | null; reason: string; attempts: number; amount_cents: number; version: number; created_at: number; updated_at: number
 }
 export interface Authorization {
  id: string; outcome_id: string; amount_cents: number; payee: string; purpose: string; language: Language; prompt: string; prompt_hash: string

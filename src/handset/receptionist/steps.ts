@@ -3,7 +3,7 @@ import { digest, Fault, id } from '../core'
 import { append } from '../audit/store'
 import type { AppliedPolicy } from '../audit/policy'
 import { grantFence, type Grant } from '../authority/store'
-import type { EdgeResult } from './edge'
+import { origin, type EdgeResult } from './edge'
 import type { Outcome, Step, StepKind } from './model'
 
 export const uuidFrom = (hex: string) => `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`
@@ -31,6 +31,7 @@ export function outcomeEffectFences(env: Bindings, outcome: Outcome): D1Prepared
 }
 export async function runStep(r: Run): Promise<RunResult> {
  const { env, grant, outcome, kind } = r, db = env.DB, hash = await digest(r.request), now = Date.now()
+ const destination=kind==='deposit'||kind==='refund'?'https://api.stripe.com':origin(kind==='booking'?env.HANDSET_DIAL_ORIGIN:kind==='crm'?env.HANDSET_ORBIT_ORIGIN:env.HANDSET_HELPDESK_ORIGIN,'connector_origin')
  let step = await stepRow(db, outcome.id, kind)
  if (step && step.state === 'confirmed') {
   if (step.request_hash !== hash) throw new Fault('step_request_changed', 409)
@@ -39,6 +40,13 @@ export async function runStep(r: Run): Promise<RunResult> {
  }
  if (step && step.state === 'rejected' && step.request_hash === hash) return { step, replay: true, reason: step.reason }
  if (step && !['rejected'].includes(step.state) && step.request_hash !== hash) throw new Fault('step_request_changed', 409)
+ if(step&&step.destination_origin!==destination) {
+  await append(env,grant.id,'outcome.step',step.id,'uncertain',[grantFence(env,grant),
+   db.prepare('INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_rx_steps WHERE id=? AND version=?').bind(step.id,step.version),
+   db.prepare("UPDATE hnd_rx_steps SET reason='connector_destination_changed_restore_original_before_readback',updated_at=?,version=version+1 WHERE id=?").bind(Date.now(),step.id),
+  ],null,r.applied)
+  throw new Fault('connector_destination_changed',409)
+ }
  const previouslyUncertain = Boolean(step && ['sent', 'uncertain'].includes(step.state))
  const key = `${outcome.id}:${kind}:${hash}`
  if (!step) {
@@ -46,7 +54,7 @@ export async function runStep(r: Run): Promise<RunResult> {
   try {
    await append(env, grant.id, 'outcome.step', stepId, 'uncertain', [
     grantFence(env, grant), ...outcomeEffectFences(env, outcome), ...(r.claim?.(stepId) ?? []),
-    db.prepare("INSERT INTO hnd_rx_steps(id,outcome_id,kind,state,request,request_hash,external_id,readback,attempts,amount_cents,version,created_at,updated_at,reason) VALUES (?,?,?,'sent',?,?,NULL,NULL,1,?,1,?,?,'effect_claimed_readback_required')").bind(stepId, outcome.id, kind, JSON.stringify(r.request), hash, r.amountCents ?? 0, now, now),
+    db.prepare("INSERT INTO hnd_rx_steps(id,outcome_id,kind,state,request,request_hash,external_id,readback,attempts,amount_cents,version,created_at,updated_at,reason,destination_origin) VALUES (?,?,?,'sent',?,?,NULL,NULL,1,?,1,?,?,'effect_claimed_readback_required',?)").bind(stepId, outcome.id, kind, JSON.stringify(r.request), hash, r.amountCents ?? 0, now, now,destination),
    ], null, r.applied)
   } catch (error) {
    if (String(error).includes('UNIQUE constraint failed: hnd_rx_steps')) throw new Fault('step_conflict_retry_same_request', 409)

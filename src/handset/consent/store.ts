@@ -32,7 +32,7 @@ export async function readTwilio(env:Bindings,source:{account_id:string},url:str
  let response:Response
  try { response=await fetch(url,{headers:{authorization:'Basic '+btoa(source.account_id+':'+env.HANDSET_TWILIO_AUTH_TOKEN)},redirect:'manual',signal:AbortSignal.timeout(5000)}) }
  catch { throw new Fault('consent_provider_unavailable',503) }
- if(response.status!==200)throw new Fault('consent_provider_unavailable',503)
+ if(response.status!==200){await response.body?.cancel();throw new Fault(response.status===401?'consent_provider_credential_refused':response.status===403?'consent_provider_scope_refused':'consent_provider_unavailable',503)}
  try { return await response.json() as Record<string,unknown> } catch { throw new Fault('invalid_provider_receipt',502) }
 }
 export const callUrl=(source:{account_id:string},sid:string)=>`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(source.account_id)}/Calls/${encodeURIComponent(sid)}.json`

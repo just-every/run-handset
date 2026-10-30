@@ -129,6 +129,12 @@ test('Expired credentials and removed connector scope preserve uncertain committ
    assert.equal(lost.step.state, 'uncertain')
    const posts = () => f.edges.requests.filter(r => r.host === f.edges.origins.orbit && r.method === 'POST').length
    const before = posts(), original = [...f.edges.effects.keys()].sort()
+   await f.runtime.restart({HANDSET_ORBIT_ORIGIN:f.edges.origins.helpdesk})
+   const requestCount=f.edges.requests.length
+   const redirected=await f.agent(base+'reconcile',{step:'crm'})
+   assert.equal(redirected.status,409);assert.equal((await redirected.json()).error,'connector_destination_changed')
+   assert.equal(f.edges.requests.length,requestCount,'an old attempt cannot disclose its correlation to a replacement receiver')
+   await f.runtime.restart({HANDSET_ORBIT_ORIGIN:f.edges.origins.orbit})
    f.edges[flag] = true
    await f.runtime.restart()
    const blocked = await f.ok(base + 'reconcile', { step: 'crm' })
@@ -139,12 +145,21 @@ test('Expired credentials and removed connector scope preserve uncertain committ
    await f.runtime.restart()
    const inventory = await (await f.runtime.request('/api/handset/delivery', { headers: f.headers })).json()
    assert.ok(inventory.steps.some(s => s.id === lost.step.id && s.state === 'uncertain' && s.reason === reason))
+   const connection=inventory.connections.find(c=>c.id==='orbit')
+   assert.equal(connection.configured,true);assert.equal(connection.authority,'current')
+   assert.deepEqual(connection.mappings,[{target:f.orbitTarget}])
+   assert.equal(connection.lastAttempt.reason,reason);assert.ok(connection.unresolved>=1)
+   if(index===0)assert.equal(connection.lastConfirmedAt,null);else assert.ok(connection.lastConfirmedAt>0)
+   assert.ok(connection.unresolvedAgeMs>=0)
    f.edges[flag] = false
    const reconciled = await f.ok(base + 'reconcile', { step: 'crm' })
    assert.equal(reconciled.step.state, 'confirmed')
    assert.equal(reconciled.reason, 'readback_matched')
    assert.equal(posts(), before)
    assert.deepEqual([...f.edges.effects.keys()].sort(), original)
+   const settled=await (await f.runtime.request('/api/handset/delivery',{headers:f.headers})).json()
+   const current=settled.connections.find(c=>c.id==='orbit')
+   assert.equal(current.unresolved,0);assert.equal(current.lastAttempt.state,'confirmed');assert.ok(current.lastConfirmedAt>0)
   }
  } finally { await f.runtime.close() }
 })
@@ -224,6 +239,14 @@ test('Signed call status reordering preserves one canonical call and every origi
    assert.equal(new Set(receipts.map(receipt => receipt.caseId)).size, 1)
    assert.equal((await (await runtime.request('/api/handset/cases/' + receipts[0].caseId, { headers: f.headers })).json()).current.status, 'open')
   }
+  const inventory=await (await runtime.request('/api/handset/delivery',{headers:f.headers})).json()
+  const connection=inventory.sources.find(s=>s.id===f.source.id)
+  assert.equal(connection.authority,'current');assert.equal(connection.number_id,f.numberId)
+  assert.equal(connection.account_id,f.account);assert.ok(connection.last_receipt_at>=at)
+  assert.ok(connection.receiptAgeMs>=0);assert.equal(connection.pending_parents,0)
+  await post(runtime,'/api/handset/sources/revoke',{sourceId:f.source.id},f.headers)
+  const revoked=await (await runtime.request('/api/handset/delivery',{headers:f.headers})).json()
+  assert.equal(revoked.sources.find(s=>s.id===f.source.id).authority,'revoked')
   assert.equal((await runtime.sql('SELECT count(*) AS n FROM hnd_source_receipts')).results[0].n, 13)
   assert.equal(runtime.sourceRequests.filter(request => request.method === 'POST').length, 0)
  } finally { await runtime.close() }
@@ -346,7 +369,10 @@ test('Exact reviewed snippets send MMS once and keep provider acceptance distinc
   const readUrl=`https://api.twilio.com/2010-04-01/Accounts/${f.source.account}/Messages/${lost.message.sid}.json`
   runtime.twilioResources.set(readUrl,{__httpStatus:401})
   assert.equal((await f.receipt(lost)).status,503)
-  assert.equal((await f.get()).jobs.find(j=>j.id===unknown.id).state,'uncertain')
+  const refusedRead=(await f.get()).jobs.find(j=>j.id===unknown.id)
+  assert.equal(refusedRead.state,'uncertain');assert.match(refusedRead.reason,/credential_refused/)
+  await runtime.restart()
+  assert.ok((await inventory()).messages.some(j=>j.id===unknown.id&&/credential_refused/.test(j.reason)))
   f.source.resource('Messages',lost.message.sid,lost.message)
   const repaired=await f.receipt(lost);assert.equal(repaired.status,200,await repaired.clone().text())
   assert.equal((await repaired.json()).providerSid,lost.message.sid)

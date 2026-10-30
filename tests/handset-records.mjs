@@ -780,6 +780,12 @@ test('Selected knowledge sources refresh at official API edges and revoke derive
    assert.equal((await api('/search',{query:'Hours',sourceIds:[source.id]})).state,'knowledge_gap')
    const listing=await (await runtime.request(root,{headers})).json(), unavailable=listing.sources.find(s=>s.id===source.id)
    assert.equal(unavailable.state,'unavailable')
+   const delivery=await (await runtime.request('/api/handset/delivery',{headers})).json()
+   const connection=delivery.supporting.knowledge.find(row=>row.id===source.id)
+   assert.equal(connection.provider,d.provider);assert.equal(connection.external_id,d.externalId)
+   assert.equal(connection.authority,'unavailable');assert.ok(connection.receiptAgeMs>=0)
+   assert.doesNotMatch(JSON.stringify(delivery),/synthetic-handset-930|Hours 10|Price|installation secret/)
+
    configure('3','Hours 11 to 7. Price $70.')
    source=await api('/'+source.id+'/refresh',{...consent,credential,revision:unavailable.revision})
    // A hostile provider redirect is refused without following or forwarding its credential.
