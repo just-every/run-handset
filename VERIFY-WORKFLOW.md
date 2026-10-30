@@ -108,6 +108,24 @@ not infer arbitrary dependencies or exempt unknown readers. The maintained
 runtime, auth, setup and installer tests have no direct semantic dependencies
 on the permitted documents. Contract consistency is checked explicitly.
 
+An edition declares additional reviewed readers in `verification.json`, beside
+`push` and `nightly`:
+
+```json
+"readers": {
+  "tests/product-contract.test.mjs": ["CONTRACT.md", "STATUS.md"]
+}
+```
+
+Each key is a test path (or the exact test glob used in a shard command); its
+value lists the repository-relative files that test reads semantically. An
+empty array declares that it reads none of the permitted light inputs. A
+declaration replaces the maintained entry for that same test, so editions that
+adapt a maintained test must also review its dependencies. When a listed file
+changes, light coverage runs that test through Node's test runner. Missing
+tests, malformed declarations and undeclared tests still select full coverage.
+The table does not expand the permitted light inputs or supported command forms.
+
 Light coverage performs the edition source-lock validation, `rer check`, all
 selected existing reader tests, generated contract-document consistency when a
 contract document changed, and `rer build --site`. Source-lock validation is
@@ -167,6 +185,33 @@ Every caller must grant `contents: read` and `actions: read` to the job calling
 Verify. A reusable workflow cannot increase its caller's token permissions;
 actionlint alone does not catch that rejection. The helper tests retain both
 checks and exercise planning through GitHub HTTP responses and real Git trees.
+
+Name a shared build artifact `<seed>-verify-build-<sha>-<run_id>`, without
+`github.run_attempt`, and use exactly the same name for upload and download.
+A failed-jobs rerun skips a successful build, so its consumers must still find
+the earlier attempt's artifact. Set `overwrite: true` on the upload so a full
+rerun replaces that same name. This input requires upload-artifact v4.2+; pin
+`actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02` (v4.6.2).
+Its [input definition](https://github.com/actions/upload-artifact/blob/ea165f8d65b6e75b540449e92b4886f43607fa02/action.yml#L37-L42)
+defaults to `overwrite: false`, which fails when the name already exists;
+`true` deletes it before uploading. Per-attempt evidence and diagnostic uploads
+that no other job downloads may retain their attempt suffix.
+
+For the attempt-qualified seed versions, apply these exact name replacements
+to both the download and upload steps, then add `overwrite: true` under the
+upload's `with:` (the two added upload inputs are shown together):
+
+```diff
+-          name: uptime-verify-build-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
++          name: uptime-verify-build-${{ github.sha }}-${{ github.run_id }}
++          overwrite: true
+```
+
+```diff
+-          name: verify-build-${{ github.run_id }}-${{ github.run_attempt }}
++          name: happytohelp-verify-build-${{ github.sha }}-${{ github.run_id }}
++          overwrite: true
+```
 
 Adoption proof names the exact SHA, API head identity and tested merge ref
 separately. A PR result remains a PR result. Preserve product journeys and
