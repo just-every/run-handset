@@ -5,13 +5,13 @@ Handset runs on your own computer: you own the copy, the data and the code. Star
 Open a terminal and run:
 
 ```sh
-curl -fsSL https://runeditrun.com/install.sh | sh -s -- dev just-every/run-handset
+{{run.start}}
 ```
 
-Git is required; rer brings Node and pnpm. Already have Node 22 or later? This does the same:
+{{run.requirements}} Already have Node 22 or later? This does the same:
 
 ```sh
-npx -y @runeditrun/rer dev just-every/run-handset
+{{run.alternative}}
 ```
 
 The installer edits none of your shell files. If it ends with a line to run, run it too: it puts `rer` on your PATH
