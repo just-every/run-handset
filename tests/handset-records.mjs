@@ -1433,11 +1433,42 @@ test('Voicemail selected copies and authenticated links preserve exact native so
   const mediaItem=await f.item(6),mediaJob=await f.queue(mediaItem,linkSetting);await f.runtime.scheduled()
   await f.write('/api/handset/recordings/grants/'+mediaItem.grant.id+'/revoke',{},f.owner,200)
   await deniedLink('/api/handset/voicemail/links/'+mediaJob.job.link_id)
+  const interruptedAudio=async(media,job,metadataOnly,withdraw)=>{
+   const resource=metadataOnly?media.mediaUrl.replace('.wav','.json'):media.mediaUrl
+   const payload=f.runtime.twilioResources.get(resource),reads=f.runtime.sourceRequests.length,copies=f.runtime.mails.length
+   f.runtime.twilioResources.set(resource,async()=>{await withdraw();return payload})
+   const response=await f.runtime.request('/api/handset/voicemail/links/'+job.job.link_id+'/audio',{headers:f.recipient})
+   assert.equal(response.status,403,'withdrawal during retrieval is an access denial')
+   assert.deepEqual(await response.json(),{error:'voicemail_link_unavailable'})
+   assert.deepEqual(f.runtime.sourceRequests.slice(reads),[media.mediaUrl.replace('.wav','.json'),...(metadataOnly?[]:[media.mediaUrl])].map(url=>({url,method:'GET'})))
+   assert.equal(f.runtime.mails.length,copies,'reading or denying a link never sends another copy')
+  }
+  const revokedDuring=await f.item(8),revokedDuringJob=await f.queue(revokedDuring,linkSetting);await f.runtime.scheduled()
+  await interruptedAudio(revokedDuring,revokedDuringJob,true,()=>f.write('/api/handset/voicemail/links/'+revokedDuringJob.job.link_id+'/revoke',{},f.owner,200))
+  const expiredDuring=await f.item(9),expiredDuringJob=await f.queue(expiredDuring,linkSetting);await f.runtime.scheduled()
+  const expiresDuring=(await f.get('/api/handset/voicemail/links/'+expiredDuringJob.job.link_id,f.recipient)).expiresAt
+  await interruptedAudio(expiredDuring,expiredDuringJob,false,()=>f.runtime.setTime(expiresDuring))
+  const removedDuring=await f.item(21),removedDuringJob=await f.queue(removedDuring,linkSetting);await f.runtime.scheduled()
+  await interruptedAudio(removedDuring,removedDuringJob,false,()=>f.membership(0))
+  await f.membership(1)
+  linkSetting=await f.settings('link',{linkSeconds:60})
   const memberItem=await f.item(7),memberJob=await f.queue(memberItem,linkSetting);await f.runtime.scheduled()
   const copies=f.runtime.mails.length
   await f.membership(0)
   await deniedLink('/api/handset/voicemail/links/'+memberJob.job.link_id)
   await f.get(f.base,f.recipient,403);await f.runtime.scheduled();assert.equal(f.runtime.mails.length,copies)
+  await f.membership(1)
+  await f.runtime.restart();await f.runtime.scheduled()
+  await deniedLink('/api/handset/voicemail/links/'+memberJob.job.link_id)
+  assert.equal(f.runtime.mails.length,copies,'restoring membership cannot resend or reactivate prior deliveries')
+  const reapproved=await f.settings('link',{linkSeconds:60})
+  await deniedLink('/api/handset/voicemail/links/'+memberJob.job.link_id)
+  const requeued=await f.queue(memberItem,reapproved)
+  assert.notEqual(requeued.job.link_id,memberJob.job.link_id,'fresh approval issues a distinct link')
+  await f.runtime.scheduled()
+  assert.equal(f.runtime.mails.length,copies+1,'only the newly reviewed delivery sends another copy')
+  assert.equal((await f.get('/api/handset/voicemail/links/'+requeued.job.link_id,f.recipient)).recordingId,memberItem.recordingId)
+  await deniedLink('/api/handset/voicemail/links/'+memberJob.job.link_id)
   assert.equal(Buffer.from(mail.attachments[0].content,'base64').length,linked.bytes.length,'an already released copy remains outside native recall')
  }finally{await f.runtime.close()}
 })

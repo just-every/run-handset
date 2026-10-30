@@ -23,14 +23,22 @@ export async function voicemailLinkDoor(request:Request,env:Bindings,a:Session,v
  }
  if(request.method!=='GET'||match[2]==='revoke')throw new Fault('method_not_allowed',405)
  if(link.revoked_at||link.expires_at<=Date.now()||!['sending','accepted','development','uncertain'].includes(job.state))throw new Fault('voicemail_link_unavailable',403)
- const data=await deliveryContent(env,job)
- if(data.setting.mode!=='link'||data.setting.person_id!==a.operator.id||data.setting.person_version!==a.operator.version)throw new Fault('exact_voicemail_recipient_required',403)
- const fences=()=>[nativeFence(env,a),...data.fences(),guard(env,'SELECT count(*) FROM hnd_vm_links WHERE id=? AND revoked_at IS NULL AND expires_at>?',link.id,Date.now())]
- const bytes=match[2]==='audio'?await data.media!.bytes(fences):null
- await commit(env,a,'voicemail.link',link.id,'completed',fences(),false)
- if(bytes)return new Response(bytes,{headers:{'content-type':'audio/wav','cache-control':'private, no-store','referrer-policy':'no-referrer','x-content-type-options':'nosniff','content-disposition':'inline; filename="voicemail.wav"','content-security-policy':"default-src 'none'; sandbox"}})
- if(path.startsWith('/api/'))return json({itemId:data.item.id,recordingId:data.content.recording_id,sourceId:data.content.source_id,provenance:data.transcript.provenance,text:data.transcript.content,expiresAt:link.expires_at})
- const response=await consolePage('Authenticated voicemail',`<p role="status">Access expires ${e(new Date(link.expires_at).toISOString())}. Recipient, mailbox, source and independent content grants are checked on every read.</p><p>${e(data.transcript.provenance)}</p><pre>${e(data.transcript.content)}</pre><audio controls preload="none" aria-label="Approved voicemail" src="/api/handset/voicemail/links/${e(link.id)}/audio"></audio><p>Received bytes cannot be recalled.</p><a href="/app/voicemail">Return to voicemail</a>`)
- response.headers.set('content-security-policy',response.headers.get('content-security-policy')+"; media-src 'self'")
- return response
+ try{
+  const data=await deliveryContent(env,job)
+  if(data.setting.mode!=='link'||data.setting.person_id!==a.operator.id||data.setting.person_version!==a.operator.version)throw new Fault('exact_voicemail_recipient_required',403)
+  const fences=()=>[nativeFence(env,a),...data.fences(),guard(env,'SELECT count(*) FROM hnd_vm_links WHERE id=? AND revoked_at IS NULL AND expires_at>?',link.id,Date.now())]
+  const bytes=match[2]==='audio'?await data.media!.bytes(fences):null
+  await commit(env,a,'voicemail.link',link.id,'completed',fences(),false)
+  if(bytes)return new Response(bytes,{headers:{'content-type':'audio/wav','cache-control':'private, no-store','referrer-policy':'no-referrer','x-content-type-options':'nosniff','content-disposition':'inline; filename="voicemail.wav"','content-security-policy':"default-src 'none'; sandbox"}})
+  if(path.startsWith('/api/'))return json({itemId:data.item.id,recordingId:data.content.recording_id,sourceId:data.content.source_id,provenance:data.transcript.provenance,text:data.transcript.content,expiresAt:link.expires_at})
+  const response=await consolePage('Authenticated voicemail',`<p role="status">Access expires ${e(new Date(link.expires_at).toISOString())}. Recipient, mailbox, source and independent content grants are checked on every read.</p><p>${e(data.transcript.provenance)}</p><pre>${e(data.transcript.content)}</pre><audio controls preload="none" aria-label="Approved voicemail" src="/api/handset/voicemail/links/${e(link.id)}/audio"></audio><p>Received bytes cannot be recalled.</p><a href="/app/voicemail">Return to voicemail</a>`)
+  response.headers.set('content-security-policy',response.headers.get('content-security-policy')+"; media-src 'self'")
+  return response
+ }catch(error){
+  // A current-authority fence can fail while provider content is in flight.
+  // Treat the withdrawn link as denied; transport and storage failures retain
+  // their ordinary error handling and no content is released in either case.
+  if(String(error).includes('CHECK constraint failed')||error instanceof Fault&&error.code==='state_changed')throw new Fault('voicemail_link_unavailable',403)
+  throw error
+ }
 }
