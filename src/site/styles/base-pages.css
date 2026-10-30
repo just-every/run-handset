@@ -8,8 +8,6 @@ body.base-page { background: var(--ground); color: var(--white); font-family: va
 .run-page .intro h1 { font-size: 72px; line-height: 1; text-wrap: balance; }
 .run-page .sub { color: var(--film-2); }
 .run-page .code { border: 1px solid var(--film-5); }
-/* A command that must wrap breaks evenly (after "curl -fsSL"), so no line starts with the pipe. */
-.run-page .code pre { text-wrap-style: balance; }
 .run-page .facts { color: var(--film-3); }
 .contract-page main > h1 { font-size: 56px; line-height: 1.02; }
 .contract-page .card { border-color: var(--film-5); box-shadow: none; }
