@@ -1,7 +1,8 @@
 import type { Bindings } from '../../auth.server'
 import type { Session } from '../../modules/operator-auth/index.mjs'
-import { commit } from '../audit/store'
-import { Fault, choice, field, hidden, id, integer, json, keys, owner, consolePage, escape as e, text, type ObjectValue } from '../core'
+import { actorRef, commit } from '../audit/store'
+import { Fault, choice, field, hidden, id, integer, json, keys, owner, ownerFence, consolePage, escape as e, text, type ObjectValue } from '../core'
+import { confirmText } from './texts'
 import { activeSourceById, sourceFence } from '../providers/sources'
 import { transcriptDoor } from '../transcripts/doors'
 import { capturePermission, carePrompt, getCall, getPolicy, guard, policyAuthority, type ConsentPolicy } from './store'
@@ -52,6 +53,11 @@ export async function consentDoor(request:Request,env:Bindings,actor:Session,v?:
  if(request.method!=='POST'||!v)throw new Fault('method_not_allowed',405)
  let result:unknown
  if(native){v={...v};if(typeof v.expiresAt==='string')v.expiresAt=Date.parse(v.expiresAt+'Z');for(const key of ['startMinute','endMinute'])if(typeof v[key]==='string')v[key]=Number(v[key])}
+ if(!native&&path===base+'/reconcile') {
+  keys(v,['textId','providerSid','confirm'])
+  if(v.confirm!=='read back this submitted message')throw new Fault('message_repair_confirmation_required',403)
+  return json({text:await confirmText(env,text(v.textId,'textId'),text(v.providerSid,'providerSid'),{fences:[ownerFence(env.DB,actor)],actor:await actorRef(env.DB,actor.operator.id)})})
+ }
  if(path===base+'/policies')result=await configure(env,actor,v)
  else if(path===base+'/recording-permissions') {
   keys(v,['callId','evidence','confirm'])

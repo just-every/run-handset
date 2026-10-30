@@ -255,3 +255,8 @@ browser sessions. `/agents` and `/agents/api/*` retain native person sessions,
 same-origin mutation controls and named-person approval checks. Agent tokens
 cannot act as a person's approval or Pause control. See AGENT-ACCESS.md for the
 current core capability declaration and the held native preparation limits.
+
+`POST /api/handset/consent/reconcile` is a current native-owner readback door.
+Supply `textId`, independently inspected `providerSid` and `confirm` equal to
+`read back this submitted message`. It verifies an already submitted care or
+survey text at the carrier; it cannot authorize or submit a new message.

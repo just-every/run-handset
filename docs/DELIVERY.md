@@ -26,7 +26,7 @@ call's case (`supportConversations`); any other conversation is refused before
 the installation helpdesk credential is used.
 
 Orbit and HappyToHelp first inspect the existing remote handoff or note. Their
-stable operation/local keys support the documented replay contract. Dial's
+stable operation keys and local keys support the documented replay contract. Dial's
 native creation key recovers its existing creation attempt. Stripe retries
 retain the original key and stop before 23 hours, ahead of its 24-hour key
 pruning boundary; an older uncertain charge or refund needs readback or human
@@ -85,3 +85,21 @@ human investigation. A matching booking slot alone is insufficient: the caller,
 service and call correlation must match. CRM confirmation requires the exact
 operation receipt and selected target as well as the handoff content; a
 conflicting existing receipt stays uncertain without another write.
+
+Call-bound customer-care and survey texts use the same signed-receipt boundary.
+The native `POST /api/handset/consent/reconcile` door accepts `textId`, the
+independently inspected `providerSid` and the same explicit readback confirmation.
+It preserves the named owner in audit. Neither it nor a signed status callback
+resends a text. Exact account, parties, content, submission time and a unique
+provider identity must match; conflicting signed payloads are refused and a
+late status cannot undo terminal delivery. Expired scope remains visible through
+restart. Revocation during the readback prevents confirmation. A historical
+unknown identity without its original submission time requires investigation.
+
+Qualification remains bounded to these current native doors and official-schema
+receiver edges. It does not prove physical handset receipt or a real tenant.
+The existing owner-only repair visibility default still awaits ct approval.
+SMS spending-budget exhaustion and qualified customer-email consent, version
+and budget races remain unproved under D-3. Future connectors inherit the same
+final authority barrier, current scope visibility and uncertain-effect rules;
+the current inventory does not certify an adapter that does not yet exist.

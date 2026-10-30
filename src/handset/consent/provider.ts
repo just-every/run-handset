@@ -40,7 +40,7 @@ export async function consentProviderResponse(request:Request,original:Bindings)
    const sid=text(p.get('MessageSid'),'MessageSid')
    const expected=await env.DB.prepare('SELECT s.account_id,c.caller,c.business FROM hnd_care_texts t JOIN hnd_text_permissions p ON p.id=t.permission_id JOIN hnd_consent_calls c ON c.id=p.call_id JOIN hnd_sources s ON s.id=c.source_id WHERE t.id=?').bind(receipt[1]).first<{account_id:string;caller:string;business:string}>()
    if(!expected||p.get('AccountSid')!==expected.account_id||p.get('From')!==expected.business||p.get('To')!==expected.caller)throw new Fault('message_callback_identity_mismatch',403)
-   const row=await confirmText(env,receipt[1],sid)
+   const row=await confirmText(env,receipt[1],sid,{params:p})
    return json({text:row})
   }
   const start=path.match(/^\/providers\/twilio\/consent\/([0-9a-f-]{36})$/)

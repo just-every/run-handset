@@ -59,7 +59,7 @@ export async function supportingConnections(env:Bindings,at:number) {
    CASE WHEN c.revoked_at IS NOT NULL THEN 'revoked' WHEN EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=c.owner_id AND o.version=c.owner_version AND o.status='active' AND o.role='owner') THEN 'current' ELSE 'suspended' END AS authority,
    (SELECT max(a.occurred_at) FROM hnd_audit a JOIN hnd_export_jobs j ON j.id=a.subject WHERE j.connector_id=c.id AND a.action='exports.transfer' AND a.outcome='completed') AS last_transfer_at
    FROM hnd_export_connectors c ORDER BY c.created_at DESC,c.id LIMIT 100`).all(),
-  env.DB.prepare(`SELECT t.id,t.permission_id,c.source_id,t.state,t.provider_sid,t.reason,t.created_at,t.accepted_at,t.delivered_at FROM hnd_care_texts t JOIN hnd_text_permissions p ON p.id=t.permission_id JOIN hnd_consent_calls c ON c.id=p.call_id ORDER BY t.created_at DESC,t.id LIMIT 200`).all(),
+  env.DB.prepare(`SELECT t.id,t.permission_id,c.source_id,t.state,t.provider_sid,t.reason,t.created_at,t.accepted_at,t.delivered_at,t.submitted_at,t.readback_at,t.provider_state FROM hnd_care_texts t JOIN hnd_text_permissions p ON p.id=t.permission_id JOIN hnd_consent_calls c ON c.id=p.call_id ORDER BY t.created_at DESC,t.id LIMIT 200`).all(),
   env.DB.prepare(`SELECT id,'report' AS kind,state,due_at,report_id AS correlation FROM hnd_metric_schedules
    UNION ALL SELECT id,'export' AS kind,state,due_at,NULL AS correlation FROM hnd_export_schedules
    ORDER BY due_at DESC,id LIMIT 200`).all(),

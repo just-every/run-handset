@@ -26,7 +26,7 @@ export async function deliveryDoor(request: Request, env: Bindings, actor: Sessi
   rules: 'Owned internal work and explicitly published installation-owner notices; customer contact held',
  }, mappedFields: ['source event and call identity','case, outcome and step correlation','exact approved request','provider receipt','current completion separately from delivery'], sources: connectionState.sources, connections: connectionState.receivers, lagMeaning: connectionState.lagMeaning, steps: steps.results,
  followups: followups.results, ruleRuns: rules.results, messages: messages.results, limits: { sources: 100, steps: 200, followups: 200, ruleRuns: 200, messages: 200 },
- repair: { message: '/api/handset/messages/jobs/{id}/reconcile', startedEffect: 'Read back the existing idempotency key or obtain an explicit human resolution; never create a new key',
+ repair: { careText: '/api/handset/consent/reconcile', message: '/api/handset/messages/jobs/{id}/reconcile', startedEffect: 'Read back the existing idempotency key or obtain an explicit human resolution; never create a new key',
  followup: '/api/handset/followups/{id}/reconcile', outcome: '/api/handset/application/receptionist/outcomes/{id}/reconcile',
  mail: 'Provider acceptance is not inbox delivery. Uncertain owner notices are never automatically resent.' } })
 }

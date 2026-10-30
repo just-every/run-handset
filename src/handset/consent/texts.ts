@@ -1,10 +1,10 @@
 import type { Bindings } from '../../auth.server'
 import { append } from '../audit/store'
 import { sourcePolicy } from '../audit/policy'
-import { Fault, id, text } from '../core'
+import { Fault, id, text, digest } from '../core'
 import { getCall, getPolicy, guard, policyAuthority, readTwilio, type Permission } from './store'
 
-export interface CareText {id:string;permission_id:string;state:string;provider_sid:string|null;reason:string;created_at:number;accepted_at:number|null;delivered_at:number|null;body:string;deadline_at:number|null}
+export interface CareText {id:string;permission_id:string;state:string;provider_sid:string|null;reason:string;created_at:number;accepted_at:number|null;delivered_at:number|null;body:string;deadline_at:number|null;submitted_at?:number|null;readback_at?:number|null;provider_state?:string}
 export async function getText(env:Bindings,key:string) {
  const row=await env.DB.prepare('SELECT * FROM hnd_care_texts WHERE id=?').bind(key).first<CareText>()
  if(!row)throw new Fault('text_not_found',404)
@@ -54,7 +54,7 @@ export async function dispatchText(env:Bindings,key:string):Promise<CareText> {
    guard(env,"SELECT count(*) FROM hnd_text_permissions WHERE id=? AND state='granted'",permission.id),
    guard(env,'SELECT CASE WHEN ('+stopQuery+')=0 THEN 1 ELSE 0 END',call.caller),
    guard(env,`SELECT count(*) FROM hnd_text_recipients r JOIN oa_operators o ON o.id=r.approved_by WHERE r.recipient=? AND r.timezone=? AND r.start_minute=? AND r.end_minute=? AND r.expires_at>? AND o.status='active' AND o.role='owner' AND o.version=r.owner_version`,call.caller,recipient.timezone,recipient.start_minute,recipient.end_minute,Date.now()),
-   env.DB.prepare("UPDATE hnd_care_texts SET state='sending',reason='Submitted once; awaiting independent readback' WHERE id=?").bind(key),
+   env.DB.prepare("UPDATE hnd_care_texts SET state='sending',reason='Submitted once; awaiting independent readback',submitted_at=? WHERE id=?").bind(Date.now(),key),
    env.DB.prepare("UPDATE hnd_text_permissions SET state='reserved' WHERE id=?").bind(permission.id),
   ],null,sourcePolicy(source))
   claimed=true
@@ -76,21 +76,45 @@ export async function dispatchText(env:Bindings,key:string):Promise<CareText> {
  }
  return getText(env,key)
 }
-export async function confirmText(env:Bindings,key:string,sid:string) {
+export async function confirmText(env:Bindings,key:string,sid:string,proof?:{params?:URLSearchParams;fences?:D1PreparedStatement[];actor?:string}) {
  const row=await getText(env,key),permission=(await env.DB.prepare('SELECT * FROM hnd_text_permissions WHERE id=?').bind(row.permission_id).first<Permission>())!
- if(row.provider_sid!==sid||!['sending','uncertain','confirmed'].includes(row.state))throw new Fault('message_identity_mismatch',409)
- const call=await getCall(env,permission.call_id),policy=await getPolicy(env,call.policy_id),{source}=await policyAuthority(env,policy)
- const receipt=await readTwilio(env,source,`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(source.account_id)}/Messages/${encodeURIComponent(sid)}.json`)
- if(receipt.sid!==sid||receipt.account_sid!==source.account_id||receipt.from!==call.business||receipt.to!==call.caller||receipt.body!==row.body||receipt.direction!=='outbound-api')throw new Fault('message_readback_mismatch',502)
- if(!['accepted','queued','sending','sent','delivered','undelivered','failed'].includes(String(receipt.status)))throw new Fault('message_readback_unconfirmed',409)
- const delivered=receipt.status==='delivered',now=Date.now()
- await append(env,source.id,'consent.receipt',key,'completed',[
-  env.DB.prepare("UPDATE hnd_care_texts SET state='confirmed',reason=?,accepted_at=COALESCE(accepted_at,?),delivered_at=CASE WHEN ? THEN COALESCE(delivered_at,?) ELSE delivered_at END WHERE id=? AND provider_sid=?").bind('Provider '+String(receipt.status)+'; receipt is not a read receipt',now,delivered?1:0,now,key,sid),
-  env.DB.prepare("UPDATE hnd_text_permissions SET state='consumed',consumed_at=COALESCE(consumed_at,?) WHERE id=?").bind(now,permission.id),
+ if(!['sending','uncertain','confirmed'].includes(row.state)||row.provider_sid&&row.provider_sid!==sid)throw new Fault('message_identity_mismatch',409)
+ if(!row.provider_sid&&(!proof||!row.submitted_at))throw new Fault('message_submission_time_unknown',409)
+ const linked=await env.DB.prepare('SELECT id FROM hnd_care_texts WHERE provider_sid=? AND id<>? UNION ALL SELECT id FROM hnd_message_jobs WHERE provider_sid=? LIMIT 1').bind(sid,key,sid).first()
+ if(linked)throw new Fault('message_identity_already_linked',409)
+ const call=await getCall(env,permission.call_id),policy=await getPolicy(env,call.policy_id),{source,fences}=await policyAuthority(env,policy)
+ const receiptFences:D1PreparedStatement[]=[]
+ if(proof?.params) {
+  const status=text(proof.params.get('MessageStatus')??proof.params.get('SmsStatus'),'MessageStatus'),hash=await digest([...proof.params].sort(([a],[b])=>a.localeCompare(b)))
+  const previous=await env.DB.prepare('SELECT body_hash FROM hnd_care_text_receipts WHERE text_id=? AND provider_sid=? AND status=?').bind(key,sid,status).first<{body_hash:string}>()
+  if(previous&&previous.body_hash!==hash)throw new Fault('message_callback_conflict',409)
+  receiptFences.push(guard(env,'SELECT CASE WHEN EXISTS(SELECT 1 FROM hnd_care_text_receipts WHERE text_id=? AND provider_sid=? AND status=? AND body_hash<>?) THEN 0 ELSE 1 END',key,sid,status,hash),env.DB.prepare('INSERT INTO hnd_care_text_receipts VALUES (?,?,?,?,?) ON CONFLICT(text_id,provider_sid,status) DO NOTHING').bind(key,sid,status,hash,Date.now()))
+ }
+ let receipt:Record<string,unknown>
+ try {receipt=await readTwilio(env,source,`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(source.account_id)}/Messages/${encodeURIComponent(sid)}.json`)}
+ catch(error) {
+  if(error instanceof Fault)await append(env,proof?.actor??source.id,'consent.receipt',key,'refused',[...fences,...(proof?.fences??[]),env.DB.prepare('UPDATE hnd_care_texts SET reason=? WHERE id=?').bind(error.code+'; prior submission remains unconfirmed',key)],null,sourcePolicy(source))
+  throw error
+ }
+ if(receipt.sid!==sid||receipt.account_sid!==source.account_id||receipt.from!==call.business||receipt.to!==call.caller||receipt.body!==row.body||receipt.direction!=='outbound-api'||Number(receipt.num_media??0)!==0)throw new Fault('message_readback_mismatch',502)
+ const occurredAt=Date.parse(String(receipt.date_created))
+ if(!Number.isFinite(occurredAt)||occurredAt>Date.now()+1000)throw new Fault('provider_time_unavailable',503)
+ if(!row.provider_sid&&occurredAt<Math.floor(row.submitted_at!/1000)*1000)throw new Fault('message_readback_predates_submission',409)
+ const statuses=['accepted','queued','sending','sent','delivered','undelivered','failed'],status=String(receipt.status)
+ if(!statuses.includes(status))throw new Fault('message_readback_unconfirmed',409)
+ const old=row.provider_state??'unconfirmed'
+ const stale=['delivered','undelivered','failed'].includes(old)&&status!==old||statuses.indexOf(status)<statuses.indexOf(old)
+ const delivered=status==='delivered',now=Date.now()
+ await append(env,proof?.actor??source.id,'consent.receipt',key,'completed',[
+  ...(await policyAuthority(env,policy)).fences,...(proof?.fences??[]),...receiptFences,
+  guard(env,"SELECT count(*) FROM hnd_care_texts WHERE id=? AND (provider_sid IS NULL OR provider_sid=?) AND state IN ('sending','uncertain','confirmed')",key,sid),
+  ...(stale?[]:[env.DB.prepare("UPDATE hnd_care_texts SET state='confirmed',provider_sid=?,provider_state=?,readback_at=?,reason=?,accepted_at=COALESCE(accepted_at,?),delivered_at=CASE WHEN ? THEN COALESCE(delivered_at,?) ELSE delivered_at END WHERE id=?").bind(sid,status,now,'Provider '+status+'; receipt is not a read receipt',now,delivered?1:0,now,key),
+  env.DB.prepare("UPDATE hnd_text_permissions SET state='consumed',consumed_at=COALESCE(consumed_at,?) WHERE id=?").bind(now,permission.id)]),
  ],null,sourcePolicy(source))
  return getText(env,key)
 }
 export async function tickConsentTexts(env:Bindings) {
+ await env.DB.prepare("UPDATE hnd_care_texts SET state='uncertain',reason='Submission interrupted; provider readback required' WHERE state='sending' AND (submitted_at IS NULL OR submitted_at<?)").bind(Date.now()-60000).run()
  const rows=(await env.DB.prepare("SELECT id FROM hnd_care_texts WHERE state='pending' ORDER BY created_at LIMIT 100").all<{id:string}>()).results
  for(const row of rows)await dispatchText(env,row.id)
 }

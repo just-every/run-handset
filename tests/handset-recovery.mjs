@@ -370,6 +370,51 @@ test('Current registration and recipient hours hold texts and uncertain creates 
   const lost=await f.start(23);await lost.decision('1');f.receiver.drop=true;await lost.missed();await lost.missed();await f.runtime.restart();await f.runtime.scheduled()
   assert.equal(f.receiver.sent.length,1)
   const report=await f.get();assert.ok(report.texts.some(t=>t.reason==='tollfree_registration_not_approved'));assert.ok(report.texts.some(t=>t.reason==='recipient_timezone_unknown_or_expired'));assert.ok(report.texts.some(t=>t.reason==='recipient_quiet_hours'));assert.ok(report.texts.some(t=>t.state==='uncertain'))
+  const uncertain=report.texts.find(t=>t.state==='uncertain'),sent=f.receiver.sent[0],path=new URL(sent.form.StatusCallback).pathname
+  const fields={MessageSid:sent.message.sid,MessageStatus:'delivered',From:f.business,To:lost.caller}
+  assert.equal((await f.signed(path,fields,{signature:false})).status,403)
+  assert.equal((await f.signed(path,{...fields,AccountSid:'synthetic-handset-foreign'})).status,403)
+  const actualBody=sent.message.body
+  sent.message.body='Unrelated customer work';f.source.resource('Messages',sent.message.sid,sent.message)
+  assert.equal((await f.signed(path,fields)).status,502)
+  sent.message.body=actualBody;sent.message.date_created=new Date(Date.now()-1000).toUTCString();f.source.resource('Messages',sent.message.sid,sent.message)
+  assert.equal((await f.signed(path,fields)).status,409)
+  sent.message.date_created=new Date().toUTCString();f.source.resource('Messages',sent.message.sid,sent.message)
+  const readUrl=`https://api.twilio.com/2010-04-01/Accounts/${f.source.account}/Messages/${sent.message.sid}.json`
+  f.runtime.twilioResources.set(readUrl,{__httpStatus:403})
+  assert.equal((await f.signed(path,fields)).status,503)
+  await f.runtime.restart()
+  const repair=await f.get('/api/handset/delivery')
+  assert.ok(repair.supporting.careTexts.some(t=>t.id===uncertain.id&&t.state==='uncertain'&&/scope_refused/.test(t.reason)))
+  f.source.resource('Messages',sent.message.sid,sent.message)
+  await f.delivered(0)
+  assert.equal((await f.signed(path,fields)).status,200)
+  assert.equal((await f.signed(path,{...fields,Body:'Conflicting replay'})).status,409)
+  sent.message.status='sent';f.source.resource('Messages',sent.message.sid,sent.message)
+  assert.equal((await f.signed(path,{...fields,MessageStatus:'sent'})).status,200)
+  const settled=(await f.get()).texts.find(t=>t.id===uncertain.id)
+  assert.equal(settled.state,'confirmed');assert.equal(settled.provider_state,'delivered');assert.equal(settled.provider_sid,sent.message.sid)
+  assert.ok(settled.delivered_at);assert.ok(settled.readback_at)
+  const manual=await f.start(24);await manual.decision('1');f.receiver.drop=true;await manual.missed()
+  const manualRow=(await f.get()).texts.find(t=>t.state==='uncertain'),manualSent=f.receiver.sent[1]
+  const proposal={textId:manualRow.id,providerSid:manualSent.message.sid,confirm:'read back this submitted message'}
+  assert.equal((await post(f.runtime,f.base+'/reconcile',proposal)).status,401)
+  assert.equal((await post(f.runtime,f.base+'/reconcile',{...proposal,providerSid:sent.message.sid},f.source.headers)).status,409)
+  const fixed=await f.write(f.base+'/reconcile',proposal,200)
+  assert.equal(fixed.text.state,'confirmed');assert.equal(fixed.text.provider_sid,manualSent.message.sid)
+  await f.runtime.restart();await f.runtime.scheduled()
+  assert.equal(f.receiver.sent.length,2,'readback and restart never create another care text')
+  // Revocation during the independent read must prevent local confirmation.
+  const revoked=await f.start(25);await revoked.decision('1');f.receiver.drop=true;await revoked.missed()
+  const revocationSent=f.receiver.sent[2],revocationRow=(await f.get()).texts.find(t=>t.state==='uncertain')
+  f.runtime.twilioResources.set(`https://api.twilio.com/2010-04-01/Accounts/${f.source.account}/Messages/${revocationSent.message.sid}.json`,async()=>{
+   await f.write(f.base+'/revoke',{policyId:f.configured.policy.id})
+   return revocationSent.message
+  })
+  const refused=await post(f.runtime,f.base+'/reconcile',{textId:revocationRow.id,providerSid:revocationSent.message.sid,confirm:'read back this submitted message'},f.source.headers)
+  assert.equal(refused.status,409)
+  const after=(await f.get()).texts.find(t=>t.id===revocationRow.id)
+  assert.equal(after.state,'uncertain');assert.equal(after.provider_sid,null);assert.equal(f.receiver.sent.length,3)
  } finally {await f.runtime.close()}
 })
 

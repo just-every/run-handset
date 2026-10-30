@@ -128,6 +128,12 @@ test('Lost payment, booking, CRM and support responses stay uncertain until read
   assert.equal((await f.ok(base + 'reconcile', { step: 'crm' })).step.state, 'confirmed'); assert.equal(f.edges.effects.size, 1)
   f.edges.drop.add('helpdesk')
   assert.equal((await f.ok(base + 'handoffs/support', { conversationId: 'synthetic-handset-710', summary: 'Furnace call' })).step.state, 'uncertain')
+  const remoteNote=f.edges.conversations.get('synthetic-handset-710').messages[0],correctContent=remoteNote.content
+  remoteNote.content='Different caller context'
+  const beforeWrongNote=f.edges.requests.filter(r=>r.host===f.edges.origins.helpdesk&&r.method==='POST').length
+  assert.equal((await f.ok(base+'reconcile',{step:'support'})).step.state,'uncertain')
+  assert.equal(f.edges.requests.filter(r=>r.host===f.edges.origins.helpdesk&&r.method==='POST').length,beforeWrongNote,'a conflicting note is investigated without another write')
+  remoteNote.content=correctContent
   assert.equal((await f.ok(base + 'reconcile', { step: 'support' })).step.state, 'confirmed')
   assert.equal(f.edges.conversations.get('synthetic-handset-710').messages.length, 1)
   // Two simultaneous booking requests cannot both reach the provider: the step claim is versioned.

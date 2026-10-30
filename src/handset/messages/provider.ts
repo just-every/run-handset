@@ -72,7 +72,7 @@ export async function refreshMessage(env:Bindings,key:string,repair?:{sid:string
  if(!sid||!['sending','uncertain','accepted','delivered','failed'].includes(j.state))throw new Fault('message_has_no_provider_identity',409)
  if(j.provider_sid&&j.provider_sid!==sid)throw new Fault('message_identity_mismatch',409)
  if(!j.provider_sid&&!j.submitted_at)throw new Fault('message_submission_time_unknown',409)
- const other=await env.DB.prepare('SELECT id FROM hnd_message_jobs WHERE provider_sid=? AND id<>?').bind(sid,j.id).first()
+ const other=await env.DB.prepare('SELECT id FROM hnd_message_jobs WHERE provider_sid=? AND id<>? UNION ALL SELECT id FROM hnd_care_texts WHERE provider_sid=? LIMIT 1').bind(sid,j.id,sid).first()
  if(other)throw new Fault('message_identity_already_linked',409)
  let r:Record<string,unknown>
  try { r=await readTwilio(env,source,`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(source.account_id)}/Messages/${encodeURIComponent(sid)}.json`) }
