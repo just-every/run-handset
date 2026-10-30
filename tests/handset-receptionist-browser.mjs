@@ -74,6 +74,24 @@ for (const width of [1440, 390]) test(`Connector repair keeps lost effects uncer
   await page.reload()
   await page.getByText(/crm confirmed — readback matched/).waitFor(); await proof('readback')
   assert.equal(f.edges.effects.size, 1)
+  // A known booking remains repairable without repeating its creation request.
+  const call = await f.open(92, 'en', f.cases[1]), bookingBase = `outcomes/${call.outcome.id}/`
+  f.edges.slots.push(new Date(Date.now() + 172800000).toISOString())
+  await f.ok(bookingBase + 'availability', { serviceId: 'furnace' })
+  const bookingId = 'synthetic-handset-booking-1', readUrl = f.edges.origins.dial + '/api/app/bookings/' + bookingId
+  f.edges.readFailures.set(readUrl, 503)
+  const booking = await f.ok(bookingBase + 'booking', { serviceId: 'furnace', startAt: f.edges.slots[0] })
+  assert.equal(booking.step.externalId, bookingId)
+  await page.reload(); await page.getByText(/booking uncertain — dial readback unavailable/).waitFor(); await proof('known-booking')
+  const writes = f.edges.requests.filter(r => r.method === 'POST').length
+  f.edges.readFailures.set(readUrl, 403)
+  await f.runtime.restart(); await f.ok(bookingBase + 'reconcile', { step: 'booking' })
+  await page.reload(); await page.getByText(/booking uncertain — dial booking out of scope/).waitFor(); await proof('booking-scope-refused')
+  f.edges.readFailures.delete(readUrl)
+  await f.ok(bookingBase + 'reconcile', { step: 'booking' })
+  await page.reload(); await page.getByText(/booking confirmed — readback matched/).waitFor(); await proof('booking-readback')
+  assert.equal(f.edges.requests.filter(r => r.method === 'POST').length, writes)
+  assert.equal(f.edges.bookings.size, 1)
   const headers = { authorization: 'Bearer ' + f.issued.token }
   assert.equal((await f.runtime.request('/api/handset/delivery', { headers })).status, 401)
  } finally { await context.close(); await browser.close(); await f.runtime.close() }

@@ -17,9 +17,13 @@ export async function dialAvailability(env: Bindings, service: Service, timezone
 interface Request { idempotencyKey: string; eventTypeId: string; startAt: string; inviteeTimezone: string; name: string; email: string; answers: Record<string, string>; durationMinutes: number }
 async function readback(env: Bindings, o: string, id: string, request: Request): Promise<EdgeResult> {
  const wire = await send(`${o}/api/app/bookings/${encodeURIComponent(id)}`, { method: 'GET', headers: { ...bearer(env.HANDSET_DIAL_TOKEN), accept: 'application/json' } })
- if (!wire) return uncertain('dial_readback_unavailable')
+ const observed = (result: EdgeResult): EdgeResult => ({ ...result, externalId: id })
+ if (!wire) return observed(uncertain('dial_readback_unavailable'))
+ if (wire.status === 401) return observed(uncertain('dial_credential_refused'))
+ if (wire.status === 403 || wire.status === 404) return observed(uncertain('dial_booking_out_of_scope'))
  const b = wire.body
- if (wire.status !== 200 || b.id !== id || instant(b.startAt) !== Date.parse(request.startAt) || b.state === 'cancelled') return uncertain('dial_readback_mismatch')
+ const answers = (b.answers ?? {}) as Record<string, unknown>
+ if (wire.status !== 200 || b.id !== id || instant(b.startAt) !== Date.parse(request.startAt) || b.eventTypeId !== request.eventTypeId || answers.handsetCall !== request.answers.handsetCall || b.state === 'cancelled') return observed(uncertain('dial_readback_mismatch'))
  return { state: 'confirmed', externalId: id, readback: { id, startAt: new Date(Date.parse(request.startAt)).toISOString(), state: b.state ?? 'confirmed' }, reason: 'readback_matched' }
 }
 export async function dialBook(env: Bindings, request: Request, known?: string | null, beforeEffect: () => Promise<void> = async () => {}): Promise<EdgeResult> {

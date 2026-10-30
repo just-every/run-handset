@@ -10,12 +10,15 @@ export function createEdges() {
   origins: edgeOrigins, secrets: edgeSecrets,
   requests: [], slots: [], bookings: new Map(), bookingKeys: new Map(), intents: new Map(), intentKeys: new Map(), refunds: new Map(), refundKeys: new Map(),
   effects: new Map(), conversations: new Map([['synthetic-handset-710', { revision: 7, messages: [] }]]),
+  readFailures: new Map(),
   handoffStates: new Map(), orbitExpired: false, orbitMissingScope: false, drop: new Set(), decline: false, orbitRevision: 3, orbitStale: 0,
   async handle(request, Response) {
    const url = new URL(request.url), host = url.origin, path = url.pathname
    if (!Object.values(edgeOrigins).includes(host)) return null
    const text = request.method === 'POST' ? await request.text() : '', auth = request.headers.get('authorization')
    e.requests.push({ host, method: request.method, path })
+   const failure = request.method === 'GET' && e.readFailures.get(host + path)
+   if (failure) return json(Response, { error: { code: 'synthetic-handset-refused-read' } }, failure)
    const lose = name => { if (e.drop.has(name)) { e.drop.delete(name); throw new Error('synthetic-handset-lost-response') } }
    if (host === edgeOrigins.dial) {
     if (path.startsWith('/api/public/book/')) return json(Response, { state: 'available', calendarRequired: false, week: '2026-10-26', slots: e.slots.map(startAt => ({ startAt })), recommendations: [], rankedSlots: [] })

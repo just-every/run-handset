@@ -10,6 +10,8 @@ export async function helpdeskNote(env: Bindings, conversationId: string, localI
  const headers = { ...bearer(env.HANDSET_HELPDESK_TOKEN), 'content-type': 'application/json' }, path = `${o}/api/v1/conversations/${encodeURIComponent(conversationId)}`
  const readback = async (): Promise<EdgeResult> => {
   const read = await send(`${path}/messages`, { method: 'GET', headers })
+  if (read?.status === 401) return uncertain('helpdesk_credential_refused')
+  if (read?.status === 403) return uncertain('helpdesk_conversation_out_of_scope')
   if (!read || read.status !== 200 || !Array.isArray(read.body.data)) return uncertain('helpdesk_readback_unavailable')
   const found = (read.body.data as Record<string, unknown>[]).filter(m => m.localId === localId)
   if (found.length > 1) return uncertain('helpdesk_duplicate_message')
@@ -17,7 +19,7 @@ export async function helpdeskNote(env: Bindings, conversationId: string, localI
   return { state: 'confirmed', externalId: String(found[0].id ?? localId), readback: { conversationId, localId, content }, reason: 'readback_matched' }
  }
  const existing = await readback()
- if (existing.state === 'confirmed') return existing
+ if (existing.state === 'confirmed' || ['helpdesk_credential_refused', 'helpdesk_conversation_out_of_scope'].includes(existing.reason)) return existing
  for (let attempt = 0; attempt < 2; attempt++) {
   const conversation = await send(path, { method: 'GET', headers })
   if (!conversation) return uncertain('helpdesk_conversation_unreadable')

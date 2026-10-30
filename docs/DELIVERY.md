@@ -48,3 +48,33 @@ coverage for those systems, scope-change callbacks, qualified provider receipts
 and full repair controls across every connector remain HND-036 work. The existing caller-outcomes console shows persisted step reasons, including refused credentials and confirmed readback. Existing HND-071 and future
 HND-030, HND-037 through HND-041, HND-044, HND-050, HND-072 and HND-073 effects inherit these barriers. The source
 consent and customer identity gaps of HND-013, HND-018 and HND-089 still apply.
+
+The inventory also lists each current receptionist policy's exact booking,
+payment, CRM and support mappings and mapped field categories. Configuration is
+reported separately from authorization: an installed credential or a historical
+success is not a current remote scope check. Remote lag is unknown, rather than
+zero. Aggregate confirmed, rejected, held and uncertain counts include the full
+native step history; the detailed step list remains bounded to 200 rows. Selected
+inbound sources show active, suspended or revoked current native authority,
+latest observed event delay and the oldest unresolved parent age. Current
+reviewed-message jobs include their source, thread, receiving identity and
+provider versus carrier state, without message content or permission evidence.
+
+When creation returns a booking, payment or refund identity but its readback
+fails, that identity is retained. Reconciliation then reads that exact remote
+record without another creation POST, including after the payment key's replay
+window closes. Credential refusal, removed read scope and a record that does not
+match the original call or outcome remain uncertain; they cannot release a
+possibly committed deposit reservation or confirm a different effect. Restored
+access confirms the original effect. CRM and support read-scope refusal halts
+reconciliation before a write, even if another endpoint still accepts writes.
+Each listed step explains whether repair starts with readback, permits only its
+original key under the receiver contract, or requires human resolution. The
+inventory itself grants no new authority and performs no network effects.
+
+Reviewed customer-care messages recheck STOP, explicit permission, current
+consent policy, thread custody, selected source and recipient hours after
+provider registration preflight. The registered transport journey changes each
+of those gates while preflight is in flight, then restarts the Worker and checks
+that the suppressed job never reaches the receiving message endpoint. This is
+network-edge qualification, not a receipt from an independent physical handset.

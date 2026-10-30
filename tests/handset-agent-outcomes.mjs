@@ -138,7 +138,76 @@ test('Lost payment, booking, CRM and support responses stay uncertain until read
   const beforeAgedRetry = stripePosts()
   assert.equal((await f.ok(aged.base + 'deposit', { authorizationId: agedAuth.authorizationId })).step.state, 'uncertain')
   assert.equal(stripePosts(), beforeAgedRetry, 'expired deduplication retention forbids a blind charge replay')
-
+  // A creation answer can arrive before its independent read becomes unavailable.
+  // Retain that receiving identity so repair is read-only, even beyond key retention.
+  f.edges.slots.unshift(slot(8))
+  const knownCall = await f.open(33, 'en', f.cases[2]), knownBase = `outcomes/${knownCall.outcome.id}/`
+  await f.ok(knownBase + 'availability', { serviceId: 'furnace' })
+  async function repairKnown(kind, create, remoteId, readPath, reasons, mutate) {
+   const readUrl = (kind === 'booking' ? f.edges.origins.dial : f.edges.origins.stripe) + readPath
+   f.edges.readFailures.set(readUrl, 503)
+   const pending = await create()
+   assert.equal(pending.step.state, 'uncertain', kind + ' is not confirmed by its creation answer')
+   assert.equal(pending.step.externalId, remoteId, kind + ' retains the receiving identity')
+   const writes = () => f.edges.requests.filter(r => r.method === 'POST').length
+   const before = writes()
+   for (const [status, reason] of [[401, reasons[0]], [403, reasons[1]]]) {
+    f.edges.readFailures.set(readUrl, status)
+    await f.runtime.restart()
+    const blocked = await f.ok(knownBase + 'reconcile', { step: kind })
+    assert.equal(blocked.step.state, 'uncertain'); assert.equal(blocked.reason, reason)
+    assert.equal(blocked.step.externalId, remoteId)
+    assert.equal(writes(), before, 'refused readback never replays a known ' + kind)
+    const inventory = await (await f.runtime.request('/api/handset/delivery', { headers: f.headers })).json()
+    assert.ok(inventory.steps.some(s => s.id === pending.step.id && s.external_id === remoteId && s.reason === reason && s.state === 'uncertain'))
+   }
+   f.edges.readFailures.delete(readUrl)
+   const restore = mutate()
+   const mismatch = await f.ok(knownBase + 'reconcile', { step: kind })
+   assert.equal(mismatch.step.state, 'uncertain'); assert.match(mismatch.reason, /readback_mismatch/)
+   assert.equal(writes(), before, 'mismatched readback cannot confirm or recreate the effect')
+   restore()
+   await f.runtime.sql('UPDATE hnd_rx_steps SET created_at=? WHERE id=?', Date.now() - 24 * 3600000, pending.step.id)
+   await f.runtime.restart()
+   const confirmed = await f.ok(knownBase + 'reconcile', { step: kind })
+   assert.equal(confirmed.step.state, 'confirmed'); assert.equal(confirmed.step.id, pending.step.id)
+   assert.equal(confirmed.step.externalId, remoteId); assert.equal(writes(), before, 'known ' + kind + ' repairs using only GET')
+  }
+  const bookingId = `synthetic-handset-booking-${f.edges.bookings.size + 1}`
+  await repairKnown('booking', () => f.ok(knownBase + 'booking', { serviceId: 'furnace', startAt: f.edges.slots[0] }), bookingId, '/api/app/bookings/' + bookingId,
+   ['dial_credential_refused', 'dial_booking_out_of_scope'], () => {
+    const b = f.edges.bookings.get(bookingId), old = b.answers
+    b.answers = { handsetCall: 'synthetic-handset-foreign-call' }; return () => { b.answers = old }
+   })
+  const knownAuth = await authorize(f, knownBase, 5000, '1', 'synthetic-handset-call-33')
+  const intentId = `synthetic-handset-pi-${f.edges.intents.size + 1}`
+  await repairKnown('deposit', () => f.ok(knownBase + 'deposit', { authorizationId: knownAuth.authorizationId }), intentId, '/v1/payment_intents/' + intentId,
+   ['stripe_credential_refused', 'stripe_payment_out_of_scope'], () => {
+    const p = f.edges.intents.get(intentId), old = p.metadata
+    p.metadata = { handset_outcome: 'synthetic-handset-foreign-outcome' }; return () => { p.metadata = old }
+   })
+  const exception = await f.ok(knownBase + 'escalations', { kind: 'out_of_policy_refund', amountCents: 1000, detail: 'Named person approved the exact correction' })
+  const approval = await post(f.runtime, `/api/handset/receptionist/exceptions/${exception.exceptionId}/decision`, { decision: 'approve', confirm: 'decide exact exception', note: 'Refund exactly this amount once' }, { cookie: f.named.cookie })
+  assert.equal(approval.status, 200, await approval.clone().text())
+  const refundId = `synthetic-handset-re-${f.edges.refunds.size + 1}`
+  await repairKnown('refund', () => f.ok(knownBase + 'refund', { exceptionId: exception.exceptionId }), refundId, '/v1/refunds/' + refundId,
+   ['stripe_credential_refused', 'stripe_refund_out_of_scope'], () => {
+    const r = f.edges.refunds.get(refundId), old = r.metadata
+    r.metadata = { handset_outcome: 'synthetic-handset-foreign-outcome' }; return () => { r.metadata = old }
+   })
+  assert.equal(f.edges.bookings.size, 4); assert.equal(f.edges.intents.size, 3); assert.equal(f.edges.refunds.size, 1)
+  assert.equal((await f.runtime.sql('SELECT reserved_cents FROM hnd_grants WHERE id=?', f.issued.grant.id)).results[0].reserved_cents, 15000, 'uncertain reads never release a possibly committed deposit reservation')
+  const delivery = await (await f.runtime.request('/api/handset/delivery', { headers: f.headers })).json()
+  const connection = kind => delivery.connections.find(c => c.id === kind)
+  assert.deepEqual(connection('orbit').mappedRecords, [{ target: f.orbitTarget }])
+  assert.ok(connection('helpdesk').mappedRecords.some(r => r.caseId === f.cases[2] && r.conversationId === 'synthetic-handset-710'))
+  assert.ok(connection('dial').mappedRecords.some(r => r.serviceId === 'furnace' && r.eventTypeId === [...f.edges.bookings.values()][0].eventTypeId))
+  assert.equal(connection('stripe').attempts.uncertain, 1)
+  assert.equal(connection('stripe').attempts.confirmed, 3)
+  assert.ok(connection('stripe').lastSuccessfulAt > 0)
+  assert.ok(connection('stripe').oldestUnresolvedAgeMs >= 0)
+  assert.equal(delivery.steps.find(s => s.id === agedLost.step.id).repair.mode, 'human_resolution_required')
+  for (const secret of Object.values(f.edges.secrets)) assert.ok(!JSON.stringify(delivery).includes(secret))
  } finally { await f.runtime.close() }
 })
 
