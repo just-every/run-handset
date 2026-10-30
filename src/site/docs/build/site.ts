@@ -12,8 +12,8 @@ import { renderMarkdown } from './render.ts'
 
 export type DocsSite = { sections: DocsSection[]; bodies: Record<string, DocsBody>; files: string[] }
 
-/** The run site's own pages outside /docs that a docs page may link. */
-const sitePages = new Set(['/', '/run', '/contract'])
+/** The run site's own pages outside the Markdown docs that a docs page may link. */
+const sitePages = new Set(['/', '/run', '/contract', '/docs/hosting'])
 
 /** The Markdown recipe slots, {{run.start}}, {{run.alternative}} and {{run.requirements}}: /run's one line and wording. */
 const recipe = { start: startLine({ ...run, pricing: runPricing }), alternative: run.clone, requirements: runRequirements }
