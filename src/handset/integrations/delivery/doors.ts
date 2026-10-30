@@ -1,12 +1,19 @@
 import type { Bindings } from '../../../auth.server'
 import type { Session } from '../../../modules/operator-auth/index.mjs'
-import { Fault, json, owner } from '../../core'
+import { Fault, json, owner, type ObjectValue } from '../../core'
 import { activeSourceById } from '../../providers/sources'
 import { connectorInventory } from './inventory'
+import { inspectConnector } from './inspect'
 /** Read-only native-owner repair inventory. Credentials and provider payloads are never returned. */
-export async function deliveryDoor(request: Request, env: Bindings, actor: Session): Promise<Response | null> {
- if (new URL(request.url).pathname !== '/api/handset/delivery') return null
+export async function deliveryDoor(request: Request, env: Bindings, actor: Session, value?: ObjectValue): Promise<Response | null> {
+ const url = new URL(request.url)
+ if (!['/api/handset/delivery','/api/handset/delivery/inspect'].includes(url.pathname)) return null
  owner(actor)
+ if (url.search) throw new Fault('unexpected_delivery_query')
+ if (url.pathname.endsWith('/inspect')) {
+  if (request.method !== 'POST' || !value) throw new Fault('method_not_allowed', 405)
+  return json(await inspectConnector(env, actor, value))
+ }
  if (request.method !== 'GET') throw new Fault('method_not_allowed', 405)
  const observedAt = Date.now()
  const [sources, steps, followups, rules, messages] = await Promise.all([

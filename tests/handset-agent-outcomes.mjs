@@ -208,6 +208,18 @@ test('Lost payment, booking, CRM and support responses stay uncertain until read
   assert.ok(connection('stripe').oldestUnresolvedAgeMs >= 0)
   assert.equal(delivery.steps.find(s => s.id === agedLost.step.id).repair.mode, 'human_resolution_required')
   for (const secret of Object.values(f.edges.secrets)) assert.ok(!JSON.stringify(delivery).includes(secret))
+  const beforeInspection = f.edges.requests.filter(r => r.method === 'POST').length
+  for (const connector of ['dial','stripe','orbit','helpdesk']) {
+   const response = await post(f.runtime, '/api/handset/delivery/inspect', { connector, mappingVersion: 1, confirm: 'inspect current connector read scope' }, f.headers)
+   assert.equal(response.status, 200, await response.clone().text())
+   const inspected = await response.json()
+   assert.ok(inspected.observations.length > 0 && inspected.observations.every(o => o.state === 'available'), connector + ' selected receiving scope is independently readable')
+   assert.equal(inspected.effectsChanged, false)
+  }
+  await f.runtime.restart()
+  const inspected = await (await f.runtime.request('/api/handset/delivery', { headers: f.headers })).json()
+  assert.ok(inspected.connections.every(c => c.inspections.length > 0 && c.inspections.every(i => i.state === 'available' && !i.stale && i.last_success_at > 0)))
+  assert.equal(f.edges.requests.filter(r => r.method === 'POST').length, beforeInspection)
  } finally { await f.runtime.close() }
 })
 

@@ -209,6 +209,56 @@ test('Expired credentials and removed connector scope preserve uncertain committ
    assert.equal((await f.ok(base + 'reconcile', { step: family })).step.state, 'confirmed')
    assert.equal(remoteCount(), committed)
   }
+  const inspect = (connector, mappingVersion = 1, cursor) => post(f.runtime, '/api/handset/delivery/inspect', { connector, mappingVersion, ...(cursor ? { cursor } : {}), confirm: 'inspect current connector read scope' }, f.headers)
+  const readsBeforeUnauthorized = f.edges.requests.length
+  const input = { connector: 'orbit', mappingVersion: 1, confirm: 'inspect current connector read scope' }
+  assert.equal((await post(f.runtime, '/api/handset/delivery/inspect', input)).status, 401)
+  assert.equal((await post(f.runtime, '/api/handset/delivery/inspect', input, { authorization: 'Bearer ' + f.issued.token })).status, 401)
+  assert.equal((await post(f.runtime, '/api/handset/delivery/inspect', input, { ...f.headers, origin: 'https://example.invalid' })).status, 403)
+  assert.equal(f.edges.requests.length, readsBeforeUnauthorized, 'unauthorized inspection sends no connector credential')
+  f.edges.orbitMissingScope = true
+  const scopeRemoved = await inspect('orbit'); assert.equal(scopeRemoved.status, 200)
+  assert.equal((await scopeRemoved.json()).observations[0].state, 'scope_removed')
+  f.edges.orbitMissingScope = false
+  await f.runtime.restart()
+  const persisted = await (await f.runtime.request('/api/handset/delivery', { headers: f.headers })).json()
+  assert.equal(persisted.connections.find(c => c.id === 'orbit').inspections[0].state, 'scope_removed')
+  const opened = await f.open(84, 'en', f.cases[2]), base = `outcomes/${opened.outcome.id}/`
+  const beforeBlocked = f.edges.requests.filter(r => r.method === 'POST').length
+  assert.equal((await f.ok(base + 'handoffs/crm', { summary: 'Held until scope is explicitly inspected again' })).step.state, 'uncertain')
+  assert.equal(f.edges.requests.filter(r => r.method === 'POST').length, beforeBlocked, 'recorded scope removal fences new dependent writes even after provider access returns')
+  f.edges.orbitExpired = true
+  assert.equal((await (await inspect('orbit')).json()).observations[0].state, 'credential_refused')
+  f.edges.orbitExpired = false
+  assert.equal((await (await inspect('orbit')).json()).observations[0].state, 'available')
+  assert.equal((await f.ok(base + 'reconcile', { step: 'crm' })).step.state, 'confirmed')
+  assert.equal(f.edges.requests.filter(r => r.method === 'POST').length, beforeBlocked + 1)
+  const mappings = Array.from({ length: 13 }, (_, i) => ({ caseId: f.cases[0], conversationId: 'synthetic-handset-inspection-' + String(i).padStart(2, '0') }))
+  for (const m of mappings) f.edges.conversations.set(m.conversationId, { revision: 1, messages: [] })
+  await f.savePolicy(policyFor('synthetic-handset-2', mappings), 1)
+  const requests = f.edges.requests.length
+  assert.equal((await inspect('helpdesk', 1)).status, 409, 'stale mapping review cannot inspect new selected records')
+  assert.equal(f.edges.requests.length, requests)
+  const changed = await (await f.runtime.request('/api/handset/delivery', { headers: f.headers })).json()
+  assert.equal(changed.connections.find(c => c.id === 'orbit').inspections[0].stale, true)
+  const observations = []
+  let cursor
+  do {
+   const page = await inspect('helpdesk', 2, cursor); assert.equal(page.status, 200)
+   const result = await page.json(); observations.push(...result.observations); cursor = result.nextCursor
+  } while (cursor)
+  assert.deepEqual(observations.map(o => o.target).sort(), mappings.map(m => m.conversationId).sort())
+  assert.ok(observations.every(o => o.state === 'available'))
+  assert.equal(f.edges.requests.filter(r => r.method === 'POST').length, beforeBlocked + 1, 'inspection pages only read selected records')
+  const countChecks = async () => (await f.runtime.sql('SELECT count(*) AS n FROM hnd_delivery_checks')).results[0].n
+  const beforeWithdrawal = await countChecks()
+  f.edges.orbitCheckHook = async () => {
+   const removed = await post(f.runtime, '/auth/operator/role', { operatorId: 'synthetic-handset-1', role: 'member' }, { cookie: f.named.cookie })
+   assert.equal(removed.status, 200, await removed.clone().text())
+  }
+  assert.equal((await inspect('orbit', 2)).status, 409, 'authority withdrawal during remote inspection prevents release or persistence of a success')
+  assert.equal(await countChecks(), beforeWithdrawal)
+  assert.equal((await f.runtime.request('/api/handset/delivery', { headers: f.headers })).status, 401)
  } finally { await f.runtime.close() }
 })
 

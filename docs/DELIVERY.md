@@ -78,3 +78,29 @@ provider registration preflight. The registered transport journey changes each
 of those gates while preflight is in flight, then restarts the Worker and checks
 that the suppressed job never reaches the receiving message endpoint. This is
 network-edge qualification, not a receipt from an independent physical handset.
+
+An owner may explicitly refresh current read-scope observations with
+`POST /api/handset/delivery/inspect`, using `connector`, the current
+`mappingVersion`, and `confirm: "inspect current connector read scope"`.
+The supported connector values are `dial`, `stripe`, `orbit` and `helpdesk`.
+Inspection derives its destinations exclusively from current native mappings;
+it accepts no URL or credential. It reads at most ten mapped targets per page.
+Continue with the returned `nextCursor` under the same mapping version. A
+changed policy refuses an old review before any receiving request.
+
+Orbit inspects the selected delegated target, and support inspects each selected
+existing conversation. Booking and payment inspection read an already known
+receiving identity under the current policy. Without one, their read scope is
+explicitly not checked; inspection never creates a record to discover it.
+Observations retain failed reads and the last successful check through restart.
+The inventory marks an earlier mapping version stale and exposes observation
+age. These are read-scope observations, not write grants, OAuth lifecycle
+callbacks or a guarantee of remote service health or current delivery lag.
+
+A recorded credential or selected-scope refusal fences every later dependent
+creation POST, even if a different remote endpoint is still writable. An owner
+must explicitly inspect restored read access before new writes can proceed.
+Known-effect readback can still reconcile the original effect without a write.
+Every inspection rechecks the current native owner and mapping before each
+remote read and again before saving or returning its observations. No remote
+payload, caller content or credential enters the retained check records.

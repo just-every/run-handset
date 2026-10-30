@@ -5,6 +5,7 @@ import type { AppliedPolicy } from '../audit/policy'
 import { grantFence, type Grant } from '../authority/store'
 import type { EdgeResult } from './edge'
 import type { Outcome, Step, StepKind } from './model'
+import { deliveryScopeFence } from '../integrations/delivery/scope'
 
 export const uuidFrom = (hex: string) => `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`
 export const stepRow = (db: D1Database, outcomeId: string, kind: StepKind) => db.prepare('SELECT * FROM hnd_rx_steps WHERE outcome_id=? AND kind=?').bind(outcomeId, kind).first<Step>()
@@ -66,7 +67,9 @@ export async function runStep(r: Run): Promise<RunResult> {
  const beforeEffect = async () => {
   // Stripe may prune idempotency keys after 24 hours. Keep a one-hour safety margin.
   if (['deposit','refund'].includes(kind) && step!.attempts > 1 && Date.now() - step!.created_at >= 23 * 3600000) throw new Fault('provider_deduplication_window_expired_readback_required', 409)
-  await append(env, grant.id, 'outcome.authorize', step!.id, 'completed', [grantFence(env, grant), ...outcomeEffectFences(env, outcome),
+  const request = r.request as Record<string, string>, connector = kind === 'booking' ? 'dial' : kind === 'crm' ? 'orbit' : kind === 'support' ? 'helpdesk' : 'stripe'
+  const target = kind === 'booking' ? request.serviceId : kind === 'crm' ? request.target : kind === 'support' ? request.conversationId : kind
+  await append(env, grant.id, 'outcome.authorize', step!.id, 'completed', [grantFence(env, grant), ...outcomeEffectFences(env, outcome), deliveryScopeFence(env, connector, target),
    db.prepare("INSERT INTO hnd_guard(ok) SELECT count(*) FROM hnd_grants WHERE id=? AND reserved_cents<=json_extract(definition,'$.budgetCents')").bind(grant.id), ...(r.effect?.(step!.id) ?? []),
   ], null, r.applied)
  }
