@@ -214,11 +214,13 @@ test('Lost payment, booking, CRM and support responses stay uncertain until read
    assert.equal(response.status, 200, await response.clone().text())
    const inspected = await response.json()
    assert.ok(inspected.observations.length > 0 && inspected.observations.every(o => o.state === 'available'), connector + ' selected receiving scope is independently readable')
+   assert.ok(inspected.observations.some(o => o.delivery.state === 'confirmed' && o.delivery.stepId && o.delivery.lagMs >= 0), connector + ' current receiving effect has an exact independent receipt and observed lag')
    assert.equal(inspected.effectsChanged, false)
   }
   await f.runtime.restart()
   const inspected = await (await f.runtime.request('/api/handset/delivery', { headers: f.headers })).json()
   assert.ok(inspected.connections.every(c => c.inspections.length > 0 && c.inspections.every(i => i.state === 'available' && !i.stale && i.last_success_at > 0)))
+  assert.ok(inspected.connections.every(c => c.remoteLagMs >= 0 && c.remoteLagMs !== null && c.lastCurrentDeliveryAt > 0), 'current receiving receipts and lag survive restart for all four connector families')
   assert.equal(f.edges.requests.filter(r => r.method === 'POST').length, beforeInspection)
  } finally { await f.runtime.close() }
 })

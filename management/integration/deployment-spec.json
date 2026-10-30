@@ -504,6 +504,18 @@
       "name": "core-0078_handset_draft_attribution.sql",
       "sha256": "0a97da9584f08f301ed8437cf18021d0bc1a8292fb196484fbabb5a19c03b47f",
       "sql": "ALTER TABLE hnd_drafts ADD COLUMN prepared_by TEXT CHECK(prepared_by IS NULL OR json_valid(prepared_by));\n"
+    },
+    {
+      "binding": "DB",
+      "name": "core-0079_handset_delivery_checks.sql",
+      "sha256": "96b72b7c1206cf0ff4fe274ec66c4844b6cff778d7ebf35ee5736cf396a4229c",
+      "sql": "-- Retained read-scope observations contain mapping identities, never credentials or remote payloads.\nCREATE TABLE hnd_delivery_checks (\n sequence INTEGER PRIMARY KEY AUTOINCREMENT,\n connector TEXT NOT NULL, target TEXT NOT NULL, mapping_version INTEGER NOT NULL,\n state TEXT NOT NULL CHECK(state IN ('available','credential_refused','scope_removed','unavailable','unconfigured','not_checked')),\n reason TEXT NOT NULL, checked_at INTEGER NOT NULL\n);\nCREATE INDEX hnd_delivery_checks_target ON hnd_delivery_checks(connector,target,sequence);\n"
+    },
+    {
+      "binding": "DB",
+      "name": "core-0080_handset_delivery_lag.sql",
+      "sha256": "4b5019b452211a78ed791f16c8ad6ea7f7531b84326db5eda064c3683dbcd069",
+      "sql": "-- A scope check alone never proves delivery. Private connection equality keys\n-- prevent a previous endpoint or credential's success from qualifying its replacement.\nALTER TABLE hnd_delivery_checks ADD COLUMN connection_key TEXT;\nALTER TABLE hnd_delivery_checks ADD COLUMN step_id TEXT;\nALTER TABLE hnd_delivery_checks ADD COLUMN delivery_state TEXT NOT NULL DEFAULT 'not_checked'\n CHECK(delivery_state IN ('not_checked','pending','confirmed'));\nALTER TABLE hnd_delivery_checks ADD COLUMN delivery_started_at INTEGER;\nCREATE INDEX hnd_delivery_checks_receipt ON hnd_delivery_checks(connector,target,mapping_version,connection_key,step_id,delivery_state,checked_at);\n"
     }
   ],
   "compatibilityDate": "2026-09-08",

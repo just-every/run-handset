@@ -1,7 +1,109 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { post } from './helpers/handset-auth.mjs'
+import { post, signIn } from './helpers/handset-auth.mjs'
 import { receptionistFixture, policyFor } from './helpers/handset-receptionist.mjs'
+
+test('Current receiving connector receipts a delayed earlier support message with its own lag through restart', async () => {
+ // Both endpoint replacement and credential-only renewal must invalidate old proof.
+ for (const replaceEndpoint of [true, false]) {
+  const now = Date.UTC(2026, 9, 30, 18), f = await receptionistFixture({ clockTime: now })
+  try {
+   await f.savePolicy()
+   const opened = await f.open(91, 'en', f.cases[0]), base = `outcomes/${opened.outcome.id}/`
+   const sent = await f.ok(base + 'handoffs/support', { conversationId: 'synthetic-handset-710', summary: 'Retain this message across the receiving connector change' })
+   assert.equal(sent.step.state, 'confirmed')
+   const earlierMessages = structuredClone(f.edges.conversations.get('synthetic-handset-710').messages)
+   assert.equal(earlierMessages.length, 1)
+   const read = async () => {
+    const r = await f.runtime.request('/api/handset/delivery', { headers: f.headers })
+    assert.equal(r.status, 200, await r.clone().text())
+    return (await r.json()).connections.find(c => c.id === 'helpdesk')
+   }
+   const inspect = async (headers = f.headers) => post(f.runtime, '/api/handset/delivery/inspect', {
+    connector: 'helpdesk', mappingVersion: 1, confirm: 'inspect current connector read scope',
+   }, headers)
+   const original = await inspect(); assert.equal(original.status, 200)
+   assert.equal((await original.json()).observations[0].delivery.state, 'confirmed')
+   assert.equal((await read()).remoteLagMs, 0)
+
+   // Official-schema HappyToHelp edge with an independent, initially lagging store.
+   // Delivery was sent through the earlier connection; no native record is planted.
+   const currentOrigin = replaceEndpoint ? 'https://current-help.synthetic-handset.test' : f.edges.origins.helpdesk
+   const currentToken = 'synthetic-handset-current-help-credential', requests = []
+   const receiver = { messages: [], readStatus: 200, nextCursor: null }
+   const earlierHandle = f.edges.handle.bind(f.edges)
+   f.edges.handle = async (request, Response) => {
+    const url = new URL(request.url)
+    if (url.origin !== currentOrigin) return earlierHandle(request, Response)
+    requests.push({ method: request.method, path: url.pathname })
+    assert.equal(request.headers.get('authorization'), 'Bearer ' + currentToken)
+    assert.equal(request.method, 'GET', 'inspection cannot resend an earlier message to its replacement')
+    let status = 200, body
+    if (url.pathname === '/api/v1/conversations/synthetic-handset-710') body = { id: 'synthetic-handset-710', revision: 8 }
+    else if (url.pathname === '/api/v1/conversations/synthetic-handset-710/messages') {
+     status = receiver.readStatus
+     body = { data: structuredClone(receiver.messages), next_cursor: receiver.nextCursor }
+    } else { status = 404; body = { error: { code: 'not_found' } } }
+    return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
+   }
+   await f.runtime.restart({ bindings: { HANDSET_HELPDESK_ORIGIN: currentOrigin, HANDSET_HELPDESK_TOKEN: currentToken } })
+   let current = await read()
+   assert.equal(current.inspections[0].stale, true)
+   assert.equal(current.remoteLagMs, null, 'the earlier receiver cannot certify delivery to the current one')
+   assert.equal(current.lastCurrentDeliveryAt, null)
+   const beforeUnauthorized = requests.length
+   assert.equal((await inspect({})).status, 401)
+   assert.equal((await inspect({ authorization: 'Bearer ' + f.issued.token })).status, 401)
+   assert.equal(requests.length, beforeUnauthorized)
+
+   await f.runtime.setTime(now + 45000)
+   const pending = await inspect(); assert.equal(pending.status, 200)
+   const observed = (await pending.json()).observations[0]
+   assert.equal(observed.state, 'available', 'read scope does not establish message delivery')
+   assert.equal(observed.delivery.state, 'pending'); assert.equal(observed.delivery.pendingAgeMs, 45000)
+   assert.equal(observed.delivery.lagMs, null); assert.equal(receiver.messages.length, 0)
+   current = await read(); assert.equal(current.remoteLagMs, null)
+   assert.equal(current.inspections[0].delivery.pendingAgeMs, 45000)
+
+   // A foreign body, ambiguous local identity, or incomplete receiving page is no receipt.
+   receiver.messages = [{ ...earlierMessages[0], content: 'Another message' }]
+   assert.equal((await (await inspect()).json()).observations[0].delivery.state, 'pending')
+   receiver.messages = [earlierMessages[0], earlierMessages[0]]
+   assert.equal((await (await inspect()).json()).observations[0].delivery.state, 'pending')
+   receiver.messages = earlierMessages; receiver.nextCursor = 'unread-receiving-page'
+   assert.equal((await (await inspect()).json()).observations[0].delivery.state, 'pending')
+   receiver.nextCursor = null; receiver.readStatus = 403
+   assert.equal((await (await inspect()).json()).observations[0].state, 'scope_removed')
+   assert.equal((await read()).remoteLagMs, null)
+
+   // The receiver catches up at 90 seconds. Only its exact independent read is proof.
+   receiver.readStatus = 200
+   await f.runtime.setTime(now + 90000)
+   const arrived = await inspect(); assert.equal(arrived.status, 200)
+   const receipt = (await arrived.json()).observations[0]
+   assert.equal(receipt.delivery.state, 'confirmed'); assert.equal(receipt.delivery.stepId, sent.step.id)
+   assert.equal(receipt.delivery.lagMs, 90000); assert.equal(receipt.delivery.confirmedAt, now + 90000)
+   await f.runtime.restart(); await f.runtime.setTime(now + 120000)
+   current = await read()
+   assert.equal(current.remoteLagMs, 90000); assert.equal(current.lastCurrentDeliveryAt, now + 90000)
+   assert.equal(current.inspections[0].stale, false)
+   assert.equal((await (await inspect()).json()).observations[0].delivery.lagMs, 90000, 'later inspection retains the first matching receipt')
+   assert.equal((await read()).remoteLagMs, 90000)
+   assert.equal(receiver.messages.length, 1)
+   assert.equal(f.edges.conversations.get('synthetic-handset-710').messages.length, 1)
+   assert.equal(f.edges.requests.filter(r => r.host === f.edges.origins.helpdesk && r.method === 'POST').length, 1)
+   assert.ok(requests.every(r => r.method === 'GET'))
+   assert.ok(!JSON.stringify(current).includes(currentToken)); assert.ok(!JSON.stringify(current).includes('connection_key'))
+   // The current repair inventory and inspection remain native-owner-only.
+   await f.create('/auth/operator/role', { operatorId: 'synthetic-handset-2', role: 'member' }, f.headers, 200)
+   const member = await signIn({ ...f.runtime, ownerEmail: 'synthetic-handset-2@example.test' })
+   const count = requests.length
+   assert.equal((await inspect({ cookie: member.cookie })).status, 403)
+   assert.equal((await f.runtime.request('/api/handset/delivery', { headers: { cookie: member.cookie } })).status, 403)
+   assert.equal(requests.length, count)
+  } finally { await f.runtime.close() }
+ }
+})
 
 // A scope change while the receiving system answers preflight must take effect
 // before the POST, not only at the start of the enclosing HTTP request.

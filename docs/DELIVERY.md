@@ -52,8 +52,8 @@ consent and customer identity gaps of HND-013, HND-018 and HND-089 still apply.
 The inventory also lists each current receptionist policy's exact booking,
 payment, CRM and support mappings and mapped field categories. Configuration is
 reported separately from authorization: an installed credential or a historical
-success is not a current remote scope check. Remote lag is unknown, rather than
-zero. Aggregate confirmed, rejected, held and uncertain counts include the full
+success is not a current remote scope check. Current receiver delivery lag remains unknown until an exact receiving readback;
+a historical step success alone cannot supply it. Aggregate confirmed, rejected, held and uncertain counts include the full
 native step history; the detailed step list remains bounded to 200 rows. Selected
 inbound sources show active, suspended or revoked current native authority,
 latest observed event delay and the oldest unresolved parent age. Current
@@ -95,7 +95,8 @@ explicitly not checked; inspection never creates a record to discover it.
 Observations retain failed reads and the last successful check through restart.
 The inventory marks an earlier mapping version stale and exposes observation
 age. These are read-scope observations, not write grants, OAuth lifecycle
-callbacks or a guarantee of remote service health or current delivery lag.
+callbacks or a guarantee of remote service health. Delivery is checked separately
+against an exact known effect at that same current connection.
 
 A recorded credential or selected-scope refusal fences every later dependent
 creation POST, even if a different remote endpoint is still writable. An owner
@@ -110,3 +111,43 @@ rejection: no effect was attempted. If creation may already have committed,
 a refused read remains uncertain. Receiving access can then be restored and
 the original effect read back without another write. Reporting retains this
 distinction between rejected work and possibly committed work.
+
+
+Current receiver delivery and observed lag
+
+An explicit inspection also reads the most recent known effect for each selected
+target: Dial's exact booking, Stripe's exact payment or refund, Orbit's stable
+operation, or HappyToHelp's stable local message in the selected conversation.
+Scope success alone cannot confirm delivery. Identity, content and effect state
+must match; absent, refused, mismatched, ambiguous or incomplete readback leaves
+delivery pending. No inspection creates or replays an effect, changes its native
+step state, or grants authority to repair it.
+
+The endpoint and credential together identify a receiving connection privately.
+A change to either invalidates earlier observations even under an unchanged
+mapping version. The equality key, credential and receiving payload are never
+returned by the inventory. An earlier connector's success cannot prove that its
+replacement has received a message. When the replacement lags, inspection reads
+the original stable identity there until the matching message is available;
+it never sends a second message to make the read pass.
+
+Each inspection exposes `delivery.state`, `stepId`, `startedAt`, `confirmedAt`,
+`lagMs` and `pendingAgeMs`. Connector `remoteLagMs` and `lastCurrentDeliveryAt`
+use only a non-stale, matching receipt at the current receiver. Lag measures the
+initial local effect claim through the first exact receiving readback, an observed
+upper bound including preflight, transport, receiver delay and inspection delay.
+Later inspections and restarts retain that first receipt. Pending age increases
+until a matching read; uninspected effects have unknown delivery and lag. The
+existing `lastSuccessfulAt` remains historical native step success and is distinct
+from `lastCurrentDeliveryAt`. These are bounded observations, not service health,
+a processing-time SLA or a customer read receipt. Repair inventory and inspection
+remain native-owner-only.
+
+`tests/handset-transports.mjs` — “Current receiving connector receipts a delayed
+earlier support message with its own lag through restart” proves endpoint
+replacement and credential-only renewal against an independent HappyToHelp API
+edge. It sends once through the earlier connection, observes the current receiver
+empty at 45 seconds, then reads the same message there at 90 seconds and retains
+that receipt after restart. Foreign content, duplicate identities, unread pages,
+removed scope and non-owner access cannot manufacture delivery. No real receiving
+account or physical handset is qualified by this edge proof.
