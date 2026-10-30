@@ -7,8 +7,8 @@ resource metadata names `/mcp`. `/api/rer/agent-policy` accepts signed Business
 policy. Native people decide approvals, inspect activity and pause agents at
 `/agents`. These routes run before ordinary app session and setup redirects.
 
-The runtime is recorded from Base `2135c394939f4a737adabdc8003b0e667b31ac5a`;
-the project CLI is released `@runeditrun/rer` 0.2.91. The declared capabilities
+The runtime is recorded from Base `e881e6f66ce7cd737d17dbeb945995aab83c30d8`;
+the project CLI is released `@runeditrun/rer` 0.2.94. The declared capabilities
 are **tools, policy, pause, audit and idempotency**. Events, resources, prompts
 and subscriptions are explicitly undeclared and return typed refusals. The
 larger target registry and resource catalogue in CONTRACT.md remain targets.
