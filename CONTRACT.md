@@ -1590,8 +1590,8 @@ Judged from the code and tests at commit `16fcbb49d66e143a234947a97c0e88d8e7add2
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 2 | 1 | 0 | 3 |
-| Target and push further | 2 | 36 | 74 | 112 |
-| All | 4 | 37 | 74 | 115 |
+| Target and push further | 2 | 37 | 73 | 112 |
+| All | 4 | 38 | 73 | 115 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -1694,7 +1694,7 @@ Judged from the code and tests at commit `16fcbb49d66e143a234947a97c0e88d8e7add2
 | `HND-070` | US-first usable accessible product | target | missing |  | No implementation: us-first usable accessible product and the complete acceptance journey are missing. |
 | `HND-098` | Managed desktop installation and updates | target | missing |  | No implementation: managed desktop installation and updates and its full acceptance journey are missing. |
 | `HND-067` | Sibling products remain independent | target | missing |  | No implementation: sibling products remain independent and the complete acceptance journey are missing. |
-| `HND-068` | Partners and honest category limits | target | missing |  | No implementation: partners and honest category limits and the complete acceptance journey are missing. |
+| `HND-068` | Partners and honest category limits | target | partial | `tests/handset-transports.mjs` — Category requests return responsible external handoffs without native execution or provider mutations; `tests/handset-console-browser.mjs` — partners console at 1440 and 390; `docs/PARTNERS.md`. Acceptance 2: native authenticated category requests identify the responsible product and operator, documented information destinations and explicit consumer-carrier unavailability without native execution; phone navigation is retained. | Acceptance 1: configured partner-backed number, payment and device flows with responsible operators and actual external receipts remain unbuilt or unproved; real external receipts need the partners. Acceptance 3: partner staffing feed and preservation of complete call, QA and dialer journeys remain unproved. Qualified partner, account and device operation remains unproved. All promised SMB contact-center capabilities remain in scope; no carrier, spend, device, ct or Base hold is released. |
 | `SURFACE-001` | The registry equals this table and the Base harness passes | target | partial | Released rer 0.2.91 core conformance through the production Worker and real native schema: `agent-surface.json`, `tests/agent-door/fixtures.mjs`, `tests/agent-door/journey.mjs` and `tests/agent-door/invoke.mjs`. The shared door negotiates both supported MCP eras, applies company policy, current native grants, named approvals, native revisions, replay, Pause and consent revocation, including persisted native invocation. | The current scoped registry has selected case reads, unpublished drafts, five honestly held preparations and a native snapshot. The full target table, optional resources/events/prompts/subscriptions and target specialist week remain unimplemented through the shared door. No provider delivery or spend reservation is claimed. |
 | `SURFACE-002` | External and money are computed per call | target | missing |  | New Agent surface clause: no point is implemented yet. |
 | `SURFACE-003` | Sensitive, live, access and security are computed per call | target | missing |  | New Agent surface clause: no point is implemented yet. |

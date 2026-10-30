@@ -575,3 +575,66 @@ test('Exact reviewed snippets send MMS once and keep provider acceptance distinc
   assert.equal(f.receiver.sent.length,2)
  }finally{await runtime.close()}
 })
+
+
+test('Category requests return responsible external handoffs without native execution or provider mutations', async () => {
+ const { openHandset } = await import('./helpers/handset-worker.mjs')
+ const { createEdges } = await import('./helpers/handset-edges.mjs')
+ const outbound = [], edges = createEdges(), handle = edges.handle.bind(edges)
+ edges.handle = async (...args) => { outbound.push(args[0].url); return handle(...args) }
+ const runtime = await openHandset({ twilio: true, edges })
+ try {
+  const { cookie } = await signIn(runtime), headers = { cookie }, base = '/api/handset/partners'
+  assert.equal((await runtime.request(base)).status, 401)
+  const signedOutPage = await runtime.request('/app/partners'); assert.equal(signedOutPage.status, 303); assert.match(signedOutPage.headers.get('location'), /^\/signin/)
+  assert.equal((await post(runtime, base, { category: 'payroll' })).status, 401)
+  assert.equal((await post(runtime, base, { category: 'payroll' }, { ...headers, origin: 'https://foreign.example' })).status, 403)
+  assert.equal((await post(runtime, base, { category: 'unknown' }, headers)).status, 400)
+  assert.equal((await post(runtime, base, { category: 'payroll', destination: 'https://foreign.example' }, headers)).status, 400)
+  assert.equal((await runtime.request(base, { method: 'DELETE', headers: { ...headers, origin: runtime.origin, 'content-type': 'application/json' }, body: '{}' })).status, 405)
+  const productState = async () => {
+   const tables = (await runtime.sql("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'hnd_%' ORDER BY name")).results
+   const state = {}
+   for (const { name } of tables) state[name] = (await runtime.sql('SELECT * FROM "' + name + '" ORDER BY rowid')).results
+   return state
+  }
+  // Real existing phone work must survive the separate-category requests.
+  const created = await post(runtime, '/api/handset/cases', { title: 'Keep native phone work' }, headers)
+  assert.equal(created.status, 201)
+  const before = await productState(), requestsBefore = outbound.length, mailBefore = runtime.mails.length
+  const expected = [
+   ['payroll', 'Envelope', 'Envelope installation operator', 'https://github.com/just-every/run-envelope'],
+   ['consumer-cellular', 'Separate consumer cellular carrier', 'Your chosen consumer cellular carrier', null],
+   ['video', 'Zoom Workplace', 'Zoom', 'https://www.zoom.com/en/products/virtual-meetings/'],
+   ['enterprise-workforce', 'NICE Workforce Management', 'NICE', 'https://www.nice.com/products/workforce-management'],
+  ]
+  const catalogResponse = await runtime.request(base, { headers }); assert.equal(catalogResponse.status, 200)
+  const catalog = await catalogResponse.json(); assert.equal(catalog.handoffs.length, 4)
+  for (const [category, product, operator, destination] of expected) {
+   const response = await post(runtime, base, { category }, headers); assert.equal(response.status, 200)
+   const result = await response.json()
+   assert.equal(result.handoff.product, product); assert.equal(result.handoff.operator, operator)
+   assert.equal(result.handoff.destination, destination); assert.equal(result.nativeExecution, 'none')
+   assert.deepEqual(result.handoff, catalog.handoffs.find(h => h.category === category))
+   if (destination === null) { assert.equal(result.handoff.destinationKind, 'unavailable'); assert.match(result.handoff.unavailableReason, /No consumer carrier destination/) }
+   else assert.equal(result.handoff.unavailableReason, null)
+   const replay = await post(runtime, base, { category }, headers)
+   assert.deepEqual(await replay.json(), result)
+  }
+  assert.deepEqual(await productState(), before, 'no product records, purchases, payments or completed services are fabricated')
+  assert.equal(outbound.length, requestsBefore); assert.equal(runtime.sourceRequests.length, 0); assert.equal(runtime.mails.length, mailBefore)
+  await runtime.restart()
+  assert.equal((await post(runtime, base, { category: 'payroll' }, headers)).status, 200)
+  assert.deepEqual(await productState(), before)
+  // A current member may read public handoff information; withdrawal fences cached cookies.
+  assert.equal((await post(runtime, '/auth/operator/status', { operatorId: 'synthetic-handset-2', status: 'active' }, headers)).status, 200)
+  const memberEmail = (await runtime.sql('SELECT email FROM oa_operators WHERE id=?', 'synthetic-handset-2')).results[0].email
+  const member = await signIn({ ...runtime, ownerEmail: memberEmail })
+  assert.equal((await post(runtime, base, { category: 'video' }, { cookie: member.cookie })).status, 200)
+  assert.equal((await post(runtime, '/auth/operator/status', { operatorId: 'synthetic-handset-2', status: 'inactive' }, headers)).status, 200)
+  assert.equal((await runtime.request(base, { headers: { cookie: member.cookie } })).status, 401)
+  assert.equal((await post(runtime, base, { category: 'video' }, { cookie: member.cookie })).status, 401)
+  assert.equal((await post(runtime, '/auth/signout', {}, headers)).status, 204)
+  assert.equal((await post(runtime, base, { category: 'payroll' }, headers)).status, 401)
+ } finally { await runtime.close() }
+})

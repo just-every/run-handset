@@ -1,0 +1,9 @@
+import { escape as e } from '../core'
+import type { Handoff } from './doors'
+
+export function boundariesPage(handoffs: readonly Handoff[], selected?: Handoff): string {
+ return `<p>Find the separate product responsible for payroll, consumer cellular, video meetings or enterprise workforce services.</p>
+<section><h2>Request a separate service</h2><form method="post" action="/app/partners"><label for="partner-category">Service category</label><select id="partner-category" name="category">${handoffs.map(item => `<option value="${e(item.category)}"${selected?.category === item.category ? ' selected' : ''}>${e(item.label)}</option>`).join('')}</select><button>Find responsible provider</button></form></section>
+${selected ? `<section aria-label="Requested handoff"><h2>${e(selected.label)}</h2><dl><dt>Responsible product</dt><dd>${e(selected.product)}</dd><dt>Responsible operator</dt><dd>${e(selected.operator)}</dd><dt>Destination</dt><dd>${selected.destination ? `<a href="${e(selected.destination)}" rel="external noreferrer">${selected.destinationKind === 'project' ? 'Open Envelope project' : 'Open provider information'}</a>` : 'Unavailable'}</dd></dl><p>${e(selected.unavailableReason ?? selected.qualification)}</p>${selected.unavailableReason ? `<p>${e(selected.qualification)}</p>` : ''}<p role="status">Handoff information only. No native purchase, subscription, payment or service completion was created. Opening the external destination shares no Handset records or credentials.</p></section>` : ''}
+<p>Handset remains responsible for its promised business phone, queue staffing, QA and lawful dialer capabilities. These handoffs do not configure a staffing feed or qualify carrier, payment or device operation.</p><nav aria-label="Continue phone work"><a href="/app/cases">Phone cases</a><a href="/app/queues">Phone queues</a><a href="/app/dialer">Phone dialer</a></nav>`
+}

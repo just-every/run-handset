@@ -27,7 +27,7 @@ import { createEdges } from './helpers/handset-edges.mjs'
 import { reportingDashboardJourney } from './helpers/handset-reporting-browser.mjs'
 import { voicemailJourney } from './helpers/handset-voicemail-browser.mjs'
 
-for(const width of [1440,390])for(const domain of ['supervision','compliance','messages','numbers','administration','queues','queue-media','flows','prompts','callbacks','metrics','protection','dialer','voicemail'])test(`${domain} console at ${width}`,async()=>{
+for(const width of [1440,390])for(const domain of ['partners','supervision','compliance','messages','numbers','administration','queues','queue-media','flows','prompts','callbacks','metrics','protection','dialer','voicemail'])test(`${domain} console at ${width}`,async()=>{
  const reportingEdges=domain==='metrics'?createEdges():null
  const runtime=await openHandset({twilio:true,edges:reportingEdges,callingClock:domain==='dialer',...(domain==='messages'?{clockTime:messageNow}:domain==='metrics'?{clockTime:analyticsNow}:domain==='supervision'?{clockTime:Date.UTC(2026,9,28,12)}:domain==='numbers'?{clockTime:Date.UTC(2026,9,27,12)}:{}),...(domain==='prompts'?{ttsEdge:speechEdge}:{})}),browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic',...(domain==='prompts'?['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']:[])]})
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage()
@@ -52,6 +52,47 @@ for(const width of [1440,390])for(const domain of ['supervision','compliance','m
  try{
   let {cookie}=await signIn(runtime);const [cookieName,...cookieValue]=cookie.split('=')
   await context.addCookies([{name:cookieName,value:cookieValue.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
+  if(domain==='partners'){
+   await page.goto(runtime.origin+'/app')
+   await page.locator('.hs-menu summary').click()
+   await page.getByRole('link',{name:'Partner handoffs',exact:true}).first().click()
+   await page.getByRole('heading',{name:'Partner handoffs',exact:true}).waitFor()
+   assert.equal(await page.getByRole('region',{name:'Requested handoff'}).count(),0)
+   await proof('partners-request')
+   const before = (await runtime.sql('SELECT count(*) AS n FROM hnd_rx_outcomes')).results[0].n
+   for(const [category,product,operator,destination] of [
+    ['payroll','Envelope','Envelope installation operator','https://github.com/just-every/run-envelope'],
+    ['consumer-cellular','Separate consumer cellular carrier','Your chosen consumer cellular carrier',null],
+    ['video','Zoom Workplace','Zoom','https://www.zoom.com/en/products/virtual-meetings/'],
+    ['enterprise-workforce','NICE Workforce Management','NICE','https://www.nice.com/products/workforce-management'],
+   ]){
+    await page.getByLabel('Service category',{exact:true}).selectOption(category)
+    await click('Find responsible provider')
+    const handoff=page.getByRole('region',{name:'Requested handoff'})
+    assert.equal(await handoff.locator('dd').nth(0).innerText(),product)
+    assert.equal(await handoff.locator('dd').nth(1).innerText(),operator)
+    assert.match(await handoff.getByRole('status').innerText(),/No native purchase, subscription, payment or service completion was created/)
+    assert.equal(await page.getByLabel('Service category',{exact:true}).inputValue(),category)
+    if(destination)assert.equal(await handoff.getByRole('link').getAttribute('href'),destination)
+    else {assert.equal(await handoff.locator('dd').nth(2).innerText(),'Unavailable');assert.match(await handoff.innerText(),/No consumer carrier destination/);assert.equal(await handoff.getByRole('link').count(),0)}
+    const api=await post(runtime,'/api/handset/partners',{category},{cookie});assert.equal(api.status,200)
+    const result=await api.json();assert.equal(result.handoff.destination,destination);assert.equal(result.handoff.operator,operator);assert.equal(result.nativeExecution,'none')
+    if(width===1440){
+     assert.equal(await page.locator('main :is(p,dt,dd,label,select,button,a)').evaluateAll(items=>items.every(el=>parseFloat(getComputedStyle(el).fontSize)>=13)),true)
+     assert.equal(await page.locator('button,a,summary').evaluateAll(items=>items.every(el=>el.textContent.trim().length>2)),true,'all controls have visible labels')
+    }
+    await proof('partners-'+category)
+   }
+   assert.equal((await runtime.sql('SELECT count(*) AS n FROM hnd_rx_outcomes')).results[0].n,before)
+   assert.equal(runtime.sourceRequests.length,0)
+   for(const [label,path] of [['Phone cases','/app/cases'],['Phone queues','/app/queues'],['Phone dialer','/app/dialer']]){
+    await page.getByRole('link',{name:label,exact:true}).click();assert.equal(new URL(page.url()).pathname,path)
+    assert.equal((await page.locator('h1').innerText()).length>0,true)
+    await page.goto(runtime.origin+'/app/partners')
+   }
+   await context.clearCookies();await page.goto(runtime.origin+'/app/partners');assert.equal((await page.request.get(runtime.origin+'/api/handset/partners')).status(),401)
+   assert.equal(await page.getByRole('button',{name:'Find responsible provider',exact:true}).count(),0)
+  }
   if(domain==='supervision')await supervisionJourney({runtime,page,context,cookie,proof,click})
   if(domain==='voicemail')await voicemailJourney({runtime,page,context,cookie,proof,click})
   if(domain==='messages')await messageJourney({runtime,page,context,cookie,proof,click})
@@ -245,7 +286,7 @@ for(const width of [1440,390])for(const domain of ['supervision','compliance','m
   await runtime.sql("UPDATE oa_operators SET status='active' WHERE id='synthetic-handset-2'")
   const member=await signIn({...runtime,ownerEmail:'synthetic-handset-2@example.test'}),[memberName,...memberValue]=member.cookie.split('=')
   await context.clearCookies();await context.addCookies([{name:memberName,value:memberValue.join('='),url:runtime.origin,secure:true,httpOnly:true,sameSite:'Lax'}])
-  const privatePaths={voicemail:[],compliance:[['/app/compliance','compliance']],supervision:[['/app/supervision/settings','supervision']],messages:[['/app/messages','messages']],numbers:[['/app/numbers','numbers']],flows:[['/app/flows','flows']],administration:[['/app/admin/bulk','bulk'],['/app/admin/templates','template']],queues:[['/app/queues','queue']],'queue-media':[['/app/queues/media','queue-media']],metrics:[['/app/reports/queues','report'],['/app/import','import']],protection:[['/app/protection','protection']],dialer:[['/app/dialer','dialer']],prompts:[['/app/prompts','prompts']],callbacks:[['/app/callbacks','callbacks']]}
+  const privatePaths={partners:[],voicemail:[],compliance:[['/app/compliance','compliance']],supervision:[['/app/supervision/settings','supervision']],messages:[['/app/messages','messages']],numbers:[['/app/numbers','numbers']],flows:[['/app/flows','flows']],administration:[['/app/admin/bulk','bulk'],['/app/admin/templates','template']],queues:[['/app/queues','queue']],'queue-media':[['/app/queues/media','queue-media']],metrics:[['/app/reports/queues','report'],['/app/import','import']],protection:[['/app/protection','protection']],dialer:[['/app/dialer','dialer']],prompts:[['/app/prompts','prompts']],callbacks:[['/app/callbacks','callbacks']]}
   for(const [path,name] of privatePaths[domain]){
    await page.goto(runtime.origin+path);await page.getByRole('alert').waitFor();await proof(name+'-permission-denied')
   }

@@ -1,3 +1,4 @@
+import { boundariesDoor } from '../boundaries/doors'
 import { messageDoor } from '../messages/doors'
 import { supervisionDoor } from '../supervision/doors'
 import { supervisionConsole } from '../supervision/console'
@@ -54,11 +55,12 @@ export async function productResponse(request: Request, original: Bindings): Pro
 
 async function route(request: Request, original: Bindings): Promise<Response|null> {
  const url = new URL(request.url), path = url.pathname, html = path.startsWith('/app/')
- if (!/^\/(api\/handset|app\/(supervision|messages|voicemail|numbers|exports|consent|surveys|cases|records|audit|grants|sources|admin|queues|reports\/queues|protection|dialer|front-desk|recordings|transcripts|flows|prompts|receptionist|rules|followups|recovery|callbacks|operations|compliance))(\/|$)/.test(path)) return null
+ if (!/^\/(api\/handset|app\/(partners|supervision|messages|voicemail|numbers|exports|consent|surveys|cases|records|audit|grants|sources|admin|queues|reports\/queues|protection|dialer|front-desk|recordings|transcripts|flows|prompts|receptionist|rules|followups|recovery|callbacks|operations|compliance))(\/|$)/.test(path)) return null
  let auth: {env:Bindings;session:Session}|undefined
  try {
   auth = await session(request,original)
   const {env,session:actor} = auth, db=env.DB
+  if(path==='/app/partners'||path.startsWith('/app/partners/')||path==='/api/handset/partners'||path.startsWith('/api/handset/partners/'))return await boundariesDoor(request,request.method==='GET'?undefined:await input(request))
   if(path==='/app/supervision'||path.startsWith('/app/supervision/')||path==='/api/handset/supervision'||path.startsWith('/api/handset/supervision/')){
    const value=request.method==='GET'?undefined:await input(request)
    const console=await supervisionConsole(request,env,actor,value)
