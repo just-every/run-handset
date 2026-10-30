@@ -446,3 +446,45 @@ test('Call-bound reports attribute verified handlers and reconcile booking conta
   for(const path of ['live?queueId=*&handlingUser='+handler,'live?queueId=*&receptionistState=confirmed','csv?queueId=*&receptionistState=pending','dashboards/'+dashboard.id,'dashboards/'+dashboard.id+'/csv','history/'+saved.id])assert.equal((await runtime.request('/api/handset/metrics/'+path,{headers:{cookie:member.cookie}})).status,403)
  }finally{await runtime.close()}
 })
+
+test('Queued voicemail suppresses withdrawn authority and content and never repeats an uncertain external copy',async()=>{
+ const {voicemailDeliveryFixture}=await import('./helpers/handset-voicemail-delivery.mjs'),f=await voicemailDeliveryFixture()
+ try{
+  const first=await f.item(10),setting=await f.settings(),job=await f.queue(first,setting),before=f.runtime.mails.length
+  await f.membership(0);const reads=f.runtime.sourceRequests.length
+  await f.runtime.restart();await f.runtime.scheduled();await f.runtime.scheduled()
+  assert.equal(f.runtime.mails.length,before);assert.equal(f.runtime.sourceRequests.length,reads)
+  assert.equal((await f.get(f.base+'/delivery')).jobs.find(j=>j.id===job.job.id).state,'suppressed')
+  await f.membership(1)
+  const second=await f.item(11),current=await f.settings(),during=await f.queue(second,current)
+  f.runtime.twilioResources.set(second.mediaUrl,async()=>{await f.membership(0);return {__audio:[...second.bytes]}})
+  await f.runtime.scheduled();assert.equal(f.runtime.mails.length,before,'membership lost during audio retrieval releases no email')
+  assert.equal((await f.get(f.base+'/delivery')).jobs.find(j=>j.id===during.job.id).state,'suppressed')
+  await f.membership(1)
+  const third=await f.item(12),updated=await f.settings(),changed=await f.queue(third,updated)
+  await f.settings('text');await f.runtime.scheduled();assert.equal(f.runtime.mails.length,before)
+  assert.equal((await f.get(f.base+'/delivery')).jobs.find(j=>j.id===changed.job.id).state,'suppressed','queued choice never silently switches modes')
+  const fourth=await f.item(13),approved=await f.settings(),revoked=await f.queue(fourth,approved)
+  f.runtime.twilioResources.set(fourth.mediaUrl,async()=>{await f.write('/api/handset/recordings/grants/'+fourth.grant.id+'/revoke',{},f.owner,200);return {__audio:[...fourth.bytes]}})
+  await f.runtime.scheduled();assert.equal(f.runtime.mails.length,before,'content grant lost during retrieval releases no email')
+  assert.equal((await f.get(f.base+'/delivery')).jobs.find(j=>j.id===revoked.job.id).state,'suppressed')
+  const fifth=await f.item(14),uncertain=await f.queue(fifth,approved)
+  f.runtime.setMailFailure();await f.runtime.scheduled();assert.equal(f.runtime.mails.length,before+1)
+  const outcome=(await f.get(f.base+'/delivery')).jobs.find(j=>j.id===uncertain.job.id);assert.equal(outcome.state,'uncertain')
+  f.runtime.setMailFailure(false);await f.runtime.restart();await Promise.all([f.runtime.scheduled(),f.runtime.scheduled()])
+  assert.equal(f.runtime.mails.length,before+1,'lost provider acknowledgement remains held across restart and replay')
+  const missing=await f.item(15,{grantText:false})
+  await f.queue(missing,approved,{},403)
+  await f.write(missing.path+'/content',{recordingId:first.recordingId,transcriptId:first.transcriptId},f.owner,409)
+  await f.write(f.base+'/delivery',{personId:f.personId,recipient:[f.personId,'example.test'].join('@'),personVersion:1,revision:approved.revision,mode:'text',enabled:1,linkSeconds:3600,confirm:'I approve this exact recipient and mode with separate email custody'},f.recipient,403)
+  assert.equal(f.runtime.mails.length,before+1)
+  const staleRecipient=await f.settings('text')
+  await f.write(f.base+'/delivery',{personId:f.personId,recipient:['synthetic-handset-4999','example.test'].join('@'),personVersion:1,revision:staleRecipient.revision,mode:'text',enabled:1,linkSeconds:3600,confirm:'I approve this exact recipient and mode with separate email custody'},f.owner,409)
+  const unavailable=await f.item(16),sourceJob=await f.queue(unavailable,staleRecipient)
+  await f.write('/api/handset/sources/revoke',{sourceId:f.source.id},f.owner,200)
+  const sourceReads=f.runtime.sourceRequests.length
+  await f.runtime.scheduled();await f.runtime.restart();await f.runtime.scheduled()
+  assert.equal(f.runtime.mails.length,before+1);assert.equal(f.runtime.sourceRequests.length,sourceReads)
+  assert.equal((await f.get(f.base+'/delivery')).jobs.find(j=>j.id===sourceJob.job.id).state,'suppressed')
+ }finally{await f.runtime.close()}
+})

@@ -12,8 +12,8 @@ import { post, signIn } from './handset-auth.mjs'
 export const range={from:Date.parse('2026-10-01T00:00:00Z'),to:Date.parse('2026-11-01T00:00:00Z'),timezone:'America/Chicago'}
 export const encryptionKey='12'.repeat(32)
 export const sha=bytes=>createHash('sha256').update(bytes).digest('hex')
-export async function exportFixture(edge,{liveMail=false}={}){
- const runtime=await openHandset({twilio:true,knowledgeEdge:edge?.handle,liveMail}),f=await sourceFixture(runtime),base='/api/handset/exports'
+export async function exportFixture(edge,{liveMail=false,runtime:existingRuntime}={}){
+ const runtime=existingRuntime??await openHandset({twilio:true,knowledgeEdge:edge?.handle,liveMail}),f=await sourceFixture(runtime),base='/api/handset/exports'
  async function write(path,value,status=201,headers=f.headers){const r=await post(runtime,base+path,value,headers);assert.equal(r.status,status,await r.clone().text());return r.json()}
  async function get(path='',headers=f.headers){const r=await runtime.request(base+path,{headers});assert.equal(r.status,200,await r.clone().text());return r.json()}
  async function media(index,{audio=true,transcript=true}={}){

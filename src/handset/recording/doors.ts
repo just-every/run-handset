@@ -17,19 +17,50 @@ async function recording(env:Bindings,target:string){
 const sourceFence=(env:Bindings,r:Recording)=>currentSourceFence(env,{id:r.source_id,revision:r.source_revision})
 const recordingFence=(env:Bindings,r:Recording)=>guard(env,`SELECT count(*) FROM hnd_records r WHERE r.id=? AND ${completedRecording}`,r.id)
 interface Grant {id:string;recording_id:string;person_id:string;person_version:number;created_by:string;owner_version:number;expires_at:number;revoked_at:number|null}
-const grantFence=(env:Bindings,actor:Session,g:Grant)=>guard(env,`SELECT count(*) FROM hnd_recording_grants g JOIN oa_operators o ON o.id=g.created_by JOIN oa_operators p ON p.id=g.person_id WHERE g.id=? AND g.person_id=? AND g.owner_version=? AND g.person_version=? AND g.revoked_at IS NULL AND g.expires_at>? AND p.status='active' AND p.version=g.person_version AND o.role='owner' AND o.status='active' AND o.version=g.owner_version`,g.id,actor.operator.id,g.owner_version,g.person_version,Date.now())
+const grantFence=(env:Bindings,personId:string,g:Grant)=>guard(env,`SELECT count(*) FROM hnd_recording_grants g JOIN oa_operators o ON o.id=g.created_by JOIN oa_operators p ON p.id=g.person_id WHERE g.id=? AND g.person_id=? AND g.owner_version=? AND g.person_version=? AND g.revoked_at IS NULL AND g.expires_at>? AND p.status='active' AND p.version=g.person_version AND o.role='owner' AND o.status='active' AND o.version=g.owner_version`,g.id,personId,g.owner_version,g.person_version,Date.now())
 const playbackPolicy=(actor:Session,g?:Pick<Grant,'id'|'owner_version'>,r?:Recording):AppliedPolicy=>({native:{role:actor.operator.role,version:actor.operator.version},...(g?{recording:{id:g.id,revision:1,ownerVersion:g.owner_version}}:{}),...(r?{source:{id:r.source_id,revision:r.source_revision,ownerVersion:r.source_owner_version}}:{})})
-async function currentGrant(env:Bindings,actor:Session,recordingId:string){
- return await sql(env,`SELECT g.* FROM hnd_recording_grants g JOIN oa_operators o ON o.id=g.created_by JOIN oa_operators p ON p.id=g.person_id WHERE g.recording_id=? AND g.person_id=? AND g.revoked_at IS NULL AND g.expires_at>? AND o.role='owner' AND o.status='active' AND o.version=g.owner_version AND p.status='active' AND p.version=g.person_version ORDER BY g.created_at DESC LIMIT 1`,recordingId,actor.operator.id,Date.now()).first<Grant>()
+async function currentGrant(env:Bindings,personId:string,recordingId:string){
+ return await sql(env,`SELECT g.* FROM hnd_recording_grants g JOIN oa_operators o ON o.id=g.created_by JOIN oa_operators p ON p.id=g.person_id WHERE g.recording_id=? AND g.person_id=? AND g.revoked_at IS NULL AND g.expires_at>? AND o.role='owner' AND o.status='active' AND o.version=g.owner_version AND p.status='active' AND p.version=g.person_version ORDER BY g.created_at DESC LIMIT 1`,recordingId,personId,Date.now()).first<Grant>()
 }
 // Shared content authorization never mints a playback grant or fetches media.
 export async function recordingAccess(env:Bindings,actor:Session,target:string){
- const grant=await currentGrant(env,actor,target)
+ const grant=await currentGrant(env,actor.operator.id,target)
  if(!grant)throw new Fault('exact_person_recording_grant_required',403)
  const r=await recording(env,target)
- const fences=()=>[nativeFence(env,actor),grantFence(env,actor,grant),sourceFence(env,r),recordingFence(env,r)]
+ const fences=()=>[nativeFence(env,actor),grantFence(env,actor.operator.id,grant),sourceFence(env,r),recordingFence(env,r)]
  await env.DB.batch([...fences(),sql(env,'DELETE FROM hnd_guard')])
  return {fences,applied:playbackPolicy(actor,grant,r)}
+}
+/** A background delivery requires the recipient's independent current grant. */
+export async function recordingDeliveryAccess(env:Bindings,personId:string,personVersion:number,target:string){
+ const grant=await currentGrant(env,personId,target)
+ if(!grant||grant.person_version!==personVersion)throw new Fault('exact_person_recording_grant_required',403)
+ const r=await recording(env,target)
+ const fences=()=>[grantFence(env,personId,grant),sourceFence(env,r),recordingFence(env,r)]
+ await env.DB.batch([...fences(),sql(env,'DELETE FROM hnd_guard')])
+ return {recordingId:r.id,sourceId:r.source_id,sourceRevision:r.source_revision,fences,bytes:()=>recordingBytes(env,r,fences)}
+}
+async function recordingBytes(env:Bindings,r:Recording,fences:()=>D1PreparedStatement[]){
+  if(!env.HANDSET_TWILIO_AUTH_TOKEN)throw new Fault('recording_provider_unavailable',503)
+  const endpoint=`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(r.account_id)}/Recordings/${encodeURIComponent(r.external_id)}`
+  const headers={authorization:'Basic '+btoa(r.account_id+':'+env.HANDSET_TWILIO_AUTH_TOKEN)}
+  const meta=await fetch(endpoint+'.json',{headers,redirect:'manual',signal:AbortSignal.timeout(5000)})
+  if(meta.status!==200)throw new Fault('recording_provider_unavailable',503)
+  const receipt=await meta.json() as Record<string,unknown>
+  if(receipt.sid!==r.external_id||receipt.account_sid!==r.account_id||receipt.call_sid!==r.parent_external||receipt.status!=='completed')throw new Fault('recording_provider_identity_mismatch',502)
+  // Repeat revocation after metadata readback and before fetching bytes.
+  await env.DB.batch([...fences(),sql(env,'DELETE FROM hnd_guard')])
+  const media=await fetch(endpoint+'.wav',{headers,redirect:'manual',signal:AbortSignal.timeout(5000)})
+  if(media.status!==200||!/^audio\/(?:wav|x-wav|wave)(?:;|$)/i.test(media.headers.get('content-type')??''))throw new Fault('recording_media_unavailable',503)
+  const length=Number(media.headers.get('content-length'))
+  if(!length||!Number.isSafeInteger(length)||length>10_000_000){await media.body?.cancel();throw new Fault('recording_media_size_unqualified',413)}
+  const reader=media.body?.getReader();if(!reader)throw new Fault('recording_media_unavailable',503)
+  const chunks:Uint8Array[]=[];let size=0
+  try{while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>length)throw new Fault('recording_media_size_unqualified',413);chunks.push(part.value)}}finally{await reader.cancel()}
+  if(size!==length)throw new Fault('recording_media_incomplete',503)
+  const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length}
+  await env.DB.batch([...fences(),sql(env,'DELETE FROM hnd_guard')])
+  return bytes
 }
 export async function recordingDoor(request:Request,env:Bindings,actor:Session,value?:ObjectValue):Promise<Response|null>{
  const url=new URL(request.url),path=url.pathname,base='/api/handset/recordings'
@@ -55,31 +86,14 @@ export async function recordingDoor(request:Request,env:Bindings,actor:Session,v
  const play=path.match(/^\/api\/handset\/recordings\/([^/]+)\/playback$/)
  if(request.method!=='GET'||!play)throw new Fault('method_not_allowed',405)
  // No role, ownership or executive delegation implies playback permission.
- const grant=await currentGrant(env,actor,play[1])
+ const grant=await currentGrant(env,actor.operator.id,play[1])
  const auditActor=await actorRef(env.DB,actor.operator.id)
  if(!grant){await append(env,auditActor,'recording.playback','installation','refused',[],null,playbackPolicy(actor));throw new Fault('exact_person_recording_grant_required',403)}
- const r=await recording(env,play[1]),fences=()=>[nativeFence(env,actor),grantFence(env,actor,grant),sourceFence(env,r),recordingFence(env,r)]
+ const r=await recording(env,play[1]),fences=()=>[nativeFence(env,actor),grantFence(env,actor.operator.id,grant),sourceFence(env,r),recordingFence(env,r)]
  const applied=playbackPolicy(actor,grant,r)
  await append(env,auditActor,'recording.playback',r.id,'uncertain',fences(),null,applied)
  try{
-  if(!env.HANDSET_TWILIO_AUTH_TOKEN)throw new Fault('recording_provider_unavailable',503)
-  const endpoint=`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(r.account_id)}/Recordings/${encodeURIComponent(r.external_id)}`
-  const headers={authorization:'Basic '+btoa(r.account_id+':'+env.HANDSET_TWILIO_AUTH_TOKEN)}
-  const meta=await fetch(endpoint+'.json',{headers,redirect:'manual',signal:AbortSignal.timeout(5000)})
-  if(meta.status!==200)throw new Fault('recording_provider_unavailable',503)
-  const receipt=await meta.json() as Record<string,unknown>
-  if(receipt.sid!==r.external_id||receipt.account_sid!==r.account_id||receipt.call_sid!==r.parent_external||receipt.status!=='completed')throw new Fault('recording_provider_identity_mismatch',502)
-  // Repeat revocation after metadata readback and before fetching bytes.
-  await env.DB.batch([...fences(),sql(env,'DELETE FROM hnd_guard')])
-  const media=await fetch(endpoint+'.wav',{headers,redirect:'manual',signal:AbortSignal.timeout(5000)})
-  if(media.status!==200||!/^audio\/(?:wav|x-wav|wave)(?:;|$)/i.test(media.headers.get('content-type')??''))throw new Fault('recording_media_unavailable',503)
-  const length=Number(media.headers.get('content-length'))
-  if(!length||!Number.isSafeInteger(length)||length>10_000_000){await media.body?.cancel();throw new Fault('recording_media_size_unqualified',413)}
-  const reader=media.body?.getReader();if(!reader)throw new Fault('recording_media_unavailable',503)
-  const chunks:Uint8Array[]=[];let size=0
-  try{while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>length)throw new Fault('recording_media_size_unqualified',413);chunks.push(part.value)}}finally{await reader.cancel()}
-  if(size!==length)throw new Fault('recording_media_incomplete',503)
-  const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length}
+  const bytes=await recordingBytes(env,r,fences)
   // Never publish bytes if authority changed while the provider was responding.
   await append(env,auditActor,'recording.playback',r.id,'completed',fences(),null,applied)
   return new Response(bytes,{headers:{'content-type':'audio/wav','content-length':String(bytes.length),'cache-control':'private, no-store','content-disposition':'inline; filename="recording.wav"','x-content-type-options':'nosniff','referrer-policy':'no-referrer','content-security-policy':"default-src 'none'; sandbox"}})
@@ -91,7 +105,7 @@ export async function recordingsPage(request:Request,env:Bindings,actor:Session,
  if(path.startsWith('/api/handset/recordings/'))return recordingDoor(request,env,actor,value)
  const selected=path.match(/^\/app\/recordings\/([0-9a-f-]{36})$/)
  if(selected&&request.method==='GET'){
-  const grant=await currentGrant(env,actor,selected[1])
+  const grant=await currentGrant(env,actor.operator.id,selected[1])
   if(!grant){await append(env,await actorRef(env.DB,actor.operator.id),'recording.playback','installation','refused',[],null,playbackPolicy(actor));throw new Fault('exact_person_recording_grant_required',403)}
   await recording(env,selected[1])
   const response=await consolePage('Owner-attested exact-person playback',`<p>The owner attested playback for your exact identity until ${e(new Date(grant.expires_at).toISOString())}. Revocation is checked again when requesting audio. A stream already received by a listener cannot be recalled.</p><audio controls preload="none" aria-label="Approved recording" src="/api/handset/recordings/${e(selected[1])}/playback"></audio><p><a href="/app/recordings">Return to recordings</a></p>`)

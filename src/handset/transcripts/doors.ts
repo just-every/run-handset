@@ -11,8 +11,8 @@ interface Segment {id:string;speaker:string;language:'en'|'es';startMs:number;en
 interface Annotation {id:string;transcript_id:string;segment_id:string;kind:string;text:string;owner_id:string|null;due_at:number|null;due_state:string|null;created_by:string;created_at:number}
 interface Correction {revision:number;segment_id:string;replacement:string;created_by:string;created_at:number}
 const permission=`g.revoked_at IS NULL AND g.expires_at>? AND p.status='active' AND p.version=g.person_version AND o.status='active' AND o.role='owner' AND o.version=g.owner_version`
-function accessFence(env:Bindings,actor:Session,target:string){
- return guard(env,`SELECT CASE WHEN EXISTS(SELECT 1 FROM hnd_transcript_access g JOIN oa_operators p ON p.id=g.person_id JOIN oa_operators o ON o.id=g.created_by WHERE g.transcript_id=? AND g.person_id=? AND ${permission}) THEN 1 ELSE 0 END`,target,actor.operator.id,Date.now())
+function accessFence(env:Bindings,personId:string,target:string){
+ return guard(env,`SELECT CASE WHEN EXISTS(SELECT 1 FROM hnd_transcript_access g JOIN oa_operators p ON p.id=g.person_id JOIN oa_operators o ON o.id=g.created_by WHERE g.transcript_id=? AND g.person_id=? AND ${permission}) THEN 1 ELSE 0 END`,target,personId,Date.now())
 }
 async function metadata(env:Bindings,target:string){
  const row=await sql(env,'SELECT * FROM hnd_transcripts WHERE id=?',target).first<Transcript>()
@@ -25,7 +25,7 @@ async function current(env:Bindings,actor:Session,target:string){
  const permitted=await sql(env,`SELECT g.id FROM hnd_transcript_access g JOIN oa_operators p ON p.id=g.person_id JOIN oa_operators o ON o.id=g.created_by WHERE g.transcript_id=? AND g.person_id=? AND ${permission} LIMIT 1`,target,actor.operator.id,Date.now()).first()
  if(!permitted)throw new Fault('transcript_access_required',403)
  const {row,source}=await metadata(env,target)
- const fences=()=>[nativeFence(env,actor),accessFence(env,actor,target),sourceFence(env,source)]
+ const fences=()=>[nativeFence(env,actor),accessFence(env,actor.operator.id,target),sourceFence(env,source)]
  return {row,source,fences}
 }
 async function read(env:Bindings,actor:Session,target:string){
@@ -36,6 +36,18 @@ async function read(env:Bindings,actor:Session,target:string){
  const corrections=(results[3].results as unknown as Correction[]).slice(0,200).reverse(),effectiveCorrections=results[5].results as unknown as Correction[],segments=JSON.parse(row.original) as Segment[]
  const effective=segments.map(segment=>({...segment,text:effectiveCorrections.find(c=>c.segment_id===segment.id)?.replacement??segment.text,lowConfidence:segment.confidence<0.8,moment:{recordingId:row.recording_id,startMs:segment.startMs,endMs:segment.endMs}}))
  return {id:row.id,recordingId:row.recording_id,recordedAt:recording!.occurred_at,callId:recording!.parent_id,numberId:source.number_id,sourceId:row.source_id,sourceRevision:row.source_revision,state:row.state,reason:row.reason,provenance:'owner-supplied text; speech accuracy and capture consent are unqualified',original:segments,segments:effective,corrections,annotations:(results[4].results as unknown as Annotation[]).slice(0,200).reverse(),historyBounded:results[3].results.length>200,annotationsBounded:results[4].results.length>200,revision:corrections.at(-1)?.revision??0}
+}
+/** Supplied text keeps provenance and never confers recording permission. */
+export async function transcriptDeliveryAccess(env:Bindings,personId:string,personVersion:number,target:string){
+ const permitted=await sql(env,`SELECT g.id FROM hnd_transcript_access g JOIN oa_operators p ON p.id=g.person_id JOIN oa_operators o ON o.id=g.created_by WHERE g.transcript_id=? AND g.person_id=? AND p.version=? AND ${permission} LIMIT 1`,target,personId,personVersion,Date.now()).first()
+ if(!permitted)throw new Fault('transcript_access_required',403)
+ const {row,source}=await metadata(env,target)
+ if(row.state!=='supplied')throw new Fault('transcript_missing',409)
+ const fences=()=>[accessFence(env,personId,target),sourceFence(env,source)]
+ const results=await env.DB.batch([...fences(),sql(env,'SELECT c.* FROM hnd_transcript_corrections c WHERE c.transcript_id=? AND c.revision=(SELECT max(latest.revision) FROM hnd_transcript_corrections latest WHERE latest.transcript_id=c.transcript_id AND latest.segment_id=c.segment_id)',target),sql(env,'DELETE FROM hnd_guard')])
+ const corrections=results[2].results as unknown as Correction[]
+ const content=(JSON.parse(row.original) as Segment[]).map(s=>`${s.speaker} (${s.language}, ${s.startMs} ms): ${corrections.find(c=>c.segment_id===s.id)?.replacement??s.text}`).join('\n')
+ return {recordingId:row.recording_id,sourceId:row.source_id,sourceRevision:row.source_revision,content,provenance:'Owner-supplied text; speech accuracy and capture consent are unqualified.',fences}
 }
 function segments(value:unknown,duration:number):Segment[]{
  if(!Array.isArray(value)||!value.length||value.length>200)throw new Fault('invalid_segments')
