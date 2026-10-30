@@ -8,10 +8,10 @@ The primary journey: a US business moves its numbers and call flows from its inc
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 2 | 35 | 61 | 98 |
+| Core | 2 | 36 | 60 | 98 |
 | Agent surface | 0 | 1 | 4 | 5 |
 | Later | 2 | 1 | 9 | 12 |
-| Full target | 4 | 37 | 74 | 115 |
+| Full target | 4 | 38 | 73 | 115 |
 
 Judged from the code and tests at commit `16fcbb49d66e143a234947a97c0e88d8e7add2ff` (29 October 2026). Field proof register: 19 rows; 0 passed, 0 failed, 19 not run.
 
@@ -1306,7 +1306,7 @@ Core · target · **missing** · Rules D-1
 
 #### HND-068 — Partners and honest category limits
 
-Core · target · **missing** · Rules D-1
+Core · target · **partial** · Rules D-1
 
 **Requirement.** Carrier and CPaaS partners operate underlying networks and qualified emergency and registration infrastructure; Handset remains responsible for the complete business phone experience, failure visibility and applicable provider obligations. Stripe owns payment processing; Inkwell or a native signer supports authorized LOAs; hardware vendors supply devices and Handset provisions them. Full NICE and Calabrio workforce management and forecasting, Genesys and NICE CXone thousands-seat orchestration, consumer cellular service, hardware retail, video meetings and internal app-to-app calls remain separate partner categories. Queue staffing, QA, lawful predictive dialing and all other promised SMB contact-center capabilities remain in scope; these boundaries never shrink the 30 desk capabilities.
 
@@ -1315,8 +1315,8 @@ Core · target · **missing** · Rules D-1
 2. Attempt to buy a separate payroll, consumer plan, video service or enterprise workforce suite through Handset and find the documented partner and sibling handoff rather than fabricated native execution.
 3. Use a partner staffing feed in queue views while keeping all call, QA and dialer journeys functional.
 
-**Evidence.** None.
-**Gap.** No implementation: partners and honest category limits and the complete acceptance journey are missing.
+**Evidence.** `tests/handset-transports.mjs` — Category requests return responsible external handoffs without native execution or provider mutations; `tests/handset-console-browser.mjs` — partners console at 1440 and 390; `docs/PARTNERS.md`. Acceptance 2: native authenticated category requests identify the responsible product and operator, documented information destinations and explicit consumer-carrier unavailability without native execution; phone navigation is retained.
+**Gap.** Acceptance 1: configured partner-backed number, payment and device flows with responsible operators and actual external receipts remain unbuilt or unproved; real external receipts need the partners. Acceptance 3: partner staffing feed and preservation of complete call, QA and dialer journeys remain unproved. Qualified partner, account and device operation remains unproved. All promised SMB contact-center capabilities remain in scope; no carrier, spend, device, ct or Base hold is released.
 
 ### Outcome-owning agents
 
