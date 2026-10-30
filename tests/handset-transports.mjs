@@ -29,7 +29,7 @@ test('Current receiving connector receipts a delayed earlier support message wit
    // Official-schema HappyToHelp edge with an independent, initially lagging store.
    // Delivery was sent through the earlier connection; no native record is planted.
    const currentOrigin = replaceEndpoint ? 'https://current-help.synthetic-handset.test' : f.edges.origins.helpdesk
-   const currentToken = 'synthetic-handset-current-help-credential', requests = []
+   const currentToken = replaceEndpoint ? f.edges.secrets.helpdesk : 'synthetic-handset-current-help-credential', requests = []
    const receiver = { messages: [], readStatus: 200, nextCursor: null }
    const earlierHandle = f.edges.handle.bind(f.edges)
    f.edges.handle = async (request, Response) => {

@@ -5640,7 +5640,7 @@
       "executable": false
     },
     "tests/handset-transports.mjs": {
-      "sha256": "24ed9a78d58a2c811b2e3e222fe64224f3e86aa708e90c867753bac7d03f7c4e",
+      "sha256": "9fc6f147b35cadc7393afc4c7fc7ba874800c6aa6fc27c1271887829bfdafb55",
       "executable": false
     },
     "tests/handset-workspace-browser.mjs": {
