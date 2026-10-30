@@ -30,6 +30,29 @@
       ]
     },
     {
+      "path": ".github/workflows/verify.yml",
+      "originPath": "export/verify.yml",
+      "revision": "e881e6f66ce7cd737d17dbeb945995aab83c30d8",
+      "files": {
+        ".github/workflows/verify.yml": "09fe6d2a0b274d4925950ef0ddde9c8c7099e15edb5333a601ead2bbcec73a86"
+      },
+      "modes": {
+        ".github/workflows/verify.yml": "100644"
+      },
+      "originFiles": [
+        "export/verify.yml"
+      ],
+      "adapted": {
+        ".github/workflows/verify.yml": "e881e6f66ce7cd737d17dbeb945995aab83c30d8"
+      },
+      "acknowledged": {
+        ".github/workflows/verify.yml": {
+          "sha256": "5a8de966467891418e9268a2180a55473bc7b1e9d209a75865e62bc20fe3de5f",
+          "mode": "100644"
+        }
+      }
+    },
+    {
       "path": "LICENSE",
       "originPath": "LICENSE",
       "revision": "e881e6f66ce7cd737d17dbeb945995aab83c30d8",
