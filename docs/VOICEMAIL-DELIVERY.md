@@ -28,7 +28,8 @@ playback for attachment or link mode. Mailbox access alone grants neither.
 **Queue reviewed delivery** selects an enabled recipient and mode and an explicit
 UTC due time. The scheduler atomically claims one job and checks the native
 people, exact mailbox, source, content grants, recipient email and saved settings
-again after retrieving any recording bytes, immediately before requesting mail.
+before each provider read and again after retrieving any recording bytes,
+immediately before requesting mail.
 A missing or changed permission suppresses release. No unavailable content is
 silently omitted or substituted. The native item, recording and source identities
 and supplied-text provenance accompany released text copies.

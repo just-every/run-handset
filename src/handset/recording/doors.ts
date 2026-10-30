@@ -38,9 +38,10 @@ export async function recordingDeliveryAccess(env:Bindings,personId:string,perso
  const r=await recording(env,target)
  const fences=()=>[grantFence(env,personId,grant),sourceFence(env,r),recordingFence(env,r)]
  await env.DB.batch([...fences(),sql(env,'DELETE FROM hnd_guard')])
- return {recordingId:r.id,sourceId:r.source_id,sourceRevision:r.source_revision,fences,bytes:()=>recordingBytes(env,r,fences)}
+ return {recordingId:r.id,sourceId:r.source_id,sourceRevision:r.source_revision,fences,bytes:(additional:()=>D1PreparedStatement[]=()=>[])=>recordingBytes(env,r,()=>[...fences(),...additional()])}
 }
 async function recordingBytes(env:Bindings,r:Recording,fences:()=>D1PreparedStatement[]){
+  await env.DB.batch([...fences(),sql(env,'DELETE FROM hnd_guard')])
   if(!env.HANDSET_TWILIO_AUTH_TOKEN)throw new Fault('recording_provider_unavailable',503)
   const endpoint=`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(r.account_id)}/Recordings/${encodeURIComponent(r.external_id)}`
   const headers={authorization:'Basic '+btoa(r.account_id+':'+env.HANDSET_TWILIO_AUTH_TOKEN)}

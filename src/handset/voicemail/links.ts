@@ -26,7 +26,7 @@ export async function voicemailLinkDoor(request:Request,env:Bindings,a:Session,v
  const data=await deliveryContent(env,job)
  if(data.setting.mode!=='link'||data.setting.person_id!==a.operator.id||data.setting.person_version!==a.operator.version)throw new Fault('exact_voicemail_recipient_required',403)
  const fences=()=>[nativeFence(env,a),...data.fences(),guard(env,'SELECT count(*) FROM hnd_vm_links WHERE id=? AND revoked_at IS NULL AND expires_at>?',link.id,Date.now())]
- const bytes=match[2]==='audio'?await data.media!.bytes():null
+ const bytes=match[2]==='audio'?await data.media!.bytes(fences):null
  await commit(env,a,'voicemail.link',link.id,'completed',fences(),false)
  if(bytes)return new Response(bytes,{headers:{'content-type':'audio/wav','cache-control':'private, no-store','referrer-policy':'no-referrer','x-content-type-options':'nosniff','content-disposition':'inline; filename="voicemail.wav"','content-security-policy':"default-src 'none'; sandbox"}})
  if(path.startsWith('/api/'))return json({itemId:data.item.id,recordingId:data.content.recording_id,sourceId:data.content.source_id,provenance:data.transcript.provenance,text:data.transcript.content,expiresAt:link.expires_at})

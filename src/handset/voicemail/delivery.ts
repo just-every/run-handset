@@ -61,7 +61,7 @@ export async function tickVoicemail(env:Bindings,now=Date.now()){
   try{
    const data=await deliveryContent(env,job),s=data.setting
    actor=await actorRef(env.DB,s.owner_id)
-   const bytes=s.mode==='attachment_text'?await data.media!.bytes():undefined
+   const bytes=s.mode==='attachment_text'?await data.media!.bytes(data.fences):undefined
    const sender=operatorMail(env)
    if(!sender||!env.MAIL_FROM)throw new Fault('mail_transport_unavailable',409)
    const expires=Date.now()+s.link_seconds*1000
