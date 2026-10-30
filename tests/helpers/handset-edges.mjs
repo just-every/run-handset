@@ -17,7 +17,8 @@ export function createEdges() {
    if (!Object.values(edgeOrigins).includes(host)) return null
    const text = request.method === 'POST' ? await request.text() : '', auth = request.headers.get('authorization')
    e.requests.push({ host, method: request.method, path })
-   const failure = request.method === 'GET' && e.readFailures.get(host + path)
+   const configuredFailure = request.method === 'GET' && e.readFailures.get(host + path)
+   const failure = typeof configuredFailure === 'function' ? await configuredFailure() : configuredFailure
    if (failure) return json(Response, { error: { code: 'synthetic-handset-refused-read' } }, failure)
    const lose = name => { if (e.drop.has(name)) { e.drop.delete(name); throw new Error('synthetic-handset-lost-response') } }
    if (host === edgeOrigins.dial) {

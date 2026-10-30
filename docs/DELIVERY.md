@@ -104,3 +104,9 @@ Known-effect readback can still reconcile the original effect without a write.
 Every inspection rechecks the current native owner and mapping before each
 remote read and again before saving or returning its observations. No remote
 payload, caller content or credential enters the retained check records.
+
+A read-scope refusal before the first CRM or support write is a definitive
+rejection: no effect was attempted. If creation may already have committed,
+a refused read remains uncertain. Receiving access can then be restored and
+the original effect read back without another write. Reporting retains this
+distinction between rejected work and possibly committed work.

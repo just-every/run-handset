@@ -208,6 +208,25 @@ test('Expired credentials and removed connector scope preserve uncertain committ
    }
    assert.equal((await f.ok(base + 'reconcile', { step: family })).step.state, 'confirmed')
    assert.equal(remoteCount(), committed)
+   const fresh = await f.open(family === 'crm' ? 85 : 86, 'en', f.cases[2]), freshBase = `outcomes/${fresh.outcome.id}/`
+   const freshPath = family === 'crm' ? `/api/delegation/v1/effects/handset-${fresh.outcome.id}-crm` : path
+   f.edges.readFailures.set(host + freshPath, 403)
+   const freshWrites = writes()
+   const route = family === 'crm' ? '/handoffs/crm' : '/handoffs/support', body = { summary: 'Current read scope is required', ...(family === 'support' ? { conversationId: 'synthetic-handset-710' } : {}) }
+   assert.equal((await f.ok(freshBase.slice(0, -1) + route, body)).step.state, 'rejected', 'a refusal before the first write is definitive')
+   assert.equal(writes(), freshWrites); assert.equal(remoteCount(), committed)
+   f.edges.readFailures.delete(host + freshPath)
+   const afterWrite = await f.open(family === 'crm' ? 87 : 88, 'en', f.cases[2]), afterBase = `outcomes/${afterWrite.outcome.id}/`
+   const afterPath = family === 'crm' ? `/api/delegation/v1/effects/handset-${afterWrite.outcome.id}-crm` : path
+   f.edges.readFailures.set(host + afterPath, () => remoteCount() > committed ? 403 : 0)
+   const lostRead = await f.ok(afterBase.slice(0, -1) + route, body)
+   assert.equal(lostRead.step.state, 'uncertain', 'a refusal after creation cannot establish that its effect failed')
+   assert.equal(remoteCount(), committed + 1)
+   f.edges.readFailures.delete(host + afterPath)
+   const afterPosts = writes()
+   await f.runtime.restart()
+   assert.equal((await f.ok(afterBase + 'reconcile', { step: family })).step.state, 'confirmed')
+   assert.equal(writes(), afterPosts); assert.equal(remoteCount(), committed + 1)
   }
   const inspect = (connector, mappingVersion = 1, cursor) => post(f.runtime, '/api/handset/delivery/inspect', { connector, mappingVersion, ...(cursor ? { cursor } : {}), confirm: 'inspect current connector read scope' }, f.headers)
   const readsBeforeUnauthorized = f.edges.requests.length
