@@ -1372,8 +1372,16 @@ test('Explicit mailbox work and assignment capabilities permit scoped staff owne
 })
 
 test('Voicemail selected copies and authenticated links preserve exact native source and independent recipient grants',async()=>{
- const {voicemailDeliveryFixture}=await import('./helpers/handset-voicemail-delivery.mjs'),f=await voicemailDeliveryFixture()
+ const {voicemailDeliveryFixture}=await import('./helpers/handset-voicemail-delivery.mjs'),f=await voicemailDeliveryFixture(undefined,{clockTime:Date.UTC(2026,9,30,12)})
  try{
+  const deniedLink=async(link)=>{
+   const reads=f.runtime.sourceRequests.length
+   await f.get(link,f.recipient,403)
+   const audio=await f.runtime.request(link+'/audio',{headers:f.recipient})
+   assert.equal(audio.status,403)
+   assert.equal((await audio.text()).includes('Please call on Tuesday.'),false)
+   assert.equal(f.runtime.sourceRequests.length,reads,'a withdrawn or expired link retrieves no provider content')
+  }
   const a=await f.item(1),before=f.runtime.mails.length
   const setting=await f.settings(),queued=await f.queue(a,setting)
   await Promise.all([f.runtime.scheduled(),f.runtime.scheduled()])
@@ -1390,9 +1398,18 @@ test('Voicemail selected copies and authenticated links preserve exact native so
   assert.equal(f.runtime.sourceRequests.length,requests,'text-only mode never retrieves recording bytes')
   assert.equal(f.runtime.mails.length,before+2);assert.equal(f.runtime.mails.at(-1).attachments,undefined)
   assert.ok(f.runtime.mails.at(-1).content.some(p=>p.value.includes('Please call on Tuesday.')))
+  await f.write(a.path+'/content',{recordingId:a.recordingId,transcriptId:words.transcriptId},f.owner,409)
+  const personal=(await f.write('/api/handset/voicemail/boxes',{name:'Private recipient voicemail',kind:'personal'},f.recipient)).box
+  const personalPath='/api/handset/voicemail/boxes/'+personal.id
+  const personalRecipients=await f.get(personalPath+'/delivery',f.recipient)
+  assert.deepEqual(personalRecipients.recipients.map(p=>p.id),[f.personId],'personal delivery stays private to its own person')
+  await f.get(personalPath+'/delivery',f.owner,403)
+  await f.write(personalPath+'/delivery',{personId:'synthetic-handset-1',recipient:f.runtime.ownerEmail,personVersion:1,revision:0,mode:'text',enabled:1,linkSeconds:60,confirm:'I approve this exact recipient and mode with separate email custody'},f.recipient,403)
   await f.write(f.base+'/delivery-policy',{revision:0,linkOnly:1,confirm:'approve exact mailbox delivery policy'},f.owner,200)
   for(const mode of ['attachment_text','text'])await f.write(f.base+'/delivery',{personId:f.personId,recipient:[f.personId,'example.test'].join('@'),personVersion:1,revision:text.revision,mode,enabled:1,linkSeconds:3600,confirm:'I approve this exact recipient and mode with separate email custody'},f.owner,403)
-  const linked=await f.item(3),linkSetting=await f.settings('link'),linkJob=await f.queue(linked,linkSetting)
+  const linked=await f.item(3)
+  let linkSetting=await f.settings('link')
+  const linkJob=await f.queue(linked,linkSetting)
   await f.runtime.scheduled()
   const link='/api/handset/voicemail/links/'+linkJob.job.link_id,linkMail=f.runtime.mails.at(-1)
   assert.equal(linkMail.attachments,undefined);assert.ok(linkMail.content.some(p=>p.value.includes('/app/voicemail/links/'+linkJob.job.link_id)))
@@ -1402,19 +1419,24 @@ test('Voicemail selected copies and authenticated links preserve exact native so
   const audio=await f.runtime.request(link+'/audio',{headers:f.recipient});assert.equal(audio.status,200);assert.deepEqual(Buffer.from(await audio.arrayBuffer()),linked.bytes)
   assert.equal((await f.runtime.request(link+'/audio')).status,401,'direct audio URL cannot bypass authentication')
   await f.write(link+'/revoke',{},f.owner,200);await f.get(link,f.recipient,403);assert.equal((await f.runtime.request(link+'/audio',{headers:f.recipient})).status,403)
+  linkSetting=await f.settings('link',{linkSeconds:60})
   const expiryItem=await f.item(4),expiryJob=await f.queue(expiryItem,linkSetting);await f.runtime.scheduled()
-  await f.runtime.sql('UPDATE hnd_vm_links SET expires_at=0 WHERE id=?',expiryJob.job.link_id)
-  await f.get('/api/handset/voicemail/links/'+expiryJob.job.link_id,f.recipient,403)
+  const expiryPath='/api/handset/voicemail/links/'+expiryJob.job.link_id
+  const expiring=await f.get(expiryPath,f.recipient)
+  await f.runtime.setTime(expiring.expiresAt-1)
+  assert.equal((await f.get(expiryPath,f.recipient)).recordingId,expiryItem.recordingId)
+  await f.runtime.setTime(expiring.expiresAt)
+  await f.runtime.restart();await deniedLink(expiryPath)
   const grantItem=await f.item(5),grantJob=await f.queue(grantItem,linkSetting);await f.runtime.scheduled()
   await f.write('/api/handset/transcripts/'+grantItem.transcriptId+'/revoke',{personId:f.personId},f.owner,200)
-  await f.get('/api/handset/voicemail/links/'+grantJob.job.link_id,f.recipient,403)
+  await deniedLink('/api/handset/voicemail/links/'+grantJob.job.link_id)
   const mediaItem=await f.item(6),mediaJob=await f.queue(mediaItem,linkSetting);await f.runtime.scheduled()
   await f.write('/api/handset/recordings/grants/'+mediaItem.grant.id+'/revoke',{},f.owner,200)
-  await f.get('/api/handset/voicemail/links/'+mediaJob.job.link_id,f.recipient,403)
+  await deniedLink('/api/handset/voicemail/links/'+mediaJob.job.link_id)
   const memberItem=await f.item(7),memberJob=await f.queue(memberItem,linkSetting);await f.runtime.scheduled()
   const copies=f.runtime.mails.length
   await f.membership(0)
-  await f.get('/api/handset/voicemail/links/'+memberJob.job.link_id,f.recipient,403)
+  await deniedLink('/api/handset/voicemail/links/'+memberJob.job.link_id)
   await f.get(f.base,f.recipient,403);await f.runtime.scheduled();assert.equal(f.runtime.mails.length,copies)
   assert.equal(Buffer.from(mail.attachments[0].content,'base64').length,linked.bytes.length,'an already released copy remains outside native recall')
  }finally{await f.runtime.close()}

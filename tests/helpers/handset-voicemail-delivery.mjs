@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
 import { exportFixture } from './handset-exports.mjs'
 import { post } from './handset-auth.mjs'
+import { openHandset } from './handset-worker.mjs'
 
-export async function voicemailDeliveryFixture(existingRuntime){
- const f=await exportFixture(undefined,{runtime:existingRuntime}),runtime=f.runtime,owner=f.headers,personId='synthetic-handset-4100'
+export async function voicemailDeliveryFixture(existingRuntime,{clockTime}={}){
+ const runtime=existingRuntime??await openHandset({twilio:true,clockTime})
+ const f=await exportFixture(undefined,{runtime}),owner=f.headers,personId='synthetic-handset-4100'
  const recipient=await f.persona(personId)
  const write=async(path,value,headers=owner,status=201)=>{const r=await post(runtime,path,value,headers);assert.equal(r.status,status,await r.clone().text());return r.json()}
  const get=async(path,headers=owner,status=200)=>{const r=await runtime.request(path,{headers});assert.equal(r.status,status,await r.clone().text());return r.json()}
