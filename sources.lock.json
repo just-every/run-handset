@@ -5808,7 +5808,7 @@
       "executable": false
     },
     "tests/helpers/handset-dialer.mjs": {
-      "sha256": "c1986163da304ad523eb18afd4ed2871f1f1ddc4279a2fc1ed6be204398114fc",
+      "sha256": "b5f1e6cbc2284991d68ac2dbe950c730c4b3ab71385270514dc4d22097ca92fe",
       "executable": false
     },
     "tests/helpers/handset-edges.mjs": {
