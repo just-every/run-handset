@@ -87,7 +87,9 @@
     "0078_handset_draft_attribution.sql",
     "0079_handset_delivery_checks.sql",
     "0080_handset_delivery_lag.sql",
-    "0081_handset_voicemail_delivery.sql"
+    "0081_handset_voicemail_delivery.sql",
+    "0082_agent_door_relay.sql",
+    "0083_business_retired.sql"
   ],
   "breaking": false,
   "agentUpdateInstructions": "Install the pinned dependencies, build the application and follow OPERATIONS.md for configuration and recovery."

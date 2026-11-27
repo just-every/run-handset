@@ -6,7 +6,7 @@ import { metricDataset,metricStart,metricConfig } from './handset-metrics.mjs'
 import { importDataset } from './handset-import.mjs'
 import { policyFor } from './handset-receptionist.mjs'
 
-export const callReportStart=Date.parse('2026-11-01T06:00:00Z')
+export const callReportStart=Date.parse('2054-11-01T06:00:00Z')
 export const callReportNow=callReportStart+8*86400000
 export async function callReportsFixture(runtime,edges){
  await runtime.setTime(callReportStart)

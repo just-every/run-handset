@@ -2,13 +2,22 @@
 
 Handset serves one shared agent door at `/mcp`. The existing
 `/api/handset/application/mcp` and `/api/handset/v1/mcp` addresses are aliases of
-that door. Discovery negotiates MCP 2026-07-28 and 2025-11-25; canonical OAuth
+that door. Every call needs a bearer credential, including discovery and
+initialize: a missing or invalid credential gets the 401 resource-metadata
+challenge before any version or header check. The door negotiates MCP
+2026-07-28, 2025-11-25 and 2025-06-18; initialize may name its version in the
+body, and later calls without a version header use 2025-06-18. Canonical OAuth
 resource metadata names `/mcp`. `/api/rer/agent-policy` accepts signed Business
-policy. Native people decide approvals, inspect activity and pause agents at
-`/agents`. These routes run before ordinary app session and setup redirects.
+policy, and the paired Business pulls its decisions from
+`POST /api/rer/agent-decisions` with a signed request. Stopping or detaching
+the Business ends its tokens, closes that feed and refuses its held calls when
+a person tries to approve them. Native people decide approvals, inspect
+activity and pause agents at `/agents`. These routes run before ordinary app
+session and setup redirects.
 
-The runtime is recorded from Base `e881e6f66ce7cd737d17dbeb945995aab83c30d8`;
-the project CLI is released `@runeditrun/rer` 0.2.94. The declared capabilities
+The runtime is recorded from Base `6e207e22349a2d5bf4d2b3e15c23639fac465d96`;
+the project CLI is released `@runeditrun/rer` 0.2.143. Agent erasure custody
+from that runtime is not wired into Handset's native erasure yet. The declared capabilities
 are **tools, policy, pause, audit and idempotency**. Events, resources, prompts
 and subscriptions are explicitly undeclared and return typed refusals. The
 larger target registry and resource catalogue in CONTRACT.md remain targets.

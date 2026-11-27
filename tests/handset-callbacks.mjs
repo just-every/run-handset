@@ -7,7 +7,7 @@ import { sourceFixture } from './helpers/handset-sources.mjs'
 import { authorizeQueueMedia, queueFixture } from './helpers/handset-queues.mjs'
 
 const business = '+15125550125', staff = '+15125550777'
-const callbackClock = Date.parse('2026-10-26T18:00:00Z')
+const callbackClock = Date.parse('2054-10-26T18:00:00Z')
 
 async function setup(options = {}) {
  const runtime = await openHandset({ twilio: true, ...options }), source = await sourceFixture(runtime), f = await queueFixture(runtime, source.cookie)

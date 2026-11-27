@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { sourceFixture } from './handset-sources.mjs'
 import { post } from './handset-auth.mjs'
-export const messageNow=Date.UTC(2026,9,27,18)
+export const messageNow=Date.UTC(2054,9,27,18)
 export async function messagesFixture(runtime,{business='+18335550125',recipient='+15125550126'}={}) {
  const source=await sourceFixture(runtime,{e164:business,sourceId:'synthetic-handset-1800-'+business.slice(-4)}),headers=source.headers,base='/api/handset/messages',now=messageNow
  async function write(path,value,status=201){const r=await post(runtime,path.startsWith('/api/')?path:base+path,value,headers);assert.equal(r.status,status,await r.clone().text());return r.json()}

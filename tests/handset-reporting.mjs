@@ -227,7 +227,7 @@ test('Known-week reports reconcile source legs, confirmed recovery, reporting gr
    const r=await runtime.request('/api/handset/records/'+call.recordId,{headers});assert.equal(r.status,200,await r.clone().text());return (await r.json()).record
   }))
   assert.deepEqual(records.map(r=>[new Date(r.occurred_at).toISOString(),JSON.parse(r.data).providerStatus]),[
-   ['2026-11-01T06:15:00.000Z','no-answer'],['2026-11-01T07:15:00.000Z','failed'],['2026-11-02T15:00:00.000Z','completed'],['2026-11-03T16:00:00.000Z','busy'],['2026-11-04T17:00:00.000Z','no-answer'],['2026-11-05T18:00:00.000Z','canceled'],['2026-11-08T00:00:00.000Z','no-answer'],
+   ['2054-11-01T06:15:00.000Z','no-answer'],['2054-11-01T07:15:00.000Z','failed'],['2054-11-02T15:00:00.000Z','completed'],['2054-11-03T16:00:00.000Z','busy'],['2054-11-04T17:00:00.000Z','no-answer'],['2054-11-05T18:00:00.000Z','canceled'],['2054-11-08T00:00:00.000Z','no-answer'],
   ])
   assert.deepEqual((await nativeDatasets(runtime,source.cookie)).map(row=>row.dataset),[dataset],'the reviewed queue source survives the import door with every entry, relationship and agent segment')
   assert.ok(dataset.entries.every(entry=>!records.some(record=>record.id===entry.callId)),'historical queue identities are independent of canonical carrier calls')

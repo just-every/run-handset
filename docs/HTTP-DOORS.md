@@ -249,8 +249,9 @@ grant changes contact policy or grants outbound authority by itself.
 
 `/mcp` and the two native MCP aliases share one dispatcher.
 `/.well-known/oauth-protected-resource/mcp` names its canonical resource.
-`/api/rer/agent-policy` authenticates signed Business policy independently of
-browser sessions. `/agents` and `/agents/api/*` retain native person sessions,
+`/api/rer/agent-policy` authenticates signed Business policy and
+`/api/rer/agent-decisions` authenticates the Business's signed decision pull,
+both independently of browser sessions. `/agents` and `/agents/api/*` retain native person sessions,
 same-origin mutation controls and named-person approval checks. Agent tokens
 cannot act as a person's approval or Pause control. See AGENT-ACCESS.md for the
 current core capability declaration and the held native preparation limits.

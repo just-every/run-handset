@@ -4,17 +4,17 @@ import { post, signIn } from './handset-auth.mjs'
 import { metricDataset, metricStart } from './handset-metrics.mjs'
 import { importDataset } from './handset-import.mjs'
 import { policyFor } from './handset-receptionist.mjs'
-export const analyticsStart=Date.parse('2026-11-01T00:00:00Z'),analyticsEnd=Date.parse('2026-11-08T00:00:00Z'),analyticsNow=analyticsEnd+12*3600000
+export const analyticsStart=Date.parse('2054-11-01T00:00:00Z'),analyticsEnd=Date.parse('2054-11-08T00:00:00Z'),analyticsNow=analyticsEnd+12*3600000
 async function nativeWeek(runtime,{beforeCall,afterCall}={}){
  const source=await sourceFixture(runtime),calls=[]
  for(const [index,[at,status]] of [
-  ['2026-11-01T06:15:00Z','no-answer'],['2026-11-01T07:15:00Z','failed'],['2026-11-02T15:00:00Z','completed'],['2026-11-03T16:00:00Z','busy'],['2026-11-04T17:00:00Z','no-answer'],['2026-11-05T18:00:00Z','canceled'],['2026-11-08T00:00:00Z','no-answer']
+  ['2054-11-01T06:15:00Z','no-answer'],['2054-11-01T07:15:00Z','failed'],['2054-11-02T15:00:00Z','completed'],['2054-11-03T16:00:00Z','busy'],['2054-11-04T17:00:00Z','no-answer'],['2054-11-05T18:00:00Z','canceled'],['2054-11-08T00:00:00Z','no-answer']
  ].entries()){
   await beforeCall?.(Date.parse(at))
   const response=await source.callback({CallSid:'synthetic-handset-analytics-'+index,From:index===4?'+15125554000':'+1512555'+String(4000+index),CallStatus:status,SequenceNumber:'0',Timestamp:at});assert.equal(response.status,200,await response.clone().text());calls.push(await response.json())
   await afterCall?.({source,calls,index})
  }
- const leg=await source.callback({CallSid:'synthetic-handset-analytics-leg',ParentCallSid:'synthetic-handset-analytics-2',CallStatus:'completed',SequenceNumber:'0',Timestamp:'2026-11-02T15:01:00Z'});assert.equal(leg.status,200,await leg.clone().text())
+ const leg=await source.callback({CallSid:'synthetic-handset-analytics-leg',ParentCallSid:'synthetic-handset-analytics-2',CallStatus:'completed',SequenceNumber:'0',Timestamp:'2054-11-02T15:01:00Z'});assert.equal(leg.status,200,await leg.clone().text())
  return {source,calls}
 }
 export async function analyticsFixture(runtime){
@@ -37,7 +37,7 @@ async function confirmedRecovery(runtime,source,calls,edges){
  const issued=await write('/api/handset/mcp/consent',{name:'Known week recovery',definition:{scopes:['send'],tools:['outcome.work'],records:[calls[1].caseId],numbers:[],recipients:[],budgetCents:0,policyRevision:'owner-only-v1'},expiresAt:Date.now()+3600000,confirm:'approve scoped credential'},201)
  const agent=(path,value,status=200)=>write('/api/handset/application/receptionist/'+path,value,status,{authorization:'Bearer '+issued.token})
  const opened=await agent('outcomes',{callId:'synthetic-handset-2201',caseId:calls[1].caseId,language:'en',callerName:'Jordan Lee',callerEmail:'synthetic-handset-2202@example.test',identityBasis:'callback_to_number_on_file',identityVerified:true},201)
- const startAt='2026-11-02T16:00:00.000Z',prefix='outcomes/'+opened.outcome.id+'/'
+ const startAt='2054-11-02T16:00:00.000Z',prefix='outcomes/'+opened.outcome.id+'/'
  edges.slots.push(startAt)
  await agent(prefix+'availability',{serviceId:'furnace'})
  const booking=await agent(prefix+'booking',{serviceId:'furnace',startAt})
@@ -51,7 +51,7 @@ async function confirmedRecovery(runtime,source,calls,edges){
 }
 
 export async function knownWeekFixture(runtime,edges){
- await runtime.setTime(Date.parse('2026-11-01T06:15:00Z'))
+ await runtime.setTime(Date.parse('2054-11-01T06:15:00Z'))
  let recovery
  const {source,calls}=await nativeWeek(runtime,{
   beforeCall:at=>runtime.setTime(at),
@@ -67,17 +67,17 @@ export async function knownWeekFixture(runtime,edges){
     recovery.recoveries.push(repeated)
    }
    if(index!==1)return
-   await runtime.setTime(Date.parse('2026-11-01T07:20:00Z'))
+   await runtime.setTime(Date.parse('2054-11-01T07:20:00Z'))
    recovery=await confirmedRecovery(runtime,source,calls,edges)
   },
  })
  const recordingSid='synthetic-handset-2203'
- source.resource('Recordings',recordingSid,{call_sid:'synthetic-handset-analytics-2',status:'failed',start_time:'2026-11-02T15:01:00Z'})
+ source.resource('Recordings',recordingSid,{call_sid:'synthetic-handset-analytics-2',status:'failed',start_time:'2054-11-02T15:01:00Z'})
  const failed=await source.callback({CallSid:'synthetic-handset-analytics-2',RecordingSid:recordingSid,RecordingStatus:'failed',From:'',To:''})
  assert.equal(failed.status,200,await failed.clone().text());const failedRecording=await failed.json()
  await runtime.setTime(analyticsNow)
  source.cookie=(await signIn(runtime)).cookie;source.headers.cookie=source.cookie
- const dataset=metricDataset(),shift=Date.parse('2026-11-02T15:00:00Z')-metricStart
+ const dataset=metricDataset(),shift=Date.parse('2054-11-02T15:00:00Z')-metricStart
  // Reviewed queue observations are a separate historical population. Their
  // call identities do not claim to be the signed carrier calls above.
  for(const entry of dataset.entries){

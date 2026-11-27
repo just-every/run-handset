@@ -5,6 +5,7 @@
 - First public release of Handset, with the business phone operations workspace for calling, routing and records.
 - Hosted installs can run without outbound email. The owner can sign in with `rer signin`.
 - The hosted demo deploys from the published release tag.
+- The agent door asks for a credential before anything else, accepts MCP 2025-06-18 as well, and ends a Business's access when that Business is stopped or detached.
 
 ## 28 October 2026 — contract cleanup to the RER contract standard
 

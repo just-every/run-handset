@@ -21,7 +21,7 @@ export function handsetAgentDoor(original: Bindings) {
  })
  return {...door,async handle(request:Request){
   const url=new URL(request.url)
-  const owned=url.pathname==='/mcp'||url.pathname.startsWith('/agents')||url.pathname==='/api/rer/agent-policy'||url.pathname.startsWith('/.well-known/oauth-protected-resource')||['/api/handset/application/mcp','/api/handset/v1/mcp'].includes(url.pathname)
+  const owned=url.pathname==='/mcp'||url.pathname.startsWith('/agents')||['/api/rer/agent-policy','/api/rer/agent-decisions'].includes(url.pathname)||url.pathname.startsWith('/.well-known/oauth-protected-resource')||['/api/handset/application/mcp','/api/handset/v1/mcp'].includes(url.pathname)
   if(owned&&(url.origin!==env.AUTH_ORIGIN||request.headers.has('host')&&request.headers.get('host')?.toLowerCase()!==url.host.toLowerCase()))return Response.json({code:'invalid_host'},{status:403,headers:{'cache-control':'no-store'}})
   return door.handle(request)
  }}

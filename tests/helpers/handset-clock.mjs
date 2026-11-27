@@ -1,5 +1,8 @@
 // Control only the isolated test clocks; the emitted application and its quiet-hour
 // policy are unchanged. Advancing time keeps provider duration checks meaningful.
+// Sessions and access grants also expire on the database clock, which this harness cannot move:
+// a pinned instant behind the real date leaves them expired (state_changed, owner_required).
+// Journeys that sign in under a pinned instant pin it in 2054, whose calendar and DST dates match 2026.
 export function callingClock(fixedTime) {
  const NativeDate = globalThis.Date, target = new NativeDate()
  target.setUTCHours(18, 0, 0, 0)

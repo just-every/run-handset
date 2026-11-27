@@ -7,7 +7,7 @@ import { metricConfig } from './helpers/handset-metrics.mjs'
 import { intakeFixture, intakeTime } from './helpers/handset-recovery-intake.mjs'
 
 async function setup() {
- const f = await receptionistFixture({clockTime:Date.parse('2026-10-26T18:00:00Z')}), source = await sourceFixture(f.runtime)
+ const f = await receptionistFixture({clockTime:Date.parse('2054-10-26T18:00:00Z')}), source = await sourceFixture(f.runtime)
  const missed = async (n, peer = n) => {
   const response = await source.callback({ From: `+1512555${String(1000 + peer)}`, CallSid: `synthetic-handset-missed-${n}`, CallStatus: 'no-answer', SequenceNumber: '0', Timestamp: new Date().toISOString() })
   assert.equal(response.status, 200, await response.clone().text()); return response.json()
@@ -73,7 +73,7 @@ test('Reviewed business hours admit one owned task from final carrier readback w
   await f.write('/api/handset/protection/stops',{numberId:f.source.numberId,recipient:stopped.caller,channel:'all',reason:'dnc',confirm:'record outbound consent stop'})
   assert.equal((await stopped.send()).status,200)
   assert.equal((await f.get()).cases.find(r=>r.recipient===stopped.caller).state,'stopped')
-  await f.runtime.setTime(Date.parse('2026-10-26T22:00:00Z'))
+  await f.runtime.setTime(Date.parse('2054-10-26T22:00:00Z'))
   const closed=f.call(8);assert.equal((await closed.send()).status,200);assert.equal((await f.get()).cases.length,4,'the local closing boundary excludes intake')
   report=await f.get();assert.equal(report.intakePolicies.length,1);assert.equal(report.intakePolicies[0].revision,3)
   assert.equal((await f.get('/api/handset/consent')).permissions.length,0)

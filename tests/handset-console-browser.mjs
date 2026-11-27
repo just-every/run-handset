@@ -30,7 +30,7 @@ import { voicemailJourney } from './helpers/handset-voicemail-browser.mjs'
 
 for(const width of [1440,390])for(const domain of ['partners','supervision','compliance','messages','numbers','administration','queues','queue-media','flows','prompts','callbacks','metrics','protection','dialer','voicemail'])test(`${domain} console at ${width}`,async()=>{
  const reportingEdges=domain==='metrics'?createEdges():null
- const runtime=await openHandset({twilio:true,edges:reportingEdges,callingClock:domain==='dialer',...(domain==='messages'?{clockTime:messageNow}:domain==='metrics'?{clockTime:analyticsNow}:domain==='supervision'?{clockTime:Date.UTC(2026,9,28,12)}:domain==='numbers'?{clockTime:Date.UTC(2026,9,27,12)}:{}),...(domain==='prompts'?{ttsEdge:speechEdge}:{})}),browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic',...(domain==='prompts'?['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']:[])]})
+ const runtime=await openHandset({twilio:true,edges:reportingEdges,callingClock:domain==='dialer',...(domain==='messages'?{clockTime:messageNow}:domain==='metrics'?{clockTime:analyticsNow}:domain==='supervision'?{clockTime:Date.UTC(2054,9,28,12)}:domain==='numbers'?{clockTime:Date.UTC(2054,9,27,12)}:{}),...(domain==='prompts'?{ttsEdge:speechEdge}:{})}),browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic',...(domain==='prompts'?['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']:[])]})
  const context=await browser.newContext({viewport:{width,height:960},ignoreHTTPSErrors:true}),page=await context.newPage()
  page.setDefaultTimeout(10000)
  const directory=process.env.HANDSET_EVIDENCE_DIR??'.cache/handset-console'
@@ -298,7 +298,7 @@ for(const width of [1440,390])for(const domain of ['partners','supervision','com
 for (const width of [1440, 390]) for (const domain of ['rules', 'followups', 'recovery', 'operations']) test(`${domain} owner workflow at ${width}`, async () => {
  const { receptionistFixture } = await import('./helpers/handset-receptionist.mjs')
  const { workJourney } = await import('./helpers/handset-workflows-browser.mjs')
- const f = await receptionistFixture({ clockTime: domain === 'recovery' ? Date.parse('2026-10-26T18:00:00Z') : undefined }), browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH } : {}), args: ['--no-sandbox', '--use-mock-keychain', '--password-store=basic'] })
+ const f = await receptionistFixture({ clockTime: domain === 'recovery' ? Date.parse('2054-10-26T18:00:00Z') : undefined }), browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH } : {}), args: ['--no-sandbox', '--use-mock-keychain', '--password-store=basic'] })
  const context = await browser.newContext({ viewport: { width, height: 960 }, ignoreHTTPSErrors: true }), page = await context.newPage()
  const directory = process.env.HANDSET_EVIDENCE_DIR ?? '.cache/handset-console'
  await mkdir(directory, { recursive: true }); page.setDefaultTimeout(10000)
