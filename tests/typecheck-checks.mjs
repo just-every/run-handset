@@ -1,16 +1,3 @@
-import { fileURLToPath as __rerTestEntryPath } from 'node:url';
-const __rerTestEntry = __rerTestEntryPath(import.meta.resolve('@runeditrun/rer/internal/global/rer.mjs'));
-const __rerTestEntryArgs = args => args[1] === 'dev' && !args.some(arg => ['--foreground', '--detach', '--stop', '--help'].includes(arg)) ? [...args, '--foreground'] : args;
-const __rerTestEntryPnpm = (program, args) => {
- const at = program === 'nice' ? args.indexOf('pnpm') : -1;
- if (program === 'nice' && at < 0) return [program, args];
- const command = at < 0 ? args : args.slice(at + 1), offset = command[0] === 'run' ? 1 : 0;
- const aliases = {"build":"build","dev":"dev","preview":"preview","verify":"verify","setup":"setup","deploy":"deploy","reset":"reset","export":"export","import":"import","release":"release","doctor":"doctor","describe":"describe","check":"check","deps":"install","rer":""}, alias = command[offset];
- if (!Object.hasOwn(aliases, alias)) return [program, args];
- const forwarded = command.slice(offset + 1); if (forwarded[0] === '--') forwarded.shift();
- const launch = __rerTestEntryArgs([__rerTestEntry, ...(aliases[alias] ? [aliases[alias]] : []), ...forwarded]);
- return at < 0 ? [process.execPath, launch] : [program, [...args.slice(0, at), process.execPath, ...launch]];
-};
 import assert from 'node:assert/strict'
 import { cp, mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -51,7 +38,7 @@ export async function checkIncremental(t, project, { context = project, extraSou
  const run = (trace) => {
   const args = ['run', 'typecheck', '--verbose', '--extendedDiagnostics', '--pretty', 'false']
   if (trace) args.push('--generateTrace', `.cache/${trace}`)
-  const result = spawnSync(...__rerTestEntryPnpm('pnpm', args), { cwd: copy, encoding: 'utf8', timeout: 120_000, maxBuffer: 8 * 1024 ** 2 })
+  const result = spawnSync('pnpm', args, { cwd: copy, encoding: 'utf8', timeout: 120_000, maxBuffer: 8 * 1024 ** 2 })
   assert.ifError(result.error)
   assert.equal(result.signal, null)
   return { code: result.status, output: result.stdout + result.stderr }

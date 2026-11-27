@@ -516,6 +516,12 @@
       "name": "core-0080_handset_delivery_lag.sql",
       "sha256": "4b5019b452211a78ed791f16c8ad6ea7f7531b84326db5eda064c3683dbcd069",
       "sql": "-- A scope check alone never proves delivery. Private connection equality keys\n-- prevent a previous endpoint or credential's success from qualifying its replacement.\nALTER TABLE hnd_delivery_checks ADD COLUMN connection_key TEXT;\nALTER TABLE hnd_delivery_checks ADD COLUMN step_id TEXT;\nALTER TABLE hnd_delivery_checks ADD COLUMN delivery_state TEXT NOT NULL DEFAULT 'not_checked'\n CHECK(delivery_state IN ('not_checked','pending','confirmed'));\nALTER TABLE hnd_delivery_checks ADD COLUMN delivery_started_at INTEGER;\nCREATE INDEX hnd_delivery_checks_receipt ON hnd_delivery_checks(connector,target,mapping_version,connection_key,step_id,delivery_state,checked_at);\n"
+    },
+    {
+      "binding": "DB",
+      "name": "core-0081_handset_voicemail_delivery.sql",
+      "sha256": "90e129e99f4ddf9ae7d769969c09f86ae39f5f4b26ed077191d4884613b7cb2f",
+      "sql": "-- Explicit native recipients and content bindings; no inferred sending consent.\nCREATE TABLE hnd_vm_policy (\n box_id TEXT PRIMARY KEY REFERENCES hnd_mailboxes(id),\n revision INTEGER NOT NULL, link_only INTEGER NOT NULL CHECK(link_only IN (0,1))\n);\nCREATE TABLE hnd_vm_settings (\n id TEXT PRIMARY KEY, box_id TEXT NOT NULL REFERENCES hnd_mailboxes(id),\n person_id TEXT NOT NULL REFERENCES oa_operators(id), person_version INTEGER NOT NULL,\n recipient TEXT NOT NULL, owner_id TEXT NOT NULL REFERENCES oa_operators(id), owner_version INTEGER NOT NULL,\n box_revision INTEGER NOT NULL, policy_revision INTEGER NOT NULL, revision INTEGER NOT NULL,\n mode TEXT NOT NULL CHECK(mode IN ('attachment_text','text','link')),\n enabled INTEGER NOT NULL CHECK(enabled IN (0,1)), link_seconds INTEGER NOT NULL,\n UNIQUE(box_id,person_id)\n);\nCREATE TABLE hnd_vm_content (\n item_id TEXT PRIMARY KEY REFERENCES hnd_voicemail_items(id),\n recording_id TEXT NOT NULL REFERENCES hnd_records(id), transcript_id TEXT NOT NULL REFERENCES hnd_transcripts(id),\n source_id TEXT NOT NULL REFERENCES hnd_sources(id), source_revision INTEGER NOT NULL\n);\nCREATE TABLE hnd_vm_jobs (\n id TEXT PRIMARY KEY, item_id TEXT NOT NULL REFERENCES hnd_voicemail_items(id),\n setting_id TEXT NOT NULL REFERENCES hnd_vm_settings(id), setting_revision INTEGER NOT NULL,\n due_at INTEGER NOT NULL, created_at INTEGER NOT NULL,\n state TEXT NOT NULL CHECK(state IN ('queued','preparing','sending','accepted','development','uncertain','failed','suppressed')),\n reason TEXT, link_id TEXT NOT NULL UNIQUE,\n UNIQUE(item_id,setting_id,setting_revision)\n);\nCREATE INDEX hnd_vm_due ON hnd_vm_jobs(state,due_at);\nCREATE TABLE hnd_vm_links (\n id TEXT PRIMARY KEY, job_id TEXT NOT NULL UNIQUE REFERENCES hnd_vm_jobs(id),\n expires_at INTEGER NOT NULL, revoked_at INTEGER\n);\n"
     }
   ],
   "compatibilityDate": "2026-09-08",
@@ -528,7 +534,7 @@
     "AUTH_ORIGIN": "",
     "AUTH_LOCAL": "false",
     "IDENTITY_PROVIDER": "",
-    "MAIL_PROVIDER": "",
+    "MAIL_PROVIDER": "none",
     "MAIL_FROM": "",
     "MAIL_RELAY_URL": "",
     "MAIL_ACCOUNT_ID": "",
@@ -539,10 +545,10 @@
   "secretNames": [
     "SESSION_SECRET",
     "INSTALLATION_KEY",
-    "SETUP_TOKEN",
-    "MAIL_API_KEY"
+    "SETUP_TOKEN"
   ],
   "optionalSecretNames": [
+    "MAIL_API_KEY",
     "INSTALLATION_KEY_PREVIOUS",
     "HANDSET_TWILIO_AUTH_TOKEN",
     "HANDSET_DIAL_TOKEN",

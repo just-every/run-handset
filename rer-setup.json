@@ -87,6 +87,10 @@
           "label": "Local development (no email delivery)"
         },
         {
+          "value": "none",
+          "label": "Off (owner signs in with rer signin)"
+        },
+        {
           "value": "rer",
           "label": "RER managed mail"
         },

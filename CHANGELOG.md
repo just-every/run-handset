@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0
+
+- First public release of Handset, with the business phone operations workspace for calling, routing and records.
+- Hosted installs can run without outbound email. The owner can sign in with `rer signin`.
+- The hosted demo deploys from the published release tag.
+
 ## 28 October 2026 — contract cleanup to the RER contract standard
 
 CONTRACT.md was rewritten to the RER contract standard from main `3f0fa40d5a6f029f3aaa26c65f6f3b19bc2d8ad5`. Nothing was cut and no status was promoted; `docs/contract/COVERAGE.json` places every old sentence and `docs/contract/ID-MAP.json` maps every old id. `docs/contract/DONE-AUDIT.md` proves every point of every clause that was done.

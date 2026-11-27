@@ -364,7 +364,7 @@
       "executable": false
     },
     ".github/workflows/run-demo.yml": {
-      "sha256": "41365ec7c002e9451166313b085f9e64ed2e3ea002c27f3d5ead845bc9c302b2",
+      "sha256": "8a9f011fa892b7adc7941f2ddd09cb08c8af4c77c05c584c89b70de2cc1ab9b7",
       "executable": false
     },
     ".github/workflows/run-site.yml": {
@@ -404,11 +404,11 @@
       "executable": false
     },
     "base-copies.json": {
-      "sha256": "4ad3f8d612f6e73a256aee69efaf6b954539f455a9db081d01b9ef78ef22f1dd",
+      "sha256": "61a09cbe7ca26c2f32d4b8a6fd24dfa9c0fb65c99d90771816d08f1f58639d15",
       "executable": false
     },
     "CHANGELOG.md": {
-      "sha256": "47a3a161152388000d7e3860b0eb80f174f50a7cd9ccf10ed58fba303d2acfb5",
+      "sha256": "31892d72e1f02a7c9bec6b046b4f6fa055fbb03419de734c21f962b95004e841",
       "executable": false
     },
     "CLAUDE.md": {
@@ -428,7 +428,7 @@
       "executable": false
     },
     "deploy.json": {
-      "sha256": "21eacf1b0e93b68eaf69c7668c7c23f68cb13f9b79e884f622df2aea741738c9",
+      "sha256": "529da3f1f85c4a9b7a0842c7e5d3d104f558739bfa49928f07f3b5fdebdc2f8a",
       "executable": false
     },
     "docs/AGENT-ACCESS.md": {
@@ -604,7 +604,7 @@
       "executable": false
     },
     "management/integration/deployment-spec.json": {
-      "sha256": "b9a3eb9ef2102fac2cfaebdeed533ee67034cca7703bda3a099419d42e70ff73",
+      "sha256": "5f345e21511d4ad16e7fb3b61ba4ef8b0b619e6d199bcbdcbd6f6204d6f814e9",
       "executable": false
     },
     "migrations/core/0001_owner.sql": {
@@ -964,15 +964,15 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "11de2f920b883a2a994c39e20cfa41ce0989645dd0aa10cdfbf70b321d52fa71",
+      "sha256": "d232c4e5f220b6e472fc8ac9edfd15d31ee062e8bb901002aad67febd61a0de6",
       "executable": false
     },
     "packaging.json": {
-      "sha256": "a37e590e66f37d03f21396443352f886d2ce3594d7f94a1093f550a520564701",
+      "sha256": "4c0c36c80f1e81febb29de14e0524b43842ac1a2f4ad6e5d69ce17c3000e62b2",
       "executable": false
     },
     "pnpm-lock.yaml": {
-      "sha256": "5ac8b6c3f72d0ec30a8453b4804b97260b22a09e980f47dc0e3041ee37bd658b",
+      "sha256": "0c80e9e9e34e657c9b45fe8c23a7e6355c7d9ecb7cdd3df28d56dd7f6472e581",
       "executable": false
     },
     "public/apple-touch-icon.png": {
@@ -1288,7 +1288,7 @@
       "executable": false
     },
     "RELEASE.json": {
-      "sha256": "81fb89bca1794ec85daece6294153ebe789c5389565a2292cb99412a3d9b1a3b",
+      "sha256": "7ddc09265a1870b7f5a5139a35dfefa639b2881fb54ce69ec3e80ff2b7ed73ea",
       "executable": false
     },
     "reports/REPORT.md": {
@@ -1296,11 +1296,11 @@
       "executable": false
     },
     "rer-project.json": {
-      "sha256": "25e5b209544073d2c4c69e68f5ef315228a96ab7cf107c7b89b56d00e8233241",
+      "sha256": "4af83e81bed03232ecd9cc8f376edab7e57ed6d27bec22b85200d3abfb2412b4",
       "executable": false
     },
     "rer-setup.json": {
-      "sha256": "6d5f53b24ddb543d934edd066ad54d9848437040d4cb48d3610a081cbe253e71",
+      "sha256": "6eaa65dbde07ac841c7d2dbb46fafaa67efdb1fc76765d86c1e6b77397062e5a",
       "executable": false
     },
     "RULINGS.md": {
@@ -1308,7 +1308,7 @@
       "executable": false
     },
     "RUN-LOCALLY.md": {
-      "sha256": "ab049a0eb1db086a99aff1627444eaa38de2fb1ca0d2532def42bb75ca83038e",
+      "sha256": "6a545c86c5d76e11eb9f35b266725c32c269371b75c9104001ec3a2b5e5a3cc7",
       "executable": false
     },
     "scripts/build-deployment-spec.mjs": {
@@ -2024,7 +2024,7 @@
       "executable": false
     },
     "scripts/installer/local.mjs": {
-      "sha256": "34ea113ee1d3047704566b27c9934befd7e140c8c455a0bb31cd7744f250fd03",
+      "sha256": "9ec3760343aca96fbbbb337a774fcc19585c5ba7c37c07432a6738162892b365",
       "executable": false
     },
     "scripts/installer/seed.mjs": {
@@ -2072,7 +2072,7 @@
       "executable": false
     },
     "src/auth.server.ts": {
-      "sha256": "fcca248060a685c641c988dcf4cef77a717744a8753eba565973cef61bf48b49",
+      "sha256": "78d483117ca270b842cb9185fbb307c55904c47b121ea6a36625d806a8045359",
       "executable": false
     },
     "src/base/actor.ts": {
@@ -3296,7 +3296,7 @@
       "executable": false
     },
     "src/mail.server.mjs": {
-      "sha256": "180302b71a131f6429f1ae11ddb6b637de9bc03f8295dea522cabb0212d687b4",
+      "sha256": "d793a15ed114702f6f153c228512347aca4baf41bebd388e408e4dfc942d1bf1",
       "executable": false
     },
     "src/modules/agent-door/admission.ts": {
@@ -5996,7 +5996,7 @@
       "executable": false
     },
     "tests/typecheck-checks.mjs": {
-      "sha256": "8bb5355750d1743fd97860ebe6a2b0f47a2b9f695bc6fb122289a09d28b17ba1",
+      "sha256": "8f89c86aaff623fa8f105c0816a381bdc978e308e0c0b8ca189fd2b0798de417",
       "executable": false
     },
     "tsconfig.json": {
@@ -6020,7 +6020,7 @@
       "executable": false
     },
     "wrangler.jsonc": {
-      "sha256": "36c6f4002e37f5eea484be20dd1aac51008e8040116ec50af876755f55f0af82",
+      "sha256": "b61885e39275cb81f4a231d88437fa507beb17cffacaf3b98bb6950f792872a5",
       "executable": false
     }
   }

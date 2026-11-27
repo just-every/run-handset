@@ -79,6 +79,12 @@ with exit 3 and a message naming the field.
   `rer deploy --site --dry-run` prints the site Worker, custom domains and www
   redirect it would create, with no provider request.
 
+## Deploy with mail off
+
+Set `MAIL_PROVIDER=none` for `rer deploy` to run without a sender or mail key.
+After the hosted owner is claimed, run `rer signin` from the deployment checkout
+to open a single-use owner sign-in link. Outbound email is refused while mail is off.
+
 ## Install for a real owner
 
 To install with a real owner mailbox instead, run the verbs yourself from the
